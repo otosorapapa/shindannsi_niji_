@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import io
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List
 
 import altair as alt
@@ -21,8 +23,76 @@ def _init_session_state() -> None:
     st.session_state.setdefault("page", "ホーム")
     st.session_state.setdefault("drafts", {})
     st.session_state.setdefault("practice_started", None)
+    st.session_state.setdefault("practice_problem_id", None)
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
+    st.session_state.setdefault("uploaded_answers", {})
+    st.session_state.setdefault(
+        "uploaded_session",
+        {"year": None, "case": None, "started_at": None},
+    )
+
+
+def _format_timedelta(delta) -> str:
+    seconds = int(delta.total_seconds())
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}時間{minutes}分{seconds}秒"
+    if minutes:
+        return f"{minutes}分{seconds}秒"
+    return f"{seconds}秒"
+
+
+@st.cache_data(show_spinner=False)
+def _load_problem_years() -> List[str]:
+    return database.list_problem_years()
+
+
+@st.cache_data(show_spinner=False)
+def _load_problem_cases(year: str) -> List[str]:
+    return database.list_problem_cases(year)
+
+
+@st.cache_data(show_spinner=False)
+def _load_problem_by_year_case(year: str, case_label: str):
+    return database.fetch_problem_by_year_case(year, case_label)
+
+
+@st.cache_data(show_spinner=False)
+def _load_problem_detail(problem_id: int):
+    return database.fetch_problem(problem_id)
+
+
+@st.cache_data(show_spinner=False)
+def _load_attempts(user_id: int) -> List[Dict]:
+    rows = database.list_attempts(user_id=user_id)
+    return [dict(row) for row in rows]
+
+
+@st.cache_data(show_spinner=False)
+def _load_case_statistics(user_id: int) -> Dict[str, Dict[str, float]]:
+    return database.aggregate_statistics(user_id)
+
+
+@st.cache_data(show_spinner=False)
+def _load_learning_history(user_id: int) -> List[Dict]:
+    return database.fetch_learning_history(user_id)
+
+
+@st.cache_data(show_spinner=False)
+def _read_uploaded_data(file_bytes: bytes, suffix: str) -> pd.DataFrame:
+    buffer = io.BytesIO(file_bytes)
+    if suffix == ".csv":
+        return pd.read_csv(buffer)
+    if suffix in {".xlsx", ".xls"}:
+        return pd.read_excel(buffer)
+    raise ValueError("対応していないファイル形式です。")
+
+
+@st.cache_data(show_spinner=False)
+def _load_mock_exams():
+    return mock_exam.available_mock_exams()
 
 
 def main_view() -> None:
@@ -54,10 +124,10 @@ def dashboard_page(user: Dict) -> None:
     st.title("ホームダッシュボード")
     st.caption("学習状況のサマリと機能へのショートカット")
 
-    attempts = database.list_attempts(user_id=user["id"])
+    attempts = _load_attempts(user_id=user["id"])
     total_attempts = len(attempts)
-    total_score = sum(row["total_score"] or 0 for row in attempts)
-    total_max = sum(row["total_max_score"] or 0 for row in attempts)
+    total_score = sum((row.get("total_score") or 0) for row in attempts)
+    total_max = sum((row.get("total_max_score") or 0) for row in attempts)
     average_score = round(total_score / total_attempts, 1) if total_attempts else 0
 
     col1, col2, col3 = st.columns(3)
@@ -66,7 +136,7 @@ def dashboard_page(user: Dict) -> None:
     completion_rate = (total_score / total_max * 100) if total_max else 0
     col3.metric("得点達成率", f"{completion_rate:.0f}%")
 
-    stats = database.aggregate_statistics(user["id"])
+    stats = _load_case_statistics(user["id"])
     if stats:
         chart_data = []
         for case_label, values in stats.items():
@@ -136,15 +206,18 @@ def practice_page(user: Dict) -> None:
         _practice_with_uploaded_data(past_data_df)
         return
 
-    years = database.list_problem_years()
+    years = _load_problem_years()
     if not years:
         st.warning("問題データが登録されていません。seed_problems.jsonを確認してください。")
         return
     selected_year = st.selectbox("年度", years)
-    cases = database.list_problem_cases(selected_year)
+    cases = _load_problem_cases(selected_year)
+    if not cases:
+        st.warning("選択した年度の事例が見つかりませんでした。")
+        return
     selected_case = st.selectbox("事例", cases)
 
-    problem = database.fetch_problem_by_year_case(selected_year, selected_case)
+    problem = _load_problem_by_year_case(selected_year, selected_case)
     if not problem:
         st.error("問題を取得できませんでした。")
         return
@@ -152,8 +225,15 @@ def practice_page(user: Dict) -> None:
     st.subheader(problem["title"])
     st.write(problem["overview"])
 
-    if not st.session_state.practice_started:
+    if st.session_state.practice_problem_id != problem["id"]:
+        st.session_state.practice_problem_id = problem["id"]
         st.session_state.practice_started = datetime.utcnow()
+    elif not st.session_state.practice_started:
+        st.session_state.practice_started = datetime.utcnow()
+
+    if st.session_state.practice_started:
+        elapsed = datetime.utcnow() - st.session_state.practice_started
+        st.caption(f"経過時間: {_format_timedelta(elapsed)}")
 
     answers: List[RecordedAnswer] = []
     question_specs: List[QuestionSpec] = []
@@ -203,6 +283,9 @@ def practice_page(user: Dict) -> None:
             submitted_at=submitted_at,
             duration_seconds=duration,
         )
+        _load_attempts.clear()
+        _load_case_statistics.clear()
+        _load_learning_history.clear()
         st.session_state.practice_started = None
 
         st.success("採点が完了しました。結果を確認してください。")
@@ -235,6 +318,24 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         return
     selected_case = st.selectbox("事例を選択", case_options)
 
+    uploaded_session = st.session_state.uploaded_session
+    if (
+        uploaded_session["year"] != selected_year
+        or uploaded_session["case"] != selected_case
+    ):
+        st.session_state.uploaded_session = {
+            "year": selected_year,
+            "case": selected_case,
+            "started_at": datetime.utcnow(),
+        }
+        uploaded_session = st.session_state.uploaded_session
+    elif uploaded_session["started_at"] is None:
+        uploaded_session["started_at"] = datetime.utcnow()
+
+    if uploaded_session["started_at"]:
+        elapsed = datetime.utcnow() - uploaded_session["started_at"]
+        st.caption(f"経過時間: {_format_timedelta(elapsed)}")
+
     subset = (
         df[(df["年度"] == selected_year) & (df["事例"] == selected_case)]
         .copy()
@@ -250,7 +351,10 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         st.write(row["問題文"])
         max_chars = 60 if pd.notna(row["配点"]) and row["配点"] <= 25 else 80
         answer_key = f"uploaded_answer_{selected_year}_{selected_case}_{row['設問番号']}"
+        if answer_key not in st.session_state:
+            st.session_state[answer_key] = st.session_state.uploaded_answers.get(answer_key, "")
         user_answer = st.text_area("回答を入力", key=answer_key)
+        st.session_state.uploaded_answers[answer_key] = user_answer
         st.caption(f"現在の文字数: {len(user_answer)} / {max_chars}文字")
         if len(user_answer) > max_chars:
             st.warning("文字数が上限を超えています。")
@@ -263,14 +367,11 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
 
 def _handle_past_data_upload(uploaded_file) -> None:
     try:
-        filename = uploaded_file.name.lower()
-        if filename.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        elif filename.endswith(".xlsx") or filename.endswith(".xls"):
-            df = pd.read_excel(uploaded_file)
-        else:
-            st.error("対応していないファイル形式です。CSVまたはExcelファイルを選択してください。")
-            return
+        suffix = Path(uploaded_file.name).suffix.lower()
+        df = _read_uploaded_data(uploaded_file.getvalue(), suffix)
+    except ValueError as exc:
+        st.error(str(exc))
+        return
     except Exception as exc:  # pragma: no cover - Streamlit runtime feedback
         st.error(f"ファイルの読み込み中にエラーが発生しました: {exc}")
         return
@@ -282,6 +383,11 @@ def _handle_past_data_upload(uploaded_file) -> None:
         return
 
     st.session_state.past_data = df
+    st.session_state.uploaded_session = {"year": None, "case": None, "started_at": None}
+    st.session_state.uploaded_answers = {}
+    for key in list(st.session_state.keys()):
+        if str(key).startswith("uploaded_answer_"):
+            del st.session_state[key]
     st.success("過去問データを読み込みました。『過去問演習』ページで利用できます。")
 
 
@@ -323,7 +429,7 @@ def mock_exam_page(user: Dict) -> None:
 
     if not session:
         st.subheader("模試セットを選択")
-        exams = mock_exam.available_mock_exams()
+        exams = _load_mock_exams()
         exam_options = {exam.title: exam for exam in exams}
         exam_options["ランダム演習セット"] = mock_exam.random_mock_exam()
         selected_title = st.selectbox("模試セット", list(exam_options.keys()))
@@ -342,10 +448,19 @@ def mock_exam_page(user: Dict) -> None:
     elapsed = datetime.utcnow() - start_time
     st.info(f"模試開始からの経過時間: {elapsed}")
 
-    tabs = st.tabs([f"{idx+1}. {database.fetch_problem(problem_id)['case_label']}" for idx, problem_id in enumerate(exam.problem_ids)])
+    tab_labels = []
+    for idx, problem_id in enumerate(exam.problem_ids):
+        detail = _load_problem_detail(problem_id)
+        case_label = detail["case_label"] if detail else f"問題{idx+1}"
+        tab_labels.append(f"{idx+1}. {case_label}")
+
+    tabs = st.tabs(tab_labels)
     for tab, problem_id in zip(tabs, exam.problem_ids):
         with tab:
-            problem = database.fetch_problem(problem_id)
+            problem = _load_problem_detail(problem_id)
+            if not problem:
+                st.error("問題を取得できませんでした。")
+                continue
             st.subheader(problem["title"])
             st.write(problem["overview"])
             for question in problem["questions"]:
@@ -358,7 +473,9 @@ def mock_exam_page(user: Dict) -> None:
     if st.button("模試を提出", type="primary"):
         overall_results = []
         for problem_id in exam.problem_ids:
-            problem = database.fetch_problem(problem_id)
+            problem = _load_problem_detail(problem_id)
+            if not problem:
+                continue
             answers: List[RecordedAnswer] = []
             for question in problem["questions"]:
                 text = st.session_state.drafts.get(_draft_key(problem_id, question["id"]), "")
@@ -397,13 +514,16 @@ def mock_exam_page(user: Dict) -> None:
         for problem, attempt_id in overall_results:
             st.markdown(f"### {problem['year']} {problem['case_label']} {problem['title']}")
             render_attempt_results(attempt_id)
+        _load_attempts.clear()
+        _load_case_statistics.clear()
+        _load_learning_history.clear()
 
 
 def history_page(user: Dict) -> None:
     st.title("学習履歴")
     st.caption("演習記録・得点推移・エクスポートを確認します。")
 
-    history_records = database.fetch_learning_history(user["id"])
+    history_records = _load_learning_history(user["id"])
     if not history_records:
         st.info("まだ演習履歴がありません。演習を実施するとここに表示されます。")
         return
@@ -481,6 +601,11 @@ def settings_page(user: Dict) -> None:
         st.dataframe(st.session_state.past_data.head(), use_container_width=True)
         if st.button("アップロードデータをクリア", key="clear_past_data"):
             st.session_state.past_data = None
+            st.session_state.uploaded_session = {"year": None, "case": None, "started_at": None}
+            st.session_state.uploaded_answers = {}
+            for key in list(st.session_state.keys()):
+                if str(key).startswith("uploaded_answer_"):
+                    del st.session_state[key]
             st.info("アップロードデータを削除しました。")
 
     st.subheader("プラン変更")
