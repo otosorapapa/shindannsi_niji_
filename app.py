@@ -403,44 +403,57 @@ def history_page(user: Dict) -> None:
     st.title("学習履歴")
     st.caption("演習記録・得点推移・エクスポートを確認します。")
 
-    attempts = database.list_attempts(user["id"])
-    if not attempts:
+    history_records = database.fetch_learning_history(user["id"])
+    if not history_records:
         st.info("まだ演習履歴がありません。演習を実施するとここに表示されます。")
         return
 
-    df = pd.DataFrame(
-        [
-            {
-                "提出日時": row["submitted_at"],
-                "年度": row["year"],
-                "事例": row["case_label"],
-                "タイトル": row["title"],
-                "得点": row["total_score"],
-                "満点": row["total_max_score"],
-                "モード": "模試" if row["mode"] == "mock" else "演習",
-            }
-            for row in attempts
-        ]
-    )
+    history_df = pd.DataFrame(history_records)
+    history_df["日付"] = pd.to_datetime(history_df["日付"], errors="coerce")
+    history_df.sort_values("日付", inplace=True)
 
-    st.dataframe(df)
+    display_df = history_df.copy()
+    display_df["日付"] = display_df["日付"].dt.strftime("%Y-%m-%d %H:%M")
+    st.dataframe(display_df.drop(columns=["attempt_id"]))
 
     st.subheader("得点推移")
-    chart = (
-        alt.Chart(df.dropna(subset=["得点"])).mark_line(point=True).encode(
-            x="提出日時:T",
+    score_history = history_df.dropna(subset=["得点", "日付"])
+    line_chart = (
+        alt.Chart(score_history)
+        .mark_line(point=True)
+        .encode(
+            x="日付:T",
             y="得点:Q",
             color="事例:N",
-            tooltip=["提出日時", "年度", "事例", "得点", "満点"],
+            tooltip=["日付", "年度", "事例", "得点", "満点", "モード"],
         )
+        .properties(height=320)
     )
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(line_chart, use_container_width=True)
 
-    csv_bytes = df.to_csv(index=False).encode("utf-8-sig")
-    st.download_button("CSVとしてエクスポート", data=csv_bytes, file_name="study_history.csv", mime="text/csv")
+    st.subheader("事例別平均点")
+    avg_df = score_history.groupby("事例", as_index=False)["得点"].mean()
+    bar_chart = alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="得点:Q")
+    st.altair_chart(bar_chart, use_container_width=True)
 
-    selected_attempt = st.selectbox("詳細を確認する演習", options=list(range(len(attempts))), format_func=lambda idx: f"{df.iloc[idx]['提出日時']} {df.iloc[idx]['年度']} {df.iloc[idx]['事例']}")
-    attempt_id = attempts[selected_attempt]["id"]
+    csv_export = history_df.copy()
+    csv_export["日付"] = csv_export["日付"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    csv_bytes = csv_export.drop(columns=["attempt_id"]).to_csv(index=False).encode("utf-8-sig")
+    st.download_button(
+        "CSVをダウンロード",
+        data=csv_bytes,
+        file_name="history.csv",
+        mime="text/csv",
+    )
+
+    recent_history = history_df.dropna(subset=["日付"]).sort_values("日付", ascending=False)
+    options = list(recent_history.index)
+    selected_idx = st.selectbox(
+        "詳細を確認する演習",
+        options=options,
+        format_func=lambda idx: f"{recent_history.loc[idx, '日付'].strftime('%Y-%m-%d %H:%M')} {recent_history.loc[idx, '年度']} {recent_history.loc[idx, '事例']}",
+    )
+    attempt_id = int(recent_history.loc[selected_idx, "attempt_id"])
     render_attempt_results(attempt_id)
 
 

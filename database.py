@@ -371,6 +371,50 @@ def list_attempts(user_id: int) -> List[sqlite3.Row]:
     return rows
 
 
+def fetch_learning_history(user_id: int) -> List[Dict]:
+    """Return simplified attempt records for analytics on the history page."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            a.id,
+            a.submitted_at,
+            a.total_score,
+            a.total_max_score,
+            a.mode,
+            p.year,
+            p.case_label,
+            p.title
+        FROM attempts a
+        JOIN problems p ON p.id = a.problem_id
+        WHERE a.user_id = ? AND a.submitted_at IS NOT NULL
+        ORDER BY a.submitted_at
+        """,
+        (user_id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    history: List[Dict] = []
+    for row in rows:
+        history.append(
+            {
+                "attempt_id": row["id"],
+                "日付": row["submitted_at"],
+                "年度": row["year"],
+                "事例": row["case_label"],
+                "タイトル": row["title"],
+                "得点": row["total_score"],
+                "満点": row["total_max_score"],
+                "モード": "模試" if row["mode"] == "mock" else "演習",
+            }
+        )
+
+    return history
+
+
 def fetch_attempt_detail(attempt_id: int) -> Dict:
     conn = get_connection()
     cur = conn.cursor()
