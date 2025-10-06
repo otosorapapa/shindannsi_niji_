@@ -10,6 +10,7 @@ import streamlit as st
 import database
 import mock_exam
 import scoring
+from data_management import data_management_page
 from database import RecordedAnswer
 from scoring import QuestionSpec
 
@@ -31,8 +32,10 @@ def main_view() -> None:
     st.sidebar.title("ナビゲーション")
     st.session_state.page = st.sidebar.radio(
         "",
-        ["ホーム", "過去問演習", "模擬試験", "学習履歴", "設定"],
-        index=["ホーム", "過去問演習", "模擬試験", "学習履歴", "設定"].index(st.session_state.page),
+        ["ホーム", "過去問演習", "模擬試験", "学習履歴", "データ管理", "設定"],
+        index=["ホーム", "過去問演習", "模擬試験", "学習履歴", "データ管理", "設定"].index(
+            st.session_state.page
+        ),
     )
 
     st.sidebar.info(f"利用者: {user['name']} ({user['plan']}プラン)")
@@ -46,6 +49,8 @@ def main_view() -> None:
         mock_exam_page(user)
     elif page == "学習履歴":
         history_page(user)
+    elif page == "データ管理":
+        data_management_page()
     elif page == "設定":
         settings_page(user)
 
@@ -261,30 +266,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             st.write(row["解説"])
 
 
-def _handle_past_data_upload(uploaded_file) -> None:
-    try:
-        filename = uploaded_file.name.lower()
-        if filename.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        elif filename.endswith(".xlsx") or filename.endswith(".xls"):
-            df = pd.read_excel(uploaded_file)
-        else:
-            st.error("対応していないファイル形式です。CSVまたはExcelファイルを選択してください。")
-            return
-    except Exception as exc:  # pragma: no cover - Streamlit runtime feedback
-        st.error(f"ファイルの読み込み中にエラーが発生しました: {exc}")
-        return
-
-    required_cols = {"年度", "事例", "設問番号", "問題文", "配点", "模範解答", "解説"}
-    if not required_cols.issubset(df.columns):
-        missing = required_cols.difference(set(df.columns))
-        st.error(f"必要な列が含まれていません。不足列: {', '.join(sorted(missing))}")
-        return
-
-    st.session_state.past_data = df
-    st.success("過去問データを読み込みました。『過去問演習』ページで利用できます。")
-
-
 def render_attempt_results(attempt_id: int) -> None:
     detail = database.fetch_attempt_detail(attempt_id)
     attempt = detail["attempt"]
@@ -467,21 +448,12 @@ def settings_page(user: Dict) -> None:
     )
 
     st.subheader("データ管理")
-    uploaded_file = st.file_uploader(
-        "過去問データファイルをアップロード (CSV/Excel)",
-        type=["csv", "xlsx"],
+    st.markdown(
+        """
+        過去問データのアップロードや編集は、サイドバーから遷移できる『データ管理』ページで行えます。
+        必要に応じてそちらをご利用ください。
+        """
     )
-    if uploaded_file is not None:
-        _handle_past_data_upload(uploaded_file)
-
-    if st.session_state.past_data is not None:
-        st.caption(
-            f"読み込み済みのレコード数: {len(st.session_state.past_data)}件"
-        )
-        st.dataframe(st.session_state.past_data.head(), use_container_width=True)
-        if st.button("アップロードデータをクリア", key="clear_past_data"):
-            st.session_state.past_data = None
-            st.info("アップロードデータを削除しました。")
 
     st.subheader("プラン変更")
     st.write("AI採点の回数制限を拡張し、詳細解説を無制限に閲覧できる有料プランをご用意しています。")
