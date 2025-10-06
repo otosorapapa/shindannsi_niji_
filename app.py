@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
+from functools import wraps
 from typing import Dict, List
 
 import altair as alt
@@ -14,6 +16,26 @@ from database import RecordedAnswer
 from scoring import QuestionSpec
 
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+def _handle_unexpected_error(context: str, error: Exception) -> None:
+    logger.exception("Unexpected error in %s", context)
+    st.error("問題が発生しました。再度お試しください。")
+
+
+def _safe_ui(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as error:  # noqa: BLE001
+            _handle_unexpected_error(func.__name__, error)
+
+    return wrapper
+
+
 def _init_session_state() -> None:
     if "user" not in st.session_state:
         guest = database.get_or_create_guest_user()
@@ -24,6 +46,7 @@ def _init_session_state() -> None:
     st.session_state.setdefault("mock_session", None)
 
 
+@_safe_ui
 def main_view() -> None:
     user = st.session_state.user
 
@@ -49,6 +72,7 @@ def main_view() -> None:
         settings_page(user)
 
 
+@_safe_ui
 def dashboard_page(user: Dict) -> None:
     st.title("ホームダッシュボード")
     st.caption("学習状況のサマリと機能へのショートカット")
@@ -113,10 +137,20 @@ def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> 
         disabled=disabled,
     )
     st.caption(f"現在の文字数: {len(text)}字")
+    limit = question.get("character_limit")
+    if limit:
+        remaining = limit - len(text)
+        warning_threshold = max(10, int(limit * 0.1))
+        color = "red" if remaining <= warning_threshold else "#555"
+        st.markdown(
+            f"<span style='color:{color};'>残り文字数: {remaining}字</span>",
+            unsafe_allow_html=True,
+        )
     st.session_state.drafts[key] = text
     return text
 
 
+@_safe_ui
 def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。")
@@ -135,7 +169,8 @@ def practice_page(user: Dict) -> None:
         return
 
     st.subheader(problem["title"])
-    st.write(problem["overview"])
+    with st.expander("問題文を表示", expanded=False):
+        st.write(problem["overview"])
 
     if not st.session_state.practice_started:
         st.session_state.practice_started = datetime.utcnow()
@@ -194,6 +229,7 @@ def practice_page(user: Dict) -> None:
         render_attempt_results(attempt_id)
 
 
+@_safe_ui
 def render_attempt_results(attempt_id: int) -> None:
     detail = database.fetch_attempt_detail(attempt_id)
     attempt = detail["attempt"]
@@ -224,6 +260,7 @@ def render_attempt_results(attempt_id: int) -> None:
     st.info("学習履歴ページから過去の答案をいつでも振り返ることができます。")
 
 
+@_safe_ui
 def mock_exam_page(user: Dict) -> None:
     st.title("模擬試験モード")
     st.caption("事例I～IVをまとめて演習し、時間管理と一括採点を体験します。")
@@ -256,7 +293,8 @@ def mock_exam_page(user: Dict) -> None:
         with tab:
             problem = database.fetch_problem(problem_id)
             st.subheader(problem["title"])
-            st.write(problem["overview"])
+            with st.expander("問題文を表示", expanded=False):
+                st.write(problem["overview"])
             for question in problem["questions"]:
                 key = _draft_key(problem_id, question["id"])
                 st.session_state.drafts.setdefault(key, "")
@@ -308,6 +346,7 @@ def mock_exam_page(user: Dict) -> None:
             render_attempt_results(attempt_id)
 
 
+@_safe_ui
 def history_page(user: Dict) -> None:
     st.title("学習履歴")
     st.caption("演習記録・得点推移・エクスポートを確認します。")
@@ -353,6 +392,7 @@ def history_page(user: Dict) -> None:
     render_attempt_results(attempt_id)
 
 
+@_safe_ui
 def settings_page(user: Dict) -> None:
     st.title("設定・プラン管理")
 
