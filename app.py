@@ -22,6 +22,7 @@ def _init_session_state() -> None:
     st.session_state.setdefault("drafts", {})
     st.session_state.setdefault("practice_started", None)
     st.session_state.setdefault("mock_session", None)
+    st.session_state.setdefault("past_data", None)
 
 
 def main_view() -> None:
@@ -121,6 +122,20 @@ def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。")
 
+    past_data_df = st.session_state.get("past_data")
+    data_source = "database"
+    if past_data_df is not None and not past_data_df.empty:
+        source_labels = {"database": "データベース登録問題", "uploaded": "アップロードデータ"}
+        data_source = st.radio(
+            "利用する出題データ",
+            options=list(source_labels.keys()),
+            format_func=lambda key: source_labels[key],
+        )
+
+    if data_source == "uploaded":
+        _practice_with_uploaded_data(past_data_df)
+        return
+
     years = database.list_problem_years()
     if not years:
         st.warning("問題データが登録されていません。seed_problems.jsonを確認してください。")
@@ -192,6 +207,82 @@ def practice_page(user: Dict) -> None:
 
         st.success("採点が完了しました。結果を確認してください。")
         render_attempt_results(attempt_id)
+
+
+def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
+    if df is None or df.empty:
+        st.info("アップロード済みの過去問データがありません。設定ページからファイルを登録してください。")
+        return
+
+    required_cols = {"年度", "事例", "設問番号", "問題文", "配点", "模範解答", "解説"}
+    if not required_cols.issubset(df.columns):
+        missing = required_cols.difference(set(df.columns))
+        st.error(f"必要な列が不足しています: {', '.join(sorted(missing))}")
+        return
+
+    year_options = sorted(df["年度"].dropna().unique(), key=lambda x: str(x))
+    if not year_options:
+        st.warning("年度の値が見つかりませんでした。")
+        return
+    selected_year = st.selectbox("年度を選択", year_options, format_func=lambda x: str(x))
+
+    case_options = sorted(
+        df[df["年度"] == selected_year]["事例"].dropna().unique(),
+        key=lambda x: str(x),
+    )
+    if not case_options:
+        st.warning("選択した年度の事例が見つかりませんでした。")
+        return
+    selected_case = st.selectbox("事例を選択", case_options)
+
+    subset = (
+        df[(df["年度"] == selected_year) & (df["事例"] == selected_case)]
+        .copy()
+        .sort_values("設問番号")
+    )
+
+    if subset.empty:
+        st.info("該当する設問がありません。")
+        return
+
+    for _, row in subset.iterrows():
+        st.subheader(f"第{row['設問番号']}問 ({row['配点']}点)")
+        st.write(row["問題文"])
+        max_chars = 60 if pd.notna(row["配点"]) and row["配点"] <= 25 else 80
+        answer_key = f"uploaded_answer_{selected_year}_{selected_case}_{row['設問番号']}"
+        user_answer = st.text_area("回答を入力", key=answer_key)
+        st.caption(f"現在の文字数: {len(user_answer)} / {max_chars}文字")
+        if len(user_answer) > max_chars:
+            st.warning("文字数が上限を超えています。")
+        with st.expander("模範解答／解説を見る"):
+            st.markdown("**模範解答**")
+            st.write(row["模範解答"])
+            st.markdown("**解説**")
+            st.write(row["解説"])
+
+
+def _handle_past_data_upload(uploaded_file) -> None:
+    try:
+        filename = uploaded_file.name.lower()
+        if filename.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+        elif filename.endswith(".xlsx") or filename.endswith(".xls"):
+            df = pd.read_excel(uploaded_file)
+        else:
+            st.error("対応していないファイル形式です。CSVまたはExcelファイルを選択してください。")
+            return
+    except Exception as exc:  # pragma: no cover - Streamlit runtime feedback
+        st.error(f"ファイルの読み込み中にエラーが発生しました: {exc}")
+        return
+
+    required_cols = {"年度", "事例", "設問番号", "問題文", "配点", "模範解答", "解説"}
+    if not required_cols.issubset(df.columns):
+        missing = required_cols.difference(set(df.columns))
+        st.error(f"必要な列が含まれていません。不足列: {', '.join(sorted(missing))}")
+        return
+
+    st.session_state.past_data = df
+    st.success("過去問データを読み込みました。『過去問演習』ページで利用できます。")
 
 
 def render_attempt_results(attempt_id: int) -> None:
@@ -361,6 +452,23 @@ def settings_page(user: Dict) -> None:
         f"**メールアドレス:** {user['email']}\n"
         f"**契約プラン:** {user['plan']}"
     )
+
+    st.subheader("データ管理")
+    uploaded_file = st.file_uploader(
+        "過去問データファイルをアップロード (CSV/Excel)",
+        type=["csv", "xlsx"],
+    )
+    if uploaded_file is not None:
+        _handle_past_data_upload(uploaded_file)
+
+    if st.session_state.past_data is not None:
+        st.caption(
+            f"読み込み済みのレコード数: {len(st.session_state.past_data)}件"
+        )
+        st.dataframe(st.session_state.past_data.head(), use_container_width=True)
+        if st.button("アップロードデータをクリア", key="clear_past_data"):
+            st.session_state.past_data = None
+            st.info("アップロードデータを削除しました。")
 
     st.subheader("プラン変更")
     st.write("AI採点の回数制限を拡張し、詳細解説を無制限に閲覧できる有料プランをご用意しています。")
