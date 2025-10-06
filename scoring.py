@@ -3,10 +3,14 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Dict, Iterable, List
 
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity as skl_cosine_similarity
+
+_TRANSFORMER_DISABLED = False
 
 
 @dataclass
@@ -53,7 +57,33 @@ def cosine_similarity_score(answer: str, reference: str) -> float:
     return numerator / denominator
 
 
-def score_answer(answer: str, question: QuestionSpec) -> ScoreResult:
+def semantic_similarity_score(answer: str, reference: str) -> float:
+    """Compute semantic similarity with a transformer model when available.
+
+    Falls back to TF-IDF cosine similarity when the optional dependency is
+    unavailable or the model cannot be loaded (e.g. offline environment).
+    """
+
+    global _TRANSFORMER_DISABLED
+
+    if _TRANSFORMER_DISABLED:
+        return cosine_similarity_score(answer, reference)
+
+    try:
+        model = _get_sentence_transformer()
+    except Exception:
+        _TRANSFORMER_DISABLED = True
+        return cosine_similarity_score(answer, reference)
+
+    try:
+        embeddings = model.encode([reference, answer])
+        return float(skl_cosine_similarity([embeddings[0]], [embeddings[1]])[0][0])
+    except Exception:
+        _TRANSFORMER_DISABLED = True
+        return cosine_similarity_score(answer, reference)
+
+
+def score_answer(answer: str, question: QuestionSpec, *, method: str = "hybrid") -> ScoreResult:
     """Score a single answer using heuristics that mimic the AI workflow."""
     answer = answer.strip()
     if not answer:
@@ -62,10 +92,15 @@ def score_answer(answer: str, question: QuestionSpec) -> ScoreResult:
     keyword_hits = keyword_match_score(answer, question.keywords)
     keyword_ratio = sum(keyword_hits.values()) / max(len(keyword_hits), 1)
 
-    similarity = cosine_similarity_score(answer, question.model_answer)
+    if method == "semantic":
+        similarity = semantic_similarity_score(answer, question.model_answer)
+        weight_keywords, weight_similarity = 0.4, 0.6
+    else:
+        similarity = semantic_similarity_score(answer, question.model_answer)
+        weight_keywords, weight_similarity = 0.6, 0.4
 
     # Combine keyword ratio and similarity with simple weighting.
-    raw_score = (0.6 * keyword_ratio + 0.4 * similarity) * question.max_score
+    raw_score = (weight_keywords * keyword_ratio + weight_similarity * similarity) * question.max_score
     score = round(min(question.max_score, max(0.0, raw_score)), 2)
 
     missing_keywords = [kw for kw, hit in keyword_hits.items() if not hit]
@@ -84,3 +119,11 @@ def _normalize(text: str) -> str:
     text = text.lower()
     text = re.sub(r"\s+", "", text)
     return text
+
+
+@lru_cache(maxsize=1)
+def _get_sentence_transformer(model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
+    """Lazily load a sentence-transformer model for semantic scoring."""
+    from sentence_transformers import SentenceTransformer
+
+    return SentenceTransformer(model_name)
