@@ -7,7 +7,6 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-import auth
 import database
 import mock_exam
 import scoring
@@ -17,61 +16,16 @@ from scoring import QuestionSpec
 
 def _init_session_state() -> None:
     if "user" not in st.session_state:
-        st.session_state.user = None
+        guest = database.get_or_create_guest_user()
+        st.session_state.user = dict(guest)
     st.session_state.setdefault("page", "ホーム")
     st.session_state.setdefault("drafts", {})
     st.session_state.setdefault("practice_started", None)
     st.session_state.setdefault("mock_session", None)
 
 
-def require_login() -> Dict:
-    user = st.session_state.user
-    if not user:
-        st.warning("ログインが必要です。")
-        st.stop()
-    return user
-
-
-def login_view() -> None:
-    st.title("中小企業診断士 二次試験対策アプリ")
-    st.subheader("ログイン")
-
-    with st.form("login_form"):
-        email = st.text_input("メールアドレス")
-        password = st.text_input("パスワード", type="password")
-        submitted = st.form_submit_button("ログイン")
-
-    if submitted:
-        user = auth.authenticate(email, password)
-        if user:
-            st.session_state.user = user
-            st.success("ログインしました。サイドバーのメニューから学習を開始してください。")
-        else:
-            st.error("ログインに失敗しました。メールアドレスとパスワードを確認してください。")
-
-    st.markdown("""
-    ---
-    #### Googleアカウントでのログイン
-    本試作版ではOAuth連携の代わりにメール・パスワードでのログインを提供しています。
-    公式リリースではGoogle OAuth 2.0を組み込み、一括ログインに対応予定です。
-    """)
-
-    with st.expander("新規登録"):
-        with st.form("register_form"):
-            reg_name = st.text_input("氏名", key="reg_name")
-            reg_email = st.text_input("メールアドレス", key="reg_email")
-            reg_password = st.text_input("パスワード", type="password", key="reg_password")
-            reg_submitted = st.form_submit_button("登録する")
-        if reg_submitted:
-            if database.get_user_by_email(reg_email):
-                st.warning("同じメールアドレスのユーザーが既に存在します。")
-            else:
-                auth.register_user(reg_email, reg_name, reg_password)
-                st.success("アカウントを作成しました。ログインしてください。")
-
-
 def main_view() -> None:
-    user = require_login()
+    user = st.session_state.user
 
     st.sidebar.title("ナビゲーション")
     st.session_state.page = st.sidebar.radio(
@@ -80,11 +34,7 @@ def main_view() -> None:
         index=["ホーム", "過去問演習", "模擬試験", "学習履歴", "設定"].index(st.session_state.page),
     )
 
-    st.sidebar.info(f"ログイン中: {user['name']} ({user['plan']}プラン)")
-    if st.sidebar.button("ログアウト"):
-        st.session_state.user = None
-        st.session_state.page = "ホーム"
-        st.experimental_rerun()
+    st.sidebar.info(f"利用者: {user['name']} ({user['plan']}プラン)")
 
     page = st.session_state.page
     if page == "ホーム":
@@ -417,7 +367,7 @@ def settings_page(user: Dict) -> None:
     if user["plan"] == "free":
         if st.button("有料プランにアップグレードする"):
             database.update_user_plan(user_id=user["id"], plan="premium")
-            st.session_state.user = database.get_user_by_email(user["email"])
+            st.session_state.user = dict(database.get_user_by_email(user["email"]))
             st.success("プレミアムプランに変更しました。")
     else:
         st.info("既にプレミアムプランをご利用中です。")
@@ -433,7 +383,4 @@ def settings_page(user: Dict) -> None:
 if __name__ == "__main__":
     database.initialize_database()
     _init_session_state()
-    if st.session_state.user:
-        main_view()
-    else:
-        login_view()
+    main_view()
