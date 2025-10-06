@@ -30,12 +30,16 @@ def main_view() -> None:
 
     st.sidebar.title("ナビゲーション")
     st.session_state.page = st.sidebar.radio(
-        "",
+        "ページを選択",
         ["ホーム", "過去問演習", "模擬試験", "学習履歴", "設定"],
         index=["ホーム", "過去問演習", "模擬試験", "学習履歴", "設定"].index(st.session_state.page),
     )
 
+    st.sidebar.divider()
     st.sidebar.info(f"利用者: {user['name']} ({user['plan']}プラン)")
+    st.sidebar.caption(
+        "必要な情報にすぐアクセスできるよう、ページ別にコンテンツを整理しています。"
+    )
 
     page = st.session_state.page
     if page == "ホーム":
@@ -67,34 +71,66 @@ def dashboard_page(user: Dict) -> None:
     col3.metric("得点達成率", f"{completion_rate:.0f}%")
 
     stats = database.aggregate_statistics(user["id"])
-    if stats:
-        chart_data = []
-        for case_label, values in stats.items():
-            chart_data.append(
-                {
-                    "事例": case_label,
-                    "得点": values["avg_score"],
-                    "満点": values["avg_max"],
-                }
-            )
-        df = pd.DataFrame(chart_data)
-        st.subheader("事例別平均得点")
-        chart = (
-            alt.Chart(df)
-            .transform_calculate(割合="datum.得点 / datum.満点 * 100")
-            .mark_bar()
-            .encode(x="事例", y="割合:Q", tooltip=["事例", "得点", "満点", "割合"])
-        )
-        st.altair_chart(chart, use_container_width=True)
-    else:
-        st.info("まだ演習結果がありません。『過去問演習』から学習を開始しましょう。")
+    overview_tab, chart_tab = st.tabs(["進捗サマリ", "事例別分析"])
 
-    st.markdown("""
+    with overview_tab:
+        if attempts:
+            summary_df = pd.DataFrame(
+                [
+                    {
+                        "実施日": row["submitted_at"].strftime("%Y-%m-%d")
+                        if isinstance(row["submitted_at"], datetime)
+                        else row["submitted_at"],
+                        "年度": row["year"],
+                        "事例": row["case_label"],
+                        "モード": "模試" if row["mode"] == "mock" else "演習",
+                        "得点": row["total_score"],
+                        "満点": row["total_max_score"],
+                    }
+                    for row in attempts
+                ]
+            )
+            st.data_editor(
+                summary_df,
+                use_container_width=True,
+                hide_index=True,
+                disabled=True,
+            )
+            st.caption("最近の受験結果を表形式で確認できます。列ヘッダーにマウスを合わせるとソートが可能です。")
+        else:
+            st.info("まだ演習結果がありません。『過去問演習』から学習を開始しましょう。")
+
+    with chart_tab:
+        if stats:
+            chart_data = []
+            for case_label, values in stats.items():
+                chart_data.append(
+                    {
+                        "事例": case_label,
+                        "得点": values["avg_score"],
+                        "満点": values["avg_max"],
+                    }
+                )
+            df = pd.DataFrame(chart_data)
+            st.subheader("事例別平均得点")
+            chart = (
+                alt.Chart(df)
+                .transform_calculate(割合="datum.得点 / datum.満点 * 100")
+                .mark_bar()
+                .encode(x="事例", y="割合:Q", tooltip=["事例", "得点", "満点", "割合"])
+            )
+            st.altair_chart(chart, use_container_width=True)
+        else:
+            st.info("演習データが蓄積すると事例別の分析が表示されます。")
+
+    st.markdown(
+        """
     ### 次のアクション
     - **過去問演習**: 年度・事例を指定して記述式回答を練習
     - **模擬試験**: 本番同様のケースを連続で解き、タイマー付きで実戦感覚を養成
     - **学習履歴**: これまでの得点推移やエクスポートを確認
-    """)
+    """
+    )
 
 
 def _draft_key(problem_id: int, question_id: int) -> str:
@@ -121,6 +157,10 @@ def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> 
 def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。")
+
+    st.info(
+        "左側のセレクターで年度・事例を切り替え、下部の解答欄から回答を入力してください。"
+    )
 
     past_data_df = st.session_state.get("past_data")
     data_source = "database"
@@ -152,6 +192,27 @@ def practice_page(user: Dict) -> None:
     st.subheader(problem["title"])
     st.write(problem["overview"])
 
+    question_overview = pd.DataFrame(
+        [
+            {
+                "設問": idx + 1,
+                "配点": q["max_score"],
+                "キーワード": "、".join(q["keywords"]) if q["keywords"] else "-",
+            }
+            for idx, q in enumerate(problem["questions"])
+        ]
+    )
+    st.data_editor(
+        question_overview,
+        hide_index=True,
+        use_container_width=True,
+        disabled=True,
+        column_config={
+            "キーワード": st.column_config.TextColumn(help="採点で評価される重要ポイント"),
+        },
+    )
+    st.caption("採点の観点を事前に確認してから回答に取り組みましょう。")
+
     if not st.session_state.practice_started:
         st.session_state.practice_started = datetime.utcnow()
 
@@ -168,6 +229,16 @@ def practice_page(user: Dict) -> None:
                 keywords=question["keywords"],
             )
         )
+        with st.expander("採点ガイドライン", expanded=False):
+            if question["keywords"]:
+                st.markdown(
+                    "**キーワード評価**:\n" + "、".join(question["keywords"]) + " を含めると加点対象です。"
+                )
+            st.markdown("**模範解答の背景**")
+            st.write(question["model_answer"])
+            st.caption(
+                "模範解答は構成や論理展開の参考例です。キーワードを押さえつつ自分の言葉で表現しましょう。"
+            )
 
     col_save, col_submit = st.columns([1, 2])
     if col_save.button("下書きを保存"):
@@ -295,6 +366,28 @@ def render_attempt_results(attempt_id: int) -> None:
     total_max = attempt["total_max_score"] or 0
     st.metric("総合得点", f"{total_score:.1f} / {total_max:.1f}")
 
+    summary_rows = []
+    for idx, answer in enumerate(answers, start=1):
+        summary_rows.append(
+            {
+                "設問": idx,
+                "得点": answer["score"],
+                "満点": answer["max_score"],
+                "キーワード達成": ", ".join(
+                    [kw for kw, hit in (answer["keyword_hits"] or {}).items() if hit]
+                )
+                or "-",
+            }
+        )
+    if summary_rows:
+        st.data_editor(
+            pd.DataFrame(summary_rows),
+            hide_index=True,
+            use_container_width=True,
+            disabled=True,
+        )
+        st.caption("各設問の得点とキーワード達成状況を整理しました。弱点分析に活用してください。")
+
     for idx, answer in enumerate(answers, start=1):
         with st.expander(f"設問{idx}の結果", expanded=True):
             st.write(f"**得点:** {answer['score']} / {answer['max_score']}")
@@ -311,6 +404,7 @@ def render_attempt_results(attempt_id: int) -> None:
                 st.write(answer["model_answer"])
                 st.write("**解説**")
                 st.write(answer["explanation"])
+                st.caption("採点基準: 模範解答の論点とキーワードが盛り込まれているかを中心に評価しています。")
 
     st.info("学習履歴ページから過去の答案をいつでも振り返ることができます。")
 
@@ -412,49 +506,87 @@ def history_page(user: Dict) -> None:
     history_df["日付"] = pd.to_datetime(history_df["日付"], errors="coerce")
     history_df.sort_values("日付", inplace=True)
 
-    display_df = history_df.copy()
-    display_df["日付"] = display_df["日付"].dt.strftime("%Y-%m-%d %H:%M")
-    st.dataframe(display_df.drop(columns=["attempt_id"]))
+    unique_years = sorted(history_df["年度"].dropna().unique())
+    unique_cases = sorted(history_df["事例"].dropna().unique())
+    modes = {"practice": "演習", "mock": "模試"}
 
-    st.subheader("得点推移")
-    score_history = history_df.dropna(subset=["得点", "日付"])
-    line_chart = (
-        alt.Chart(score_history)
-        .mark_line(point=True)
-        .encode(
-            x="日付:T",
-            y="得点:Q",
-            color="事例:N",
-            tooltip=["日付", "年度", "事例", "得点", "満点", "モード"],
+    filter_col1, filter_col2, filter_col3 = st.columns(3)
+    with filter_col1:
+        selected_years = st.multiselect("年度で絞り込む", options=unique_years)
+    with filter_col2:
+        selected_cases = st.multiselect("事例で絞り込む", options=unique_cases)
+    with filter_col3:
+        selected_modes = st.multiselect("モード", options=list(modes.keys()), format_func=lambda key: modes[key])
+
+    filtered_df = history_df.copy()
+    if selected_years:
+        filtered_df = filtered_df[filtered_df["年度"].isin(selected_years)]
+    if selected_cases:
+        filtered_df = filtered_df[filtered_df["事例"].isin(selected_cases)]
+    if selected_modes:
+        selected_mode_labels = [modes[key] for key in selected_modes]
+        filtered_df = filtered_df[filtered_df["モード"].isin(selected_mode_labels)]
+
+    overview_tab, chart_tab, detail_tab = st.tabs(["一覧", "グラフ", "詳細・エクスポート"])
+
+    with overview_tab:
+        display_df = filtered_df.copy()
+        display_df["日付"] = display_df["日付"].dt.strftime("%Y-%m-%d %H:%M")
+        st.data_editor(
+            display_df.drop(columns=["attempt_id"]),
+            hide_index=True,
+            use_container_width=True,
+            disabled=True,
         )
-        .properties(height=320)
-    )
-    st.altair_chart(line_chart, use_container_width=True)
+        st.caption("複数条件でフィルタした演習履歴を確認できます。列名をクリックすると並び替えできます。")
 
-    st.subheader("事例別平均点")
-    avg_df = score_history.groupby("事例", as_index=False)["得点"].mean()
-    bar_chart = alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="得点:Q")
-    st.altair_chart(bar_chart, use_container_width=True)
+    with chart_tab:
+        score_history = filtered_df.dropna(subset=["得点", "日付"])
+        if score_history.empty:
+            st.info("選択した条件に該当する得点推移がありません。")
+        else:
+            line_chart = (
+                alt.Chart(score_history)
+                .mark_line(point=True)
+                .encode(
+                    x="日付:T",
+                    y="得点:Q",
+                    color="事例:N",
+                    tooltip=["日付", "年度", "事例", "得点", "満点", "モード"],
+                )
+                .properties(height=320)
+            )
+            st.altair_chart(line_chart, use_container_width=True)
 
-    csv_export = history_df.copy()
-    csv_export["日付"] = csv_export["日付"].dt.strftime("%Y-%m-%d %H:%M:%S")
-    csv_bytes = csv_export.drop(columns=["attempt_id"]).to_csv(index=False).encode("utf-8-sig")
-    st.download_button(
-        "CSVをダウンロード",
-        data=csv_bytes,
-        file_name="history.csv",
-        mime="text/csv",
-    )
+            avg_df = score_history.groupby("事例", as_index=False)["得点"].mean()
+            st.subheader("事例別平均点")
+            bar_chart = alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="得点:Q")
+            st.altair_chart(bar_chart, use_container_width=True)
 
-    recent_history = history_df.dropna(subset=["日付"]).sort_values("日付", ascending=False)
-    options = list(recent_history.index)
-    selected_idx = st.selectbox(
-        "詳細を確認する演習",
-        options=options,
-        format_func=lambda idx: f"{recent_history.loc[idx, '日付'].strftime('%Y-%m-%d %H:%M')} {recent_history.loc[idx, '年度']} {recent_history.loc[idx, '事例']}",
-    )
-    attempt_id = int(recent_history.loc[selected_idx, "attempt_id"])
-    render_attempt_results(attempt_id)
+    with detail_tab:
+        csv_export = filtered_df.copy()
+        csv_export["日付"] = csv_export["日付"].dt.strftime("%Y-%m-%d %H:%M:%S")
+        csv_bytes = csv_export.drop(columns=["attempt_id"]).to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            "CSVをダウンロード",
+            data=csv_bytes,
+            file_name="history.csv",
+            mime="text/csv",
+        )
+
+        recent_history = filtered_df.dropna(subset=["日付"]).sort_values("日付", ascending=False)
+        if recent_history.empty:
+            st.info("詳細表示できる履歴がありません。フィルタ条件を変更してください。")
+            return
+
+        options = list(recent_history.index)
+        selected_idx = st.selectbox(
+            "詳細を確認する演習",
+            options=options,
+            format_func=lambda idx: f"{recent_history.loc[idx, '日付'].strftime('%Y-%m-%d %H:%M')} {recent_history.loc[idx, '年度']} {recent_history.loc[idx, '事例']}",
+        )
+        attempt_id = int(recent_history.loc[selected_idx, "attempt_id"])
+        render_attempt_results(attempt_id)
 
 
 def settings_page(user: Dict) -> None:
