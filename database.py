@@ -170,6 +170,27 @@ def get_user_by_email(email: str) -> Optional[sqlite3.Row]:
     return row
 
 
+def get_or_create_guest_user() -> sqlite3.Row:
+    """Return the shared guest user record, creating it on first use."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE email = ?", ("guest@example.com",))
+    row = cur.fetchone()
+    if row:
+        conn.close()
+        return row
+
+    cur.execute(
+        "INSERT INTO users (email, name, password_hash, created_at) VALUES (?, ?, ?, ?)",
+        ("guest@example.com", "ゲストユーザー", None, datetime.utcnow().isoformat()),
+    )
+    conn.commit()
+    cur.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,))
+    row = cur.fetchone()
+    conn.close()
+    return row
+
+
 def update_user_plan(user_id: int, plan: str) -> None:
     conn = get_connection()
     cur = conn.cursor()
