@@ -21,7 +21,12 @@ def _init_session_state() -> None:
     st.session_state.setdefault("page", "ホーム")
     st.session_state.setdefault("drafts", {})
     st.session_state.setdefault("practice_started", None)
-    st.session_state.setdefault("mock_session", None)
+    st.session_state.setdefault("mock_queue", None)
+    st.session_state.setdefault("mock_current_index", 0)
+    st.session_state.setdefault("mock_started_at", None)
+    st.session_state.setdefault("mock_selected_exam", None)
+    st.session_state.setdefault("mock_answers", {})
+    st.session_state.setdefault("mock_recent_results", [])
 
 
 def main_view() -> None:
@@ -98,6 +103,17 @@ def dashboard_page(user: Dict) -> None:
 
 def _draft_key(problem_id: int, question_id: int) -> str:
     return f"draft_{problem_id}_{question_id}"
+
+
+def _reset_mock_exam_state() -> None:
+    for key in list(st.session_state.keys()):
+        if key.startswith("mock_answer_"):
+            del st.session_state[key]
+    st.session_state.mock_queue = None
+    st.session_state.mock_current_index = 0
+    st.session_state.mock_started_at = None
+    st.session_state.mock_selected_exam = None
+    st.session_state.mock_answers = {}
 
 
 def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> str:
@@ -228,49 +244,106 @@ def mock_exam_page(user: Dict) -> None:
     st.title("模擬試験モード")
     st.caption("事例I～IVをまとめて演習し、時間管理と一括採点を体験します。")
 
-    session = st.session_state.mock_session
+    queue: List[int] | None = st.session_state.mock_queue
+    current_index: int = st.session_state.mock_current_index
+    selected_exam = st.session_state.mock_selected_exam
 
-    if not session:
+    if not queue:
+        if st.session_state.mock_recent_results:
+            st.success("模擬試験の採点が完了しました。結果を確認してください。")
+            for problem, attempt_id in st.session_state.mock_recent_results:
+                st.markdown(
+                    f"### {problem['year']} {problem['case_label']} {problem['title']}"
+                )
+                render_attempt_results(attempt_id)
+            if st.button("結果を閉じる"):
+                st.session_state.mock_recent_results = []
+                st.experimental_rerun()
+
         st.subheader("模試セットを選択")
         exams = mock_exam.available_mock_exams()
         exam_options = {exam.title: exam for exam in exams}
         exam_options["ランダム演習セット"] = mock_exam.random_mock_exam()
-        selected_title = st.selectbox("模試セット", list(exam_options.keys()))
+        titles = list(exam_options.keys())
+        selected_title = st.selectbox("模試セット", titles)
         if st.button("模試を開始", type="primary"):
             selected_exam = exam_options[selected_title]
-            st.session_state.mock_session = {
-                "exam": selected_exam,
-                "start": datetime.utcnow(),
-                "answers": {},
-            }
+            st.session_state.mock_selected_exam = selected_exam
+            st.session_state.mock_queue = list(selected_exam.problem_ids)
+            st.session_state.mock_current_index = 0
+            st.session_state.mock_started_at = datetime.utcnow()
+            st.session_state.mock_answers = {}
+            st.session_state.mock_recent_results = []
             st.experimental_rerun()
         return
 
-    exam = session["exam"]
-    start_time = session["start"]
-    elapsed = datetime.utcnow() - start_time
+    if not selected_exam:
+        st.error("模試情報を取得できませんでした。最初からやり直してください。")
+        if st.button("模試をリセット"):
+            _reset_mock_exam_state()
+            st.session_state.mock_recent_results = []
+            st.experimental_rerun()
+        return
+
+    started_at = st.session_state.mock_started_at or datetime.utcnow()
+    elapsed = datetime.utcnow() - started_at
     st.info(f"模試開始からの経過時間: {elapsed}")
 
-    tabs = st.tabs([f"{idx+1}. {database.fetch_problem(problem_id)['case_label']}" for idx, problem_id in enumerate(exam.problem_ids)])
-    for tab, problem_id in zip(tabs, exam.problem_ids):
-        with tab:
-            problem = database.fetch_problem(problem_id)
-            st.subheader(problem["title"])
-            st.write(problem["overview"])
-            for question in problem["questions"]:
-                key = _draft_key(problem_id, question["id"])
-                st.session_state.drafts.setdefault(key, "")
-                default = st.session_state.drafts[key]
-                text = st.text_area(question["prompt"], key=f"mock_{key}", value=default, height=160)
-                st.session_state.drafts[key] = text
+    total_cases = len(queue)
+    if current_index < total_cases:
+        problem_id = queue[current_index]
+        problem = database.fetch_problem(problem_id)
+        if not problem:
+            st.error("問題データを取得できませんでした。")
+            if st.button("模試をリセット"):
+                _reset_mock_exam_state()
+                st.experimental_rerun()
+            return
 
-    if st.button("模試を提出", type="primary"):
+        st.markdown(
+            f"### {current_index + 1} / {total_cases}: {problem['year']}年度 {problem['case_label']}"
+        )
+        st.subheader(problem["title"])
+        st.write(problem["overview"])
+
+        for question in problem["questions"]:
+            answer_key = f"mock_answer_{problem_id}_{question['id']}"
+            if answer_key not in st.session_state:
+                st.session_state[answer_key] = st.session_state.mock_answers.get(
+                    answer_key, ""
+                )
+            text = st.text_area(
+                question["prompt"],
+                key=answer_key,
+                height=160,
+                help=f"配点: {question['max_score']}点",
+            )
+            st.caption(f"現在の文字数: {len(text)}字")
+            st.session_state.mock_answers[answer_key] = text
+
+        col_next, col_cancel = st.columns([2, 1])
+        next_label = "次の事例へ進む" if current_index < total_cases - 1 else "模試を終了する"
+        if col_next.button(next_label, type="primary"):
+            st.session_state.mock_current_index += 1
+            st.experimental_rerun()
+        if col_cancel.button("模試を中断する"):
+            _reset_mock_exam_state()
+            st.session_state.mock_recent_results = []
+            st.experimental_rerun()
+        return
+
+    st.success("模擬試験が終了しました。AI採点を実行してください。")
+    col_submit, col_reset = st.columns([2, 1])
+    if col_submit.button("AI採点を実行", type="primary"):
         overall_results = []
-        for problem_id in exam.problem_ids:
+        for problem_id in queue:
             problem = database.fetch_problem(problem_id)
+            if not problem:
+                continue
             answers: List[RecordedAnswer] = []
             for question in problem["questions"]:
-                text = st.session_state.drafts.get(_draft_key(problem_id, question["id"]), "")
+                answer_key = f"mock_answer_{problem_id}_{question['id']}"
+                text = st.session_state.mock_answers.get(answer_key, "")
                 result = scoring.score_answer(
                     text,
                     QuestionSpec(
@@ -295,17 +368,20 @@ def mock_exam_page(user: Dict) -> None:
                 problem_id=problem_id,
                 mode="mock",
                 answers=answers,
-                started_at=start_time,
+                started_at=started_at,
                 submitted_at=datetime.utcnow(),
-                duration_seconds=int((datetime.utcnow() - start_time).total_seconds()),
+                duration_seconds=int((datetime.utcnow() - started_at).total_seconds()),
             )
             overall_results.append((problem, attempt_id))
 
-        st.session_state.mock_session = None
-        st.success("模擬試験の採点が完了しました。結果を確認してください。")
-        for problem, attempt_id in overall_results:
-            st.markdown(f"### {problem['year']} {problem['case_label']} {problem['title']}")
-            render_attempt_results(attempt_id)
+        st.session_state.mock_recent_results = overall_results
+        _reset_mock_exam_state()
+        st.experimental_rerun()
+
+    if col_reset.button("模試をリセット"):
+        _reset_mock_exam_state()
+        st.session_state.mock_recent_results = []
+        st.experimental_rerun()
 
 
 def history_page(user: Dict) -> None:
