@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import altair as alt
 import pandas as pd
@@ -23,6 +23,18 @@ def _init_session_state() -> None:
     st.session_state.setdefault("practice_started", None)
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _load_attempt_overview(user_id: int) -> Tuple[List[Dict], Dict[str, Dict[str, float]]]:
+    attempts = [dict(row) for row in database.list_attempts(user_id=user_id)]
+    stats = database.aggregate_statistics(user_id)
+    return attempts, stats
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _load_learning_history(user_id: int) -> List[Dict]:
+    return database.fetch_learning_history(user_id)
 
 
 def main_view() -> None:
@@ -54,7 +66,7 @@ def dashboard_page(user: Dict) -> None:
     st.title("ホームダッシュボード")
     st.caption("学習状況のサマリと機能へのショートカット")
 
-    attempts = database.list_attempts(user_id=user["id"])
+    attempts, stats = _load_attempt_overview(user["id"])
     total_attempts = len(attempts)
     total_score = sum(row["total_score"] or 0 for row in attempts)
     total_max = sum(row["total_max_score"] or 0 for row in attempts)
@@ -66,7 +78,6 @@ def dashboard_page(user: Dict) -> None:
     completion_rate = (total_score / total_max * 100) if total_max else 0
     col3.metric("得点達成率", f"{completion_rate:.0f}%")
 
-    stats = database.aggregate_statistics(user["id"])
     if stats:
         chart_data = []
         for case_label, values in stats.items():
@@ -203,6 +214,8 @@ def practice_page(user: Dict) -> None:
             submitted_at=submitted_at,
             duration_seconds=duration,
         )
+        _load_attempt_overview.clear()
+        _load_learning_history.clear()
         st.session_state.practice_started = None
 
         st.success("採点が完了しました。結果を確認してください。")
@@ -390,6 +403,8 @@ def mock_exam_page(user: Dict) -> None:
                 submitted_at=datetime.utcnow(),
                 duration_seconds=int((datetime.utcnow() - start_time).total_seconds()),
             )
+            _load_attempt_overview.clear()
+            _load_learning_history.clear()
             overall_results.append((problem, attempt_id))
 
         st.session_state.mock_session = None
@@ -403,7 +418,7 @@ def history_page(user: Dict) -> None:
     st.title("学習履歴")
     st.caption("演習記録・得点推移・エクスポートを確認します。")
 
-    history_records = database.fetch_learning_history(user["id"])
+    history_records = _load_learning_history(user["id"])
     if not history_records:
         st.info("まだ演習履歴がありません。演習を実施するとここに表示されます。")
         return
