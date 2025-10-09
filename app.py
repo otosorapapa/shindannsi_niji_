@@ -48,22 +48,32 @@ def main_view() -> None:
             display: none;
         }
         section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
+            position: relative;
             width: 100%;
-            padding: 0.5rem 0.75rem;
-            border-radius: 0.6rem;
+            padding: 0.6rem 0.85rem 0.6rem 1.1rem;
+            border-radius: 0.7rem;
             border: 1px solid transparent;
-            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+            color: rgba(15, 23, 42, 0.85);
+            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
         }
         section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child:hover {
-            border-color: rgba(49, 51, 63, 0.2);
-            background-color: rgba(49, 51, 63, 0.05);
+            border-color: rgba(15, 23, 42, 0.12);
+            background-color: rgba(15, 23, 42, 0.04);
         }
         section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > input:checked + div {
-            background-color: rgba(49, 51, 63, 0.06);
-            border-color: var(--primary-color);
-            color: var(--primary-color);
-            box-shadow: 0 0 0 1px var(--primary-color) inset;
+            background: linear-gradient(90deg, rgba(37, 99, 235, 0.18) 0%, rgba(37, 99, 235, 0.08) 100%);
+            border-color: rgba(37, 99, 235, 0.5);
+            color: rgba(30, 64, 175, 0.95);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
             font-weight: 600;
+        }
+        section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > input:checked + div::before {
+            content: "";
+            position: absolute;
+            inset: 0.2rem 0.5rem 0.2rem 0.15rem;
+            border-left: 4px solid rgba(37, 99, 235, 0.95);
+            border-radius: 0.6rem;
+            pointer-events: none;
         }
         </style>
         """,
