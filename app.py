@@ -246,6 +246,142 @@ def _inject_dashboard_styles() -> None:
         dedent(
             """
             <style>
+            .priority-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                gap: 1.2rem;
+                margin: 1rem 0 1.5rem;
+            }
+            .priority-card {
+                position: relative;
+                padding: 1.35rem 1.5rem;
+                border-radius: 22px;
+                box-shadow: 0 18px 28px rgba(15, 23, 42, 0.12);
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                backdrop-filter: blur(14px);
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
+            }
+            .priority-card:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 22px 34px rgba(15, 23, 42, 0.16);
+            }
+            .priority-card[data-category="進捗"] {
+                background: linear-gradient(135deg, rgba(59, 130, 246, 0.14), rgba(59, 130, 246, 0.04));
+            }
+            .priority-card[data-category="成果"] {
+                background: linear-gradient(135deg, rgba(251, 191, 36, 0.18), rgba(253, 230, 138, 0.08));
+            }
+            .priority-card[data-category="スキル"] {
+                background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(167, 243, 208, 0.08));
+            }
+            .priority-icon {
+                width: 3.2rem;
+                height: 3.2rem;
+                border-radius: 18px;
+                display: grid;
+                place-items: center;
+                font-size: 1.65rem;
+                background: rgba(255, 255, 255, 0.7);
+                margin-bottom: 0.9rem;
+                box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.25);
+            }
+            .priority-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 0.35rem;
+            }
+            .priority-category {
+                display: inline-flex;
+                align-items: center;
+                font-size: 0.72rem;
+                font-weight: 700;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                border-radius: 999px;
+                padding: 0.25rem 0.75rem;
+                background: rgba(255, 255, 255, 0.75);
+                color: #1f2937;
+            }
+            .priority-card[data-category="進捗"] .priority-category {
+                color: #1d4ed8;
+                background: rgba(59, 130, 246, 0.15);
+            }
+            .priority-card[data-category="成果"] .priority-category {
+                color: #b45309;
+                background: rgba(251, 191, 36, 0.2);
+            }
+            .priority-card[data-category="スキル"] .priority-category {
+                color: #047857;
+                background: rgba(16, 185, 129, 0.18);
+            }
+            .priority-status {
+                font-size: 0.72rem;
+                font-weight: 600;
+                border-radius: 999px;
+                padding: 0.25rem 0.75rem;
+                background: rgba(255, 255, 255, 0.65);
+                color: #0f172a;
+            }
+            .priority-status.due {
+                background: rgba(248, 113, 113, 0.2);
+                color: #b91c1c;
+            }
+            .priority-status.planned {
+                background: rgba(96, 165, 250, 0.25);
+                color: #1d4ed8;
+            }
+            .priority-status.empty {
+                background: rgba(148, 163, 184, 0.2);
+                color: #475569;
+            }
+            .priority-title {
+                margin: 0 0 0.1rem;
+                font-size: 1rem;
+                font-weight: 600;
+                color: #0f172a;
+            }
+            .priority-value {
+                margin: 0;
+                font-size: 1.95rem;
+                font-weight: 700;
+                letter-spacing: -0.01em;
+                color: #0f172a;
+            }
+            .priority-desc {
+                margin: 0.35rem 0 0.75rem;
+                color: #334155;
+                font-size: 0.9rem;
+                line-height: 1.5;
+            }
+            .priority-meter {
+                width: 100%;
+                height: 0.55rem;
+                border-radius: 999px;
+                background: rgba(255, 255, 255, 0.65);
+                position: relative;
+                overflow: hidden;
+                box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.25);
+            }
+            .priority-meter-fill {
+                height: 100%;
+                border-radius: 999px;
+                transition: width 0.4s ease;
+            }
+            .priority-card[data-category="進捗"] .priority-meter-fill {
+                background: linear-gradient(90deg, #93c5fd, #2563eb);
+            }
+            .priority-card[data-category="成果"] .priority-meter-fill {
+                background: linear-gradient(90deg, #facc15, #f97316);
+            }
+            .priority-card[data-category="スキル"] .priority-meter-fill {
+                background: linear-gradient(90deg, #6ee7b7, #10b981);
+            }
+            .priority-footnote {
+                margin: 0.6rem 0 0;
+                font-size: 0.78rem;
+                color: #475569;
+            }
             [data-testid="stAppViewContainer"] {
                 background: linear-gradient(180deg, #f3f6fb 0%, #ffffff 45%);
             }
@@ -425,6 +561,55 @@ def _format_duration_minutes(total_minutes: int) -> str:
     return f"{minutes}分"
 
 
+def _render_priority_card(card: Dict[str, Any]) -> str:
+    tooltip = card.get("tooltip")
+    tooltip_attr = f' title="{html.escape(tooltip)}"' if tooltip else ""
+
+    meter_html = ""
+    if card.get("meter") is not None:
+        width = max(0, min(100, round(card["meter"] * 100)))
+        meter_html = dedent(
+            f"""
+            <div class="priority-meter" role="presentation">
+                <div class="priority-meter-fill" style="width: {width}%"></div>
+            </div>
+            """
+        ).strip()
+
+    status_html = ""
+    if card.get("status"):
+        status_class = card.get("status_class", "")
+        status_html = f'<span class="priority-status {status_class}">{html.escape(card["status"])}</span>'
+
+    desc_html = ""
+    if card.get("desc"):
+        desc_html = f"<p class=\"priority-desc\">{html.escape(card['desc'])}</p>"
+
+    footnote_html = ""
+    if card.get("footnote"):
+        footnote_html = f"<p class=\"priority-footnote\">{html.escape(card['footnote'])}</p>"
+
+    return (
+        dedent(
+            f"""
+            <div class="priority-card" data-category="{html.escape(card['category'])}"{tooltip_attr}>
+                <div class="priority-icon">{card['icon']}</div>
+                <div class="priority-header">
+                    <span class="priority-category">{html.escape(card['category'])}</span>
+                    {status_html}
+                </div>
+                <p class="priority-title">{html.escape(card['title'])}</p>
+                <p class="priority-value">{html.escape(card['value'])}</p>
+                {desc_html}
+                {meter_html}
+                {footnote_html}
+            </div>
+            """
+        )
+        .strip()
+    )
+
+
 def dashboard_page(user: Dict) -> None:
     _inject_dashboard_styles()
 
@@ -439,31 +624,131 @@ def dashboard_page(user: Dict) -> None:
     average_score = round(total_score / total_attempts, 1) if total_attempts else 0
     completion_rate = (total_score / total_max * 100) if total_max else 0
 
-    point_col, streak_col, badge_col = st.columns([1, 1, 2])
-    with point_col:
-        st.metric("累計ポイント", f"{gamification['points']} pt")
-        level_progress = 0.0
-        if gamification["level_threshold"]:
-            level_progress = gamification["level_progress"] / gamification["level_threshold"]
-        st.progress(min(level_progress, 1.0))
-        if gamification["points"] == 0:
-            st.caption("演習を実施するとポイントが貯まりレベルアップします。")
-        else:
-            st.caption(
-                f"レベル{gamification['level']} / 次のレベルまであと {gamification['points_to_next_level']} pt"
+    upcoming_reviews = database.list_upcoming_reviews(user_id=user["id"], limit=6)
+    due_review_count = database.count_due_reviews(user_id=user["id"])
+
+    level_progress_ratio = 0.0
+    if gamification["level_threshold"]:
+        level_progress_ratio = gamification["level_progress"] / gamification["level_threshold"]
+
+    if gamification["points"] == 0:
+        points_desc = "初回演習でポイントを獲得しましょう。"
+        points_footnote = "演習を実施するとポイントが貯まりレベルアップします。"
+    else:
+        points_desc = f"レベル{gamification['level']}に到達しました。"
+        points_footnote = f"次のレベルまであと {gamification['points_to_next_level']} pt"
+
+    priority_cards: List[Dict[str, Any]] = [
+        {
+            "icon": "🏆",
+            "title": "累計ポイント",
+            "value": f"{gamification['points']} pt",
+            "desc": points_desc,
+            "footnote": points_footnote,
+            "meter": level_progress_ratio,
+            "tooltip": "演習や模試で獲得したポイントからレベル進捗を算出しています。",
+            "category": "成果",
+        }
+    ]
+
+    if gamification["next_milestone"]:
+        streak_meter = gamification["attempts"] / gamification["next_milestone"]
+        streak_desc = (
+            f"次の称号まであと {max(gamification['next_milestone'] - gamification['attempts'], 0)} 回の演習"
+        )
+    else:
+        streak_meter = 1.0
+        streak_desc = "最高ランクに到達しました！継続おめでとうございます。"
+
+    priority_cards.append(
+        {
+            "icon": "🔥",
+            "title": "連続学習日数",
+            "value": f"{gamification['current_streak']}日",
+            "desc": streak_desc,
+            "footnote": f"累計演習回数: {gamification['attempts']}回",
+            "meter": streak_meter,
+            "tooltip": "学習ログの連続日数と次の称号までの進捗を示します。",
+            "category": "進捗",
+        }
+    )
+
+    next_review_card: Dict[str, Any] = {
+        "icon": "🧠",
+        "title": "次回の復習対象",
+        "value": "未設定",
+        "desc": "演習データが蓄積されると推奨が表示されます。",
+        "footnote": None,
+        "meter": None,
+        "tooltip": "間隔反復アルゴリズムに基づき優先度の高い復習テーマを提示します。",
+        "category": "スキル",
+        "status": "未登録",
+        "status_class": "empty",
+    }
+
+    if upcoming_reviews:
+        next_review = upcoming_reviews[0]
+        due_at = next_review.get("due_at")
+        due_label = None
+        is_due = False
+        if isinstance(due_at, datetime):
+            is_due = due_at <= datetime.utcnow()
+            due_label = due_at.strftime("%Y-%m-%d 期限")
+        elif due_at:
+            due_label = str(due_at)
+        status = "要復習" if is_due else "予定"
+        status_class = "due" if is_due else "planned"
+        next_review_card.update(
+            {
+                "value": f"{next_review['year']} {next_review['case_label']}",
+                "desc": next_review["title"],
+                "footnote": " / ".join(
+                    filter(
+                        None,
+                        [
+                            due_label,
+                            f"間隔 {next_review['interval_days']}日" if next_review.get("interval_days") else None,
+                            f"前回達成度 {(next_review['last_score_ratio'] or 0) * 100:.0f}%",
+                        ],
+                    )
+                ),
+                "status": status,
+                "status_class": status_class,
+            }
+        )
+        if due_review_count:
+            next_review_card["footnote"] = (
+                f"{next_review_card['footnote']} / 期限到来 {due_review_count}件"
+                if next_review_card.get("footnote")
+                else f"期限到来 {due_review_count}件"
             )
-    with streak_col:
-        st.metric("連続学習日数", f"{gamification['current_streak']}日")
-        if gamification["next_milestone"]:
-            progress = gamification["attempts"] / gamification["next_milestone"]
-            st.progress(min(progress, 1.0))
-            st.caption(
-                f"次の称号まであと {max(gamification['next_milestone'] - gamification['attempts'], 0)} 回の演習"
+
+    priority_cards.append(next_review_card)
+
+    priority_cards_html = "\n".join(_render_priority_card(card) for card in priority_cards)
+    st.markdown(
+        dedent(
+            f"""
+            <div class="priority-grid">
+            {priority_cards_html}
+            </div>
+            """
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+
+    with st.expander("指標カテゴリの説明"):
+        st.markdown(
+            "\n".join(
+                [
+                    "- **進捗**: 学習の継続状況や次の称号までの距離を示します。",
+                    "- **成果**: ポイントやレベルなど達成度に直結する指標です。",
+                    "- **スキル**: 復習や強化が必要なテーマを知らせます。",
+                ]
             )
-        else:
-            st.caption("最高ランクに到達しました！継続おめでとうございます。")
-    with badge_col:
-        st.subheader("獲得バッジ")
+        )
+
+    with st.expander("獲得バッジの詳細"):
         if gamification["badges"]:
             for badge in gamification["badges"]:
                 st.markdown(f"- 🏅 **{badge['title']}** — {badge['description']}")
@@ -533,8 +818,6 @@ def dashboard_page(user: Dict) -> None:
         unsafe_allow_html=True,
     )
 
-    upcoming_reviews = database.list_upcoming_reviews(user_id=user["id"], limit=6)
-    due_review_count = database.count_due_reviews(user_id=user["id"])
     st.subheader("復習スケジュール（間隔反復）")
     if upcoming_reviews:
         if due_review_count:
