@@ -14,6 +14,100 @@ from database import RecordedAnswer
 from scoring import QuestionSpec
 
 
+DEFAULT_KEYWORD_RESOURCES = [
+    {
+        "label": "中小企業診断協会: 2次試験過去問題", 
+        "url": "https://www.j-smeca.or.jp/contents/0105007000.html",
+    },
+    {
+        "label": "中小企業診断士ポータル: キーワード整理", 
+        "url": "https://www.smeca.jp/consultant/exam/keyword.html",
+    },
+]
+
+
+KEYWORD_RESOURCE_MAP = {
+    "製造技術": [
+        {
+            "label": "運営管理テキスト 製造工程編",
+            "url": "https://www.j-smeca.or.jp/contents/0105005000.html",
+        },
+    ],
+    "信頼関係": [
+        {
+            "label": "組織・人事: 顧客との関係構築 事例解説",
+            "url": "https://www.j-smeca.or.jp/contents/0105003000.html",
+        },
+    ],
+    "高付加価値": [
+        {
+            "label": "経営戦略: 付加価値向上の施策",
+            "url": "https://www.smrj.go.jp/diagnosis/",
+        },
+    ],
+    "企画開発": [
+        {
+            "label": "新製品開発ロードマップ",
+            "url": "https://www.jetro.go.jp/ext_images/jfile/report/07000648/report.pdf",
+        },
+    ],
+    "技能伝承": [
+        {
+            "label": "技能伝承のポイント (厚労省)",
+            "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000084967.html",
+        },
+    ],
+    "評価制度": [
+        {
+            "label": "人事評価制度設計ガイド",
+            "url": "https://www.jil.go.jp/institute/",
+        },
+    ],
+    "モチベーション": [
+        {
+            "label": "モチベーション理論と組織活性化",
+            "url": "https://www.hataraku.metro.tokyo.lg.jp/sodan/itaku/",
+        },
+    ],
+    "連携": [
+        {
+            "label": "地域連携によるサービス開発事例",
+            "url": "https://www.chusho.meti.go.jp/",
+        },
+    ],
+    "口コミ": [
+        {
+            "label": "マーケティング: 口コミ活用施策",
+            "url": "https://www.smrj.go.jp/feature/",
+        },
+    ],
+    "ROA": [
+        {
+            "label": "財務指標の読み方: ROA",
+            "url": "https://www.jcci.or.jp/chusho/finance/",
+        },
+    ],
+    "固定資産回転率": [
+        {
+            "label": "財務分析: 回転率の捉え方",
+            "url": "https://www.jetro.go.jp/world/",
+        },
+    ],
+    "キャッシュフロー": [
+        {
+            "label": "キャッシュフロー計算書の読み方",
+            "url": "https://www.japaneselawtranslation.go.jp/",
+        },
+    ],
+    "資本コスト": [
+        {
+            "label": "資本コストと投資判断入門",
+            "url": "https://www.mof.go.jp/public_relations/finance/",
+        },
+    ],
+}
+
+
 def _init_session_state() -> None:
     if "user" not in st.session_state:
         guest = database.get_or_create_guest_user()
@@ -765,6 +859,139 @@ def _build_schedule_preview(
     return pd.DataFrame(events)
 
 
+def _mode_label(mode: str) -> str:
+    return "模試" if mode == "mock" else "演習"
+
+
+def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
+    if not records:
+        return {
+            "answers": pd.DataFrame(),
+            "summary": pd.DataFrame(),
+            "recommendations": [],
+        }
+
+    answer_rows: List[Dict[str, Any]] = []
+    keyword_stats: Dict[str, Dict[str, Any]] = {}
+
+    for record in records:
+        keyword_hits: Dict[str, bool] = record.get("keyword_hits") or {}
+        total_keywords = len(keyword_hits)
+        if total_keywords == 0:
+            coverage_ratio = None
+        else:
+            coverage_ratio = sum(1 for hit in keyword_hits.values() if hit) / total_keywords
+        score_ratio = None
+        if record.get("max_score"):
+            try:
+                score_ratio = (record.get("score") or 0) / record["max_score"]
+            except ZeroDivisionError:
+                score_ratio = None
+
+        matched_keywords = [kw for kw, hit in keyword_hits.items() if hit]
+        missing_keywords = [kw for kw, hit in keyword_hits.items() if not hit]
+
+        answer_rows.append(
+            {
+                "attempt_id": record["attempt_id"],
+                "年度": record["year"],
+                "事例": record["case_label"],
+                "タイトル": record["title"],
+                "設問": record["prompt"],
+                "回答日時": record["submitted_at"],
+                "キーワード網羅率": coverage_ratio * 100 if coverage_ratio is not None else None,
+                "得点率": score_ratio * 100 if score_ratio is not None else None,
+                "含まれたキーワード": matched_keywords,
+                "不足キーワード": missing_keywords,
+                "モード": _mode_label(record.get("mode", "practice")),
+            }
+        )
+
+        for keyword, hit in keyword_hits.items():
+            stat = keyword_stats.setdefault(
+                keyword,
+                {
+                    "attempts": 0,
+                    "hits": 0,
+                    "cases": set(),
+                    "years": set(),
+                    "examples": [],
+                },
+            )
+            stat["attempts"] += 1
+            if hit:
+                stat["hits"] += 1
+            stat["cases"].add(record["case_label"])
+            stat["years"].add(record["year"])
+            if len(stat["examples"]) < 3:
+                stat["examples"].append(
+                    {
+                        "year": record["year"],
+                        "case_label": record["case_label"],
+                        "title": record["title"],
+                        "prompt": record["prompt"],
+                        "hit": hit,
+                    }
+                )
+
+    answers_df = pd.DataFrame(answer_rows)
+    if not answers_df.empty:
+        answers_df["回答日時"] = pd.to_datetime(answers_df["回答日時"], errors="coerce")
+        answers_df["不足キーワード表示"] = answers_df["不足キーワード"].apply(
+            lambda keywords: "、".join(keywords) if keywords else "-"
+        )
+        answers_df["含まれたキーワード表示"] = answers_df["含まれたキーワード"].apply(
+            lambda keywords: "、".join(keywords) if keywords else "-"
+        )
+
+    summary_rows: List[Dict[str, Any]] = []
+    recommendations: List[Dict[str, Any]] = []
+
+    for keyword, stat in keyword_stats.items():
+        attempts = stat["attempts"]
+        hits = stat["hits"]
+        hit_rate = hits / attempts if attempts else 0.0
+        summary_rows.append(
+            {
+                "キーワード": keyword,
+                "出題数": attempts,
+                "達成率(%)": hit_rate * 100,
+                "主な事例": "、".join(sorted(stat["cases"])) if stat["cases"] else "-",
+                "出題年度": "、".join(sorted(stat["years"])) if stat["years"] else "-",
+            }
+        )
+
+        if attempts >= 1 and hit_rate < 0.6:
+            example_entry = next((ex for ex in stat["examples"] if not ex["hit"]), None)
+            if example_entry is None and stat["examples"]:
+                example_entry = stat["examples"][0]
+            example_text = None
+            if example_entry:
+                example_text = (
+                    f"{example_entry['year']} {example_entry['case_label']}『{example_entry['title']}』"
+                )
+            recommendations.append(
+                {
+                    "keyword": keyword,
+                    "hit_rate": hit_rate,
+                    "attempts": attempts,
+                    "example": example_text,
+                }
+            )
+
+    summary_df = pd.DataFrame(summary_rows)
+    if not summary_df.empty:
+        summary_df.sort_values(["出題数", "達成率(%)"], ascending=[False, False], inplace=True)
+
+    recommendations.sort(key=lambda item: (item["hit_rate"], -item["attempts"]))
+
+    return {
+        "answers": answers_df,
+        "summary": summary_df,
+        "recommendations": recommendations,
+    }
+
+
 def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。")
@@ -1190,6 +1417,8 @@ def history_page(user: Dict) -> None:
     history_df["日付"] = pd.to_datetime(history_df["日付"], errors="coerce")
     history_df.sort_values("日付", inplace=True)
 
+    keyword_records = database.fetch_keyword_performance(user["id"])
+
     stats = _compute_learning_stats(history_df)
     reminder_settings = database.get_reminder_settings(user["id"])
     active_interval = (
@@ -1364,7 +1593,25 @@ def history_page(user: Dict) -> None:
         selected_mode_labels = [modes[key] for key in selected_modes]
         filtered_df = filtered_df[filtered_df["モード"].isin(selected_mode_labels)]
 
-    overview_tab, chart_tab, detail_tab = st.tabs(["一覧", "グラフ", "詳細・エクスポート"])
+    filtered_keyword_records = keyword_records
+    if selected_years:
+        filtered_keyword_records = [
+            record for record in filtered_keyword_records if record["year"] in selected_years
+        ]
+    if selected_cases:
+        filtered_keyword_records = [
+            record for record in filtered_keyword_records if record["case_label"] in selected_cases
+        ]
+    if selected_modes:
+        filtered_keyword_records = [
+            record for record in filtered_keyword_records if record["mode"] in selected_modes
+        ]
+
+    keyword_analysis = _analyze_keyword_records(filtered_keyword_records)
+
+    overview_tab, chart_tab, keyword_tab, detail_tab = st.tabs(
+        ["一覧", "グラフ", "キーワード分析", "詳細・エクスポート"]
+    )
 
     with overview_tab:
         display_df = filtered_df.copy()
@@ -1399,6 +1646,104 @@ def history_page(user: Dict) -> None:
             st.subheader("事例別平均点")
             bar_chart = alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="得点:Q")
             st.altair_chart(bar_chart, use_container_width=True)
+
+    with keyword_tab:
+        answers_df = keyword_analysis["answers"]
+        summary_df = keyword_analysis["summary"]
+        recommendations = keyword_analysis["recommendations"]
+
+        if answers_df.empty and summary_df.empty:
+            st.info("キーワード採点の記録がまだありません。演習を重ねると分析が表示されます。")
+        else:
+            if not answers_df.empty:
+                scatter_source = answers_df.dropna(subset=["キーワード網羅率", "得点率"])
+                if not scatter_source.empty:
+                    scatter_chart = (
+                        alt.Chart(scatter_source)
+                        .mark_circle(size=90, opacity=0.75)
+                        .encode(
+                            x=alt.X(
+                                "キーワード網羅率:Q",
+                                title="キーワード網羅率 (%)",
+                                scale=alt.Scale(domain=[0, 100]),
+                            ),
+                            y=alt.Y(
+                                "得点率:Q",
+                                title="設問得点率 (%)",
+                                scale=alt.Scale(domain=[0, 100]),
+                            ),
+                            color=alt.Color("事例:N"),
+                            tooltip=[
+                                "年度",
+                                "事例",
+                                "タイトル",
+                                "設問",
+                                alt.Tooltip("キーワード網羅率:Q", format=".1f"),
+                                alt.Tooltip("得点率:Q", format=".1f"),
+                                "不足キーワード表示",
+                            ],
+                        )
+                    )
+                    st.subheader("キーワード網羅率と得点率の相関")
+                    st.altair_chart(scatter_chart, use_container_width=True)
+                    st.caption("左下に位置する設問はキーワード・得点ともに伸びしろがあります。重点的に復習しましょう。")
+                else:
+                    st.info("スコアとキーワード判定が揃った設問がまだありません。")
+
+            if not summary_df.empty:
+                st.markdown("#### 頻出キーワードの達成状況")
+                display_summary = summary_df.copy()
+                display_summary["達成率(%)"] = display_summary["達成率(%)"].map(
+                    lambda v: f"{v:.0f}%"
+                )
+                st.data_editor(
+                    display_summary,
+                    hide_index=True,
+                    use_container_width=True,
+                    disabled=True,
+                )
+                st.caption("出題頻度が高いキーワードほど上位に表示されます。達成率が低いキーワードは計画的に復習しましょう。")
+
+            if recommendations:
+                st.markdown("#### 優先して復習したいテーマ")
+                for recommendation in recommendations[:5]:
+                    keyword = recommendation["keyword"]
+                    hit_rate = recommendation["hit_rate"] * 100
+                    attempts = recommendation["attempts"]
+                    example = recommendation.get("example")
+                    resources = KEYWORD_RESOURCE_MAP.get(keyword, DEFAULT_KEYWORD_RESOURCES)
+                    lines = [
+                        f"- **{keyword}** — 達成率 {hit_rate:.0f}% / 出題 {attempts}回",
+                    ]
+                    if example:
+                        lines.append(f"    - 出題例: {example}")
+                    for resource in resources:
+                        lines.append(f"    - [参考資料]({resource['url']}): {resource['label']}")
+                    st.markdown("\n".join(lines))
+
+            if not answers_df.empty:
+                st.markdown("#### 設問別キーワード判定一覧")
+                detail_df = answers_df[
+                    [
+                        "年度",
+                        "事例",
+                        "タイトル",
+                        "設問",
+                        "モード",
+                        "キーワード網羅率",
+                        "得点率",
+                        "含まれたキーワード表示",
+                        "不足キーワード表示",
+                    ]
+                ].copy()
+                detail_df["キーワード網羅率"] = detail_df["キーワード網羅率"].map(
+                    lambda v: f"{v:.0f}%" if pd.notna(v) else "-"
+                )
+                detail_df["得点率"] = detail_df["得点率"].map(
+                    lambda v: f"{v:.0f}%" if pd.notna(v) else "-"
+                )
+                st.data_editor(detail_df, hide_index=True, use_container_width=True, disabled=True)
+                st.caption("各設問の到達状況と不足キーワードを一覧化しました。学習計画に反映してください。")
 
     with detail_tab:
         csv_export = filtered_df.copy()
