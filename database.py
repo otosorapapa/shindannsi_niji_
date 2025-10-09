@@ -12,10 +12,30 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
+from threading import Lock
+from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional
 
 DB_PATH = Path("data/app.db")
 SEED_PATH = Path("data/seed_problems.json")
+
+_INITIALIZE_LOCK = Lock()
+_DATABASE_INITIALISED = False
+
+
+def _clear_problem_caches() -> None:
+    """Reset memoized problem lookups after mutations or seeding."""
+
+    for func_name in (
+        "list_problems",
+        "list_problem_years",
+        "list_problem_cases",
+        "fetch_problem",
+        "fetch_problem_by_year_case",
+    ):
+        func = globals().get(func_name)
+        if func is not None and hasattr(func, "cache_clear"):
+            func.cache_clear()  # type: ignore[call-arg]
 
 
 def get_connection() -> sqlite3.Connection:
@@ -25,15 +45,26 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
-def initialize_database() -> None:
+def initialize_database(*, force: bool = False) -> None:
     """Create the SQLite database (if necessary) and seed master data."""
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    conn = get_connection()
-    cur = conn.cursor()
+    global _DATABASE_INITIALISED
 
-    cur.executescript(
-        """
+    if _DATABASE_INITIALISED and not force:
+        return
+
+    with _INITIALIZE_LOCK:
+        if _DATABASE_INITIALISED and not force:
+            return
+
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+
+            cur.executescript(
+                """
         PRAGMA foreign_keys = ON;
 
         CREATE TABLE IF NOT EXISTS users (
@@ -139,21 +170,27 @@ def initialize_database() -> None:
             UNIQUE(goal_id, session_date, start_time)
         );
         """
-    )
+            )
 
-    conn.commit()
+            conn.commit()
 
-    if not SEED_PATH.exists():
-        seed_payload = _default_seed_payload()
-        SEED_PATH.write_text(json.dumps(seed_payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    else:
-        seed_payload = json.loads(SEED_PATH.read_text(encoding="utf-8"))
+            if not SEED_PATH.exists():
+                seed_payload = _default_seed_payload()
+                SEED_PATH.write_text(
+                    json.dumps(seed_payload, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+            else:
+                seed_payload = json.loads(SEED_PATH.read_text(encoding="utf-8"))
 
-    _ensure_question_multimedia_columns(conn)
+            _ensure_question_multimedia_columns(conn)
 
-    _seed_problems(conn, seed_payload)
+            _seed_problems(conn, seed_payload)
+        finally:
+            conn.close()
 
-    conn.close()
+        _clear_problem_caches()
+        _DATABASE_INITIALISED = True
 
 
 def _seed_problems(conn: sqlite3.Connection, payload: Dict) -> None:
@@ -305,15 +342,17 @@ def update_user_plan(user_id: int, plan: str) -> None:
     conn.close()
 
 
-def list_problems() -> List[sqlite3.Row]:
+@lru_cache(maxsize=1)
+def list_problems() -> List[Dict[str, Any]]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM problems ORDER BY year DESC, case_label ASC")
-    rows = cur.fetchall()
+    rows = [dict(row) for row in cur.fetchall()]
     conn.close()
     return rows
 
 
+@lru_cache(maxsize=1)
 def list_problem_years() -> List[str]:
     conn = get_connection()
     cur = conn.cursor()
@@ -323,15 +362,20 @@ def list_problem_years() -> List[str]:
     return years
 
 
+@lru_cache(maxsize=None)
 def list_problem_cases(year: str) -> List[str]:
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT DISTINCT case_label FROM problems WHERE year = ? ORDER BY case_label", (year,))
+    cur.execute(
+        "SELECT DISTINCT case_label FROM problems WHERE year = ? ORDER BY case_label",
+        (year,),
+    )
     cases = [row[0] for row in cur.fetchall()]
     conn.close()
     return cases
 
 
+@lru_cache(maxsize=None)
 def fetch_problem(problem_id: int) -> Optional[Dict]:
     conn = get_connection()
     cur = conn.cursor()
@@ -376,6 +420,7 @@ def fetch_problem(problem_id: int) -> Optional[Dict]:
     }
 
 
+@lru_cache(maxsize=None)
 def fetch_problem_by_year_case(year: str, case_label: str) -> Optional[Dict]:
     conn = get_connection()
     cur = conn.cursor()
