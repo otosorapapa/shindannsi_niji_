@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360">
+  <rect x="0" y="0" width="720" height="360" rx="18" fill="#fdf4ff"/>
+  <text x="360" y="40" text-anchor="middle" font-size="26" font-family="'Noto Sans JP', sans-serif" fill="#6b21a8">人材育成ロードマップ</text>
+  <g font-family="'Noto Sans JP', sans-serif" fill="#4c1d95">
+    <rect x="60" y="92" width="180" height="72" rx="12" fill="#ede9fe" stroke="#a855f7" stroke-width="2"/>
+    <text x="150" y="126" text-anchor="middle" font-size="18">熟練職人</text>
+    <text x="150" y="146" text-anchor="middle" font-size="13">技能の形式知化</text>
+  </g>
+  <g font-family="'Noto Sans JP', sans-serif" fill="#312e81">
+    <rect x="270" y="92" width="180" height="72" rx="12" fill="#e0e7ff" stroke="#6366f1" stroke-width="2"/>
+    <text x="360" y="126" text-anchor="middle" font-size="18">教育プログラム</text>
+    <text x="360" y="146" text-anchor="middle" font-size="13">OJT + eラーニング</text>
+  </g>
+  <g font-family="'Noto Sans JP', sans-serif" fill="#1e1b4b">
+    <rect x="480" y="92" width="180" height="72" rx="12" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+    <text x="570" y="126" text-anchor="middle" font-size="18">若手社員</text>
+    <text x="570" y="146" text-anchor="middle" font-size="13">成長支援と評価</text>
+  </g>
+  <path d="M240 128 H270" stroke="#8b5cf6" stroke-width="4" marker-end="url(#arrow)"/>
+  <path d="M450 128 H480" stroke="#6366f1" stroke-width="4" marker-end="url(#arrow)"/>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto">
+      <path d="M0,0 L10,3 L0,6 Z" fill="#6b21a8"/>
+    </marker>
+  </defs>
+  <rect x="150" y="216" width="420" height="96" rx="18" fill="#fff7ed" stroke="#fb923c" stroke-width="2"/>
+  <text x="360" y="252" text-anchor="middle" font-size="20" font-family="'Noto Sans JP', sans-serif" fill="#ea580c">評価制度の再設計</text>
+  <text x="360" y="278" text-anchor="middle" font-size="14" font-family="'Noto Sans JP', sans-serif" fill="#b45309">スキル可視化 → 公平な昇格 → モチベーション向上</text>
+</svg>

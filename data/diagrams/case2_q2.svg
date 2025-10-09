@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360">
+  <rect x="0" y="0" width="720" height="360" rx="18" fill="#f0fdfa"/>
+  <text x="360" y="44" text-anchor="middle" font-size="26" font-family="'Noto Sans JP', sans-serif" fill="#064e3b">販促導線イメージ</text>
+  <g font-family="'Noto Sans JP', sans-serif">
+    <rect x="60" y="96" width="180" height="80" rx="16" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="150" y="134" text-anchor="middle" font-size="18" fill="#047857">地域連携</text>
+    <text x="150" y="156" text-anchor="middle" font-size="12" fill="#047857">包括支援センター・自治会</text>
+  </g>
+  <g font-family="'Noto Sans JP', sans-serif">
+    <rect x="270" y="96" width="180" height="80" rx="16" fill="#bbf7d0" stroke="#10b981" stroke-width="2"/>
+    <text x="360" y="134" text-anchor="middle" font-size="18" fill="#047857">イベント出展</text>
+    <text x="360" y="156" text-anchor="middle" font-size="12" fill="#047857">体験・相談ブース</text>
+  </g>
+  <g font-family="'Noto Sans JP', sans-serif">
+    <rect x="480" y="96" width="180" height="80" rx="16" fill="#a7f3d0" stroke="#059669" stroke-width="2"/>
+    <text x="570" y="134" text-anchor="middle" font-size="18" fill="#065f46">口コミ拡散</text>
+    <text x="570" y="156" text-anchor="middle" font-size="12" fill="#047857">紹介キャンペーン</text>
+  </g>
+  <path d="M240 136 H270" stroke="#059669" stroke-width="4" marker-end="url(#arrow-green)"/>
+  <path d="M450 136 H480" stroke="#059669" stroke-width="4" marker-end="url(#arrow-green)"/>
+  <defs>
+    <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto">
+      <path d="M0,0 L10,3 L0,6 Z" fill="#047857"/>
+    </marker>
+  </defs>
+  <rect x="150" y="220" width="420" height="96" rx="18" fill="#ecfdf5" stroke="#0f766e" stroke-width="2"/>
+  <text x="360" y="260" text-anchor="middle" font-size="20" font-family="'Noto Sans JP', sans-serif" fill="#0d9488">継続利用・LTV向上</text>
+  <text x="360" y="288" text-anchor="middle" font-size="14" font-family="'Noto Sans JP', sans-serif" fill="#0f766e">訪問フォローと紹介特典で利用を定着</text>
+</svg>

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360">
+  <rect x="0" y="0" width="720" height="360" rx="18" fill="#fff7ed"/>
+  <text x="360" y="44" text-anchor="middle" font-size="26" font-family="'Noto Sans JP', sans-serif" fill="#7c2d12">NPV意思決定フロー</text>
+  <g font-family="'Noto Sans JP', sans-serif" fill="#7c2d12">
+    <rect x="80" y="90" width="200" height="80" rx="16" fill="#fed7aa" stroke="#f97316" stroke-width="2"/>
+    <text x="180" y="128" text-anchor="middle" font-size="18">将来CF予測</text>
+    <text x="180" y="150" text-anchor="middle" font-size="12">売上・コストの算出</text>
+  </g>
+  <g font-family="'Noto Sans JP', sans-serif" fill="#7c2d12">
+    <rect x="270" y="90" width="200" height="80" rx="16" fill="#ffedd5" stroke="#fb923c" stroke-width="2"/>
+    <text x="370" y="128" text-anchor="middle" font-size="18">割引率決定</text>
+    <text x="370" y="150" text-anchor="middle" font-size="12">資本コストを適用</text>
+  </g>
+  <g font-family="'Noto Sans JP', sans-serif" fill="#7c2d12">
+    <rect x="460" y="90" width="200" height="80" rx="16" fill="#fed7aa" stroke="#f97316" stroke-width="2"/>
+    <text x="560" y="128" text-anchor="middle" font-size="18">NPV算出</text>
+    <text x="560" y="150" text-anchor="middle" font-size="12">正味現在価値</text>
+  </g>
+  <path d="M280 130 H300" stroke="#ea580c" stroke-width="4" marker-end="url(#arrow-npv)"/>
+  <path d="M470 130 H490" stroke="#ea580c" stroke-width="4" marker-end="url(#arrow-npv)"/>
+  <defs>
+    <marker id="arrow-npv" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto">
+      <path d="M0,0 L10,3 L0,6 Z" fill="#ea580c"/>
+    </marker>
+  </defs>
+  <rect x="200" y="220" width="320" height="96" rx="18" fill="#fff" stroke="#ea580c" stroke-width="2"/>
+  <text x="360" y="256" text-anchor="middle" font-size="20" font-family="'Noto Sans JP', sans-serif" fill="#c2410c">投資意思決定</text>
+  <text x="360" y="284" text-anchor="middle" font-size="14" font-family="'Noto Sans JP', sans-serif" fill="#9a3412">NPV &gt; 0 → 実行 / NPV &lt; 0 → 見送り</text>
+</svg>

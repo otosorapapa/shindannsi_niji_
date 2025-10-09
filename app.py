@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
+from pathlib import Path
 from textwrap import dedent
 from typing import Any, Dict, List, Optional
+from uuid import uuid4
 import logging
 
 import html
@@ -13,6 +15,7 @@ import random
 import altair as alt
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 import database
 import mock_exam
@@ -170,6 +173,185 @@ def _inject_guideline_styles() -> None:
     )
     st.session_state["_guideline_styles_injected"] = True
 
+
+def _ensure_media_styles() -> None:
+    if st.session_state.get("_media_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .media-player video {
+                width: 100%;
+                border-radius: 16px;
+                box-shadow: 0 16px 30px rgba(15, 23, 42, 0.18);
+            }
+            .media-player__controls {
+                margin-top: 0.75rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.65rem;
+            }
+            .media-player__row {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            .media-player__row span {
+                font-weight: 600;
+                color: #1f2937;
+            }
+            .media-control-button {
+                background: #f8fafc;
+                border: 1px solid rgba(99, 102, 241, 0.35);
+                color: #1e293b;
+                border-radius: 999px;
+                padding: 0.35rem 0.9rem;
+                font-size: 0.85rem;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+            .media-control-button:hover {
+                background: rgba(99, 102, 241, 0.1);
+            }
+            .media-control-button.active {
+                background: #4338ca;
+                color: #fff;
+                border-color: #4338ca;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_media_styles_injected"] = True
+
+
+def _render_video_player(url: str, *, key_prefix: str) -> None:
+    if not url:
+        return
+
+    _ensure_media_styles()
+    player_id = f"media-player-{key_prefix}-{uuid4().hex}"
+    escaped_url = html.escape(url, quote=True)
+    speeds = [0.75, 1.0, 1.25, 1.5, 2.0]
+    speed_buttons = "".join(
+        f'<button class="media-control-button" data-speed="{speed}">{speed}x</button>'
+        for speed in speeds
+    )
+
+    components.html(
+        dedent(
+            f"""
+            <div class="media-player" id="{player_id}">
+              <video controls playsinline preload="metadata" src="{escaped_url}"></video>
+              <div class="media-player__controls">
+                <div class="media-player__row">
+                  <span>再生速度</span>
+                  {speed_buttons}
+                </div>
+                <div class="media-player__row">
+                  <button class="media-control-button" data-action="back">⏪ 10秒戻る</button>
+                  <button class="media-control-button" data-action="forward">⏩ 10秒進む</button>
+                </div>
+              </div>
+            </div>
+            <script>
+            (function() {{
+              const container = document.getElementById('{player_id}');
+              if (!container) return;
+              const video = container.querySelector('video');
+              const speedButtons = Array.from(container.querySelectorAll('[data-speed]'));
+              const backButton = container.querySelector('[data-action="back"]');
+              const forwardButton = container.querySelector('[data-action="forward"]');
+
+              function setActiveSpeed(rate) {{
+                if (!video) return;
+                video.playbackRate = rate;
+                speedButtons.forEach((button) => {{
+                  const isActive = Number(button.dataset.speed) === rate;
+                  button.classList.toggle('active', isActive);
+                }});
+              }}
+
+              speedButtons.forEach((button) => {{
+                button.addEventListener('click', () => {{
+                  const rate = Number(button.dataset.speed) || 1.0;
+                  setActiveSpeed(rate);
+                }});
+              }});
+
+              if (backButton) {{
+                backButton.addEventListener('click', () => {{
+                  if (!video) return;
+                  video.currentTime = Math.max(0, video.currentTime - 10);
+                }});
+              }}
+
+              if (forwardButton) {{
+                forwardButton.addEventListener('click', () => {{
+                  if (!video) return;
+                  const target = video.currentTime + 10;
+                  video.currentTime = Math.min(video.duration || target, target);
+                }});
+              }}
+
+              setActiveSpeed(1.0);
+            }})();
+            </script>
+            """
+        ),
+        height=380,
+    )
+
+
+def _resolve_diagram_path(diagram_path: str) -> Path:
+    path = Path(diagram_path)
+    if not path.is_absolute():
+        base_dir = Path(__file__).resolve().parent
+        path = base_dir / path
+    return path
+
+
+def _render_diagram_resource(diagram_path: Optional[str], caption: Optional[str]) -> None:
+    if not diagram_path:
+        return
+
+    path = _resolve_diagram_path(diagram_path)
+    if not path.exists():
+        st.warning("図解ファイルが見つかりませんでした。", icon="⚠️")
+        return
+
+    try:
+        st.image(path.read_bytes(), caption=caption, use_column_width=True)
+    except Exception as exc:  # pragma: no cover - rendering guard
+        st.warning(f"図解の表示中に問題が発生しました: {exc}", icon="⚠️")
+
+
+def _render_model_answer_section(
+    *,
+    model_answer: str,
+    explanation: str,
+    video_url: Optional[str],
+    diagram_path: Optional[str],
+    diagram_caption: Optional[str],
+    context_id: str,
+) -> None:
+    st.write("**模範解答**")
+    st.write(model_answer)
+    st.write("**解説**")
+    st.write(explanation)
+
+    if video_url:
+        st.markdown("**動画解説**")
+        _render_video_player(video_url, key_prefix=context_id)
+        st.caption("倍速再生と10秒スキップで効率的に復習できます。")
+
+    if diagram_path:
+        st.markdown("**図解で押さえるポイント**")
+        _render_diagram_resource(diagram_path, diagram_caption)
 
 def main_view() -> None:
     user = st.session_state.user
@@ -1622,6 +1804,18 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         st.info("該当する設問がありません。")
         return
 
+    normalized_columns = {str(col).lower(): col for col in subset.columns}
+    video_col = None
+    diagram_col = None
+    diagram_caption_col = None
+    for key, col in normalized_columns.items():
+        if key in {"動画url", "video_url"}:
+            video_col = col
+        elif key in {"図解パス", "diagram_path"}:
+            diagram_col = col
+        elif key in {"図解キャプション", "diagram_caption"}:
+            diagram_caption_col = col
+
     for _, row in subset.iterrows():
         st.subheader(f"第{row['設問番号']}問 ({row['配点']}点)")
         st.write(row["問題文"])
@@ -1630,10 +1824,23 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         user_answer = st.text_area("回答を入力", key=answer_key)
         _render_character_counter(len(user_answer), max_chars)
         with st.expander("模範解答／解説を見る"):
-            st.markdown("**模範解答**")
-            st.write(row["模範解答"])
-            st.markdown("**解説**")
-            st.write(row["解説"])
+            video_url = None
+            diagram_path = None
+            diagram_caption = None
+            if video_col and pd.notna(row.get(video_col)):
+                video_url = str(row[video_col])
+            if diagram_col and pd.notna(row.get(diagram_col)):
+                diagram_path = str(row[diagram_col])
+            if diagram_caption_col and pd.notna(row.get(diagram_caption_col)):
+                diagram_caption = str(row[diagram_caption_col])
+            _render_model_answer_section(
+                model_answer=row["模範解答"],
+                explanation=row["解説"],
+                video_url=video_url,
+                diagram_path=diagram_path,
+                diagram_caption=diagram_caption,
+                context_id=f"uploaded-{selected_year}-{selected_case}-{row['設問番号']}",
+            )
 
 
 def _handle_past_data_upload(uploaded_file) -> None:
@@ -1723,10 +1930,14 @@ def render_attempt_results(attempt_id: int) -> None:
                 )
                 st.table(keyword_df)
             with st.expander("模範解答と解説", expanded=False):
-                st.write("**模範解答**")
-                st.write(answer["model_answer"])
-                st.write("**解説**")
-                st.write(answer["explanation"])
+                _render_model_answer_section(
+                    model_answer=answer["model_answer"],
+                    explanation=answer["explanation"],
+                    video_url=answer.get("video_url"),
+                    diagram_path=answer.get("diagram_path"),
+                    diagram_caption=answer.get("diagram_caption"),
+                    context_id=f"attempt-{attempt_id}-q{idx}",
+                )
                 st.caption("採点基準: 模範解答の論点とキーワードが盛り込まれているかを中心に評価しています。")
 
     st.info("学習履歴ページから過去の答案をいつでも振り返ることができます。")
