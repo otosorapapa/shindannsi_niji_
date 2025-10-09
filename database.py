@@ -561,9 +561,20 @@ def aggregate_statistics(user_id: int) -> Dict[str, Dict[str, float]]:
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT p.case_label, AVG(a.total_score) AS avg_score, AVG(a.total_max_score) AS avg_max
+        WITH answer_totals AS (
+            SELECT attempt_id, COUNT(*) AS answer_count
+            FROM attempt_answers
+            GROUP BY attempt_id
+        )
+        SELECT
+            p.case_label,
+            AVG(a.total_score) AS avg_score,
+            AVG(a.total_max_score) AS avg_max,
+            COUNT(a.id) AS attempt_count,
+            COALESCE(SUM(answer_totals.answer_count), 0) AS answer_count
         FROM attempts a
         JOIN problems p ON p.id = a.problem_id
+        LEFT JOIN answer_totals ON answer_totals.attempt_id = a.id
         WHERE a.user_id = ? AND a.total_score IS NOT NULL
         GROUP BY p.case_label
         """,
@@ -577,6 +588,8 @@ def aggregate_statistics(user_id: int) -> Dict[str, Dict[str, float]]:
         stats[row["case_label"]] = {
             "avg_score": row["avg_score"] or 0,
             "avg_max": row["avg_max"] or 0,
+            "attempt_count": row["attempt_count"] or 0,
+            "answer_count": row["answer_count"] or 0,
         }
     return stats
 

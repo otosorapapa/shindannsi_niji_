@@ -106,65 +106,6 @@ def _inject_dashboard_styles() -> None:
             padding-bottom: 3rem;
             max-width: 1100px;
         }
-        .metric-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-        .metric-card {
-            position: relative;
-            border-radius: 18px;
-            padding: 1.4rem;
-            color: #0f172a;
-            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(241,245,249,0.95));
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
-        }
-        .metric-card::after {
-            content: "";
-            position: absolute;
-            inset: 1px;
-            border-radius: 16px;
-            border: 1px solid rgba(255,255,255,0.5);
-        }
-        .metric-card .metric-label {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #475569;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-        }
-        .metric-card .metric-value {
-            font-size: 2rem;
-            font-weight: 700;
-            margin: 0.4rem 0;
-        }
-        .metric-card .metric-desc {
-            font-size: 0.85rem;
-            color: #64748b;
-            margin: 0;
-        }
-        .metric-card.indigo {
-            background: linear-gradient(135deg, #2740ff, #4f74ff);
-            color: #f8fafc;
-        }
-        .metric-card.indigo .metric-label,
-        .metric-card.indigo .metric-desc {
-            color: rgba(248, 250, 252, 0.85);
-        }
-        .metric-card.emerald {
-            background: linear-gradient(135deg, #00b894, #4ade80);
-            color: #0f172a;
-        }
-        .metric-card.orange {
-            background: linear-gradient(135deg, #ff8a4c, #ffb347);
-            color: #0f172a;
-        }
-        .metric-card.sky {
-            background: linear-gradient(135deg, #38bdf8, #60a5fa);
-            color: #0f172a;
-        }
         .insight-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -175,11 +116,11 @@ def _inject_dashboard_styles() -> None:
             display: flex;
             gap: 1rem;
             align-items: center;
-            border-radius: 18px;
-            padding: 1.2rem 1.4rem;
+            border-radius: 16px;
+            padding: 1.1rem 1.3rem;
             background: #ffffff;
-            border: 1px solid rgba(148, 163, 184, 0.28);
-            box-shadow: 0 20px 32px rgba(15, 23, 42, 0.12);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
         }
         .insight-icon {
             font-size: 1.8rem;
@@ -209,9 +150,9 @@ def _inject_dashboard_styles() -> None:
         .action-card {
             border-radius: 16px;
             padding: 1.2rem 1.3rem;
-            background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(14,165,233,0.08));
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+            background: rgba(37, 99, 235, 0.05);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            box-shadow: none;
         }
         .action-card strong {
             display: block;
@@ -283,12 +224,14 @@ def dashboard_page(user: Dict) -> None:
     st.caption("学習状況のサマリと機能へのショートカット")
 
     attempts = database.list_attempts(user_id=user["id"])
-    gamification = _calculate_gamification(attempts)
-    total_attempts = len(attempts)
-    total_score = sum(row["total_score"] or 0 for row in attempts)
-    total_max = sum(row["total_max_score"] or 0 for row in attempts)
-    average_score = round(total_score / total_attempts, 1) if total_attempts else 0
-    completion_rate = (total_score / total_max * 100) if total_max else 0
+    completed_attempts = [row for row in attempts if row.get("submitted_at") and row.get("total_score") is not None]
+    gamification = _calculate_gamification(completed_attempts)
+
+    total_attempts = len(completed_attempts)
+    total_score = sum(row["total_score"] or 0 for row in completed_attempts)
+    total_max = sum(row["total_max_score"] or 0 for row in completed_attempts)
+    average_score = round(total_score / total_attempts, 1) if total_attempts else 0.0
+    completion_rate = (total_score / total_max * 100) if total_max else 0.0
 
     streak_col, badge_col = st.columns([1, 2])
     with streak_col:
@@ -310,7 +253,17 @@ def dashboard_page(user: Dict) -> None:
             st.caption("バッジはまだありません。演習や模試で獲得を目指しましょう。")
 
     stats = database.aggregate_statistics(user["id"])
-    total_learning_minutes = sum((row["duration_seconds"] or 0) for row in attempts) // 60
+    total_answer_count = int(sum(values.get("answer_count", 0) for values in stats.values()))
+
+    total_learning_minutes = sum((row["duration_seconds"] or 0) for row in completed_attempts) // 60
+
+    problem_catalog = database.list_problems()
+    total_problem_count = len(problem_catalog)
+    attempted_problem_ids = {row["problem_id"] for row in completed_attempts if row.get("problem_id") is not None}
+    completed_problem_count = len(attempted_problem_ids)
+    overall_progress_rate = (
+        completed_problem_count / total_problem_count * 100 if total_problem_count else 0.0
+    )
 
     best_case_label = None
     best_case_rate = 0.0
@@ -322,55 +275,64 @@ def dashboard_page(user: Dict) -> None:
         if case_ratios:
             best_case_label, best_case_rate = max(case_ratios, key=lambda item: item[1])
 
-    metric_cards = [
-        {
-            "label": "演習回数",
-            "value": f"{total_attempts}回",
-            "desc": "これまで解いたケースの累計",
-            "class": "indigo",
-        },
-        {
-            "label": "平均得点",
-            "value": f"{average_score}点",
-            "desc": "全演習の平均スコア",
-            "class": "sky",
-        },
-        {
-            "label": "得点達成率",
-            "value": f"{completion_rate:.0f}%",
-            "desc": "満点に対する平均達成度",
-            "class": "emerald",
-        },
-        {
-            "label": "得意な事例",
-            "value": best_case_label or "記録なし",
-            "desc": f"平均達成率 {best_case_rate:.0f}%" if best_case_label else "データが蓄積されると表示されます",
-            "class": "orange",
-        },
-    ]
+    st.markdown("### 進捗ハイライト")
+    highlight_cols = st.columns([1.3, 1])
+    with highlight_cols[0]:
+        st.subheader("全体の学習進捗率")
+        if total_problem_count:
+            completed_value = completed_problem_count or 0
+            remaining_value = max(total_problem_count - completed_problem_count, 0)
+            if remaining_value <= 0:
+                progress_df = pd.DataFrame({"ラベル": ["完了"], "値": [max(completed_value, 1)]})
+            else:
+                progress_df = pd.DataFrame(
+                    [
+                        {"ラベル": "完了", "値": completed_value},
+                        {"ラベル": "未着手", "値": remaining_value},
+                    ]
+                )
+            color_scale = alt.Scale(range=["#2563eb", "#cbd5f5"])
+            progress_chart = (
+                alt.Chart(progress_df)
+                .mark_arc(innerRadius=60, cornerRadius=6)
+                .encode(
+                    theta=alt.Theta("値:Q", stack=True),
+                    color=alt.Color("ラベル:N", scale=color_scale, legend=None),
+                    tooltip=["ラベル", alt.Tooltip("値:Q", format=",d")],
+                )
+                .properties(height=260)
+            )
+            progress_text = (
+                alt.Chart(pd.DataFrame({"割合": [f"{overall_progress_rate:.0f}%"]}))
+                .mark_text(fontSize=28, fontWeight=600, color="#0f172a")
+                .encode(text="割合:N")
+            )
+            st.altair_chart(progress_chart + progress_text, use_container_width=True)
+            st.caption(
+                f"登録 {total_problem_count} ケース中 {completed_problem_count} ケースを完了しました。"
+            )
+        else:
+            st.info("演習セットが登録されると進捗率が表示されます。")
 
-    st.markdown(
-        """
-        <div class="metric-row">
-        """
-        + "\n".join(
-            f"""
-            <div class="metric-card {card['class']}">
-                <div class="metric-label">{card['label']}</div>
-                <div class="metric-value">{card['value']}</div>
-                <p class="metric-desc">{card['desc']}</p>
-            </div>
-            """
-            for card in metric_cards
-        )
-        + "\n</div>",
-        unsafe_allow_html=True,
-    )
+    with highlight_cols[1]:
+        st.subheader("主要指標")
+        average_display = f"{average_score:.1f}点" if total_attempts else "—"
+        completion_display = f"{completion_rate:.0f}%" if total_attempts else "—"
+        attempts_display = f"{total_attempts}回"
+        answers_display = f"{total_answer_count}件"
+        metric_row_top = st.columns(2)
+        metric_row_bottom = st.columns(2)
+        metric_row_top[0].metric("平均得点", average_display)
+        metric_row_top[1].metric("得点達成率", completion_display)
+        metric_row_bottom[0].metric("演習完了数", attempts_display)
+        metric_row_bottom[1].metric("累計回答数", answers_display)
+        if not total_attempts:
+            st.caption("演習を完了すると主要指標が表示されます。")
 
     overview_tab, chart_tab = st.tabs(["進捗サマリ", "事例別分析"])
 
     with overview_tab:
-        if attempts:
+        if completed_attempts:
             summary_df = pd.DataFrame(
                 [
                     {
@@ -383,7 +345,7 @@ def dashboard_page(user: Dict) -> None:
                         "得点": row["total_score"],
                         "満点": row["total_max_score"],
                     }
-                    for row in attempts
+                    for row in completed_attempts
                 ]
             )
             st.markdown('<div class="table-card">', unsafe_allow_html=True)
@@ -400,20 +362,28 @@ def dashboard_page(user: Dict) -> None:
 
     with chart_tab:
         if stats:
-            chart_data = []
+            chart_records = []
+            activity_records = []
             for case_label, values in stats.items():
-                chart_data.append(
+                avg_score = values["avg_score"]
+                avg_max = values["avg_max"]
+                ratio = (avg_score / avg_max * 100) if avg_max else 0
+                chart_records.append(
                     {
                         "事例": case_label,
-                        "得点": values["avg_score"],
-                        "満点": values["avg_max"],
+                        "平均達成率": ratio,
+                        "得点": avg_score,
+                        "満点": avg_max,
                     }
                 )
-            df = pd.DataFrame(chart_data)
-            df["達成率"] = df.apply(
-                lambda row: row["得点"] / row["満点"] * 100 if row["満点"] else 0,
-                axis=1,
-            )
+                activity_records.append(
+                    {
+                        "事例": case_label,
+                        "演習回数": int(values.get("attempt_count", 0)),
+                        "回答件数": int(values.get("answer_count", 0)),
+                    }
+                )
+            df = pd.DataFrame(chart_records)
             st.subheader("事例別平均達成率")
             color_scale = alt.Scale(
                 range=["#4f46e5", "#2563eb", "#0ea5e9", "#10b981", "#f97316", "#ec4899"],
@@ -423,9 +393,9 @@ def dashboard_page(user: Dict) -> None:
                 .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
                 .encode(
                     y=alt.Y("事例:N", sort="-x", title=None),
-                    x=alt.X("達成率:Q", scale=alt.Scale(domain=[0, 100]), title="平均達成率 (%)"),
+                    x=alt.X("平均達成率:Q", scale=alt.Scale(domain=[0, 100]), title="平均達成率 (%)"),
                     color=alt.Color("事例:N", scale=color_scale, legend=None),
-                    tooltip=["事例", "得点", "満点", alt.Tooltip("達成率:Q", format=".1f")],
+                    tooltip=["事例", "得点", "満点", alt.Tooltip("平均達成率:Q", format=".1f")],
                 )
             )
             target_line = (
@@ -434,15 +404,45 @@ def dashboard_page(user: Dict) -> None:
                 .encode(x="ベンチマーク:Q")
             )
             st.altair_chart(bar + target_line, use_container_width=True)
+            st.caption("棒は各事例の平均達成率を示し、点線は目標ラインを表します。")
+
+            activity_df = pd.DataFrame(activity_records)
+            if not activity_df.empty:
+                activity_melt = activity_df.melt("事例", var_name="指標", value_name="件数")
+                st.subheader("事例別の取り組み状況")
+                activity_chart = (
+                    alt.Chart(activity_melt)
+                    .mark_bar(width=28, cornerRadius=4)
+                    .encode(
+                        x=alt.X("事例:N", title=None),
+                        y=alt.Y("件数:Q", title="件数"),
+                        color=alt.Color(
+                            "指標:N",
+                            scale=alt.Scale(range=["#2563eb", "#38bdf8"]),
+                            title=None,
+                        ),
+                        xOffset="指標:N",
+                        tooltip=["事例", "指標", alt.Tooltip("件数:Q", format=",d")],
+                    )
+                    .properties(height=260)
+                )
+                st.altair_chart(activity_chart, use_container_width=True)
+                st.caption("演習回数と回答件数を比較し、取り組み量の偏りを把握できます。")
         else:
             st.info("演習データが蓄積すると事例別の分析が表示されます。")
 
-    latest_attempt = attempts[0] if attempts else None
+    latest_attempt = completed_attempts[0] if completed_attempts else None
     next_focus_card = {
         "icon": "🎯",
         "title": "次に集中すべき事例",
         "value": "最初の演習を始めましょう",
         "desc": "演習を完了すると優先度が表示されます。",
+    }
+    strength_card = {
+        "icon": "💡",
+        "title": "強みの事例",
+        "value": "分析中",
+        "desc": "演習データが蓄積されると表示されます。",
     }
     if stats:
         focus_case_label = None
@@ -460,6 +460,13 @@ def dashboard_page(user: Dict) -> None:
                 "title": "次に集中すべき事例",
                 "value": focus_case_label,
                 "desc": f"平均達成率 {focus_rate:.0f}%。重点復習で底上げしましょう。",
+            }
+        if best_case_label:
+            strength_card = {
+                "icon": "💪",
+                "title": "強みの事例",
+                "value": best_case_label,
+                "desc": f"平均達成率 {best_case_rate:.0f}%",
             }
 
     learning_time_card = {
@@ -504,7 +511,7 @@ def dashboard_page(user: Dict) -> None:
                 </div>
             </div>
             """
-            for card in [next_focus_card, learning_time_card, latest_result_card]
+            for card in [next_focus_card, strength_card, learning_time_card, latest_result_card]
         )
         + "\n</div>",
         unsafe_allow_html=True,
