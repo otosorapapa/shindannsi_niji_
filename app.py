@@ -54,7 +54,194 @@ def main_view() -> None:
         settings_page(user)
 
 
+def _inject_dashboard_styles() -> None:
+    if st.session_state.get("_dashboard_styles_injected"):
+        return
+
+    st.markdown(
+        """
+        <style>
+        [data-testid="stAppViewContainer"] {
+            background: linear-gradient(180deg, #f3f6fb 0%, #ffffff 45%);
+        }
+        .block-container {
+            padding-top: 1.2rem;
+            padding-bottom: 3rem;
+            max-width: 1100px;
+        }
+        .metric-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .metric-card {
+            position: relative;
+            border-radius: 18px;
+            padding: 1.4rem;
+            color: #0f172a;
+            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(241,245,249,0.95));
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+        }
+        .metric-card::after {
+            content: "";
+            position: absolute;
+            inset: 1px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+        .metric-card .metric-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #475569;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .metric-card .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0.4rem 0;
+        }
+        .metric-card .metric-desc {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin: 0;
+        }
+        .metric-card.indigo {
+            background: linear-gradient(135deg, #2740ff, #4f74ff);
+            color: #f8fafc;
+        }
+        .metric-card.indigo .metric-label,
+        .metric-card.indigo .metric-desc {
+            color: rgba(248, 250, 252, 0.85);
+        }
+        .metric-card.emerald {
+            background: linear-gradient(135deg, #00b894, #4ade80);
+            color: #0f172a;
+        }
+        .metric-card.orange {
+            background: linear-gradient(135deg, #ff8a4c, #ffb347);
+            color: #0f172a;
+        }
+        .metric-card.sky {
+            background: linear-gradient(135deg, #38bdf8, #60a5fa);
+            color: #0f172a;
+        }
+        .insight-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0 0;
+        }
+        .insight-card {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            border-radius: 18px;
+            padding: 1.2rem 1.4rem;
+            background: #ffffff;
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            box-shadow: 0 20px 32px rgba(15, 23, 42, 0.12);
+        }
+        .insight-icon {
+            font-size: 1.8rem;
+        }
+        .insight-title {
+            font-weight: 600;
+            margin: 0;
+            color: #475569;
+        }
+        .insight-value {
+            font-size: 1.35rem;
+            font-weight: 700;
+            margin: 0.2rem 0 0.3rem;
+            color: #0f172a;
+        }
+        .insight-desc {
+            font-size: 0.85rem;
+            margin: 0;
+            color: #64748b;
+        }
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .action-card {
+            border-radius: 16px;
+            padding: 1.2rem 1.3rem;
+            background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(14,165,233,0.08));
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+        }
+        .action-card strong {
+            display: block;
+            font-size: 1.05rem;
+            margin-bottom: 0.4rem;
+            color: #1e293b;
+        }
+        .action-card p {
+            margin: 0;
+            font-size: 0.88rem;
+            color: #475569;
+        }
+        .table-card {
+            border-radius: 18px;
+            padding: 1.2rem 1rem 0.6rem;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(226, 232, 240, 0.7);
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+        }
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 0.6rem;
+            padding: 0.4rem;
+            background: rgba(226, 232, 240, 0.5);
+            border-radius: 999px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            border-radius: 999px;
+            padding: 0.4rem 1.4rem;
+            background: rgba(255,255,255,0.7);
+            border: 1px solid transparent;
+        }
+        .stTabs [aria-selected="true"] {
+            background: rgba(37, 99, 235, 0.14) !important;
+            border-color: rgba(59, 130, 246, 0.4) !important;
+            color: #1d4ed8 !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state["_dashboard_styles_injected"] = True
+
+
+def _format_datetime_label(value: datetime | str | None) -> str:
+    if isinstance(value, datetime):
+        return value.strftime("%Y年%m月%d日")
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value)
+            return parsed.strftime("%Y年%m月%d日")
+        except ValueError:
+            return value
+    return "記録なし"
+
+
+def _format_duration_minutes(total_minutes: int) -> str:
+    hours, minutes = divmod(total_minutes, 60)
+    if hours and minutes:
+        return f"{hours}時間{minutes}分"
+    if hours:
+        return f"{hours}時間"
+    return f"{minutes}分"
+
+
 def dashboard_page(user: Dict) -> None:
+    _inject_dashboard_styles()
+
     st.title("ホームダッシュボード")
     st.caption("学習状況のサマリと機能へのショートカット")
 
@@ -63,14 +250,66 @@ def dashboard_page(user: Dict) -> None:
     total_score = sum(row["total_score"] or 0 for row in attempts)
     total_max = sum(row["total_max_score"] or 0 for row in attempts)
     average_score = round(total_score / total_attempts, 1) if total_attempts else 0
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("演習回数", f"{total_attempts}回")
-    col2.metric("平均得点", f"{average_score}点")
     completion_rate = (total_score / total_max * 100) if total_max else 0
-    col3.metric("得点達成率", f"{completion_rate:.0f}%")
 
     stats = database.aggregate_statistics(user["id"])
+    total_learning_minutes = sum((row["duration_seconds"] or 0) for row in attempts) // 60
+
+    best_case_label = None
+    best_case_rate = 0.0
+    if stats:
+        case_ratios = [
+            (case_label, (values["avg_score"] / values["avg_max"] * 100) if values["avg_max"] else 0)
+            for case_label, values in stats.items()
+        ]
+        if case_ratios:
+            best_case_label, best_case_rate = max(case_ratios, key=lambda item: item[1])
+
+    metric_cards = [
+        {
+            "label": "演習回数",
+            "value": f"{total_attempts}回",
+            "desc": "これまで解いたケースの累計",
+            "class": "indigo",
+        },
+        {
+            "label": "平均得点",
+            "value": f"{average_score}点",
+            "desc": "全演習の平均スコア",
+            "class": "sky",
+        },
+        {
+            "label": "得点達成率",
+            "value": f"{completion_rate:.0f}%",
+            "desc": "満点に対する平均達成度",
+            "class": "emerald",
+        },
+        {
+            "label": "得意な事例",
+            "value": best_case_label or "記録なし",
+            "desc": f"平均達成率 {best_case_rate:.0f}%" if best_case_label else "データが蓄積されると表示されます",
+            "class": "orange",
+        },
+    ]
+
+    st.markdown(
+        """
+        <div class="metric-row">
+        """
+        + "\n".join(
+            f"""
+            <div class="metric-card {card['class']}">
+                <div class="metric-label">{card['label']}</div>
+                <div class="metric-value">{card['value']}</div>
+                <p class="metric-desc">{card['desc']}</p>
+            </div>
+            """
+            for card in metric_cards
+        )
+        + "\n</div>",
+        unsafe_allow_html=True,
+    )
+
     overview_tab, chart_tab = st.tabs(["進捗サマリ", "事例別分析"])
 
     with overview_tab:
@@ -90,12 +329,14 @@ def dashboard_page(user: Dict) -> None:
                     for row in attempts
                 ]
             )
+            st.markdown('<div class="table-card">', unsafe_allow_html=True)
             st.data_editor(
                 summary_df,
                 use_container_width=True,
                 hide_index=True,
                 disabled=True,
             )
+            st.markdown('</div>', unsafe_allow_html=True)
             st.caption("最近の受験結果を表形式で確認できます。列ヘッダーにマウスを合わせるとソートが可能です。")
         else:
             st.info("まだ演習結果がありません。『過去問演習』から学習を開始しましょう。")
@@ -112,24 +353,125 @@ def dashboard_page(user: Dict) -> None:
                     }
                 )
             df = pd.DataFrame(chart_data)
-            st.subheader("事例別平均得点")
-            chart = (
-                alt.Chart(df)
-                .transform_calculate(割合="datum.得点 / datum.満点 * 100")
-                .mark_bar()
-                .encode(x="事例", y="割合:Q", tooltip=["事例", "得点", "満点", "割合"])
+            df["達成率"] = df.apply(
+                lambda row: row["得点"] / row["満点"] * 100 if row["満点"] else 0,
+                axis=1,
             )
-            st.altair_chart(chart, use_container_width=True)
+            st.subheader("事例別平均達成率")
+            color_scale = alt.Scale(
+                range=["#4f46e5", "#2563eb", "#0ea5e9", "#10b981", "#f97316", "#ec4899"],
+            )
+            bar = (
+                alt.Chart(df)
+                .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
+                .encode(
+                    y=alt.Y("事例:N", sort="-x", title=None),
+                    x=alt.X("達成率:Q", scale=alt.Scale(domain=[0, 100]), title="平均達成率 (%)"),
+                    color=alt.Color("事例:N", scale=color_scale, legend=None),
+                    tooltip=["事例", "得点", "満点", alt.Tooltip("達成率:Q", format=".1f")],
+                )
+            )
+            target_line = (
+                alt.Chart(pd.DataFrame({"ベンチマーク": [60]}))
+                .mark_rule(color="#f97316", strokeDash=[6, 4])
+                .encode(x="ベンチマーク:Q")
+            )
+            st.altair_chart(bar + target_line, use_container_width=True)
         else:
             st.info("演習データが蓄積すると事例別の分析が表示されます。")
 
+    latest_attempt = attempts[0] if attempts else None
+    next_focus_card = {
+        "icon": "🎯",
+        "title": "次に集中すべき事例",
+        "value": "最初の演習を始めましょう",
+        "desc": "演習を完了すると優先度が表示されます。",
+    }
+    if stats:
+        focus_case_label = None
+        focus_rate = None
+        for case_label, values in stats.items():
+            if not values["avg_max"]:
+                continue
+            ratio = values["avg_score"] / values["avg_max"] * 100
+            if focus_rate is None or ratio < focus_rate:
+                focus_rate = ratio
+                focus_case_label = case_label
+        if focus_case_label:
+            next_focus_card = {
+                "icon": "🎯",
+                "title": "次に集中すべき事例",
+                "value": focus_case_label,
+                "desc": f"平均達成率 {focus_rate:.0f}%。重点復習で底上げしましょう。",
+            }
+
+    learning_time_card = {
+        "icon": "⏱️",
+        "title": "累計学習時間",
+        "value": _format_duration_minutes(total_learning_minutes),
+        "desc": "記録された演習・模試の回答時間の合計",
+    }
+    if total_learning_minutes == 0:
+        learning_time_card["value"] = "0分"
+        learning_time_card["desc"] = "初回の演習で学習時間を記録しましょう。"
+
+    latest_result_card = {
+        "icon": "📈",
+        "title": "直近の結果",
+        "value": "データなし",
+        "desc": "演習を完了すると最新結果が表示されます。",
+    }
+    if latest_attempt:
+        latest_score = latest_attempt["total_score"] or 0
+        latest_max = latest_attempt["total_max_score"] or 0
+        latest_ratio = (latest_score / latest_max * 100) if latest_max else 0
+        latest_result_card = {
+            "icon": "📈",
+            "title": "直近の結果",
+            "value": f"{latest_score:.0f} / {latest_max:.0f}点 ({latest_ratio:.0f}%)",
+            "desc": f"{_format_datetime_label(latest_attempt['submitted_at'])} 実施",
+        }
+
     st.markdown(
         """
-    ### 次のアクション
-    - **過去問演習**: 年度・事例を指定して記述式回答を練習
-    - **模擬試験**: 本番同様のケースを連続で解き、タイマー付きで実戦感覚を養成
-    - **学習履歴**: これまでの得点推移やエクスポートを確認
-    """
+        <div class="insight-grid">
+        """
+        + "\n".join(
+            f"""
+            <div class="insight-card">
+                <div class="insight-icon">{card['icon']}</div>
+                <div>
+                    <p class="insight-title">{card['title']}</p>
+                    <p class="insight-value">{card['value']}</p>
+                    <p class="insight-desc">{card['desc']}</p>
+                </div>
+            </div>
+            """
+            for card in [next_focus_card, learning_time_card, latest_result_card]
+        )
+        + "\n</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
+        ### 次のアクション
+        <div class="action-grid">
+            <div class="action-card">
+                <strong>過去問演習</strong>
+                <p>年度・事例を指定して弱点補強の演習を行いましょう。</p>
+            </div>
+            <div class="action-card">
+                <strong>模擬試験</strong>
+                <p>タイマー付きの本番形式で得点力とタイムマネジメントを鍛えます。</p>
+            </div>
+            <div class="action-card">
+                <strong>学習履歴</strong>
+                <p>得点推移を可視化し、改善の兆しや課題を振り返りましょう。</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
 
