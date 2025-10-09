@@ -7,6 +7,8 @@ import logging
 
 import html
 
+import random
+
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -28,6 +30,7 @@ def _init_session_state() -> None:
     st.session_state.setdefault("practice_started", None)
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
+    st.session_state.setdefault("flashcard_states", {})
 
 
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
@@ -723,6 +726,91 @@ def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> 
     return text
 
 
+def _reset_flashcard_state(problem_id: int, size: int) -> Dict[str, Any]:
+    order = list(range(size))
+    random.shuffle(order)
+    state = {"order": order, "index": 0, "revealed": False, "size": size}
+    st.session_state.flashcard_states[str(problem_id)] = state
+    return state
+
+
+def _get_flashcard_state(problem_id: int, size: int) -> Dict[str, Any]:
+    key = str(problem_id)
+    state = st.session_state.flashcard_states.get(key)
+    if not state or state.get("size") != size:
+        state = _reset_flashcard_state(problem_id, size)
+    return state
+
+
+def _render_retrieval_flashcards(problem: Dict) -> None:
+    flashcards: List[Dict[str, Any]] = []
+    for index, question in enumerate(problem.get("questions", [])):
+        keywords = [kw for kw in question.get("keywords", []) if kw]
+        if not keywords:
+            continue
+        flashcards.append(
+            {
+                "title": f"設問{index + 1}: キーワード想起クイズ",
+                "prompt": question.get("prompt", ""),
+                "keywords": keywords,
+            }
+        )
+
+    if not flashcards:
+        st.info("この問題ではキーワードが登録されていないため、フラッシュカードを生成できません。")
+        return
+
+    st.subheader("リトリーバル・プラクティス")
+    st.caption(
+        "回答作成の前に、設問の重要キーワードを記憶から呼び起こしましょう。"
+        " 思い出しの練習（retrieval practice）は再読よりも記憶定着を高めるとされています。"
+    )
+
+    state = _get_flashcard_state(problem["id"], len(flashcards))
+
+    card_placeholder = st.container()
+    button_placeholder = st.container()
+
+    with button_placeholder:
+        col_reveal, col_next, col_shuffle = st.columns(3)
+        reveal_clicked = col_reveal.button("キーワードを表示", key=f"flashcard_reveal_{problem['id']}")
+        next_clicked = col_next.button("次のカードへ", key=f"flashcard_next_{problem['id']}")
+        shuffle_clicked = col_shuffle.button("カードを再シャッフル", key=f"flashcard_shuffle_{problem['id']}")
+
+    if shuffle_clicked:
+        state = _reset_flashcard_state(problem["id"], len(flashcards))
+    else:
+        if next_clicked:
+            state["index"] = (state["index"] + 1) % len(state["order"])
+            state["revealed"] = False
+        if reveal_clicked:
+            state["revealed"] = True
+
+    st.session_state.flashcard_states[str(problem["id"])] = state
+
+    order = state["order"]
+    current_position = state["index"]
+    card = flashcards[order[current_position]]
+
+    with card_placeholder:
+        st.markdown(f"**カード {current_position + 1} / {len(flashcards)}**")
+        st.write(card["title"])
+        card_html = f"""
+        <div style='padding:0.75rem 1rem;border:1px solid #CBD5E1;border-radius:0.75rem;background-color:#F8FAFC;'>
+            <p style='margin:0;color:#1E293B;font-weight:600;'>設問の概要</p>
+            <p style='margin:0.35rem 0 0;color:#334155;'>{card['prompt']}</p>
+            <p style='margin:0.75rem 0 0;color:#64748B;'>キーワードを声に出すか、メモに書き出してみてください。</p>
+        </div>
+        """
+        st.markdown(card_html, unsafe_allow_html=True)
+        if state["revealed"]:
+            st.success("\n".join(f"・{keyword}" for keyword in card["keywords"]))
+        else:
+            st.info("キーワードを思い出したら、上のボタンから答え合わせをしましょう。")
+
+
+
+
 def _compute_learning_stats(history_df: pd.DataFrame) -> Dict[str, Any]:
     stats: Dict[str, Any] = {"total_sessions": int(len(history_df))}
     if history_df.empty:
@@ -948,6 +1036,8 @@ def practice_page(user: Dict) -> None:
         },
     )
     st.caption("採点の観点を事前に確認してから回答に取り組みましょう。")
+
+    _render_retrieval_flashcards(problem)
 
     if not st.session_state.practice_started:
         st.session_state.practice_started = datetime.utcnow()
