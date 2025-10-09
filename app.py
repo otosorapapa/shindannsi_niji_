@@ -120,6 +120,35 @@ KEYWORD_RESOURCE_MAP = {
 }
 
 
+PHRASE_TEMPLATES = [
+    {
+        "label": "課題認識 → 結論",
+        "text": "現状の課題は○○であり、主因は○○である。したがって、○○を実施する。",
+    },
+    {
+        "label": "原因分析",
+        "text": "原因は外部環境の○○と内部資源の○○が相乗し、○○を招いた点にある。",
+    },
+    {
+        "label": "施策提示 (2 つ並列)",
+        "text": "第一に○○を実施し、○○を強化する。第二に○○を整備し、○○を実現する。",
+    },
+    {
+        "label": "効果・期待成果",
+        "text": "これにより○○が向上し、○○な体制を構築できる。結果として○○が期待できる。",
+    },
+]
+
+
+VOCABULARY_VARIATIONS = {
+    "課題": ["問題点", "阻害要因", "ボトルネック"],
+    "強化": ["高度化", "底上げ", "磨き上げ"],
+    "連携": ["協働", "協業", "共創"],
+    "改善": ["是正", "刷新", "改良"],
+    "効果": ["成果", "波及効果", "付加価値"],
+}
+
+
 def _init_session_state() -> None:
     if "user" not in st.session_state:
         guest = database.get_or_create_guest_user()
@@ -1326,6 +1355,90 @@ def _render_character_counter(current_length: int, limit: Optional[int]) -> None
         st.warning("文字数が上限を超えています。")
 
 
+def _insert_template_text(text_area_key: str, draft_key: str, addition: str) -> None:
+    current = st.session_state.get(text_area_key, "")
+    if current and not current.endswith("\n"):
+        current += "\n"
+    new_text = current + addition
+    st.session_state[text_area_key] = new_text
+    st.session_state.drafts[draft_key] = new_text
+
+
+def _generate_vocabulary_advice(text: str, question: Dict[str, Any]) -> Dict[str, List[str]]:
+    cleaned = text.replace("、", " ").replace("。", " ")
+    tokens = [token for token in cleaned.split() if token]
+    frequency: Dict[str, int] = defaultdict(int)
+    for token in tokens:
+        frequency[token] += 1
+
+    repetitive_words = [word for word, count in frequency.items() if count >= 3 and len(word) > 1]
+    missing_keywords = [kw for kw in question.get("keywords", []) if kw and kw not in text]
+
+    variation_suggestions: List[str] = []
+    for word in repetitive_words:
+        candidates = VOCABULARY_VARIATIONS.get(word)
+        if candidates:
+            variation_suggestions.append(f"『{word}』→ {', '.join(candidates)}")
+
+    return {
+        "repetitive": repetitive_words,
+        "missing_keywords": missing_keywords,
+        "variations": variation_suggestions,
+    }
+
+
+def _render_answer_support_tools(
+    question: Dict[str, Any],
+    text: str,
+    text_area_key: str,
+    draft_key: str,
+) -> None:
+    with st.expander("回答入力支援ツール", expanded=False):
+        char_limit = question.get("character_limit")
+        char_count = len(text)
+        word_count = len([token for token in text.split() if token])
+        metrics_col1, metrics_col2 = st.columns(2)
+        metrics_col1.metric("現在の文字数", f"{char_count}字")
+        if char_limit:
+            metrics_col2.metric("残り文字数", f"{max(char_limit - char_count, 0)}字")
+        else:
+            metrics_col2.metric("推定語数", f"{word_count}語")
+
+        st.markdown("**定型文リスト**")
+        template_cols = st.columns(2)
+        for index, template in enumerate(PHRASE_TEMPLATES):
+            col = template_cols[index % 2]
+            col.button(
+                template["label"],
+                key=f"template::{draft_key}::{index}",
+                help="クリックすると入力欄の末尾に挿入されます。",
+                on_click=_insert_template_text,
+                args=(text_area_key, draft_key, template["text"]),
+            )
+
+        advice = _generate_vocabulary_advice(text, question)
+        st.markdown("**語彙アドバイス**")
+        if advice["missing_keywords"]:
+            st.caption(
+                "未登場キーワード: "
+                + ", ".join(advice["missing_keywords"])
+                + "（設問の重要語を盛り込めるか確認しましょう）"
+            )
+        else:
+            st.caption("設問キーワードはおおむね盛り込まれています。")
+
+        if advice["variations"]:
+            st.caption("言い換え候補: " + " / ".join(advice["variations"]))
+        elif advice["repetitive"]:
+            st.caption(
+                "同じ語の繰り返しが目立ちます: "
+                + ", ".join(advice["repetitive"])
+                + "（言い換えを検討しましょう）"
+            )
+        else:
+            st.caption("語彙バランスは良好です。")
+
+
 def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> str:
     key = _draft_key(problem_id, question["id"])
     if key not in st.session_state.drafts:
@@ -1342,6 +1455,7 @@ def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> 
         disabled=disabled,
     )
     _render_character_counter(len(text), question.get("character_limit"))
+    _render_answer_support_tools(question, text, f"textarea_{key}", key)
     st.caption("入力内容は自動的に保存され、ページ離脱後も保持されます。必要に応じて下書きを明示的に保存してください。")
     st.session_state.drafts[key] = text
     status_placeholder = st.empty()
