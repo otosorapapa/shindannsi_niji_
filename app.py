@@ -126,6 +126,10 @@ def _init_session_state() -> None:
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
     st.session_state.setdefault("flashcard_states", {})
+    st.session_state.setdefault("tutorial_preferences", {"retrieval_practice": True})
+    if "retrieval_practice" not in st.session_state.tutorial_preferences:
+        st.session_state.tutorial_preferences["retrieval_practice"] = True
+    st.session_state.setdefault("_retrieval_tutorial_shown", False)
 
 
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
@@ -933,6 +937,19 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
         st.info("この問題ではキーワードが登録されていないため、フラッシュカードを生成できません。")
         return
 
+    tutorial_prefs = st.session_state.get("tutorial_preferences", {})
+    tutorial_enabled = tutorial_prefs.get("retrieval_practice", True)
+    if tutorial_enabled and not st.session_state.get("_retrieval_tutorial_shown"):
+        tutorial_message = (
+            "リトリーバル・プラクティスは回答作成前に重要キーワードを記憶から呼び起こす練習です。"
+            " ボタンをクリックしてキーワードを表示し、必要ならカードをシャッフルしてください。"
+        )
+        if hasattr(st, "toast"):
+            st.toast(tutorial_message, icon="💡")
+        else:
+            st.info(tutorial_message)
+        st.session_state["_retrieval_tutorial_shown"] = True
+
     st.subheader("リトリーバル・プラクティス")
     st.caption(
         "回答作成の前に、設問の重要キーワードを記憶から呼び起こしましょう。"
@@ -946,9 +963,21 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
 
     with button_placeholder:
         col_reveal, col_next, col_shuffle = st.columns(3)
-        reveal_clicked = col_reveal.button("キーワードを表示", key=f"flashcard_reveal_{problem['id']}")
-        next_clicked = col_next.button("次のカードへ", key=f"flashcard_next_{problem['id']}")
-        shuffle_clicked = col_shuffle.button("カードを再シャッフル", key=f"flashcard_shuffle_{problem['id']}")
+        reveal_clicked = col_reveal.button(
+            "キーワードを表示",
+            key=f"flashcard_reveal_{problem['id']}",
+            help="キーワードを思い出した後にクリックすると正解を確認できます。",
+        )
+        next_clicked = col_next.button(
+            "次のカードへ",
+            key=f"flashcard_next_{problem['id']}",
+            help="別の設問のキーワードに移りたいときに押してください。",
+        )
+        shuffle_clicked = col_shuffle.button(
+            "カードを再シャッフル",
+            key=f"flashcard_shuffle_{problem['id']}",
+            help="順番を入れ替えてランダムに思い出し練習ができます。",
+        )
 
     if shuffle_clicked:
         state = _reset_flashcard_state(problem["id"], len(flashcards))
@@ -2294,6 +2323,18 @@ def settings_page(user: Dict) -> None:
         f"**メールアドレス:** {user['email']}\n"
         f"**契約プラン:** {user['plan']}"
     )
+
+    st.subheader("学習サポート設定")
+    current_pref = st.session_state.tutorial_preferences.get("retrieval_practice", True)
+    tutorial_checkbox = st.checkbox(
+        "キーワード想起クイズのチュートリアルを表示する",
+        value=current_pref,
+        help="初回表示時にリトリーバル・プラクティスの使い方をポップアップで案内します。",
+    )
+    if tutorial_checkbox != current_pref and tutorial_checkbox:
+        st.session_state["_retrieval_tutorial_shown"] = False
+    st.session_state.tutorial_preferences["retrieval_practice"] = tutorial_checkbox
+    st.caption("説明を省略したい場合はチェックを外すと、以後チュートリアルは表示されません。")
 
     st.subheader("データ管理")
     uploaded_file = st.file_uploader(
