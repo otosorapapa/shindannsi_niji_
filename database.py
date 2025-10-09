@@ -561,9 +561,15 @@ def aggregate_statistics(user_id: int) -> Dict[str, Dict[str, float]]:
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT p.case_label, AVG(a.total_score) AS avg_score, AVG(a.total_max_score) AS avg_max
+        SELECT
+            p.case_label,
+            AVG(a.total_score) AS avg_score,
+            AVG(a.total_max_score) AS avg_max,
+            COUNT(DISTINCT a.id) AS attempt_count,
+            COUNT(aa.id) AS answer_count
         FROM attempts a
         JOIN problems p ON p.id = a.problem_id
+        LEFT JOIN attempt_answers aa ON aa.attempt_id = a.id
         WHERE a.user_id = ? AND a.total_score IS NOT NULL
         GROUP BY p.case_label
         """,
@@ -577,8 +583,44 @@ def aggregate_statistics(user_id: int) -> Dict[str, Dict[str, float]]:
         stats[row["case_label"]] = {
             "avg_score": row["avg_score"] or 0,
             "avg_max": row["avg_max"] or 0,
+            "attempt_count": row["attempt_count"] or 0,
+            "answer_count": row["answer_count"] or 0,
         }
     return stats
+
+
+def aggregate_activity_timeline(user_id: int) -> List[Dict[str, object]]:
+    """Return day-level counts for attempts and recorded answers."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            DATE(a.submitted_at) AS activity_date,
+            COUNT(DISTINCT a.id) AS attempt_count,
+            COUNT(aa.id) AS answer_count
+        FROM attempts a
+        LEFT JOIN attempt_answers aa ON aa.attempt_id = a.id
+        WHERE a.user_id = ? AND a.submitted_at IS NOT NULL
+        GROUP BY DATE(a.submitted_at)
+        ORDER BY activity_date
+        """,
+        (user_id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    timeline: List[Dict[str, object]] = []
+    for row in rows:
+        timeline.append(
+            {
+                "date": row["activity_date"],
+                "attempt_count": row["attempt_count"] or 0,
+                "answer_count": row["answer_count"] or 0,
+            }
+        )
+    return timeline
 
 
 def _default_seed_payload() -> Dict:
