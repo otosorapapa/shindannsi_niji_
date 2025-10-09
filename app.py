@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date as dt_date, datetime, time as dt_time, timedelta
+from datetime import date as dt_date, datetime, time as dt_time, timedelta, timezone
 from textwrap import dedent
 from typing import Any, Dict, List, Optional
 import logging
@@ -348,6 +348,42 @@ def _inject_dashboard_styles() -> None:
                 margin: 0;
                 color: #64748b;
             }
+            .celebration-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                gap: 1rem;
+                margin: 1.5rem 0 1rem;
+            }
+            .celebration-card {
+                border-radius: 20px;
+                padding: 1.2rem 1.3rem;
+                background: linear-gradient(135deg, rgba(249, 250, 255, 0.9), rgba(219, 234, 254, 0.9));
+                border: 1px solid rgba(191, 219, 254, 0.8);
+                box-shadow: 0 18px 26px rgba(37, 99, 235, 0.12);
+                display: flex;
+                gap: 0.9rem;
+                align-items: flex-start;
+            }
+            .celebration-card .celebration-icon {
+                font-size: 1.9rem;
+                line-height: 1;
+            }
+            .celebration-card h4 {
+                font-size: 1rem;
+                margin: 0;
+                color: #1d4ed8;
+            }
+            .celebration-card p {
+                margin: 0.2rem 0 0;
+                font-size: 0.88rem;
+                color: #1e293b;
+            }
+            .celebration-card .celebration-value {
+                font-size: 1.45rem;
+                font-weight: 700;
+                margin-top: 0.25rem;
+                color: #0f172a;
+            }
             .action-grid {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -425,6 +461,17 @@ def _format_duration_minutes(total_minutes: int) -> str:
     return f"{minutes}分"
 
 
+def _parse_datetime(value: datetime | str | None) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
+
+
 def dashboard_page(user: Dict) -> None:
     _inject_dashboard_styles()
 
@@ -472,6 +519,41 @@ def dashboard_page(user: Dict) -> None:
 
     stats = database.aggregate_statistics(user["id"])
     total_learning_minutes = sum((row["duration_seconds"] or 0) for row in attempts) // 60
+
+    latest_attempt = attempts[0] if attempts else None
+    previous_attempt = attempts[1] if len(attempts) > 1 else None
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    week_start = now - timedelta(days=7)
+    weekly_minutes_total = 0.0
+    for row in attempts:
+        submitted_dt = _parse_datetime(row.get("submitted_at"))
+        if not submitted_dt or submitted_dt < week_start:
+            continue
+        duration_seconds = row.get("duration_seconds") or 0
+        weekly_minutes_total += duration_seconds / 60.0
+    weekly_minutes = int(round(weekly_minutes_total))
+
+    def _score_ratio(row: Dict[str, Any] | None) -> Optional[float]:
+        if not row:
+            return None
+        total_score = row.get("total_score")
+        total_max = row.get("total_max_score")
+        if total_score is None or total_max in (None, 0):
+            return None
+        return float(total_score) / float(total_max)
+
+    latest_ratio = _score_ratio(latest_attempt)
+    previous_ratio = _score_ratio(previous_attempt)
+    improvement_rate = None
+    if latest_ratio is not None and previous_ratio is not None:
+        improvement_rate = (latest_ratio - previous_ratio) * 100
+
+    peer_benchmarks = database.compute_peer_benchmarks(user["id"])
+    peer_weekly_minutes = (
+        int(round(peer_benchmarks["weekly_minutes"])) if peer_benchmarks.get("weekly_minutes") else None
+    )
+    peer_score_ratio = peer_benchmarks.get("average_score_ratio")
 
     best_case_label = None
     best_case_rate = 0.0
@@ -532,6 +614,140 @@ def dashboard_page(user: Dict) -> None:
         ).strip(),
         unsafe_allow_html=True,
     )
+
+    weekly_value_text = "0分"
+    if weekly_minutes > 0:
+        weekly_value_text = _format_duration_minutes(weekly_minutes)
+    if weekly_minutes >= 300:
+        weekly_desc = "今週もたっぷり学習できています。この調子で進めましょう。"
+    elif weekly_minutes >= 120:
+        weekly_desc = "しっかり積み重ねています。継続が成果につながっています。"
+    elif weekly_minutes > 0:
+        weekly_desc = "短時間でも継続が力になります。こまめな復習を続けましょう。"
+    else:
+        weekly_desc = "今週の演習を始めると学習時間がここに表示されます。"
+
+    if improvement_rate is None:
+        improvement_value_text = "データ不足"
+        improvement_desc = "演習を重ねると前回比の伸びが確認できます。"
+    else:
+        improvement_value_text = f"{improvement_rate:+.1f}%"
+        if improvement_rate > 0.5:
+            improvement_desc = "前回よりスコアアップ！達成感を味わいましょう。"
+        elif improvement_rate >= -0.5:
+            improvement_desc = "安定した得点を維持しています。次のチャレンジも期待できます。"
+        else:
+            improvement_desc = "伸びしろが見つかりました。復習でさらにレベルアップできます。"
+
+    peer_value_parts = []
+    peer_desc = "匿名化した他の学習者の平均値です。自分の立ち位置を確認しましょう。"
+    if peer_weekly_minutes is not None:
+        peer_value_parts.append(_format_duration_minutes(peer_weekly_minutes))
+        diff_minutes = weekly_minutes - peer_weekly_minutes
+        if diff_minutes > 0:
+            peer_desc += f" 平均より{_format_duration_minutes(diff_minutes)}多く学習できています！"
+        elif diff_minutes < 0:
+            peer_desc += f" 平均まであと{_format_duration_minutes(abs(diff_minutes))}です。無理なく積み重ねましょう。"
+        else:
+            peer_desc += " 平均と同じペースで取り組めています。"
+    if peer_score_ratio is not None:
+        peer_value_parts.append(f"達成率 {peer_score_ratio * 100:.1f}%")
+    peer_value_text = " / ".join(peer_value_parts) if peer_value_parts else "データ不足"
+
+    celebration_cards = [
+        {
+            "icon": "⏰",
+            "title": "今週の学習時間",
+            "value": weekly_value_text,
+            "desc": weekly_desc,
+        },
+        {
+            "icon": "🚀",
+            "title": "前回からの得点向上率",
+            "value": improvement_value_text,
+            "desc": improvement_desc,
+        },
+        {
+            "icon": "🤝",
+            "title": "学習コミュニティ平均",
+            "value": peer_value_text,
+            "desc": peer_desc,
+        },
+    ]
+
+    celebration_html = "\n".join(
+        dedent(
+            f"""
+            <div class=\"celebration-card\">
+                <div class=\"celebration-icon\">{card['icon']}</div>
+                <div>
+                    <h4>{card['title']}</h4>
+                    <div class=\"celebration-value\">{card['value']}</div>
+                    <p>{card['desc']}</p>
+                </div>
+            </div>
+            """
+        ).strip()
+        for card in celebration_cards
+    )
+
+    st.markdown("### 学習ハイライト")
+    st.caption("今週の成果とポジティブなフィードバックを振り返りましょう。")
+    st.markdown(
+        dedent(
+            f"""
+            <div class=\"celebration-grid\">
+            {celebration_html}
+            </div>
+            """
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+
+    comparison_rows: List[Dict[str, object]] = []
+    if peer_weekly_minutes is not None:
+        comparison_rows.extend(
+            [
+                {"指標": "今週の学習時間 (分)", "カテゴリ": "あなた", "値": weekly_minutes},
+                {
+                    "指標": "今週の学習時間 (分)",
+                    "カテゴリ": "他の学習者平均",
+                    "値": peer_weekly_minutes,
+                },
+            ]
+        )
+    if peer_score_ratio is not None:
+        comparison_rows.extend(
+            [
+                {"指標": "平均達成率 (%)", "カテゴリ": "あなた", "値": completion_rate},
+                {
+                    "指標": "平均達成率 (%)",
+                    "カテゴリ": "他の学習者平均",
+                    "値": peer_score_ratio * 100,
+                },
+            ]
+        )
+
+    if comparison_rows:
+        comparison_df = pd.DataFrame(comparison_rows)
+        comparison_chart = (
+            alt.Chart(comparison_df)
+            .mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6)
+            .encode(
+                x=alt.X("カテゴリ:N", title=None),
+                y=alt.Y("値:Q", title=None),
+                color=alt.Color(
+                    "カテゴリ:N",
+                    scale=alt.Scale(range=["#2563eb", "#94a3b8"]),
+                    legend=alt.Legend(title=None),
+                ),
+                column=alt.Column("指標:N", title=None),
+                tooltip=["指標", "カテゴリ", alt.Tooltip("値:Q", format=".1f")],
+            )
+            .properties(height=240)
+            .resolve_scale(y="independent")
+        )
+        st.altair_chart(comparison_chart, use_container_width=True)
 
     upcoming_reviews = database.list_upcoming_reviews(user_id=user["id"], limit=6)
     due_review_count = database.count_due_reviews(user_id=user["id"])
@@ -635,7 +851,6 @@ def dashboard_page(user: Dict) -> None:
         else:
             st.info("演習データが蓄積すると事例別の分析が表示されます。")
 
-    latest_attempt = attempts[0] if attempts else None
     next_focus_card = {
         "icon": "🎯",
         "title": "次に集中すべき事例",
@@ -679,11 +894,11 @@ def dashboard_page(user: Dict) -> None:
     if latest_attempt:
         latest_score = latest_attempt["total_score"] or 0
         latest_max = latest_attempt["total_max_score"] or 0
-        latest_ratio = (latest_score / latest_max * 100) if latest_max else 0
+        latest_ratio_percent = (latest_score / latest_max * 100) if latest_max else 0
         latest_result_card = {
             "icon": "📈",
             "title": "直近の結果",
-            "value": f"{latest_score:.0f} / {latest_max:.0f}点 ({latest_ratio:.0f}%)",
+            "value": f"{latest_score:.0f} / {latest_max:.0f}点 ({latest_ratio_percent:.0f}%)",
             "desc": f"{_format_datetime_label(latest_attempt['submitted_at'])} 実施",
         }
 

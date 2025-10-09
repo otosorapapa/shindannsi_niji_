@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
@@ -558,6 +558,66 @@ def count_due_reviews(user_id: int, *, reference: Optional[datetime] = None) -> 
     count = cur.fetchone()[0]
     conn.close()
     return int(count or 0)
+
+
+def compute_peer_benchmarks(
+    exclude_user_id: int,
+    *,
+    window_days: int = 7,
+) -> Dict[str, Optional[float]]:
+    """Return anonymised benchmark metrics aggregated from other learners."""
+
+    reference_dt = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=window_days)
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        WITH recent AS (
+            SELECT
+                user_id,
+                COALESCE(SUM(duration_seconds), 0) AS total_seconds
+            FROM attempts
+            WHERE submitted_at IS NOT NULL
+              AND duration_seconds IS NOT NULL
+              AND submitted_at >= ?
+              AND user_id != ?
+            GROUP BY user_id
+        )
+        SELECT AVG(total_seconds) AS avg_seconds FROM recent
+        """,
+        (reference_dt.isoformat(), exclude_user_id),
+    )
+    row = cur.fetchone()
+    avg_weekly_seconds = row["avg_seconds"] if row and row["avg_seconds"] is not None else None
+
+    cur.execute(
+        """
+        SELECT AVG(score_ratio) AS avg_score_ratio
+        FROM (
+            SELECT
+                CASE
+                    WHEN total_max_score IS NOT NULL AND total_max_score > 0
+                    THEN total_score / total_max_score
+                    ELSE NULL
+                END AS score_ratio
+            FROM attempts
+            WHERE submitted_at IS NOT NULL AND user_id != ?
+        )
+        WHERE score_ratio IS NOT NULL
+        """,
+        (exclude_user_id,),
+    )
+    row = cur.fetchone()
+    avg_score_ratio = row["avg_score_ratio"] if row and row["avg_score_ratio"] is not None else None
+
+    conn.close()
+
+    return {
+        "weekly_minutes": (avg_weekly_seconds / 60.0) if avg_weekly_seconds is not None else None,
+        "average_score_ratio": avg_score_ratio,
+    }
 
 
 def get_spaced_review(user_id: int, problem_id: int) -> Optional[Dict]:
