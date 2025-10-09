@@ -62,7 +62,10 @@ def initialize_database() -> None:
             max_score REAL NOT NULL,
             model_answer TEXT NOT NULL,
             explanation TEXT NOT NULL,
-            keywords_json TEXT NOT NULL
+            keywords_json TEXT NOT NULL,
+            video_url TEXT,
+            diagram_path TEXT,
+            diagram_caption TEXT
         );
 
         CREATE TABLE IF NOT EXISTS attempts (
@@ -120,6 +123,8 @@ def initialize_database() -> None:
     else:
         seed_payload = json.loads(SEED_PATH.read_text(encoding="utf-8"))
 
+    _ensure_question_multimedia_columns(conn)
+
     _seed_problems(conn, seed_payload)
 
     conn.close()
@@ -133,41 +138,93 @@ def _seed_problems(conn: sqlite3.Connection, payload: Dict) -> None:
             "SELECT id FROM problems WHERE year = ? AND case_label = ?",
             (problem["year"], problem["case"]),
         )
-        if cursor.fetchone():
-            continue
-
-        cursor.execute(
-            "INSERT INTO problems (year, case_label, title, overview) VALUES (?, ?, ?, ?)",
-            (
-                problem["year"],
-                problem["case"],
-                problem["title"],
-                problem["overview"],
-            ),
-        )
-        problem_id = cursor.lastrowid
+        row = cursor.fetchone()
+        if row:
+            problem_id = row["id"]
+            cursor.execute(
+                "UPDATE problems SET title = ?, overview = ? WHERE id = ?",
+                (problem["title"], problem["overview"], problem_id),
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO problems (year, case_label, title, overview) VALUES (?, ?, ?, ?)",
+                (
+                    problem["year"],
+                    problem["case"],
+                    problem["title"],
+                    problem["overview"],
+                ),
+            )
+            problem_id = cursor.lastrowid
 
         for order, question in enumerate(problem.get("questions", []), start=1):
             cursor.execute(
-                """
-                INSERT INTO questions (
-                    problem_id, question_order, prompt, character_limit, max_score,
-                    model_answer, explanation, keywords_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    problem_id,
-                    order,
-                    question["prompt"],
-                    question.get("character_limit"),
-                    question["max_score"],
-                    question["model_answer"],
-                    question["explanation"],
-                    json.dumps(question.get("keywords", []), ensure_ascii=False),
-                ),
+                "SELECT id FROM questions WHERE problem_id = ? AND question_order = ?",
+                (problem_id, order),
+            )
+            existing_question = cursor.fetchone()
+            payload_values = (
+                question["prompt"],
+                question.get("character_limit"),
+                question["max_score"],
+                question["model_answer"],
+                question["explanation"],
+                json.dumps(question.get("keywords", []), ensure_ascii=False),
+                question.get("video_url"),
+                question.get("diagram_path"),
+                question.get("diagram_caption"),
             )
 
+            if existing_question:
+                cursor.execute(
+                    """
+                    UPDATE questions
+                    SET prompt = ?, character_limit = ?, max_score = ?, model_answer = ?,
+                        explanation = ?, keywords_json = ?, video_url = ?, diagram_path = ?,
+                        diagram_caption = ?
+                    WHERE id = ?
+                    """,
+                    (*payload_values, existing_question["id"]),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO questions (
+                        problem_id, question_order, prompt, character_limit, max_score,
+                        model_answer, explanation, keywords_json, video_url, diagram_path,
+                        diagram_caption
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        problem_id,
+                        order,
+                        *payload_values,
+                    ),
+                )
+
     conn.commit()
+
+
+def _ensure_question_multimedia_columns(conn: sqlite3.Connection) -> None:
+    """Add multimedia-related columns to the questions table when missing."""
+
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(questions)")
+    columns = {row[1] for row in cursor.fetchall()}
+
+    alterations = []
+    if "video_url" not in columns:
+        alterations.append("ALTER TABLE questions ADD COLUMN video_url TEXT")
+    if "diagram_path" not in columns:
+        alterations.append("ALTER TABLE questions ADD COLUMN diagram_path TEXT")
+    if "diagram_caption" not in columns:
+        alterations.append("ALTER TABLE questions ADD COLUMN diagram_caption TEXT")
+
+    for statement in alterations:
+        cursor.execute(statement)
+
+    if alterations:
+        conn.commit()
 
 
 def create_user(email: str, name: str, password_hash: Optional[str]) -> int:
@@ -277,6 +334,9 @@ def fetch_problem(problem_id: int) -> Optional[Dict]:
                 "explanation": question["explanation"],
                 "keywords": json.loads(question["keywords_json"]),
                 "order": question["question_order"],
+                "video_url": question["video_url"],
+                "diagram_path": question["diagram_path"],
+                "diagram_caption": question["diagram_caption"],
             }
         )
 
@@ -807,7 +867,8 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
 
     cur.execute(
         """
-        SELECT aa.*, q.prompt, q.max_score, q.model_answer, q.explanation, q.keywords_json
+        SELECT aa.*, q.prompt, q.max_score, q.model_answer, q.explanation,
+               q.keywords_json, q.video_url, q.diagram_path, q.diagram_caption
         FROM attempt_answers aa
         JOIN questions q ON q.id = aa.question_id
         WHERE aa.attempt_id = ?
@@ -830,6 +891,9 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
                 "model_answer": row["model_answer"],
                 "explanation": row["explanation"],
                 "keyword_hits": json.loads(row["keyword_hits_json"]) if row["keyword_hits_json"] else {},
+                "video_url": row["video_url"],
+                "diagram_path": row["diagram_path"],
+                "diagram_caption": row["diagram_caption"],
             }
         )
 
@@ -895,6 +959,9 @@ def _default_seed_payload() -> Dict:
                             "高付加価値",
                             "企画開発",
                         ],
+                        "video_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+                        "diagram_path": "data/diagrams/case1_q1.svg",
+                        "diagram_caption": "A社の強みを構造的に整理した関係図。",
                     },
                     {
                         "prompt": "第2問(30点) A社が抱える人材面の課題と改善策を120字以内で述べよ。",
@@ -914,6 +981,9 @@ def _default_seed_payload() -> Dict:
                             "評価制度",
                             "モチベーション",
                         ],
+                        "video_url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+                        "diagram_path": "data/diagrams/case1_q2.svg",
+                        "diagram_caption": "技能伝承と評価制度を連動させた改善施策のロードマップ。",
                     },
                 ],
             },
@@ -943,6 +1013,9 @@ def _default_seed_payload() -> Dict:
                             "生活支援",
                             "安心",
                         ],
+                        "video_url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+                        "diagram_path": "data/diagrams/case2_q1.svg",
+                        "diagram_caption": "主要顧客ペルソナと提供価値の対応関係を示すマップ。",
                     },
                     {
                         "prompt": "第2問(25点) B社が実施すべき販促施策を80字以内で述べよ。",
@@ -961,6 +1034,9 @@ def _default_seed_payload() -> Dict:
                             "紹介",
                             "継続利用",
                         ],
+                        "video_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+                        "diagram_path": "data/diagrams/case2_q2.svg",
+                        "diagram_caption": "連携施策から口コミ創出までの導線を図解したカスタマージャーニー。",
                     },
                 ],
             },
@@ -989,6 +1065,9 @@ def _default_seed_payload() -> Dict:
                             "設備投資",
                             "改善",
                         ],
+                        "video_url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+                        "diagram_path": "data/diagrams/case4_q1.svg",
+                        "diagram_caption": "ROAと固定資産回転率の推移を比較したダッシュボードイメージ。",
                     },
                     {
                         "prompt": "第2問(25点) 投資判断の指標としてNPVを用いる理由を60字以内で述べよ。",
@@ -1007,6 +1086,9 @@ def _default_seed_payload() -> Dict:
                             "資本コスト",
                             "投資判断",
                         ],
+                        "video_url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+                        "diagram_path": "data/diagrams/case4_q2.svg",
+                        "diagram_caption": "NPV計算のステップを示す意思決定フロー。",
                     },
                 ],
             },

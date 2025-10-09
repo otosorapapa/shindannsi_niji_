@@ -17,7 +17,10 @@
             "信頼関係",
             "高付加価値",
             "企画開発"
-          ]
+          ],
+          "video_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+          "diagram_path": "data/diagrams/case1_q1.svg",
+          "diagram_caption": "A社の強みを構造的に整理した関係図。"
         },
         {
           "prompt": "第2問(30点) A社が抱える人材面の課題と改善策を120字以内で述べよ。",
@@ -31,7 +34,10 @@
             "技能伝承",
             "評価制度",
             "モチベーション"
-          ]
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+          "diagram_path": "data/diagrams/case1_q2.svg",
+          "diagram_caption": "技能伝承と評価制度を連動させた改善施策のロードマップ。"
         }
       ]
     },
@@ -53,7 +59,10 @@
             "見守り",
             "生活支援",
             "安心"
-          ]
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+          "diagram_path": "data/diagrams/case2_q1.svg",
+          "diagram_caption": "主要顧客ペルソナと提供価値の対応関係を示すマップ。"
         },
         {
           "prompt": "第2問(25点) B社が実施すべき販促施策を80字以内で述べよ。",
@@ -66,7 +75,10 @@
             "口コミ",
             "紹介",
             "継続利用"
-          ]
+          ],
+          "video_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+          "diagram_path": "data/diagrams/case2_q2.svg",
+          "diagram_caption": "連携施策から口コミ創出までの導線を図解したカスタマージャーニー。"
         }
       ]
     },
@@ -87,7 +99,10 @@
             "固定資産回転率",
             "設備投資",
             "改善"
-          ]
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+          "diagram_path": "data/diagrams/case4_q1.svg",
+          "diagram_caption": "ROAと固定資産回転率の推移を比較したダッシュボードイメージ。"
         },
         {
           "prompt": "第2問(25点) 投資判断の指標としてNPVを用いる理由を60字以内で述べよ。",
@@ -100,7 +115,10 @@
             "現在価値",
             "資本コスト",
             "投資判断"
-          ]
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+          "diagram_path": "data/diagrams/case4_q2.svg",
+          "diagram_caption": "NPV計算のステップを示す意思決定フロー。"
         }
       ]
     }

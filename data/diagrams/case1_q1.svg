@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360">
+  <defs>
+    <linearGradient id="strengthGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4f46e5" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.95"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="720" height="360" rx="18" fill="#f8fafc"/>
+  <text x="360" y="48" text-anchor="middle" font-size="26" font-family="'Noto Sans JP', sans-serif" fill="#1f2937">A社の強みマップ</text>
+  <rect x="60" y="92" width="240" height="96" rx="14" fill="#fff" stroke="#6366f1" stroke-width="2"/>
+  <text x="180" y="132" text-anchor="middle" font-size="20" font-family="'Noto Sans JP', sans-serif" fill="#4338ca">製造技術</text>
+  <text x="180" y="158" text-anchor="middle" font-size="14" font-family="'Noto Sans JP', sans-serif" fill="#4b5563">匠の和菓子づくり</text>
+  <rect x="420" y="92" width="240" height="96" rx="14" fill="#fff" stroke="#0ea5e9" stroke-width="2"/>
+  <text x="540" y="132" text-anchor="middle" font-size="20" font-family="'Noto Sans JP', sans-serif" fill="#0284c7">信頼関係</text>
+  <text x="540" y="158" text-anchor="middle" font-size="14" font-family="'Noto Sans JP', sans-serif" fill="#4b5563">地域顧客との長年の絆</text>
+  <rect x="210" y="216" width="300" height="108" rx="18" fill="url(#strengthGradient)"/>
+  <text x="360" y="260" text-anchor="middle" font-size="22" font-family="'Noto Sans JP', sans-serif" fill="#f8fafc">高付加価値 × 企画開発力</text>
+  <text x="360" y="290" text-anchor="middle" font-size="15" font-family="'Noto Sans JP', sans-serif" fill="#e0f2fe">強み連携で新商品を創出</text>
+  <path d="M300 188 L300 216" stroke="#6366f1" stroke-width="3" stroke-dasharray="6 6"/>
+  <path d="M420 188 L420 216" stroke="#0ea5e9" stroke-width="3" stroke-dasharray="6 6"/>
+</svg>
