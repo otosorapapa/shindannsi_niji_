@@ -86,6 +86,17 @@ def initialize_database() -> None:
             feedback TEXT,
             keyword_hits_json TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS reminders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            cadence TEXT NOT NULL,
+            interval_days INTEGER NOT NULL,
+            preferred_channels_json TEXT NOT NULL,
+            reminder_time TEXT NOT NULL,
+            next_trigger_at TEXT NOT NULL,
+            last_notified_at TEXT
+        );
         """
     )
 
@@ -413,6 +424,93 @@ def fetch_learning_history(user_id: int) -> List[Dict]:
         )
 
     return history
+
+
+def get_reminder_settings(user_id: int) -> Optional[Dict]:
+    """Return reminder configuration for a user, if it exists."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT * FROM reminders WHERE user_id = ?",
+        (user_id,),
+    )
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return None
+
+    return {
+        "id": row["id"],
+        "cadence": row["cadence"],
+        "interval_days": row["interval_days"],
+        "preferred_channels": json.loads(row["preferred_channels_json"]),
+        "reminder_time": row["reminder_time"],
+        "next_trigger_at": row["next_trigger_at"],
+        "last_notified_at": row["last_notified_at"],
+    }
+
+
+def upsert_reminder_settings(
+    *,
+    user_id: int,
+    cadence: str,
+    interval_days: int,
+    preferred_channels: Iterable[str],
+    reminder_time: str,
+    next_trigger_at: datetime,
+) -> None:
+    """Create or update reminder settings for a user."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    channels_json = json.dumps(list(preferred_channels), ensure_ascii=False)
+    next_trigger_value = next_trigger_at.isoformat()
+
+    cur.execute("SELECT id FROM reminders WHERE user_id = ?", (user_id,))
+    row = cur.fetchone()
+
+    if row:
+        cur.execute(
+            """
+            UPDATE reminders
+            SET cadence = ?, interval_days = ?, preferred_channels_json = ?,
+                reminder_time = ?, next_trigger_at = ?
+            WHERE user_id = ?
+            """,
+            (cadence, interval_days, channels_json, reminder_time, next_trigger_value, user_id),
+        )
+    else:
+        cur.execute(
+            """
+            INSERT INTO reminders (
+                user_id, cadence, interval_days, preferred_channels_json,
+                reminder_time, next_trigger_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, cadence, interval_days, channels_json, reminder_time, next_trigger_value),
+        )
+
+    conn.commit()
+    conn.close()
+
+
+def mark_reminder_sent(reminder_id: int, *, next_trigger_at: datetime) -> None:
+    """Update reminder record when a notification has been (virtually) sent."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        UPDATE reminders
+        SET last_notified_at = ?, next_trigger_at = ?
+        WHERE id = ?
+        """,
+        (datetime.utcnow().isoformat(), next_trigger_at.isoformat(), reminder_id),
+    )
+    conn.commit()
+    conn.close()
 
 
 def fetch_attempt_detail(attempt_id: int) -> Dict:
