@@ -95,10 +95,17 @@ def initialize_database() -> None:
             preferred_channels_json TEXT NOT NULL,
             reminder_time TEXT NOT NULL,
             next_trigger_at TEXT NOT NULL,
-            last_notified_at TEXT
+            last_notified_at TEXT,
+            is_enabled INTEGER NOT NULL DEFAULT 1
         );
         """
     )
+
+    try:
+        cur.execute("ALTER TABLE reminders ADD COLUMN is_enabled INTEGER NOT NULL DEFAULT 1")
+    except sqlite3.OperationalError:
+        # Column already exists; ignore.
+        pass
 
     conn.commit()
 
@@ -449,6 +456,7 @@ def get_reminder_settings(user_id: int) -> Optional[Dict]:
         "reminder_time": row["reminder_time"],
         "next_trigger_at": row["next_trigger_at"],
         "last_notified_at": row["last_notified_at"],
+        "is_enabled": bool(row["is_enabled"]),
     }
 
 
@@ -458,6 +466,7 @@ def upsert_reminder_settings(
     cadence: str,
     interval_days: int,
     preferred_channels: Iterable[str],
+    is_enabled: bool,
     reminder_time: str,
     next_trigger_at: datetime,
 ) -> None:
@@ -467,6 +476,7 @@ def upsert_reminder_settings(
     cur = conn.cursor()
     channels_json = json.dumps(list(preferred_channels), ensure_ascii=False)
     next_trigger_value = next_trigger_at.isoformat()
+    is_enabled_value = 1 if is_enabled else 0
 
     cur.execute("SELECT id FROM reminders WHERE user_id = ?", (user_id,))
     row = cur.fetchone()
@@ -476,20 +486,36 @@ def upsert_reminder_settings(
             """
             UPDATE reminders
             SET cadence = ?, interval_days = ?, preferred_channels_json = ?,
-                reminder_time = ?, next_trigger_at = ?
+                reminder_time = ?, next_trigger_at = ?, is_enabled = ?
             WHERE user_id = ?
             """,
-            (cadence, interval_days, channels_json, reminder_time, next_trigger_value, user_id),
+            (
+                cadence,
+                interval_days,
+                channels_json,
+                reminder_time,
+                next_trigger_value,
+                is_enabled_value,
+                user_id,
+            ),
         )
     else:
         cur.execute(
             """
             INSERT INTO reminders (
                 user_id, cadence, interval_days, preferred_channels_json,
-                reminder_time, next_trigger_at
-            ) VALUES (?, ?, ?, ?, ?, ?)
+                reminder_time, next_trigger_at, is_enabled
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_id, cadence, interval_days, channels_json, reminder_time, next_trigger_value),
+            (
+                user_id,
+                cadence,
+                interval_days,
+                channels_json,
+                reminder_time,
+                next_trigger_value,
+                is_enabled_value,
+            ),
         )
 
     conn.commit()
