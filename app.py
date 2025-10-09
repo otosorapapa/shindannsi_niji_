@@ -162,6 +162,35 @@ def practice_page(user: Dict) -> None:
         "左側のセレクターで年度・事例を切り替え、下部の解答欄から回答を入力してください。"
     )
 
+    st.markdown(
+        """
+        <style>
+        .practice-quick-nav {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.5rem;
+        }
+        .practice-quick-nav a {
+            text-decoration: none;
+        }
+        .practice-quick-nav a button {
+            padding: 0.45rem 1.2rem;
+            border-radius: 0.5rem;
+            border: none;
+            background-color: #0f62fe;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .practice-quick-nav a button:hover {
+            background-color: #0353e9;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     past_data_df = st.session_state.get("past_data")
     data_source = "database"
     if past_data_df is not None and not past_data_df.empty:
@@ -189,8 +218,20 @@ def practice_page(user: Dict) -> None:
         st.error("問題を取得できませんでした。")
         return
 
+    st.markdown('<div id="practice-top"></div>', unsafe_allow_html=True)
+
     st.subheader(problem["title"])
     st.write(problem["overview"])
+
+    st.markdown(
+        """
+        <div class="practice-quick-nav">
+            <a href="#practice-answers"><button type="button">質問へ移動</button></a>
+            <a href="#practice-actions"><button type="button">下へスクロール</button></a>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     question_overview = pd.DataFrame(
         [
@@ -218,6 +259,8 @@ def practice_page(user: Dict) -> None:
 
     answers: List[RecordedAnswer] = []
     question_specs: List[QuestionSpec] = []
+    st.markdown('<div id="practice-answers"></div>', unsafe_allow_html=True)
+
     for question in problem["questions"]:
         text = _question_input(problem["id"], question)
         question_specs.append(
@@ -239,6 +282,8 @@ def practice_page(user: Dict) -> None:
             st.caption(
                 "模範解答は構成や論理展開の参考例です。キーワードを押さえつつ自分の言葉で表現しましょう。"
             )
+
+    st.markdown('<div id="practice-actions"></div>', unsafe_allow_html=True)
 
     col_save, col_submit = st.columns([1, 2])
     if col_save.button("下書きを保存"):
@@ -417,12 +462,35 @@ def mock_exam_page(user: Dict) -> None:
 
     if not session:
         st.subheader("模試セットを選択")
+        st.caption("説明を確認し、解きたい模試セットを選んでください。開始ボタンは右側に配置しています。")
+
         exams = mock_exam.available_mock_exams()
         exam_options = {exam.title: exam for exam in exams}
         exam_options["ランダム演習セット"] = mock_exam.random_mock_exam()
-        selected_title = st.selectbox("模試セット", list(exam_options.keys()))
-        if st.button("模試を開始", type="primary"):
-            selected_exam = exam_options[selected_title]
+
+        select_col, start_col = st.columns([3, 1])
+        with select_col:
+            selected_title = st.selectbox("模試セット", list(exam_options.keys()))
+
+        selected_exam = exam_options[selected_title]
+
+        with start_col:
+            st.write("")
+            start_clicked = st.button(
+                "模試を開始", type="primary", use_container_width=True
+            )
+
+        case_summaries = []
+        for problem_id in selected_exam.problem_ids:
+            problem = database.fetch_problem(problem_id)
+            case_summaries.append(
+                f"- {problem['year']} {problem['case_label']}：{problem['title']}"
+            )
+        if case_summaries:
+            st.markdown("**セット内容の概要**")
+            st.markdown("\n".join(case_summaries))
+
+        if start_clicked:
             st.session_state.mock_session = {
                 "exam": selected_exam,
                 "start": datetime.utcnow(),
