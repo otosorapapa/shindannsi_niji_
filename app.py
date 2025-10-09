@@ -12,6 +12,8 @@ import html
 
 import random
 
+import uuid
+
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -607,6 +609,272 @@ def _format_duration_minutes(total_minutes: int) -> str:
     return f"{minutes}分"
 
 
+def _goal_period(period_type: str, reference: dt_date) -> tuple[dt_date, dt_date]:
+    if period_type == "weekly":
+        start = reference - timedelta(days=reference.weekday())
+        end = start + timedelta(days=6)
+    else:
+        start = reference.replace(day=1)
+        if start.month == 12:
+            next_month = start.replace(year=start.year + 1, month=1, day=1)
+        else:
+            next_month = start.replace(month=start.month + 1, day=1)
+        end = next_month - timedelta(days=1)
+    return start, end
+
+
+def _distribute_minutes(total_minutes: int, total_days: int) -> List[int]:
+    if total_days <= 0:
+        return []
+    base = total_minutes // total_days if total_minutes else 0
+    remainder = total_minutes % total_days if total_minutes else 0
+    distribution: List[int] = []
+    for index in range(total_days):
+        minutes = base
+        if remainder and index < remainder:
+            minutes += 1
+        distribution.append(minutes)
+    return distribution
+
+
+def _generate_default_sessions(
+    *,
+    period_type: str,
+    start: dt_date,
+    end: dt_date,
+    total_minutes: int,
+    preferred_time: dt_time,
+    practice_target: int,
+    score_target: float,
+) -> List[Dict[str, Any]]:
+    total_days = (end - start).days + 1
+    preferred_time = preferred_time or dt_time(hour=20, minute=0)
+    distribution = _distribute_minutes(total_minutes, total_days)
+    label = "週間" if period_type == "weekly" else "月間"
+    sessions: List[Dict[str, Any]] = []
+    for offset in range(total_days):
+        session_date = start + timedelta(days=offset)
+        duration = distribution[offset] if offset < len(distribution) else 0
+        description = (
+            f"{label}目標: 演習{practice_target}回 / 平均{score_target:.0f}点を目指す学習時間"
+        )
+        sessions.append(
+            {
+                "session_date": session_date,
+                "start_time": preferred_time,
+                "duration_minutes": duration,
+                "description": description,
+            }
+        )
+    return sessions
+
+
+def _build_calendar_export(
+    *, goal: Dict[str, Any], sessions: List[Dict[str, Any]], user_name: str
+) -> bytes:
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Shindanshi Planner//JP",
+        "CALSCALE:GREGORIAN",
+    ]
+    now_stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    summary_label = "週間学習" if goal["period_type"] == "weekly" else "月間学習"
+    for index, session in enumerate(sessions):
+        start_dt = datetime.combine(session["session_date"], session["start_time"])
+        duration = max(int(session.get("duration_minutes", 0)), 0)
+        end_dt = start_dt + timedelta(minutes=duration or 30)
+        uid = f"{goal['id']}-{index}-{uuid.uuid4().hex[:8]}@studyplanner"
+        description = session.get("description", "")
+        lines.extend(
+            [
+                "BEGIN:VEVENT",
+                f"UID:{uid}",
+                f"DTSTAMP:{now_stamp}",
+                f"DTSTART:{start_dt.strftime('%Y%m%dT%H%M%S')}",
+                f"DTEND:{end_dt.strftime('%Y%m%dT%H%M%S')}",
+                f"SUMMARY:{summary_label} ({user_name})",
+                f"DESCRIPTION:{description.replace(chr(10), ' ')}",
+            ]
+        )
+        lines.append("END:VEVENT")
+    lines.append("END:VCALENDAR")
+    return "\r\n".join(lines).encode("utf-8")
+
+
+def _render_study_planner(user: Dict) -> None:
+    today = dt_date.today()
+    st.subheader("スタディプランナー")
+    st.caption("週間・月間の学習目標を設定し、進捗と予定を一括で管理できます。")
+    weekly_tab, monthly_tab = st.tabs(["週間プラン", "月間プラン"])
+    with weekly_tab:
+        _render_study_goal_panel(user, period_type="weekly", reference_date=today)
+    with monthly_tab:
+        _render_study_goal_panel(user, period_type="monthly", reference_date=today)
+
+
+def _render_study_goal_panel(
+    user: Dict, *, period_type: str, reference_date: dt_date
+) -> None:
+    label = "週間" if period_type == "weekly" else "月間"
+    start, end = _goal_period(period_type, reference_date)
+    st.markdown(f"**対象期間:** {start.strftime('%Y-%m-%d')} 〜 {end.strftime('%Y-%m-%d')}")
+
+    existing_goal = database.get_current_study_goal(
+        user_id=user["id"], period_type=period_type, reference_date=reference_date
+    )
+    default_practice = int(existing_goal["target_practice_count"]) if existing_goal else 3
+    default_minutes = int(existing_goal["target_study_minutes"]) if existing_goal else 300
+    default_hours = round(default_minutes / 60, 1) if default_minutes else 0.0
+    default_score = float(existing_goal["target_score"]) if existing_goal else 65.0
+    default_time = existing_goal["preferred_start_time"] if existing_goal else dt_time(20, 0)
+
+    with st.form(f"{period_type}_goal_form", clear_on_submit=False):
+        practice_target = st.number_input(
+            "演習回数目標 (回)", min_value=0, value=default_practice, step=1
+        )
+        study_hours = st.number_input(
+            "学習時間目標 (時間)", min_value=0.0, step=0.5, value=float(default_hours)
+        )
+        score_target = st.number_input(
+            "平均得点目標 (点)", min_value=0.0, step=1.0, value=float(default_score)
+        )
+        preferred_time = st.time_input("学習開始時間", value=default_time or dt_time(20, 0))
+        submitted = st.form_submit_button("目標を保存")
+
+    if submitted:
+        target_minutes = int(round(study_hours * 60))
+        goal_id = database.upsert_study_goal(
+            user_id=user["id"],
+            period_type=period_type,
+            start_date=start,
+            end_date=end,
+            target_practice_count=int(practice_target),
+            target_study_minutes=target_minutes,
+            target_score=float(score_target),
+            preferred_start_time=preferred_time,
+        )
+        sessions = _generate_default_sessions(
+            period_type=period_type,
+            start=start,
+            end=end,
+            total_minutes=target_minutes,
+            preferred_time=preferred_time,
+            practice_target=int(practice_target),
+            score_target=float(score_target),
+        )
+        database.replace_study_sessions(goal_id, sessions)
+        st.success(f"{label}目標を保存しました。外部カレンダーへの同期も更新されています。")
+        st.experimental_rerun()
+
+    goal = database.get_current_study_goal(
+        user_id=user["id"], period_type=period_type, reference_date=reference_date
+    )
+    if not goal:
+        st.info(f"{label}目標を設定すると進捗が表示されます。")
+        return
+
+    progress = database.aggregate_attempts_between(
+        user_id=user["id"], start_date=goal["start_date"], end_date=goal["end_date"]
+    )
+    practice_target = goal["target_practice_count"]
+    time_target = goal["target_study_minutes"]
+    score_target = goal["target_score"]
+
+    practice_ratio = (
+        progress["practice_count"] / practice_target if practice_target else 0.0
+    )
+    time_ratio = (
+        progress["total_duration_minutes"] / time_target if time_target else 0.0
+    )
+    score_ratio = (
+        progress["average_score"] / score_target if score_target else 0.0
+    )
+
+    col1, col2, col3 = st.columns(3)
+    practice_value = (
+        f"{progress['practice_count']} / {practice_target} 回"
+        if practice_target
+        else f"{progress['practice_count']} 回"
+    )
+    practice_delta = (
+        f"{practice_ratio * 100:.0f}% 達成" if practice_target else "目標未設定"
+    )
+    time_value = (
+        f"{progress['total_duration_minutes']} / {time_target} 分"
+        if time_target
+        else f"{progress['total_duration_minutes']} 分"
+    )
+    time_delta = f"{time_ratio * 100:.0f}% 達成" if time_target else "目標未設定"
+    score_value = (
+        f"{progress['average_score']:.1f} / {score_target:.1f} 点"
+        if score_target
+        else f"{progress['average_score']:.1f} 点"
+    )
+    score_delta = f"{score_ratio * 100:.0f}% 達成" if score_target else "目標未設定"
+
+    with col1:
+        st.metric("演習回数進捗", practice_value, delta=practice_delta)
+    with col2:
+        st.metric("学習時間進捗", time_value, delta=time_delta)
+    with col3:
+        st.metric("平均得点進捗", score_value, delta=score_delta)
+
+    st.progress(min(practice_ratio, 1.0) if practice_target else 1.0)
+    st.caption("演習回数の進捗率")
+    st.progress(min(time_ratio, 1.0) if time_target else 1.0)
+    st.caption("学習時間の進捗率")
+    st.progress(min(score_ratio, 1.0) if score_target else 1.0)
+    st.caption("得点目標の達成率 (平均点)")
+
+    total_days = (goal["end_date"] - goal["start_date"]).days + 1
+    days_elapsed = (min(dt_date.today(), goal["end_date"]) - goal["start_date"]).days + 1
+    days_elapsed = max(1, min(days_elapsed, total_days))
+    expected_ratio = days_elapsed / total_days if total_days else 1.0
+
+    if (
+        practice_ratio >= 1.0
+        and (time_target == 0 or time_ratio >= 1.0)
+        and (score_target == 0 or score_ratio >= 1.0)
+    ):
+        st.success(f"{label}目標をすべて達成しました！引き続き学習を継続しましょう。")
+    elif practice_ratio < expected_ratio - 0.2 or time_ratio < expected_ratio - 0.2:
+        st.warning(
+            f"{label}目標の進捗が想定より遅れています。カレンダーの予定を活用して学習時間を確保しましょう。"
+        )
+    else:
+        st.info(f"{label}目標は計画通りに進んでいます。今のペースを維持しましょう。")
+
+    sessions = database.list_study_sessions(goal["id"])
+    if sessions:
+        session_df = pd.DataFrame(
+            [
+                {
+                    "日付": session["session_date"].strftime("%Y-%m-%d (%a)"),
+                    "開始": session["start_time"].strftime("%H:%M"),
+                    "予定時間": f"{session['duration_minutes']}分",
+                    "内容": session["description"] or "",
+                }
+                for session in sessions
+            ]
+        )
+        st.markdown("### 日々の学習予定")
+        st.data_editor(session_df, hide_index=True, disabled=True, use_container_width=True)
+
+        ics_bytes = _build_calendar_export(goal=goal, sessions=sessions, user_name=user["name"])
+        st.download_button(
+            f"{label}プランを外部カレンダーへ同期 (ICS)",
+            data=ics_bytes,
+            file_name=f"{period_type}_study_plan.ics",
+            mime="text/calendar",
+        )
+        st.caption(
+            "ダウンロードした ICS ファイルを Google カレンダーや Notion のカレンダーにインポートすると、予定が自動登録されます。"
+        )
+    else:
+        st.info("学習時間目標を設定すると日々の予定が自動生成されます。")
+
+
 def dashboard_page(user: Dict) -> None:
     _inject_dashboard_styles()
 
@@ -714,6 +982,8 @@ def dashboard_page(user: Dict) -> None:
         ).strip(),
         unsafe_allow_html=True,
     )
+
+    _render_study_planner(user)
 
     upcoming_reviews = database.list_upcoming_reviews(user_id=user["id"], limit=6)
     due_review_count = database.count_due_reviews(user_id=user["id"])
