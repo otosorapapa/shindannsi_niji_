@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
@@ -96,6 +96,18 @@ def initialize_database() -> None:
             reminder_time TEXT NOT NULL,
             next_trigger_at TEXT NOT NULL,
             last_notified_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS spaced_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            problem_id INTEGER NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
+            interval_days INTEGER NOT NULL,
+            due_at TEXT NOT NULL,
+            last_reviewed_at TEXT NOT NULL,
+            last_score_ratio REAL,
+            streak INTEGER NOT NULL DEFAULT 0,
+            UNIQUE(user_id, problem_id)
         );
         """
     )
@@ -362,6 +374,222 @@ def record_attempt(
     conn.commit()
     conn.close()
     return attempt_id
+
+
+def _next_review_interval(
+    *, previous_interval: Optional[int], score_ratio: float
+) -> tuple[int, int]:
+    """Return (interval_days, streak_increment) for spaced repetition scheduling."""
+
+    try:
+        score_ratio = float(score_ratio)
+    except (TypeError, ValueError):  # pragma: no cover - defensive conversion
+        score_ratio = 0.0
+    score_ratio = max(0.0, min(score_ratio, 1.0))
+    previous_interval = previous_interval or 0
+
+    if score_ratio >= 0.85:
+        base = previous_interval if previous_interval else 3
+        next_interval = max(base * 2, base + 1)
+        streak_increment = 1
+    elif score_ratio >= 0.6:
+        base = previous_interval if previous_interval else 2
+        next_interval = max(int(round(base * 1.5)), base + 1, 2)
+        streak_increment = 0
+    else:
+        next_interval = 1
+        streak_increment = 0
+
+    next_interval = int(max(1, min(next_interval, 45)))
+    return next_interval, streak_increment
+
+
+def update_spaced_review(
+    user_id: int,
+    problem_id: int,
+    *,
+    score_ratio: float,
+    reviewed_at: datetime,
+) -> None:
+    """Create or update spaced repetition schedule for a problem."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT * FROM spaced_reviews WHERE user_id = ? AND problem_id = ?",
+        (user_id, problem_id),
+    )
+    row = cur.fetchone()
+
+    previous_interval = row["interval_days"] if row else None
+    previous_streak = row["streak"] if row else 0
+
+    interval_days, streak_increment = _next_review_interval(
+        previous_interval=previous_interval, score_ratio=score_ratio
+    )
+    next_due = reviewed_at + timedelta(days=interval_days)
+
+    if row:
+        new_streak = previous_streak + streak_increment if streak_increment else 0
+        cur.execute(
+            """
+            UPDATE spaced_reviews
+            SET interval_days = ?, due_at = ?, last_reviewed_at = ?,
+                last_score_ratio = ?, streak = ?
+            WHERE id = ?
+            """,
+            (
+                interval_days,
+                next_due.isoformat(),
+                reviewed_at.isoformat(),
+                score_ratio,
+                new_streak,
+                row["id"],
+            ),
+        )
+    else:
+        new_streak = streak_increment
+        cur.execute(
+            """
+            INSERT INTO spaced_reviews (
+                user_id, problem_id, interval_days, due_at,
+                last_reviewed_at, last_score_ratio, streak
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                problem_id,
+                interval_days,
+                next_due.isoformat(),
+                reviewed_at.isoformat(),
+                score_ratio,
+                new_streak,
+            ),
+        )
+
+    conn.commit()
+    conn.close()
+
+
+def list_due_reviews(
+    user_id: int,
+    *,
+    reference: Optional[datetime] = None,
+    limit: int = 5,
+) -> List[Dict]:
+    """Return review items whose due date is on or before the reference timestamp."""
+
+    reference_dt = reference or datetime.utcnow()
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT sr.*, p.year, p.case_label, p.title
+        FROM spaced_reviews sr
+        JOIN problems p ON p.id = sr.problem_id
+        WHERE sr.user_id = ? AND sr.due_at <= ?
+        ORDER BY sr.due_at
+        LIMIT ?
+        """,
+        (user_id, reference_dt.isoformat(), limit),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    return [
+        {
+            "problem_id": row["problem_id"],
+            "year": row["year"],
+            "case_label": row["case_label"],
+            "title": row["title"],
+            "due_at": datetime.fromisoformat(row["due_at"]),
+            "interval_days": row["interval_days"],
+            "last_score_ratio": row["last_score_ratio"],
+            "streak": row["streak"],
+        }
+        for row in rows
+    ]
+
+
+def list_upcoming_reviews(user_id: int, *, limit: int = 6) -> List[Dict]:
+    """Return upcoming spaced repetition entries ordered by due date."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT sr.*, p.year, p.case_label, p.title
+        FROM spaced_reviews sr
+        JOIN problems p ON p.id = sr.problem_id
+        WHERE sr.user_id = ?
+        ORDER BY sr.due_at
+        LIMIT ?
+        """,
+        (user_id, limit),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    return [
+        {
+            "problem_id": row["problem_id"],
+            "year": row["year"],
+            "case_label": row["case_label"],
+            "title": row["title"],
+            "due_at": datetime.fromisoformat(row["due_at"]),
+            "interval_days": row["interval_days"],
+            "last_score_ratio": row["last_score_ratio"],
+            "streak": row["streak"],
+        }
+        for row in rows
+    ]
+
+
+def count_due_reviews(user_id: int, *, reference: Optional[datetime] = None) -> int:
+    """Return the number of spaced reviews whose due date has passed."""
+
+    reference_dt = reference or datetime.utcnow()
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT COUNT(*) FROM spaced_reviews WHERE user_id = ? AND due_at <= ?",
+        (user_id, reference_dt.isoformat()),
+    )
+    count = cur.fetchone()[0]
+    conn.close()
+    return int(count or 0)
+
+
+def get_spaced_review(user_id: int, problem_id: int) -> Optional[Dict]:
+    """Fetch spaced repetition schedule for a particular problem, if it exists."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT sr.*, p.year, p.case_label, p.title
+        FROM spaced_reviews sr
+        JOIN problems p ON p.id = sr.problem_id
+        WHERE sr.user_id = ? AND sr.problem_id = ?
+        """,
+        (user_id, problem_id),
+    )
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        return None
+
+    return {
+        "problem_id": row["problem_id"],
+        "year": row["year"],
+        "case_label": row["case_label"],
+        "title": row["title"],
+        "due_at": datetime.fromisoformat(row["due_at"]),
+        "interval_days": row["interval_days"],
+        "last_score_ratio": row["last_score_ratio"],
+        "streak": row["streak"],
+        "last_reviewed_at": datetime.fromisoformat(row["last_reviewed_at"]),
+    }
 
 
 def list_attempts(user_id: int) -> List[sqlite3.Row]:
