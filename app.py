@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from typing import Any, Dict, List, Optional
 
+import html
+
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -24,6 +26,49 @@ def _init_session_state() -> None:
     st.session_state.setdefault("practice_started", None)
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
+
+
+def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
+    return f"guideline_visible::{problem_id}::{question_id}"
+
+
+def _inject_guideline_styles() -> None:
+    if st.session_state.get("_guideline_styles_injected"):
+        return
+
+    st.markdown(
+        """
+        <style>
+        .guideline-card {
+            margin: 0.5rem 0 1.5rem;
+            padding: 1.1rem 1.25rem;
+            border-radius: 14px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: rgba(248, 250, 252, 0.8);
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+        }
+        .guideline-card .guideline-heading {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #1f2937;
+            margin-bottom: 0.25rem;
+        }
+        .guideline-card .guideline-body {
+            margin: 0 0 0.8rem;
+            color: #334155;
+            line-height: 1.6;
+        }
+        .guideline-card .guideline-section + .guideline-section {
+            margin-top: 0.6rem;
+        }
+        .guideline-card .guideline-body:last-child {
+            margin-bottom: 0;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state["_guideline_styles_injected"] = True
 
 
 def main_view() -> None:
@@ -872,6 +917,8 @@ def practice_page(user: Dict) -> None:
     question_specs: List[QuestionSpec] = []
     st.markdown('<div id="practice-answers"></div>', unsafe_allow_html=True)
 
+    _inject_guideline_styles()
+
     for question in problem["questions"]:
         text = _question_input(problem["id"], question)
         question_specs.append(
@@ -883,13 +930,37 @@ def practice_page(user: Dict) -> None:
                 keywords=question["keywords"],
             )
         )
-        with st.expander("採点ガイドライン", expanded=False):
+        visibility_key = _guideline_visibility_key(problem["id"], question["id"])
+        if visibility_key not in st.session_state:
+            st.session_state[visibility_key] = True
+        show_guideline = st.checkbox(
+            "採点ガイドラインを表示",
+            key=visibility_key,
+            help="採点時に確認されるポイントを必要なときに開閉できます。",
+        )
+        if show_guideline:
+            keywords_html = ""
             if question["keywords"]:
-                st.markdown(
-                    "**キーワード評価**:\n" + "、".join(question["keywords"]) + " を含めると加点対象です。"
+                keywords_text = "、".join(question["keywords"])
+                keywords_html = (
+                    "<div class=\"guideline-section\">"
+                    "<p class=\"guideline-heading\">キーワード評価</p>"
+                    f"<p class=\"guideline-body\">{html.escape(keywords_text)} を含めると加点対象です。</p>"
+                    "</div>"
                 )
-            st.markdown("**模範解答の背景**")
-            st.write(question["model_answer"])
+            model_answer_html = html.escape(question["model_answer"]).replace("\n", "<br>")
+            st.markdown(
+                """
+                <div class="guideline-card">
+                    {keywords}
+                    <div class="guideline-section">
+                        <p class="guideline-heading">模範解答の背景</p>
+                        <p class="guideline-body">{model}</p>
+                    </div>
+                </div>
+                """.format(keywords=keywords_html, model=model_answer_html),
+                unsafe_allow_html=True,
+            )
             st.caption(
                 "模範解答は構成や論理展開の参考例です。キーワードを押さえつつ自分の言葉で表現しましょう。"
             )
