@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 import logging
 
 import html
+import json
 
 import random
 
@@ -169,6 +170,266 @@ def _inject_guideline_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_guideline_styles_injected"] = True
+
+
+def _ensure_editor_enhancements() -> None:
+    if st.session_state.get("_editor_enhancements_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .editor-toolbar {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.35rem;
+                margin-bottom: 0.35rem;
+            }
+            .editor-toolbar button {
+                align-items: center;
+                background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+                border: 1px solid rgba(148, 163, 184, 0.7);
+                border-radius: 0.45rem;
+                color: #1f2937;
+                cursor: pointer;
+                display: inline-flex;
+                font-size: 0.75rem;
+                font-weight: 600;
+                gap: 0.25rem;
+                padding: 0.25rem 0.55rem;
+                transition: all 0.15s ease;
+            }
+            .editor-toolbar button:hover {
+                background: #e2e8f0;
+                border-color: rgba(100, 116, 139, 0.9);
+            }
+            .editor-toolbar button:focus {
+                outline: 2px solid rgba(79, 70, 229, 0.7);
+                outline-offset: 2px;
+            }
+            .editor-toolbar button:active {
+                transform: translateY(1px);
+                background: #cbd5f5;
+            }
+            .editor-toolbar button .icon {
+                font-size: 0.78rem;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        dedent(
+            """
+            <script>
+            (function() {
+                const globalWindow = window.parent || window;
+                if (globalWindow.__diagnosisEditorInitialized) {
+                    return;
+                }
+                globalWindow.__diagnosisEditorInitialized = true;
+
+                const rootDoc = globalWindow.document;
+                const ACTIONS = [
+                    { id: 'bold', label: '太字 (Ctrl+B 相当)', type: 'wrap', before: '**', after: '**', placeholder: '強調テキスト', display: 'B' },
+                    { id: 'italic', label: '斜体', type: 'wrap', before: '*', after: '*', placeholder: '斜体テキスト', display: 'I' },
+                    { id: 'code', label: 'インラインコード', type: 'wrap', before: '`', after: '`', placeholder: 'code', display: '</>' },
+                    { id: 'bullet', label: '箇条書き (- )', type: 'prefix', prefix: '- ', display: '•' },
+                    { id: 'number', label: '番号付きリスト (1.)', type: 'prefix', prefix: '1. ', display: '1.' },
+                    { id: 'quote', label: '引用 (> )', type: 'prefix', prefix: '> ', display: '"' }
+                ];
+
+                const ACTION_MAP = ACTIONS.reduce((map, action) => {
+                    map[action.id] = action;
+                    return map;
+                }, {});
+
+                function triggerInput(textarea) {
+                    const event = new Event('input', { bubbles: true });
+                    textarea.dispatchEvent(event);
+                }
+
+                function updateValue(textarea, newValue, selectionStart, selectionEnd) {
+                    textarea.value = newValue;
+                    triggerInput(textarea);
+                    textarea.focus();
+                    textarea.setSelectionRange(selectionStart, selectionEnd);
+                }
+
+                function applyWrap(textarea, action) {
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    const value = textarea.value;
+                    const selected = value.slice(start, end);
+                    const placeholder = selected || action.placeholder || '';
+                    const wrapped = action.before + placeholder + action.after;
+                    const newValue = value.slice(0, start) + wrapped + value.slice(end);
+                    const caretStart = start + action.before.length;
+                    const caretEnd = caretStart + placeholder.length;
+                    updateValue(textarea, newValue, caretStart, caretEnd);
+                }
+
+                function applyPrefix(textarea, action) {
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    const value = textarea.value;
+                    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+                    const prefix = action.prefix || '';
+                    const newValue = value.slice(0, lineStart) + prefix + value.slice(lineStart);
+                    const offset = prefix.length;
+                    const caretStart = start + offset;
+                    const caretEnd = end + offset;
+                    updateValue(textarea, newValue, caretStart, caretEnd);
+                }
+
+                function applyAction(textarea, actionId) {
+                    const action = ACTION_MAP[actionId];
+                    if (!action) {
+                        return;
+                    }
+                    if (action.type === 'wrap') {
+                        applyWrap(textarea, action);
+                    } else if (action.type === 'prefix') {
+                        applyPrefix(textarea, action);
+                    }
+                }
+
+                function createToolbar(textarea, toolbarId) {
+                    if (!textarea || textarea.dataset.editorToolbarAttached === toolbarId) {
+                        return;
+                    }
+
+                    const container = textarea.closest('[data-baseweb="textarea"]');
+                    if (!container || !container.parentElement) {
+                        return;
+                    }
+
+                    const toolbar = rootDoc.createElement('div');
+                    toolbar.className = 'editor-toolbar';
+                    toolbar.setAttribute('data-editor-toolbar', 'true');
+                    toolbar.id = toolbarId;
+
+                    ACTIONS.forEach((action) => {
+                        const button = rootDoc.createElement('button');
+                        button.type = 'button';
+                        button.className = 'editor-toolbar__button';
+                        button.setAttribute('data-action', action.id);
+                        button.setAttribute('title', action.label);
+                        button.setAttribute('aria-label', action.label);
+
+                        const icon = rootDoc.createElement('span');
+                        icon.className = 'icon';
+                        icon.textContent = action.display;
+
+                        button.appendChild(icon);
+                        toolbar.appendChild(button);
+                    });
+
+                    toolbar.addEventListener('click', (event) => {
+                        const button = event.target.closest('button[data-action]');
+                        if (!button) {
+                            return;
+                        }
+                        event.preventDefault();
+                        applyAction(textarea, button.getAttribute('data-action'));
+                    });
+
+                    container.parentElement.insertBefore(toolbar, container);
+                    textarea.dataset.editorToolbarAttached = toolbarId;
+                    textarea.dataset.editorEnhanced = 'true';
+                }
+
+                const queue = [];
+                let processing = false;
+
+                function tryAttach(config) {
+                    const anchor = rootDoc.getElementById(config.anchorId);
+                    if (!anchor) {
+                        return false;
+                    }
+
+                    let sibling = anchor.nextElementSibling;
+                    let textarea = null;
+                    while (sibling) {
+                        textarea = sibling.querySelector && sibling.querySelector('textarea');
+                        if (textarea) {
+                            break;
+                        }
+                        sibling = sibling.nextElementSibling;
+                    }
+
+                    if (!textarea) {
+                        return false;
+                    }
+
+                    createToolbar(textarea, config.toolbarId);
+                    return true;
+                }
+
+                function processQueue() {
+                    processing = true;
+                    for (let i = queue.length - 1; i >= 0; i -= 1) {
+                        const config = queue[i];
+                        if (tryAttach(config)) {
+                            queue.splice(i, 1);
+                        }
+                    }
+                    if (queue.length) {
+                        requestAnimationFrame(processQueue);
+                    } else {
+                        processing = false;
+                    }
+                }
+
+                globalWindow.__diagnosisRegisterEditor = function(config) {
+                    const normalized = Object.assign({ toolbarId: `toolbar-${config.anchorId}` }, config);
+                    queue.push(normalized);
+                    if (!processing) {
+                        processQueue();
+                    }
+                };
+
+                const pending = globalWindow.__diagnosisEditorPending;
+                if (Array.isArray(pending) && pending.length) {
+                    pending.splice(0).forEach((cfg) => globalWindow.__diagnosisRegisterEditor(cfg));
+                }
+
+                rootDoc.addEventListener('keydown', (event) => {
+                    const target = event.target;
+                    if (!target || target.tagName !== 'TEXTAREA') {
+                        return;
+                    }
+                    if (target.dataset.editorEnhanced !== 'true') {
+                        return;
+                    }
+                    if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+                        event.preventDefault();
+                        const selector = 'textarea[data-editor-enhanced="true"]';
+                        const textareas = Array.from(rootDoc.querySelectorAll(selector));
+                        const index = textareas.indexOf(target);
+                        if (index === -1) {
+                            return;
+                        }
+                        const nextIndex = event.shiftKey ? index - 1 : index + 1;
+                        const next = textareas[nextIndex];
+                        if (next) {
+                            next.focus();
+                            const length = next.value.length;
+                            next.setSelectionRange(length, length);
+                        }
+                    }
+                });
+            })();
+            </script>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+
+    st.session_state["_editor_enhancements_injected"] = True
 
 
 def main_view() -> None:
@@ -865,22 +1126,57 @@ def _render_character_counter(current_length: int, limit: Optional[int]) -> None
 
 
 def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> str:
+    _ensure_editor_enhancements()
     key = _draft_key(problem_id, question["id"])
     if key not in st.session_state.drafts:
         saved_default = st.session_state.saved_answers.get(key, "")
         st.session_state.drafts[key] = saved_default
     value = st.session_state.drafts.get(key, "")
     help_text = f"文字数目安: {question['character_limit']}字" if question["character_limit"] else ""
-    text = st.text_area(
-        label=question["prompt"],
-        key=f"textarea_{key}",
-        value=value,
-        height=160,
-        help=help_text,
-        disabled=disabled,
-    )
-    _render_character_counter(len(text), question.get("character_limit"))
-    st.caption("入力内容は自動的に保存され、ページ離脱後も保持されます。必要に応じて下書きを明示的に保存してください。")
+    anchor_id = f"editor-anchor-{problem_id}-{question['id']}"
+    with st.container():
+        st.markdown(
+            f"<div id=\"{anchor_id}\" data-editor-anchor=\"true\"></div>",
+            unsafe_allow_html=True,
+        )
+        text = st.text_area(
+            label=question["prompt"],
+            key=f"textarea_{key}",
+            value=value,
+            height=160,
+            help=help_text,
+            disabled=disabled,
+        )
+        _render_character_counter(len(text), question.get("character_limit"))
+        st.caption("Tab キーで次の設問に移動でき、Shift+Tab で前の設問に戻れます。上部のツールバーから Markdown 記法を素早く挿入できます。")
+        st.caption("入力内容は自動的に保存され、ページ離脱後も保持されます。必要に応じて下書きを明示的に保存してください。")
+        config_js = json.dumps({"anchorId": anchor_id})
+        script_template = dedent(
+            """
+            <script>
+            (function registerEditorSupport() {
+                const config = CONFIG_PLACEHOLDER;
+                function enqueue(retryCount) {
+                    const globalWindow = window.parent || window;
+                    const register = globalWindow.__diagnosisRegisterEditor;
+                    if (typeof register === 'function') {
+                        register(config);
+                    } else if (retryCount < 10) {
+                        setTimeout(() => enqueue(retryCount + 1), 150);
+                    } else {
+                        globalWindow.__diagnosisEditorPending = globalWindow.__diagnosisEditorPending || [];
+                        globalWindow.__diagnosisEditorPending.push(config);
+                    }
+                }
+                enqueue(0);
+            })();
+            </script>
+            """
+        )
+        st.markdown(
+            script_template.replace("CONFIG_PLACEHOLDER", config_js),
+            unsafe_allow_html=True,
+        )
     st.session_state.drafts[key] = text
     status_placeholder = st.empty()
     action_save, action_apply = st.columns([1, 1])
