@@ -2296,6 +2296,86 @@ def settings_page(user: Dict) -> None:
     )
 
     st.subheader("データ管理")
+
+    st.markdown(
+        """
+        過去問の得点記録をまとめたファイルをアップロードすると、学習履歴に取り込まれます。
+        ドラッグ&ドロップまたはボタンからファイルを選択してください。
+        """
+    )
+
+    st.markdown(
+        """
+        <style>
+            div[data-testid="stFileUploadDropzone"] {
+                padding: 3rem 1rem !important;
+                border: 2px dashed var(--primary-color) !important;
+                border-radius: 1rem !important;
+                background-color: #f8fafc !important;
+            }
+            div[data-testid="stFileUploader"] section>div>div {
+                justify-content: center;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    helper_col, download_col = st.columns([2, 1])
+    with helper_col:
+        st.caption("CSV/Excel形式のいずれかに対応しています。1ファイルずつアップロードしてください。")
+    with download_col:
+        sample_df = pd.DataFrame(
+            [
+                {
+                    "year": 2023,
+                    "case": "事例I",
+                    "question_id": 1,
+                    "question_text": "環境分析に関する設問",
+                    "answer": "中小企業の強みと弱みを整理した。",
+                    "score": 55,
+                    "max_score": 80,
+                    "submitted_at": "2023-08-20 13:00",
+                },
+                {
+                    "year": 2023,
+                    "case": "事例II",
+                    "question_id": 2,
+                    "question_text": "ターゲット戦略に関する設問",
+                    "answer": "主要顧客層のニーズ整理と差別化策を提案。",
+                    "score": 60,
+                    "max_score": 80,
+                    "submitted_at": "2023-08-27 09:30",
+                },
+            ]
+        )
+        st.download_button(
+            "サンプルCSVをダウンロード",
+            data=sample_df.to_csv(index=False).encode("utf-8-sig"),
+            file_name="past_data_sample.csv",
+            mime="text/csv",
+            help="フォーマット確認用のサンプルデータをダウンロードします。",
+        )
+
+    with st.expander("フォーマット例"):
+        st.write(
+            "各行は1つの設問への回答を表します。最低限、年度(year)、事例(case)、得点(score)、満点(max_score)、提出日時(submitted_at)の列をご用意ください。"
+        )
+        st.table(
+            sample_df.rename(
+                columns={
+                    "year": "year (年度)",
+                    "case": "case (事例)",
+                    "question_id": "question_id (設問番号)",
+                    "question_text": "question_text (設問内容)",
+                    "answer": "answer (回答内容)",
+                    "score": "score (得点)",
+                    "max_score": "max_score (満点)",
+                    "submitted_at": "submitted_at (提出日時)",
+                }
+            )
+        )
+
     uploaded_file = st.file_uploader(
         "過去問データファイルをアップロード (CSV/Excel)",
         type=["csv", "xlsx"],
