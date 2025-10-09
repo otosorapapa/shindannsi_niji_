@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
+from io import BytesIO
 from typing import Any, Dict, List, Optional
 
 import altair as alt
@@ -12,6 +13,10 @@ import mock_exam
 import scoring
 from database import RecordedAnswer
 from scoring import QuestionSpec
+
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas
 
 
 def _init_session_state() -> None:
@@ -704,6 +709,274 @@ def _compute_learning_stats(history_df: pd.DataFrame) -> Dict[str, Any]:
     return stats
 
 
+def _derive_learning_insights(history_df: pd.DataFrame, stats: Dict[str, Any]) -> Dict[str, Any]:
+    empty_result = {
+        "case_summary": pd.DataFrame(
+            columns=["事例", "平均得点", "平均得点率", "回数", "直近得点", "直近得点率"]
+        ),
+        "focus_case": None,
+        "strength_case": None,
+        "mode_focus": None,
+        "action_items": [],
+        "weekly_plan": [],
+        "trend_summary": None,
+    }
+
+    if history_df.empty:
+        return empty_result
+
+    enriched = history_df.dropna(subset=["得点"]).copy()
+    if enriched.empty:
+        return empty_result
+
+    enriched.sort_values("日付", inplace=True)
+    enriched["得点率"] = (
+        enriched["得点"] / enriched["満点"].replace({0: pd.NA})
+    ) * 100
+    enriched["得点率"] = enriched["得点率"].replace([float("inf"), -float("inf")], pd.NA)
+
+    case_summary = (
+        enriched.groupby("事例")
+        .agg(
+            平均得点=("得点", "mean"),
+            平均得点率=("得点率", "mean"),
+            回数=("得点", "count"),
+        )
+        .reset_index()
+    )
+
+    latest_scores = (
+        enriched.sort_values(["事例", "日付"])
+        .groupby("事例")
+        .tail(1)
+        .set_index("事例")
+    )
+    case_summary["直近得点"] = case_summary["事例"].map(latest_scores["得点"])
+    case_summary["直近得点率"] = case_summary["事例"].map(latest_scores["得点率"])
+    case_summary = case_summary.fillna(0.0)
+    case_summary[["平均得点", "平均得点率", "直近得点", "直近得点率"]] = case_summary[
+        ["平均得点", "平均得点率", "直近得点", "直近得点率"]
+    ].round(1)
+    case_summary["回数"] = case_summary["回数"].astype(int)
+    case_summary = case_summary[
+        ["事例", "平均得点", "平均得点率", "回数", "直近得点", "直近得点率"]
+    ]
+    case_summary.sort_values("平均得点率", ascending=False, inplace=True)
+
+    focus_case = None
+    strength_case = None
+    if not case_summary.empty:
+        weakest_row = case_summary.nsmallest(1, "平均得点率").iloc[0]
+        focus_case = {
+            "label": f"{weakest_row['事例']} ({weakest_row['平均得点率']:.1f}%)",
+            "description": f"平均得点 {weakest_row['平均得点']:.1f}点 / {int(weakest_row['回数'])}回実施",
+            "score_rate": float(weakest_row["平均得点率"]),
+        }
+        strongest_row = case_summary.nlargest(1, "平均得点率").iloc[0]
+        strength_case = {
+            "label": f"{strongest_row['事例']} ({strongest_row['平均得点率']:.1f}%)",
+            "description": f"平均得点 {strongest_row['平均得点']:.1f}点 / {int(strongest_row['回数'])}回実施",
+            "score_rate": float(strongest_row["平均得点率"]),
+        }
+
+    mode_focus = None
+    mode_summary = (
+        enriched.groupby("モード")
+        .agg(平均得点=("得点", "mean"), 回数=("得点", "count"))
+        .reset_index()
+    )
+    if len(mode_summary) >= 2:
+        least_row = mode_summary.nsmallest(1, "回数").iloc[0]
+        mode_focus = {
+            "label": f"{least_row['モード']}を強化",
+            "description": f"実施回数 {int(least_row['回数'])}回 / 平均{least_row['平均得点']:.1f}点",
+        }
+
+    chronological = enriched.dropna(subset=["得点率"]).sort_values("日付")
+    trend_summary = None
+    if len(chronological) >= 2:
+        window = max(2, len(chronological) // 2)
+        early_avg = chronological["得点率"].head(window).mean()
+        recent_avg = chronological["得点率"].tail(window).mean()
+        if pd.notna(early_avg) and pd.notna(recent_avg):
+            diff = recent_avg - early_avg
+            sign = "向上" if diff >= 0 else "低下"
+            trend_summary = (
+                f"直近{window}回の平均得点率は{recent_avg:.1f}%で、"
+                f"過去{window}回と比べて{diff:+.1f}ポイント{sign}しています。"
+            )
+
+    action_items: List[str] = []
+    if focus_case:
+        action_items.append(
+            f"平均得点率が相対的に低い「{focus_case['label']}」の復習セッションを追加しましょう。"
+        )
+    if mode_focus:
+        action_items.append(
+            f"{mode_focus['label']}を最低1回組み込み、実施回数の偏りを是正します。"
+        )
+    if trend_summary and "低下" in trend_summary:
+        action_items.append("得点率が下降傾向のため、過去の模試解答を振り返り改善点を整理してください。")
+
+    recommended_interval = stats.get("recommended_interval", 3)
+    next_study_at = stats.get("next_study_at")
+    weekly_plan: List[str] = []
+    if recommended_interval:
+        weekly_target = max(1, round(7 / recommended_interval))
+        weekly_plan.append(f"{recommended_interval}日おきを目安に週{weekly_target}回の演習を目指す。")
+    if focus_case:
+        weekly_plan.append(
+            f"週1回は「{focus_case['label'].split()[0]}」の過去問を解き、答案作成の型を確認。"
+        )
+    if mode_focus:
+        weekly_plan.append(
+            f"{mode_focus['label']}セッションを週内に1度設定して本番形式への慣れを強化。"
+        )
+    if isinstance(next_study_at, datetime):
+        weekly_plan.append(f"次の推奨タイミング: {next_study_at.strftime('%Y-%m-%d %H:%M')} 頃")
+
+    return {
+        "case_summary": case_summary.reset_index(drop=True),
+        "focus_case": focus_case,
+        "strength_case": strength_case,
+        "mode_focus": mode_focus,
+        "action_items": action_items,
+        "weekly_plan": weekly_plan,
+        "trend_summary": trend_summary,
+    }
+
+
+def _build_history_pdf(
+    history_df: pd.DataFrame, stats: Dict[str, Any], insights: Dict[str, Any]
+) -> bytes:
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    margin = 20 * mm
+    line_height = 12
+
+    def ensure_space(current_y: float, required: float = line_height) -> float:
+        if current_y - required < margin:
+            pdf.showPage()
+            pdf.setFont("Helvetica", 10)
+            return height - margin
+        return current_y
+
+    pdf.setFont("Helvetica-Bold", 16)
+    y = height - margin
+    pdf.drawString(margin, y, "学習履歴レポート")
+    y -= 18
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(margin, y, f"作成日時: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    y -= 18
+
+    summary_lines = [f"累計演習: {stats.get('total_sessions', 0)}回"]
+    recent_avg = stats.get("recent_average")
+    if recent_avg is not None:
+        summary_lines.append(f"直近5回平均: {recent_avg:.1f}点")
+    streak_days = stats.get("streak_days")
+    if streak_days:
+        summary_lines.append(f"連続学習日数: {streak_days}日")
+    next_study_at = stats.get("next_study_at")
+    if isinstance(next_study_at, datetime):
+        summary_lines.append(
+            f"次回の推奨学習タイミング: {next_study_at.strftime('%Y-%m-%d %H:%M')}"
+        )
+
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(margin, y, "サマリー")
+    y -= 16
+    pdf.setFont("Helvetica", 10)
+    for line in summary_lines:
+        y = ensure_space(y)
+        pdf.drawString(margin, y, f"・{line}")
+        y -= line_height
+
+    case_summary = insights.get("case_summary")
+    if case_summary is not None and not case_summary.empty:
+        y = ensure_space(y, 24)
+        pdf.setFont("Helvetica-Bold", 12)
+        pdf.drawString(margin, y, "事例別サマリー")
+        y -= 16
+        pdf.setFont("Helvetica", 10)
+        for _, row in case_summary.iterrows():
+            y = ensure_space(y)
+            text = (
+                f"{row['事例']}: 平均{row['平均得点']:.1f}点 / {row['平均得点率']:.1f}%"
+                f" (直近{row['直近得点']:.1f}点, {int(row['回数'])}回)"
+            )
+            pdf.drawString(margin, y, text)
+            y -= line_height
+
+    action_items = insights.get("action_items", [])
+    if action_items:
+        y = ensure_space(y, 24)
+        pdf.setFont("Helvetica-Bold", 12)
+        pdf.drawString(margin, y, "推奨アクション")
+        y -= 16
+        pdf.setFont("Helvetica", 10)
+        for item in action_items:
+            y = ensure_space(y)
+            pdf.drawString(margin, y, f"- {item}")
+            y -= line_height
+
+    weekly_plan = insights.get("weekly_plan", [])
+    if weekly_plan:
+        y = ensure_space(y, 24)
+        pdf.setFont("Helvetica-Bold", 12)
+        pdf.drawString(margin, y, "1週間の学習プラン")
+        y -= 16
+        pdf.setFont("Helvetica", 10)
+        for plan in weekly_plan:
+            y = ensure_space(y)
+            pdf.drawString(margin, y, f"• {plan}")
+            y -= line_height
+
+    recent_rows = (
+        history_df.sort_values("日付", ascending=False)
+        .head(12)
+        .copy()
+    )
+    if not recent_rows.empty:
+        y = ensure_space(y, 24)
+        pdf.setFont("Helvetica-Bold", 12)
+        pdf.drawString(margin, y, "直近の演習一覧")
+        y -= 16
+        pdf.setFont("Helvetica", 10)
+        for _, row in recent_rows.iterrows():
+            y = ensure_space(y)
+            if pd.isna(row["日付"]):
+                date_str = "日付未設定"
+            else:
+                date_str = (
+                    row["日付"].strftime("%Y-%m-%d %H:%M")
+                    if hasattr(row["日付"], "strftime")
+                    else str(row["日付"])
+                )
+            if pd.notna(row["得点"]) and pd.notna(row["満点"]):
+                score_text = f"{row['得点']:.1f}/{row['満点']:.0f}点"
+            elif pd.notna(row["得点"]):
+                score_text = f"{row['得点']:.1f}点"
+            else:
+                score_text = "未採点"
+            pdf.drawString(
+                margin,
+                y,
+                f"{date_str} {row['モード']} {row['年度']} {row['事例']} - {score_text}",
+            )
+            y -= line_height
+
+    if insights.get("trend_summary"):
+        y = ensure_space(y, 24)
+        pdf.setFont("Helvetica", 10)
+        pdf.drawString(margin, y, insights["trend_summary"])
+        y -= line_height
+
+    pdf.save()
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 def _safe_time_from_string(value: Optional[str]) -> dt_time:
     if not value:
         return dt_time(hour=20, minute=0)
@@ -1364,7 +1637,11 @@ def history_page(user: Dict) -> None:
         selected_mode_labels = [modes[key] for key in selected_modes]
         filtered_df = filtered_df[filtered_df["モード"].isin(selected_mode_labels)]
 
-    overview_tab, chart_tab, detail_tab = st.tabs(["一覧", "グラフ", "詳細・エクスポート"])
+    insights = _derive_learning_insights(filtered_df, stats)
+
+    overview_tab, chart_tab, analysis_tab, detail_tab = st.tabs(
+        ["一覧", "グラフ", "分析・学習計画", "詳細・エクスポート"]
+    )
 
     with overview_tab:
         display_df = filtered_df.copy()
@@ -1378,37 +1655,147 @@ def history_page(user: Dict) -> None:
         st.caption("複数条件でフィルタした演習履歴を確認できます。列名をクリックすると並び替えできます。")
 
     with chart_tab:
-        score_history = filtered_df.dropna(subset=["得点", "日付"])
+        score_history = filtered_df.dropna(subset=["得点", "日付"]).copy()
         if score_history.empty:
             st.info("選択した条件に該当する得点推移がありません。")
         else:
-            line_chart = (
+            score_history.sort_values("日付", inplace=True)
+            score_history["得点率"] = (
+                score_history["得点"] / score_history["満点"].replace({0: pd.NA})
+            ) * 100
+            score_history["得点率"] = pd.to_numeric(
+                score_history["得点率"].replace([float("inf"), -float("inf")], pd.NA),
+                errors="coerce",
+            )
+            sorted_history = score_history.sort_values(["事例", "日付"])
+            score_history["移動平均(得点)"] = sorted_history.groupby("事例")["得点"].transform(
+                lambda s: s.rolling(3, min_periods=1).mean()
+            )
+            score_history["移動平均(得点率)"] = sorted_history.groupby("事例")[
+                "得点率"
+            ].transform(lambda s: s.rolling(3, min_periods=1).mean())
+
+            metric_choice = st.radio("表示指標", ["得点", "得点率"], horizontal=True)
+            metric_config = {
+                "得点": {
+                    "field": "得点",
+                    "avg": "移動平均(得点)",
+                    "axis": alt.Axis(title="得点 (点)"),
+                    "format": ".1f",
+                },
+                "得点率": {
+                    "field": "得点率",
+                    "avg": "移動平均(得点率)",
+                    "axis": alt.Axis(title="得点率 (%)"),
+                    "format": ".1f",
+                },
+            }
+            selected_config = metric_config[metric_choice]
+
+            base_chart = (
                 alt.Chart(score_history)
-                .mark_line(point=True)
                 .encode(
-                    x="日付:T",
-                    y="得点:Q",
-                    color="事例:N",
-                    tooltip=["日付", "年度", "事例", "得点", "満点", "モード"],
+                    x=alt.X("日付:T", title="実施日"),
+                    y=alt.Y(f"{selected_config['field']}:Q", axis=selected_config["axis"]),
+                    color=alt.Color("事例:N", title="事例"),
+                    tooltip=[
+                        alt.Tooltip("日付:T", title="日付"),
+                        alt.Tooltip("年度:N", title="年度"),
+                        alt.Tooltip("事例:N", title="事例"),
+                        alt.Tooltip("モード:N", title="モード"),
+                        alt.Tooltip(f"{selected_config['field']}:Q", title=metric_choice, format=selected_config["format"]),
+                        alt.Tooltip(f"{selected_config['avg']}:Q", title="移動平均", format=selected_config["format"]),
+                    ],
                 )
                 .properties(height=320)
             )
-            st.altair_chart(line_chart, use_container_width=True)
+            trend_chart = base_chart.mark_line(point=True)
+            moving_average_chart = (
+                alt.Chart(score_history)
+                .mark_line(strokeDash=[6, 4], opacity=0.7)
+                .encode(
+                    x="日付:T",
+                    y=alt.Y(f"{selected_config['avg']}:Q", axis=selected_config["axis"]),
+                    color=alt.Color("事例:N", title="事例"),
+                )
+            )
 
-            avg_df = score_history.groupby("事例", as_index=False)["得点"].mean()
-            st.subheader("事例別平均点")
-            bar_chart = alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="得点:Q")
+            st.altair_chart(trend_chart + moving_average_chart, use_container_width=True)
+
+            avg_df = (
+                score_history.groupby("事例", as_index=False)[selected_config["field"]]
+                .mean()
+                .rename(columns={selected_config["field"]: "平均値"})
+            )
+            st.subheader("事例別平均")
+            bar_chart = alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="平均値:Q")
             st.altair_chart(bar_chart, use_container_width=True)
 
+    with analysis_tab:
+        if filtered_df.empty:
+            st.info("分析できるデータがありません。フィルタ条件を調整してください。")
+        else:
+            st.subheader("事例別サマリー")
+            st.dataframe(insights["case_summary"], use_container_width=True)
+
+            col1, col2, col3 = st.columns(3)
+            focus_case = insights.get("focus_case")
+            strength_case = insights.get("strength_case")
+            mode_focus = insights.get("mode_focus")
+            col1.metric(
+                "強化が必要な事例",
+                focus_case["label"] if focus_case else "ー",
+                help=focus_case["description"] if focus_case else None,
+            )
+            col2.metric(
+                "得意な事例",
+                strength_case["label"] if strength_case else "ー",
+                help=strength_case["description"] if strength_case else None,
+            )
+            col3.metric(
+                "演習バランス",
+                mode_focus["label"] if mode_focus else "ー",
+                help=mode_focus["description"] if mode_focus else None,
+            )
+
+            st.subheader("推奨アクション")
+            action_items = insights.get("action_items", [])
+            if action_items:
+                for item in action_items:
+                    st.markdown(f"- {item}")
+            else:
+                st.caption("データに基づく推奨アクションは現在ありません。")
+
+            if insights.get("weekly_plan"):
+                st.subheader("1週間の学習プラン提案")
+                st.markdown("\n".join(f"- {line}" for line in insights["weekly_plan"]))
+
+            if insights.get("trend_summary"):
+                st.caption(insights["trend_summary"])
+
     with detail_tab:
+        if filtered_df.empty:
+            st.info("エクスポートできる履歴がありません。フィルタ条件を変更してください。")
+            return
+
         csv_export = filtered_df.copy()
         csv_export["日付"] = csv_export["日付"].dt.strftime("%Y-%m-%d %H:%M:%S")
-        csv_bytes = csv_export.drop(columns=["attempt_id"]).to_csv(index=False).encode("utf-8-sig")
+        csv_bytes = (
+            csv_export.drop(columns=["attempt_id"]).to_csv(index=False).encode("utf-8-sig")
+        )
         st.download_button(
             "CSVをダウンロード",
             data=csv_bytes,
             file_name="history.csv",
             mime="text/csv",
+        )
+
+        pdf_bytes = _build_history_pdf(filtered_df, stats, insights)
+        st.download_button(
+            "PDFレポートをダウンロード",
+            data=pdf_bytes,
+            file_name="history_report.pdf",
+            mime="application/pdf",
         )
 
         recent_history = filtered_df.dropna(subset=["日付"]).sort_values("日付", ascending=False)
