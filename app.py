@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Dict, List
 
@@ -12,6 +13,51 @@ import mock_exam
 import scoring
 from database import RecordedAnswer
 from scoring import QuestionSpec
+
+
+FEEDBACK_COLOR_MAP = {
+    "positive": {
+        "high": ("#2e7d32", "#e8f5e9"),
+        "medium": ("#388e3c", "#edf7ed"),
+        "low": ("#4caf50", "#f1f8e9"),
+    },
+    "negative": {
+        "high": ("#b71c1c", "#ffebee"),
+        "medium": ("#c62828", "#fdecea"),
+        "low": ("#d32f2f", "#fce4ec"),
+    },
+    "advice": {
+        "high": ("#ef6c00", "#fff3e0"),
+        "medium": ("#fbc02d", "#fff9c4"),
+        "low": ("#0288d1", "#e1f5fe"),
+    },
+}
+
+
+def _load_feedback_payload(raw: str) -> Dict:
+    if not raw:
+        return {}
+    try:
+        payload = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _render_feedback_section(title: str, items: List[Dict], tone: str) -> None:
+    if not items:
+        return
+    st.markdown(f"**{title}**")
+    palette = FEEDBACK_COLOR_MAP.get(tone, {})
+    for item in items:
+        level = item.get("level", "medium")
+        border_color, bg_color = palette.get(level, ("#424242", "#fafafa"))
+        message = item.get("message", "")
+        st.markdown(
+            f"<div style='border-left:4px solid {border_color}; background-color:{bg_color}; padding:0.5rem 0.75rem; margin-bottom:0.5rem;'>"
+            f"{message}</div>",
+            unsafe_allow_html=True,
+        )
 
 
 def _init_session_state() -> None:
@@ -256,7 +302,7 @@ def practice_page(user: Dict) -> None:
                     question_id=question["id"],
                     answer_text=text,
                     score=result.score,
-                    feedback=result.feedback,
+                    feedback=json.dumps(result.to_payload(), ensure_ascii=False),
                     keyword_hits=result.keyword_hits,
                 )
             )
@@ -368,15 +414,28 @@ def render_attempt_results(attempt_id: int) -> None:
 
     summary_rows = []
     for idx, answer in enumerate(answers, start=1):
+        payload = _load_feedback_payload(answer["feedback"])
+        keyword_summary = "-"
+        keywords_detail = []
+        keywords = payload.get("keywords", {}) if payload else {}
+        if keywords:
+            for kw, stats in keywords.items():
+                count = stats.get("count", 0)
+                mark = "○" if stats.get("hit") else "×"
+                keywords_detail.append(f"{kw} ({count}回){mark}")
+        else:
+            hits = [kw for kw, hit in (answer["keyword_hits"] or {}).items() if hit]
+            if hits:
+                keywords_detail = hits
+        if keywords_detail:
+            keyword_summary = "、".join(keywords_detail)
+
         summary_rows.append(
             {
                 "設問": idx,
                 "得点": answer["score"],
                 "満点": answer["max_score"],
-                "キーワード達成": ", ".join(
-                    [kw for kw, hit in (answer["keyword_hits"] or {}).items() if hit]
-                )
-                or "-",
+                "キーワード状況": keyword_summary,
             }
         )
     if summary_rows:
@@ -386,19 +445,62 @@ def render_attempt_results(attempt_id: int) -> None:
             use_container_width=True,
             disabled=True,
         )
-        st.caption("各設問の得点とキーワード達成状況を整理しました。弱点分析に活用してください。")
+        st.caption("各設問の得点とキーワードの含有状況を整理しました。回数不足の論点を確認してください。")
 
     for idx, answer in enumerate(answers, start=1):
         with st.expander(f"設問{idx}の結果", expanded=True):
             st.write(f"**得点:** {answer['score']} / {answer['max_score']}")
-            st.write("**フィードバック**")
-            st.markdown(f"<pre>{answer['feedback']}</pre>", unsafe_allow_html=True)
-            if answer["keyword_hits"]:
-                keyword_df = pd.DataFrame(
-                    [[kw, "○" if hit else "×"] for kw, hit in answer["keyword_hits"].items()],
-                    columns=["キーワード", "判定"],
-                )
-                st.table(keyword_df)
+            payload = _load_feedback_payload(answer["feedback"])
+            if payload:
+                keywords_payload = payload.get("keywords", {})
+                metrics = payload.get("metrics", {})
+                if metrics:
+                    col1, col2 = st.columns(2)
+                    similarity = metrics.get("similarity")
+                    coverage = metrics.get("keyword_coverage")
+                    if similarity is not None:
+                        col1.metric("類似度", f"{similarity:.2f}")
+                    if coverage is not None and keywords_payload:
+                        col2.metric("キーワード網羅率", f"{coverage * 100:.0f}%")
+                    elif coverage is not None:
+                        col2.metric("キーワード網羅率", "-")
+
+                st.write("**フィードバック詳細**")
+                summary = payload.get("summary")
+                if summary:
+                    formatted = summary.replace("\n", "<br>")
+                    st.markdown(
+                        "<div style='background-color:#f5f5f5;padding:0.5rem 0.75rem;border-radius:4px;margin-bottom:0.75rem;'>"
+                        f"{formatted}</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                _render_feedback_section("加点につながった要素", payload.get("positives", []), "positive")
+                _render_feedback_section("減点・改善が必要な点", payload.get("negatives", []), "negative")
+                _render_feedback_section("改善アドバイス", payload.get("advice", []), "advice")
+
+                if keywords_payload:
+                    keyword_df = pd.DataFrame(
+                        [
+                            {
+                                "キーワード": kw,
+                                "含有数": stats.get("count", 0),
+                                "判定": "○" if stats.get("hit") else "×",
+                            }
+                            for kw, stats in keywords_payload.items()
+                        ]
+                    )
+                    st.table(keyword_df)
+                    st.caption("キーワード列には含有回数と加点判定を表示しています。")
+            else:
+                st.write("**フィードバック**")
+                st.markdown(f"<pre>{answer['feedback']}</pre>", unsafe_allow_html=True)
+                if answer["keyword_hits"]:
+                    keyword_df = pd.DataFrame(
+                        [[kw, "○" if hit else "×"] for kw, hit in answer["keyword_hits"].items()],
+                        columns=["キーワード", "判定"],
+                    )
+                    st.table(keyword_df)
             with st.expander("模範解答と解説", expanded=False):
                 st.write("**模範解答**")
                 st.write(answer["model_answer"])
@@ -471,7 +573,7 @@ def mock_exam_page(user: Dict) -> None:
                         question_id=question["id"],
                         answer_text=text,
                         score=result.score,
-                        feedback=result.feedback,
+                        feedback=json.dumps(result.to_payload(), ensure_ascii=False),
                         keyword_hits=result.keyword_hits,
                     )
                 )
