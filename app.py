@@ -120,6 +120,31 @@ KEYWORD_RESOURCE_MAP = {
 }
 
 
+@st.cache_data(show_spinner=False)
+def _load_problem_index() -> List[Dict[str, Any]]:
+    return database.list_problems()
+
+
+@st.cache_data(show_spinner=False)
+def _load_problem_years() -> List[str]:
+    return database.list_problem_years()
+
+
+@st.cache_data(show_spinner=False)
+def _load_problem_cases(year: str) -> List[str]:
+    return database.list_problem_cases(year)
+
+
+@st.cache_data(show_spinner=False)
+def _load_problem_detail(problem_id: int) -> Optional[Dict[str, Any]]:
+    return database.fetch_problem(problem_id)
+
+
+@st.cache_data(show_spinner=False)
+def _load_problem_by_year_case(year: str, case_label: str) -> Optional[Dict[str, Any]]:
+    return database.fetch_problem_by_year_case(year, case_label)
+
+
 def _init_session_state() -> None:
     if "user" not in st.session_state:
         guest = database.get_or_create_guest_user()
@@ -1529,7 +1554,7 @@ def _calculate_level(total_experience: float) -> Dict[str, float]:
 
 
 def _compute_progress_overview(history_df: pd.DataFrame) -> Dict[str, Any]:
-    problems = database.list_problems()
+    problems = _load_problem_index()
     total_pairs = {
         (row["year"], row["case_label"])
         for row in problems
@@ -1882,15 +1907,18 @@ def practice_page(user: Dict) -> None:
         _practice_with_uploaded_data(past_data_df)
         return
 
-    years = database.list_problem_years()
+    years = _load_problem_years()
     if not years:
         st.warning("問題データが登録されていません。seed_problems.jsonを確認してください。")
         return
     selected_year = st.selectbox("年度", years)
-    cases = database.list_problem_cases(selected_year)
+    cases = _load_problem_cases(selected_year)
+    if not cases:
+        st.warning("選択した年度の事例が登録されていません。")
+        return
     selected_case = st.selectbox("事例", cases)
 
-    problem = database.fetch_problem_by_year_case(selected_year, selected_case)
+    problem = _load_problem_by_year_case(selected_year, selected_case)
     if not problem:
         st.error("問題を取得できませんでした。")
         return
@@ -2240,7 +2268,9 @@ def mock_exam_page(user: Dict) -> None:
 
         case_summaries = []
         for problem_id in selected_exam.problem_ids:
-            problem = database.fetch_problem(problem_id)
+            problem = _load_problem_detail(problem_id)
+            if not problem:
+                continue
             case_summaries.append(
                 f"- {problem['year']} {problem['case_label']}：{problem['title']}"
             )
@@ -2262,10 +2292,19 @@ def mock_exam_page(user: Dict) -> None:
     elapsed = datetime.utcnow() - start_time
     st.info(f"模試開始からの経過時間: {elapsed}")
 
-    tabs = st.tabs([f"{idx+1}. {database.fetch_problem(problem_id)['case_label']}" for idx, problem_id in enumerate(exam.problem_ids)])
+    tab_labels: List[str] = []
+    for idx, problem_id in enumerate(exam.problem_ids):
+        problem = _load_problem_detail(problem_id)
+        case_label = problem["case_label"] if problem else "不明"
+        tab_labels.append(f"{idx+1}. {case_label}")
+
+    tabs = st.tabs(tab_labels)
     for tab, problem_id in zip(tabs, exam.problem_ids):
         with tab:
-            problem = database.fetch_problem(problem_id)
+            problem = _load_problem_detail(problem_id)
+            if not problem:
+                st.error("問題の読み込みに失敗しました。")
+                continue
             st.subheader(problem["title"])
             st.write(problem["overview"])
             for question in problem["questions"]:
@@ -2281,7 +2320,10 @@ def mock_exam_page(user: Dict) -> None:
     if st.button("模試を提出", type="primary"):
         overall_results = []
         for problem_id in exam.problem_ids:
-            problem = database.fetch_problem(problem_id)
+            problem = _load_problem_detail(problem_id)
+            if not problem:
+                st.warning("一部の問題データが取得できなかったため採点をスキップしました。")
+                continue
             answers: List[RecordedAnswer] = []
             for question in problem["questions"]:
                 text = st.session_state.drafts.get(_draft_key(problem_id, question["id"]), "")
