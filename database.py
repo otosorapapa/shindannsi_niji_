@@ -45,6 +45,13 @@ def initialize_database() -> None:
             created_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS user_goals (
+            user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+            target_average_score REAL,
+            weekly_attempt_target INTEGER,
+            updated_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS problems (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             year TEXT NOT NULL,
@@ -197,6 +204,89 @@ def update_user_plan(user_id: int, plan: str) -> None:
     cur.execute("UPDATE users SET plan = ? WHERE id = ?", (plan, user_id))
     conn.commit()
     conn.close()
+
+
+def get_user_goal(user_id: int) -> Dict[str, Optional[float]]:
+    """Return the stored learning goal for a user if it exists."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT target_average_score, weekly_attempt_target FROM user_goals WHERE user_id = ?",
+        (user_id,),
+    )
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return {"target_average_score": None, "weekly_attempt_target": None}
+
+    return {
+        "target_average_score": row["target_average_score"],
+        "weekly_attempt_target": row["weekly_attempt_target"],
+    }
+
+
+def upsert_user_goal(
+    user_id: int,
+    target_average_score: Optional[float],
+    weekly_attempt_target: Optional[int],
+) -> None:
+    """Insert or update the learning goal record for a user."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO user_goals (user_id, target_average_score, weekly_attempt_target, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            target_average_score = excluded.target_average_score,
+            weekly_attempt_target = excluded.weekly_attempt_target,
+            updated_at = excluded.updated_at
+        """,
+        (user_id, target_average_score, weekly_attempt_target, datetime.utcnow().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+
+
+def fetch_leaderboard(limit: int = 5) -> List[Dict[str, Optional[float]]]:
+    """Return top users ordered by their average score."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            u.id AS user_id,
+            u.name AS name,
+            COUNT(a.id) AS attempt_count,
+            AVG(a.total_score) AS avg_score
+        FROM users u
+        LEFT JOIN attempts a ON a.user_id = u.id AND a.total_score IS NOT NULL
+        GROUP BY u.id
+        HAVING attempt_count > 0
+        ORDER BY avg_score DESC
+        LIMIT ?
+        """,
+        (limit,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    leaderboard: List[Dict[str, Optional[float]]] = []
+    for row in rows:
+        leaderboard.append(
+            {
+                "user_id": row["user_id"],
+                "name": row["name"],
+                "attempt_count": row["attempt_count"],
+                "avg_score": row["avg_score"],
+            }
+        )
+
+    return leaderboard
 
 
 def list_problems() -> List[sqlite3.Row]:

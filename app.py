@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Dict, List
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
 
 import altair as alt
 import pandas as pd
@@ -54,6 +54,69 @@ def main_view() -> None:
         settings_page(user)
 
 
+def _parse_datetime(value: Optional[datetime]) -> Optional[datetime]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
+def _recommend_next_practice(attempts: List) -> Optional[Dict]:
+    problems = database.list_problems()
+    attempted_problem_ids = {row["problem_id"] for row in attempts}
+
+    unattempted = [problem for problem in problems if problem["id"] not in attempted_problem_ids]
+    if unattempted:
+        problem = unattempted[0]
+        return {
+            "title": problem["title"],
+            "year": problem["year"],
+            "case_label": problem["case_label"],
+            "reason": "まだ取り組んでいない最新の事例に挑戦してみましょう。",
+        }
+
+    if not attempts:
+        return None
+
+    case_stats: Dict[str, Dict[str, float]] = {}
+    for row in attempts:
+        case_label = row["case_label"]
+        total_score = row["total_score"] or 0
+        total_max = row["total_max_score"] or 1
+        case_data = case_stats.setdefault(case_label, {"score_sum": 0.0, "max_sum": 0.0, "count": 0})
+        case_data["score_sum"] += total_score
+        case_data["max_sum"] += total_max
+        case_data["count"] += 1
+
+    weakest_case = None
+    weakest_ratio = 1.0
+    for case_label, values in case_stats.items():
+        if values["max_sum"] == 0:
+            continue
+        ratio = values["score_sum"] / values["max_sum"]
+        if ratio < weakest_ratio:
+            weakest_ratio = ratio
+            weakest_case = case_label
+
+    if not weakest_case:
+        return None
+
+    candidate = next((problem for problem in problems if problem["case_label"] == weakest_case), None)
+    if not candidate:
+        return None
+
+    return {
+        "title": candidate["title"],
+        "year": candidate["year"],
+        "case_label": weakest_case,
+        "reason": f"平均得点が最も低い『{weakest_case}』の復習に取り組みましょう。",
+    }
+
+
 def dashboard_page(user: Dict) -> None:
     st.title("ホームダッシュボード")
     st.caption("学習状況のサマリと機能へのショートカット")
@@ -71,23 +134,29 @@ def dashboard_page(user: Dict) -> None:
     col3.metric("得点達成率", f"{completion_rate:.0f}%")
 
     stats = database.aggregate_statistics(user["id"])
-    overview_tab, chart_tab = st.tabs(["進捗サマリ", "事例別分析"])
+    attempts_with_datetime = []
+    for row in attempts:
+        parsed = dict(row)
+        parsed["submitted_at"] = _parse_datetime(row["submitted_at"])
+        attempts_with_datetime.append(parsed)
+
+    overview_tab, trend_tab, analysis_tab = st.tabs(["進捗サマリ", "得点推移", "事例別分析"])
 
     with overview_tab:
-        if attempts:
+        if attempts_with_datetime:
             summary_df = pd.DataFrame(
                 [
                     {
                         "実施日": row["submitted_at"].strftime("%Y-%m-%d")
-                        if isinstance(row["submitted_at"], datetime)
-                        else row["submitted_at"],
+                        if row["submitted_at"]
+                        else "-",
                         "年度": row["year"],
                         "事例": row["case_label"],
                         "モード": "模試" if row["mode"] == "mock" else "演習",
                         "得点": row["total_score"],
                         "満点": row["total_max_score"],
                     }
-                    for row in attempts
+                    for row in attempts_with_datetime
                 ]
             )
             st.data_editor(
@@ -100,7 +169,34 @@ def dashboard_page(user: Dict) -> None:
         else:
             st.info("まだ演習結果がありません。『過去問演習』から学習を開始しましょう。")
 
-    with chart_tab:
+    with trend_tab:
+        trend_df = pd.DataFrame(
+            [
+                {
+                    "日付": row["submitted_at"],
+                    "得点": row["total_score"],
+                }
+                for row in attempts_with_datetime
+                if row["submitted_at"] is not None and row["total_score"] is not None
+            ]
+        )
+        if not trend_df.empty:
+            trend_df.sort_values("日付", inplace=True)
+            st.subheader("得点推移")
+            trend_chart = (
+                alt.Chart(trend_df)
+                .mark_line(point=True)
+                .encode(
+                    x=alt.X("日付:T", title="実施日"),
+                    y=alt.Y("得点:Q", title="総得点"),
+                    tooltip=[alt.Tooltip("日付:T", title="実施日"), alt.Tooltip("得点:Q", title="得点", format=".1f")],
+                )
+            )
+            st.altair_chart(trend_chart, use_container_width=True)
+        else:
+            st.info("採点済みの演習が登録されると得点推移を表示します。")
+
+    with analysis_tab:
         if stats:
             chart_data = []
             for case_label, values in stats.items():
@@ -120,6 +216,32 @@ def dashboard_page(user: Dict) -> None:
                 .encode(x="事例", y="割合:Q", tooltip=["事例", "得点", "満点", "割合"])
             )
             st.altair_chart(chart, use_container_width=True)
+
+            distribution_df = pd.DataFrame(
+                [
+                    {
+                        "事例": row["case_label"],
+                        "得点": row["total_score"],
+                        "日付": row["submitted_at"],
+                    }
+                    for row in attempts_with_datetime
+                    if row["total_score"] is not None
+                ]
+            )
+            if len(distribution_df) > 1:
+                st.subheader("事例別の得点分布")
+                box_chart = (
+                    alt.Chart(distribution_df)
+                    .mark_boxplot()
+                    .encode(
+                        x="事例:N",
+                        y=alt.Y("得点:Q", title="得点"),
+                        tooltip=["事例", alt.Tooltip("得点:Q", format=".1f"), alt.Tooltip("日付:T", title="実施日")],
+                    )
+                )
+                st.altair_chart(box_chart, use_container_width=True)
+            else:
+                st.info("複数回の演習データが蓄積すると得点分布を表示します。")
         else:
             st.info("演習データが蓄積すると事例別の分析が表示されます。")
 
@@ -131,6 +253,90 @@ def dashboard_page(user: Dict) -> None:
     - **学習履歴**: これまでの得点推移やエクスポートを確認
     """
     )
+
+    st.divider()
+
+    st.subheader("学習目標とモチベーション管理")
+    goal_data = database.get_user_goal(user["id"])
+    default_target = goal_data["target_average_score"] or (average_score if average_score else 60.0)
+    default_weekly = goal_data["weekly_attempt_target"] or 2
+
+    with st.expander("学習目標を設定する", expanded=goal_data["target_average_score"] is None):
+        with st.form("goal_form"):
+            target_average = st.number_input(
+                "目標平均得点",
+                min_value=0.0,
+                max_value=400.0,
+                value=float(default_target),
+                step=1.0,
+                help="全事例の平均点として達成したい目標を設定します。",
+            )
+            weekly_attempt = st.number_input(
+                "週あたりの演習目標回数",
+                min_value=0,
+                max_value=20,
+                value=int(default_weekly),
+                step=1,
+                help="継続的に学習を進めるための目標回数です。",
+            )
+            submitted = st.form_submit_button("目標を保存")
+
+        if submitted:
+            database.upsert_user_goal(
+                user_id=user["id"],
+                target_average_score=target_average,
+                weekly_attempt_target=weekly_attempt,
+            )
+            st.success("学習目標を保存しました。目標達成に向けて継続しましょう！")
+            goal_data = {
+                "target_average_score": target_average,
+                "weekly_attempt_target": weekly_attempt,
+            }
+
+    goal_cols = st.columns(2)
+    if goal_data["target_average_score"]:
+        diff = average_score - goal_data["target_average_score"]
+        goal_cols[0].metric("目標平均との差", f"{diff:+.1f}点", help="現在の平均点と目標平均点との差を表示します。")
+
+    if goal_data["weekly_attempt_target"]:
+        now = datetime.utcnow()
+        last_week_count = sum(
+            1
+            for row in attempts_with_datetime
+            if row["submitted_at"] and row["submitted_at"] >= now - timedelta(days=7)
+        )
+        weekly_target = goal_data["weekly_attempt_target"]
+        progress_ratio = min(1.0, last_week_count / weekly_target) if weekly_target else 0
+        goal_cols[1].metric("直近7日の演習回数", f"{last_week_count}回 / {weekly_target}回")
+        st.progress(progress_ratio, text="週次目標に対する進捗状況")
+
+    st.subheader("次に取り組むべき演習")
+    recommendation = _recommend_next_practice(attempts)
+    if recommendation:
+        st.markdown(
+            f"**{recommendation['year']} {recommendation['case_label']}『{recommendation['title']}』**\n\n"
+            f"{recommendation['reason']}"
+        )
+        if st.button("この演習に進む", key="go_to_practice"):
+            st.session_state.page = "過去問演習"
+            st.experimental_rerun()
+    else:
+        st.info("演習データが蓄積するとおすすめの次のステップを提示します。")
+
+    st.subheader("みんなのランキング")
+    leaderboard = database.fetch_leaderboard(limit=5)
+    if leaderboard:
+        board_df = pd.DataFrame(leaderboard)
+        board_df.insert(0, "順位", range(1, len(board_df) + 1))
+        board_df["ユーザー"] = board_df["name"]
+        board_df["平均得点"] = board_df["avg_score"].round(1)
+        board_df["演習回数"] = board_df["attempt_count"]
+        board_df["あなた"] = board_df["user_id"].apply(lambda x: "⭐" if x == user["id"] else "")
+        board_df = board_df[["順位", "ユーザー", "平均得点", "演習回数", "あなた"]]
+        st.dataframe(board_df, use_container_width=True, hide_index=True)
+        st.caption("平均得点の上位ユーザーを表示しています。⭐はあなたの順位です。")
+    else:
+        st.info("ランキングは複数ユーザーの演習データが登録されると表示されます。")
 
 
 def _draft_key(problem_id: int, question_id: int) -> str:
