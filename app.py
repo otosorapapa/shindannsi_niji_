@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from textwrap import dedent
 from typing import Any, Dict, List, Optional
+import logging
 
 import html
 
@@ -1584,7 +1585,15 @@ def settings_page(user: Dict) -> None:
     )
 
 
+logger = logging.getLogger(__name__)
+
+
 if __name__ == "__main__":
     database.initialize_database()
     _init_session_state()
-    main_view()
+    try:
+        main_view()
+    except Exception:  # pragma: no cover - defensive UI fallback
+        logger.exception("Unhandled exception in main_view")
+        st.error("現在システムに不具合が発生しています。時間を置いて再度アクセスしてください。")
+        st.caption("お問い合わせ: support@example.com")
