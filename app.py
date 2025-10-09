@@ -115,6 +115,72 @@ KEYWORD_RESOURCE_MAP = {
 }
 
 
+THEME_PALETTES: Dict[str, Dict[str, str]] = {
+    "light": {
+        "app_background": "linear-gradient(180deg, #f3f6fb 0%, #ffffff 45%)",
+        "sidebar_background": "#ffffff",
+        "text_primary": "#0f172a",
+        "text_secondary": "#1f2937",
+        "text_muted": "#64748b",
+        "surface_card": "rgba(255, 255, 255, 0.95)",
+        "surface_card_alt": "#ffffff",
+        "surface_border": "rgba(148, 163, 184, 0.35)",
+        "surface_border_strong": "rgba(148, 163, 184, 0.55)",
+        "shadow_soft": "0 12px 24px rgba(15, 23, 42, 0.08)",
+        "shadow_medium": "0 16px 30px rgba(15, 23, 42, 0.12)",
+        "shadow_strong": "0 20px 32px rgba(15, 23, 42, 0.12)",
+        "metric_card_bg": "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(241,245,249,0.95))",
+        "metric_card_overlay": "rgba(255,255,255,0.5)",
+        "metric_card_indigo": "linear-gradient(135deg, #2740ff, #4f74ff)",
+        "metric_card_emerald": "linear-gradient(135deg, #00b894, #4ade80)",
+        "metric_card_orange": "linear-gradient(135deg, #ff8a4c, #ffb347)",
+        "metric_card_sky": "linear-gradient(135deg, #38bdf8, #60a5fa)",
+        "insight_card_bg": "#ffffff",
+        "action_card_bg": "linear-gradient(135deg, rgba(37,99,235,0.08), rgba(14,165,233,0.08))",
+        "table_card_bg": "rgba(255, 255, 255, 0.95)",
+        "tab_list_bg": "rgba(226, 232, 240, 0.5)",
+        "tab_selected_bg": "rgba(37, 99, 235, 0.14)",
+        "tab_selected_border": "rgba(59, 130, 246, 0.4)",
+        "tab_selected_color": "#1d4ed8",
+        "radio_hover_bg": "rgba(49, 51, 63, 0.05)",
+        "radio_selected_bg": "rgba(49, 51, 63, 0.06)",
+        "radio_selected_border": "rgba(59, 130, 246, 0.4)",
+        "primary_color": "#2563eb",
+    },
+    "dark": {
+        "app_background": "linear-gradient(180deg, #0f172a 0%, #111827 45%)",
+        "sidebar_background": "#0b1220",
+        "text_primary": "#f8fafc",
+        "text_secondary": "#e2e8f0",
+        "text_muted": "#94a3b8",
+        "surface_card": "linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.95))",
+        "surface_card_alt": "rgba(15, 23, 42, 0.85)",
+        "surface_border": "rgba(71, 85, 105, 0.6)",
+        "surface_border_strong": "rgba(148, 163, 184, 0.35)",
+        "shadow_soft": "0 12px 24px rgba(2, 6, 23, 0.6)",
+        "shadow_medium": "0 16px 30px rgba(2, 6, 23, 0.65)",
+        "shadow_strong": "0 22px 36px rgba(2, 6, 23, 0.7)",
+        "metric_card_bg": "linear-gradient(135deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95))",
+        "metric_card_overlay": "rgba(148,163,184,0.15)",
+        "metric_card_indigo": "linear-gradient(135deg, #1e3a8a, #312e81)",
+        "metric_card_emerald": "linear-gradient(135deg, #047857, #10b981)",
+        "metric_card_orange": "linear-gradient(135deg, #ea580c, #f97316)",
+        "metric_card_sky": "linear-gradient(135deg, #0369a1, #0ea5e9)",
+        "insight_card_bg": "rgba(17, 24, 39, 0.9)",
+        "action_card_bg": "linear-gradient(135deg, rgba(37,99,235,0.22), rgba(14,165,233,0.22))",
+        "table_card_bg": "rgba(17, 24, 39, 0.92)",
+        "tab_list_bg": "rgba(30, 41, 59, 0.85)",
+        "tab_selected_bg": "rgba(37, 99, 235, 0.28)",
+        "tab_selected_border": "rgba(96, 165, 250, 0.6)",
+        "tab_selected_color": "#bfdbfe",
+        "radio_hover_bg": "rgba(148, 163, 184, 0.15)",
+        "radio_selected_bg": "rgba(96, 165, 250, 0.18)",
+        "radio_selected_border": "rgba(59, 130, 246, 0.6)",
+        "primary_color": "#60a5fa",
+    },
+}
+
+
 def _init_session_state() -> None:
     if "user" not in st.session_state:
         guest = database.get_or_create_guest_user()
@@ -126,6 +192,58 @@ def _init_session_state() -> None:
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
     st.session_state.setdefault("flashcard_states", {})
+    st.session_state.setdefault("theme", "light")
+
+
+def _inject_theme_styles() -> None:
+    theme = st.session_state.get("theme", "light")
+    if theme not in THEME_PALETTES:
+        theme = "light"
+    if st.session_state.get("_active_theme") == theme:
+        return
+
+    palette = THEME_PALETTES[theme]
+    css_variables = "\n".join(
+        f"    --{key.replace('_', '-')}: {value};" for key, value in palette.items()
+    )
+    st.markdown(
+        f"""
+        <style>
+        :root {{
+{css_variables}
+        }}
+        body {{
+            background: var(--app-background);
+            color: var(--text-primary);
+        }}
+        [data-testid="stAppViewContainer"] {{
+            background: var(--app-background);
+            color: var(--text-primary);
+        }}
+        section[data-testid="stSidebar"] {{
+            background: var(--sidebar-background);
+            color: var(--text-primary);
+        }}
+        section[data-testid="stSidebar"] * {{
+            color: var(--text-primary);
+        }}
+        .block-container {{
+            color: var(--text-primary);
+        }}
+        .stMarkdown, .stMarkdown p, .stMarkdown li {{
+            color: var(--text-primary);
+        }}
+        .stCaption, .stCaption p {{
+            color: var(--text-muted);
+        }}
+        .stMetric-value {{
+            color: var(--text-secondary);
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state["_active_theme"] = theme
 
 
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
@@ -133,7 +251,11 @@ def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
 
 
 def _inject_guideline_styles() -> None:
-    if st.session_state.get("_guideline_styles_injected"):
+    theme = st.session_state.get("theme", "light")
+    if (
+        st.session_state.get("_guideline_styles_injected")
+        and st.session_state.get("_guideline_styles_theme") == theme
+    ):
         return
 
     st.markdown(
@@ -143,19 +265,20 @@ def _inject_guideline_styles() -> None:
             margin: 0.5rem 0 1.5rem;
             padding: 1.1rem 1.25rem;
             border-radius: 14px;
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            background: rgba(248, 250, 252, 0.8);
-            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+            border: 1px solid var(--surface-border);
+            background: var(--surface-card);
+            box-shadow: var(--shadow-soft);
+            color: var(--text-primary);
         }
         .guideline-card .guideline-heading {
             font-weight: 700;
             font-size: 0.95rem;
-            color: #1f2937;
+            color: var(--text-secondary);
             margin-bottom: 0.25rem;
         }
         .guideline-card .guideline-body {
             margin: 0 0 0.8rem;
-            color: #334155;
+            color: var(--text-muted);
             line-height: 1.6;
         }
         .guideline-card .guideline-section + .guideline-section {
@@ -169,10 +292,13 @@ def _inject_guideline_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_guideline_styles_injected"] = True
+    st.session_state["_guideline_styles_theme"] = theme
 
 
 def main_view() -> None:
     user = st.session_state.user
+
+    _inject_theme_styles()
 
     navigation_items = {
         "ホーム": dashboard_page,
@@ -201,12 +327,12 @@ def main_view() -> None:
                 transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
             }
             section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child:hover {
-                border-color: rgba(49, 51, 63, 0.2);
-                background-color: rgba(49, 51, 63, 0.05);
+                border-color: var(--surface-border);
+                background-color: var(--radio-hover-bg);
             }
             section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > input:checked + div {
-                background-color: rgba(49, 51, 63, 0.06);
-                border-color: var(--primary-color);
+                background-color: var(--radio-selected-bg);
+                border-color: var(--radio-selected-border);
                 color: var(--primary-color);
                 box-shadow: 0 0 0 1px var(--primary-color) inset;
                 font-weight: 600;
@@ -229,6 +355,17 @@ def main_view() -> None:
     )
 
     st.sidebar.divider()
+    theme_is_dark = st.sidebar.toggle(
+        "ダークテーマ",
+        value=st.session_state.theme == "dark",
+        help="暗色ベースのテーマに切り替えて目の疲れを軽減します。",
+    )
+    st.session_state.theme = "dark" if theme_is_dark else "light"
+
+    st.sidebar.caption(
+        "ライト／ダークテーマはいつでも切り替えできます。環境に合わせてお好みの表示に調整してください。"
+    )
+
     st.sidebar.info(f"利用者: {user['name']} ({user['plan']}プラン)")
     st.sidebar.caption(
         "必要な情報にすぐアクセスできるよう、ページ別にコンテンツを整理しています。"
@@ -239,16 +376,17 @@ def main_view() -> None:
 
 
 def _inject_dashboard_styles() -> None:
-    if st.session_state.get("_dashboard_styles_injected"):
+    theme = st.session_state.get("theme", "light")
+    if (
+        st.session_state.get("_dashboard_styles_injected")
+        and st.session_state.get("_dashboard_styles_theme") == theme
+    ):
         return
 
     st.markdown(
         dedent(
             """
             <style>
-            [data-testid="stAppViewContainer"] {
-                background: linear-gradient(180deg, #f3f6fb 0%, #ffffff 45%);
-            }
             .block-container {
                 padding-top: 1.2rem;
                 padding-bottom: 3rem;
@@ -264,22 +402,22 @@ def _inject_dashboard_styles() -> None:
                 position: relative;
                 border-radius: 18px;
                 padding: 1.4rem;
-                color: #0f172a;
-                background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(241,245,249,0.95));
-                border: 1px solid rgba(148, 163, 184, 0.35);
-                box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+                color: var(--text-primary);
+                background: var(--metric-card-bg);
+                border: 1px solid var(--surface-border);
+                box-shadow: var(--shadow-medium);
             }
             .metric-card::after {
                 content: "";
                 position: absolute;
                 inset: 1px;
                 border-radius: 16px;
-                border: 1px solid rgba(255,255,255,0.5);
+                border: 1px solid var(--metric-card-overlay);
             }
             .metric-card .metric-label {
                 font-size: 0.9rem;
                 font-weight: 600;
-                color: #475569;
+                color: var(--text-muted);
                 letter-spacing: 0.04em;
                 text-transform: uppercase;
             }
@@ -290,11 +428,11 @@ def _inject_dashboard_styles() -> None:
             }
             .metric-card .metric-desc {
                 font-size: 0.85rem;
-                color: #64748b;
+                color: var(--text-muted);
                 margin: 0;
             }
             .metric-card.indigo {
-                background: linear-gradient(135deg, #2740ff, #4f74ff);
+                background: var(--metric-card-indigo);
                 color: #f8fafc;
             }
             .metric-card.indigo .metric-label,
@@ -302,16 +440,16 @@ def _inject_dashboard_styles() -> None:
                 color: rgba(248, 250, 252, 0.85);
             }
             .metric-card.emerald {
-                background: linear-gradient(135deg, #00b894, #4ade80);
-                color: #0f172a;
+                background: var(--metric-card-emerald);
+                color: var(--text-primary);
             }
             .metric-card.orange {
-                background: linear-gradient(135deg, #ff8a4c, #ffb347);
-                color: #0f172a;
+                background: var(--metric-card-orange);
+                color: var(--text-primary);
             }
             .metric-card.sky {
-                background: linear-gradient(135deg, #38bdf8, #60a5fa);
-                color: #0f172a;
+                background: var(--metric-card-sky);
+                color: var(--text-primary);
             }
             .insight-grid {
                 display: grid;
@@ -325,9 +463,10 @@ def _inject_dashboard_styles() -> None:
                 align-items: center;
                 border-radius: 18px;
                 padding: 1.2rem 1.4rem;
-                background: #ffffff;
-                border: 1px solid rgba(148, 163, 184, 0.28);
-                box-shadow: 0 20px 32px rgba(15, 23, 42, 0.12);
+                background: var(--insight-card-bg);
+                border: 1px solid var(--surface-border);
+                box-shadow: var(--shadow-strong);
+                color: var(--text-primary);
             }
             .insight-icon {
                 font-size: 1.8rem;
@@ -335,18 +474,18 @@ def _inject_dashboard_styles() -> None:
             .insight-title {
                 font-weight: 600;
                 margin: 0;
-                color: #475569;
+                color: var(--text-secondary);
             }
             .insight-value {
                 font-size: 1.35rem;
                 font-weight: 700;
                 margin: 0.2rem 0 0.3rem;
-                color: #0f172a;
+                color: var(--text-primary);
             }
             .insight-desc {
                 font-size: 0.85rem;
                 margin: 0;
-                color: #64748b;
+                color: var(--text-muted);
             }
             .action-grid {
                 display: grid;
@@ -357,44 +496,47 @@ def _inject_dashboard_styles() -> None:
             .action-card {
                 border-radius: 16px;
                 padding: 1.2rem 1.3rem;
-                background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(14,165,233,0.08));
-                border: 1px solid rgba(148, 163, 184, 0.3);
-                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+                background: var(--action-card-bg);
+                border: 1px solid var(--surface-border);
+                box-shadow: var(--shadow-soft);
+                color: var(--text-primary);
             }
             .action-card strong {
                 display: block;
                 font-size: 1.05rem;
                 margin-bottom: 0.4rem;
-                color: #1e293b;
+                color: var(--text-secondary);
             }
             .action-card p {
                 margin: 0;
                 font-size: 0.88rem;
-                color: #475569;
+                color: var(--text-muted);
             }
             .table-card {
                 border-radius: 18px;
                 padding: 1.2rem 1rem 0.6rem;
-                background: rgba(255, 255, 255, 0.95);
-                border: 1px solid rgba(226, 232, 240, 0.7);
-                box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+                background: var(--table-card-bg);
+                border: 1px solid var(--surface-border-strong);
+                box-shadow: var(--shadow-soft);
+                color: var(--text-primary);
             }
             .stTabs [data-baseweb="tab-list"] {
                 gap: 0.6rem;
                 padding: 0.4rem;
-                background: rgba(226, 232, 240, 0.5);
+                background: var(--tab-list-bg);
                 border-radius: 999px;
             }
             .stTabs [data-baseweb="tab"] {
                 border-radius: 999px;
                 padding: 0.4rem 1.4rem;
-                background: rgba(255,255,255,0.7);
+                background: transparent;
                 border: 1px solid transparent;
+                color: var(--text-muted);
             }
             .stTabs [aria-selected="true"] {
-                background: rgba(37, 99, 235, 0.14) !important;
-                border-color: rgba(59, 130, 246, 0.4) !important;
-                color: #1d4ed8 !important;
+                background: var(--tab-selected-bg) !important;
+                border-color: var(--tab-selected-border) !important;
+                color: var(--tab-selected-color) !important;
             }
             </style>
             """
@@ -402,6 +544,7 @@ def _inject_dashboard_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_dashboard_styles_injected"] = True
+    st.session_state["_dashboard_styles_theme"] = theme
 
 
 def _format_datetime_label(value: datetime | str | None) -> str:
@@ -2294,6 +2437,16 @@ def settings_page(user: Dict) -> None:
         f"**メールアドレス:** {user['email']}\n"
         f"**契約プラン:** {user['plan']}"
     )
+
+    st.subheader("表示設定")
+    theme_choice = st.radio(
+        "テーマモード",
+        options=("ライト", "ダーク"),
+        index=0 if st.session_state.theme == "light" else 1,
+        horizontal=True,
+    )
+    st.session_state.theme = "dark" if theme_choice == "ダーク" else "light"
+    st.caption("ダークテーマは夜間や長時間学習の目の疲れを軽減し、落ち着いた表示で集中力をサポートします。")
 
     st.subheader("データ管理")
     uploaded_file = st.file_uploader(
