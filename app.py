@@ -23,7 +23,7 @@ from scoring import QuestionSpec
 
 DEFAULT_KEYWORD_RESOURCES = [
     {
-        "label": "中小企業診断協会: 2次試験過去問題", 
+        "label": "中小企業診断協会: 2次試験過去問題",
         "url": "https://www.j-smeca.or.jp/contents/0105007000.html",
     },
     {
@@ -31,6 +31,18 @@ DEFAULT_KEYWORD_RESOURCES = [
         "url": "https://www.smeca.jp/consultant/exam/keyword.html",
     },
 ]
+
+
+HISTORY_NAV_SECTIONS = [
+    "ダッシュボード",
+    "履歴一覧",
+    "得点グラフ",
+    "キーワード分析",
+    "詳細・エクスポート",
+]
+
+
+SETTINGS_NAV_SECTIONS = ["データ管理", "プラン", "サポート"]
 
 
 KEYWORD_RESOURCE_MAP = {
@@ -126,6 +138,11 @@ def _init_session_state() -> None:
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
     st.session_state.setdefault("flashcard_states", {})
+    st.session_state.setdefault("practice_year", None)
+    st.session_state.setdefault("practice_case", None)
+    st.session_state.setdefault("history_section", "ダッシュボード")
+    st.session_state.setdefault("settings_section", "データ管理")
+    st.session_state.setdefault("mock_exam_selection", None)
 
 
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
@@ -187,46 +204,166 @@ def main_view() -> None:
         dedent(
             """
             <style>
-            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] {
-                margin-bottom: 0.3rem;
-            }
-            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:first-child {
-                display: none;
-            }
-            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
+            .sidebar-nav .stButton>button {
                 width: 100%;
-                padding: 0.5rem 0.75rem;
                 border-radius: 0.6rem;
-                border: 1px solid transparent;
-                transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-            }
-            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child:hover {
-                border-color: rgba(49, 51, 63, 0.2);
-                background-color: rgba(49, 51, 63, 0.05);
-            }
-            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > input:checked + div {
-                background-color: rgba(49, 51, 63, 0.06);
-                border-color: var(--primary-color);
-                color: var(--primary-color);
-                box-shadow: 0 0 0 1px var(--primary-color) inset;
+                padding: 0.5rem 0.75rem;
+                margin-bottom: 0.25rem;
+                border: 1px solid rgba(148, 163, 184, 0.45);
+                background: rgba(248, 250, 252, 0.65);
+                color: #1f2937;
                 font-weight: 600;
+            }
+            .sidebar-nav .stButton>button:hover {
+                border-color: rgba(59, 130, 246, 0.4);
+                background: rgba(59, 130, 246, 0.08);
+            }
+            .sidebar-nav .stButton>button[kind="primary"] {
+                background: rgba(37, 99, 235, 0.15);
+                border-color: rgba(37, 99, 235, 0.45);
+                color: #1d4ed8;
+                box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.25) inset;
+            }
+            .sidebar-nav .nav-subheading {
+                margin: 0.6rem 0 0.2rem;
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: #475569;
+            }
+            .sidebar-nav .st-expander {
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                border-radius: 0.85rem !important;
+                background: rgba(248, 250, 252, 0.6);
+                margin-bottom: 0.6rem;
+            }
+            .sidebar-nav .st-expander div[role="button"] p {
+                font-weight: 700;
+                color: #0f172a;
+            }
+            .sidebar-nav .st-expander .stButton>button {
+                font-size: 0.9rem;
             }
             </style>
             """
         ).strip(),
         unsafe_allow_html=True,
     )
+    st.sidebar.markdown('<div class="sidebar-nav">', unsafe_allow_html=True)
 
-    nav_labels = list(navigation_items.keys())
+    if st.sidebar.button(
+        "ホーム",
+        key="nav_home",
+        use_container_width=True,
+        type="primary" if st.session_state.page == "ホーム" else "secondary",
+    ):
+        st.session_state.page = "ホーム"
+
+    practice_years = database.list_problem_years()
+    with st.sidebar.expander(
+        "過去問演習",
+        expanded=st.session_state.page == "過去問演習",
+    ):
+        if practice_years:
+            for year in practice_years:
+                st.markdown(
+                    f"<p class='nav-subheading'>{year}</p>",
+                    unsafe_allow_html=True,
+                )
+                cases = database.list_problem_cases(year)
+                for case in cases:
+                    key = f"nav_practice_{year}_{case}".replace(" ", "_")
+                    is_active = (
+                        st.session_state.page == "過去問演習"
+                        and st.session_state.practice_year == year
+                        and st.session_state.practice_case == case
+                    )
+                    if st.button(
+                        f"{year} {case}",
+                        key=key,
+                        use_container_width=True,
+                        type="primary" if is_active else "secondary",
+                    ):
+                        st.session_state.practice_year = year
+                        st.session_state.practice_case = case
+                        st.session_state.page = "過去問演習"
+        else:
+            st.caption("登録された演習問題がありません。")
+
+    available_exams = [exam.title for exam in mock_exam.available_mock_exams()]
+    available_exams.append("ランダム演習セット")
+    with st.sidebar.expander(
+        "模擬試験",
+        expanded=st.session_state.page == "模擬試験",
+    ):
+        is_mock_top = (
+            st.session_state.page == "模擬試験"
+            and not st.session_state.get("mock_exam_selection")
+        )
+        if st.button(
+            "模試トップ",
+            key="nav_mock_top",
+            use_container_width=True,
+            type="primary" if is_mock_top else "secondary",
+        ):
+            st.session_state.page = "模擬試験"
+            st.session_state.mock_exam_selection = None
+        for title in available_exams:
+            key = f"nav_mock_{title}".replace(" ", "_")
+            is_active = (
+                st.session_state.page == "模擬試験"
+                and st.session_state.get("mock_exam_selection") == title
+            )
+            if st.button(
+                title,
+                key=key,
+                use_container_width=True,
+                type="primary" if is_active else "secondary",
+            ):
+                st.session_state.page = "模擬試験"
+                st.session_state.mock_exam_selection = title
+
+    with st.sidebar.expander(
+        "学習履歴",
+        expanded=st.session_state.page == "学習履歴",
+    ):
+        for section_label in HISTORY_NAV_SECTIONS:
+            key = f"nav_history_{section_label}".replace(" ", "_")
+            is_active = (
+                st.session_state.page == "学習履歴"
+                and st.session_state.history_section == section_label
+            )
+            if st.button(
+                section_label,
+                key=key,
+                use_container_width=True,
+                type="primary" if is_active else "secondary",
+            ):
+                st.session_state.page = "学習履歴"
+                st.session_state.history_section = section_label
+
+    with st.sidebar.expander(
+        "設定",
+        expanded=st.session_state.page == "設定",
+    ):
+        for section_label in SETTINGS_NAV_SECTIONS:
+            key = f"nav_settings_{section_label}".replace(" ", "_")
+            is_active = (
+                st.session_state.page == "設定"
+                and st.session_state.settings_section == section_label
+            )
+            if st.button(
+                section_label,
+                key=key,
+                use_container_width=True,
+                type="primary" if is_active else "secondary",
+            ):
+                st.session_state.page = "設定"
+                st.session_state.settings_section = section_label
+
+    st.sidebar.markdown("</div>", unsafe_allow_html=True)
+
     if st.session_state.page not in navigation_items:
-        st.session_state.page = nav_labels[0]
-
-    selected_index = nav_labels.index(st.session_state.page)
-    st.session_state.page = st.sidebar.radio(
-        "ページを選択",
-        nav_labels,
-        index=selected_index,
-    )
+        st.session_state.page = "ホーム"
 
     st.sidebar.divider()
     st.sidebar.info(f"利用者: {user['name']} ({user['plan']}プラン)")
@@ -1431,9 +1568,38 @@ def practice_page(user: Dict) -> None:
     if not years:
         st.warning("問題データが登録されていません。seed_problems.jsonを確認してください。")
         return
-    selected_year = st.selectbox("年度", years)
+    if "practice_year_select" not in st.session_state or st.session_state[
+        "practice_year_select"
+    ] not in years:
+        st.session_state.practice_year_select = (
+            st.session_state.practice_year
+            if st.session_state.practice_year in years
+            else years[0]
+        )
+    elif st.session_state.practice_year in years:
+        st.session_state.practice_year_select = st.session_state.practice_year
+
+    selected_year = st.selectbox("年度", years, key="practice_year_select")
+    st.session_state.practice_year = selected_year
+
     cases = database.list_problem_cases(selected_year)
-    selected_case = st.selectbox("事例", cases)
+    if not cases:
+        st.warning("選択した年度の事例データが見つかりませんでした。")
+        return
+
+    if "practice_case_select" not in st.session_state or st.session_state[
+        "practice_case_select"
+    ] not in cases:
+        st.session_state.practice_case_select = (
+            st.session_state.practice_case
+            if st.session_state.practice_case in cases
+            else cases[0]
+        )
+    elif st.session_state.practice_case in cases:
+        st.session_state.practice_case_select = st.session_state.practice_case
+
+    selected_case = st.selectbox("事例", cases, key="practice_case_select")
+    st.session_state.practice_case = selected_case
 
     problem = database.fetch_problem_by_year_case(selected_year, selected_case)
     if not problem:
@@ -1745,10 +1911,31 @@ def mock_exam_page(user: Dict) -> None:
         exams = mock_exam.available_mock_exams()
         exam_options = {exam.title: exam for exam in exams}
         exam_options["ランダム演習セット"] = mock_exam.random_mock_exam()
+        exam_titles = list(exam_options.keys())
+
+        if "mock_exam_selectbox" not in st.session_state:
+            st.session_state.mock_exam_selectbox = (
+                st.session_state.mock_exam_selection
+                if st.session_state.mock_exam_selection in exam_options
+                else exam_titles[0]
+            )
+        elif (
+            st.session_state.get("mock_exam_selection") in exam_options
+            and st.session_state.mock_exam_selectbox
+            != st.session_state.mock_exam_selection
+        ):
+            st.session_state.mock_exam_selectbox = (
+                st.session_state.mock_exam_selection
+            )
 
         select_col, start_col = st.columns([3, 1])
         with select_col:
-            selected_title = st.selectbox("模試セット", list(exam_options.keys()))
+            selected_title = st.selectbox(
+                "模試セット",
+                exam_titles,
+                key="mock_exam_selectbox",
+            )
+        st.session_state.mock_exam_selection = selected_title
 
         selected_exam = exam_options[selected_title]
 
@@ -1890,202 +2077,232 @@ def history_page(user: Dict) -> None:
         reminder_settings["last_notified_at"] if reminder_settings else None
     )
 
-    st.subheader("進捗ハイライトとスケジュール")
-    summary_col1, summary_col2, summary_col3 = st.columns(3)
-    summary_col1.metric("累計演習", f"{stats['total_sessions']}回")
-    avg_display = f"{stats['recent_average']:.1f}点" if stats["recent_average"] is not None else "ー"
-    summary_col2.metric("直近5回平均", avg_display)
-    summary_col3.metric("連続学習日数", f"{stats['streak_days']}日")
+    if st.session_state.history_section not in HISTORY_NAV_SECTIONS:
+        st.session_state.history_section = HISTORY_NAV_SECTIONS[0]
+    selected_section = st.radio(
+        "表示メニュー",
+        HISTORY_NAV_SECTIONS,
+        horizontal=True,
+        key="history_section",
+    )
 
-    if stats["last_study_at"] is not None:
-        st.info(
-            f"直近の演習は {stats['last_study_at'].strftime('%Y-%m-%d %H:%M')} 実施。"
-            f"推奨間隔 {stats['recommended_interval']}日 → 次回の目安は"
-            f" {stats['next_study_at'].strftime('%Y-%m-%d %H:%M')} ごろです。"
+    if selected_section == "ダッシュボード":
+        st.subheader("進捗ハイライトとスケジュール")
+        summary_col1, summary_col2, summary_col3 = st.columns(3)
+        summary_col1.metric("累計演習", f"{stats['total_sessions']}回")
+        avg_display = (
+            f"{stats['recent_average']:.1f}点" if stats["recent_average"] is not None else "ー"
         )
-    else:
-        st.info("これから学習を始めましょう。初期推奨リマインダーは3日おきです。")
+        summary_col2.metric("直近5回平均", avg_display)
+        summary_col3.metric("連続学習日数", f"{stats['streak_days']}日")
 
-    if review_schedule:
-        st.markdown("#### 復習予定リスト")
-        if due_reviews_count:
-            st.warning(
-                f"{due_reviews_count}件の復習期限が到来しています。『過去問演習』から優先的に復習しましょう。",
-                icon="📌",
-            )
-        review_df = pd.DataFrame(
-            [
-                {
-                    "次回予定": item["due_at"].strftime("%Y-%m-%d"),
-                    "事例": f"{item['year']} {item['case_label']}",
-                    "タイトル": item["title"],
-                    "達成度": f"{(item['last_score_ratio'] or 0) * 100:.0f}%",
-                    "間隔": f"{item['interval_days']}日",
-                }
-                for item in review_schedule
-            ]
-        )
-        st.dataframe(review_df, use_container_width=True)
-    else:
-        st.caption("演習完了後に復習予定が自動生成されます。")
-
-    with st.expander("リマインダー設定", expanded=reminder_settings is None):
-        st.write("学習リズムに合わせて通知頻度・時刻・チャネルをカスタマイズできます。")
-        cadence_labels = {
-            "recommended": f"推奨 ({stats['recommended_interval']}日おき)",
-            "every_other_day": "隔日 (2日おき)",
-            "weekly": "週1回 (7日間隔)",
-            "custom": "カスタム設定",
-        }
-        default_cadence = reminder_settings["cadence"] if reminder_settings else "recommended"
-        custom_default = (
-            reminder_settings["interval_days"]
-            if reminder_settings and reminder_settings["cadence"] == "custom"
-            else stats["recommended_interval"]
-        )
-
-        with st.form("reminder_form"):
-            cadence_choice = st.selectbox(
-                "通知頻度",
-                options=list(cadence_labels.keys()),
-                index=list(cadence_labels.keys()).index(default_cadence)
-                if default_cadence in cadence_labels
-                else 0,
-                format_func=lambda key: cadence_labels[key],
-            )
-            custom_interval = None
-            if cadence_choice == "custom":
-                custom_interval = st.number_input(
-                    "通知間隔（日）",
-                    min_value=1,
-                    max_value=30,
-                    value=int(custom_default),
-                    step=1,
-                )
-            reminder_time_input = st.time_input("通知時刻", value=reminder_time_value)
-            channel_options = ["メール通知", "スマートフォン通知"]
-            channels_selection = st.multiselect(
-                "通知チャネル",
-                options=channel_options,
-                default=[c for c in selected_channels if c in channel_options] or channel_options[:1],
-            )
-
-            submitted = st.form_submit_button("設定を保存")
-
-            if submitted:
-                if not channels_selection:
-                    st.warning("通知チャネルを1つ以上選択してください。")
-                else:
-                    if cadence_choice == "recommended":
-                        interval_days = stats["recommended_interval"]
-                    elif cadence_choice == "every_other_day":
-                        interval_days = 2
-                    elif cadence_choice == "weekly":
-                        interval_days = 7
-                    else:
-                        interval_days = int(custom_interval) if custom_interval else 1
-
-                    next_trigger = _calculate_next_reminder(
-                        stats["reference_datetime"], interval_days, reminder_time_input
-                    )
-                    database.upsert_reminder_settings(
-                        user_id=user["id"],
-                        cadence=cadence_choice,
-                        interval_days=interval_days,
-                        preferred_channels=channels_selection,
-                        reminder_time=reminder_time_input.strftime("%H:%M"),
-                        next_trigger_at=next_trigger,
-                    )
-                    st.success(
-                        f"リマインダーを保存しました。次回通知予定: {next_trigger.strftime('%Y-%m-%d %H:%M')}"
-                    )
-                    reminder_settings = database.get_reminder_settings(user["id"])
-                    active_interval = reminder_settings["interval_days"]
-                    reminder_time_value = _safe_time_from_string(reminder_settings["reminder_time"])
-                    selected_channels = list(reminder_settings["preferred_channels"])
-                    next_trigger_dt = _parse_iso_datetime(reminder_settings["next_trigger_at"])
-                    last_notified_dt = _parse_iso_datetime(reminder_settings["last_notified_at"])
-
-    if reminder_settings and next_trigger_dt:
-        st.success(
-            f"次回の通知予定: {next_trigger_dt.strftime('%Y-%m-%d %H:%M')}"
-            f" / チャネル: {'、'.join(selected_channels)}"
-        )
-        if last_notified_dt:
-            st.caption(f"前回記録された通知送信: {last_notified_dt.strftime('%Y-%m-%d %H:%M')}")
-        if st.button("テスト通知を送信（シミュレーション）"):
-            simulated_next = next_trigger_dt + timedelta(days=active_interval)
-            database.mark_reminder_sent(
-                reminder_settings["id"], next_trigger_at=simulated_next
-            )
+        if stats["last_study_at"] is not None:
             st.info(
-                f"通知送信を記録しました（ダミー）。次回予定: {simulated_next.strftime('%Y-%m-%d %H:%M')}"
+                f"直近の演習は {stats['last_study_at'].strftime('%Y-%m-%d %H:%M')} 実施。"
+                f"推奨間隔 {stats['recommended_interval']}日 → 次回の目安は"
+                f" {stats['next_study_at'].strftime('%Y-%m-%d %H:%M')} ごろです。"
             )
-            reminder_settings = database.get_reminder_settings(user["id"])
-            active_interval = reminder_settings["interval_days"]
-            reminder_time_value = _safe_time_from_string(reminder_settings["reminder_time"])
-            selected_channels = list(reminder_settings["preferred_channels"])
-            next_trigger_dt = _parse_iso_datetime(reminder_settings["next_trigger_at"])
-            last_notified_dt = _parse_iso_datetime(reminder_settings["last_notified_at"])
-    else:
-        st.info("リマインダーを設定すると、メールやスマートフォン通知と連携した学習習慣づくりをサポートできます。")
-
-    schedule_preview = _build_schedule_preview(
-        stats["reference_datetime"],
-        active_interval,
-        reminder_time_value,
-        selected_channels,
-        first_event=next_trigger_dt,
-    )
-    st.dataframe(schedule_preview, use_container_width=True)
-    st.caption("今後の通知予定（サンプル）を確認し、リマインダー運用のイメージを掴めます。")
-
-    st.caption(
-        "通知APIやワークフロー自動化ツールと連携すると、保存した予定に合わせたメール送信やモバイル通知の運用が可能です。"
-    )
-
-    st.subheader("学習レベルと進捗状況")
-    level_info = progress_overview["level"]
-    level_col, summary_col = st.columns([1, 2])
-    with level_col:
-        st.metric("現在のレベル", f"Lv.{int(level_info['level'])}")
-        st.caption(f"累計経験値: {level_info['total_experience']:.0f} XP")
-    with summary_col:
-        st.markdown("次のレベルまで")
-        st.progress(level_info["progress_ratio"])
-        st.caption(
-            f"あと {level_info['xp_to_next_level']:.0f} XP でレベル{int(level_info['level']) + 1}"
-        )
-        overall = progress_overview["overall"]
-        st.caption(
-            f"年度×事例の進捗: {overall['completed']} / {overall['total']}"
-            f" ({overall['ratio'] * 100:.0f}%)"
-        )
-
-    year_col, case_col = st.columns(2)
-    with year_col:
-        st.markdown("##### 年度別進捗")
-        if progress_overview["years"]:
-            for year_item in progress_overview["years"]:
-                st.markdown(
-                    f"**{year_item['label']}** {year_item['completed']} / {year_item['total']} 事例"
-                )
-                st.progress(year_item["ratio"])
         else:
-            st.info("問題データが登録されていません。")
+            st.info("これから学習を始めましょう。初期推奨リマインダーは3日おきです。")
 
-    with case_col:
-        st.markdown("##### 事例別進捗")
-        if progress_overview["cases"]:
-            for case_item in progress_overview["cases"]:
-                st.markdown(
-                    f"**{case_item['label']}** {case_item['completed']} / {case_item['total']} 年度"
+        if review_schedule:
+            st.markdown("#### 復習予定リスト")
+            if due_reviews_count:
+                st.warning(
+                    f"{due_reviews_count}件の復習期限が到来しています。『過去問演習』から優先的に復習しましょう。",
+                    icon="📌",
                 )
-                st.progress(case_item["ratio"])
+            review_df = pd.DataFrame(
+                [
+                    {
+                        "次回予定": item["due_at"].strftime("%Y-%m-%d"),
+                        "事例": f"{item['year']} {item['case_label']}",
+                        "タイトル": item["title"],
+                        "達成度": f"{(item['last_score_ratio'] or 0) * 100:.0f}%",
+                        "間隔": f"{item['interval_days']}日",
+                    }
+                    for item in review_schedule
+                ]
+            )
+            st.dataframe(review_df, use_container_width=True)
         else:
-            st.info("問題データが登録されていません。")
+            st.caption("演習完了後に復習予定が自動生成されます。")
 
-    st.divider()
+        with st.expander("リマインダー設定", expanded=reminder_settings is None):
+            st.write("学習リズムに合わせて通知頻度・時刻・チャネルをカスタマイズできます。")
+            cadence_labels = {
+                "recommended": f"推奨 ({stats['recommended_interval']}日おき)",
+                "every_other_day": "隔日 (2日おき)",
+                "weekly": "週1回 (7日間隔)",
+                "custom": "カスタム設定",
+            }
+            default_cadence = (
+                reminder_settings["cadence"] if reminder_settings else "recommended"
+            )
+            custom_default = (
+                reminder_settings["interval_days"]
+                if reminder_settings and reminder_settings["cadence"] == "custom"
+                else stats["recommended_interval"]
+            )
+
+            with st.form("reminder_form"):
+                cadence_choice = st.selectbox(
+                    "通知頻度",
+                    options=list(cadence_labels.keys()),
+                    index=list(cadence_labels.keys()).index(default_cadence)
+                    if default_cadence in cadence_labels
+                    else 0,
+                    format_func=lambda key: cadence_labels[key],
+                )
+                custom_interval = None
+                if cadence_choice == "custom":
+                    custom_interval = st.number_input(
+                        "通知間隔（日）",
+                        min_value=1,
+                        max_value=30,
+                        value=int(custom_default),
+                        step=1,
+                    )
+                reminder_time_input = st.time_input("通知時刻", value=reminder_time_value)
+                channel_options = ["メール通知", "スマートフォン通知"]
+                channels_selection = st.multiselect(
+                    "通知チャネル",
+                    options=channel_options,
+                    default=[c for c in selected_channels if c in channel_options]
+                    or channel_options[:1],
+                )
+
+                submitted = st.form_submit_button("設定を保存")
+
+                if submitted:
+                    if not channels_selection:
+                        st.warning("通知チャネルを1つ以上選択してください。")
+                    else:
+                        if cadence_choice == "recommended":
+                            interval_days = stats["recommended_interval"]
+                        elif cadence_choice == "every_other_day":
+                            interval_days = 2
+                        elif cadence_choice == "weekly":
+                            interval_days = 7
+                        else:
+                            interval_days = int(custom_interval) if custom_interval else 1
+
+                        next_trigger = _calculate_next_reminder(
+                            stats["reference_datetime"], interval_days, reminder_time_input
+                        )
+                        database.upsert_reminder_settings(
+                            user_id=user["id"],
+                            cadence=cadence_choice,
+                            interval_days=interval_days,
+                            preferred_channels=channels_selection,
+                            reminder_time=reminder_time_input.strftime("%H:%M"),
+                            next_trigger_at=next_trigger,
+                        )
+                        st.success(
+                            f"リマインダーを保存しました。次回通知予定: {next_trigger.strftime('%Y-%m-%d %H:%M')}"
+                        )
+                        reminder_settings = database.get_reminder_settings(user["id"])
+                        active_interval = reminder_settings["interval_days"]
+                        reminder_time_value = _safe_time_from_string(
+                            reminder_settings["reminder_time"]
+                        )
+                        selected_channels = list(reminder_settings["preferred_channels"])
+                        next_trigger_dt = _parse_iso_datetime(
+                            reminder_settings["next_trigger_at"]
+                        )
+                        last_notified_dt = _parse_iso_datetime(
+                            reminder_settings["last_notified_at"]
+                        )
+
+        if reminder_settings and next_trigger_dt:
+            st.success(
+                f"次回の通知予定: {next_trigger_dt.strftime('%Y-%m-%d %H:%M')}"
+                f" / チャネル: {'、'.join(selected_channels)}"
+            )
+            if last_notified_dt:
+                st.caption(
+                    f"前回記録された通知送信: {last_notified_dt.strftime('%Y-%m-%d %H:%M')}"
+                )
+            if st.button("テスト通知を送信（シミュレーション）"):
+                simulated_next = next_trigger_dt + timedelta(days=active_interval)
+                database.mark_reminder_sent(
+                    reminder_settings["id"], next_trigger_at=simulated_next
+                )
+                st.info(
+                    f"通知送信を記録しました（ダミー）。次回予定: {simulated_next.strftime('%Y-%m-%d %H:%M')}"
+                )
+                reminder_settings = database.get_reminder_settings(user["id"])
+                active_interval = reminder_settings["interval_days"]
+                reminder_time_value = _safe_time_from_string(
+                    reminder_settings["reminder_time"]
+                )
+                selected_channels = list(reminder_settings["preferred_channels"])
+                next_trigger_dt = _parse_iso_datetime(reminder_settings["next_trigger_at"])
+                last_notified_dt = _parse_iso_datetime(
+                    reminder_settings["last_notified_at"]
+                )
+        else:
+            st.info(
+                "リマインダーを設定すると、メールやスマートフォン通知と連携した学習習慣づくりをサポートできます。"
+            )
+
+        schedule_preview = _build_schedule_preview(
+            stats["reference_datetime"],
+            active_interval,
+            reminder_time_value,
+            selected_channels,
+            first_event=next_trigger_dt,
+        )
+        st.dataframe(schedule_preview, use_container_width=True)
+        st.caption("今後の通知予定（サンプル）を確認し、リマインダー運用のイメージを掴めます。")
+
+        st.caption(
+            "通知APIやワークフロー自動化ツールと連携すると、保存した予定に合わせたメール送信やモバイル通知の運用が可能です。"
+        )
+
+        st.subheader("学習レベルと進捗状況")
+        level_info = progress_overview["level"]
+        level_col, summary_col = st.columns([1, 2])
+        with level_col:
+            st.metric("現在のレベル", f"Lv.{int(level_info['level'])}")
+            st.caption(f"累計経験値: {level_info['total_experience']:.0f} XP")
+        with summary_col:
+            st.markdown("次のレベルまで")
+            st.progress(level_info["progress_ratio"])
+            st.caption(
+                f"あと {level_info['xp_to_next_level']:.0f} XP でレベル{int(level_info['level']) + 1}"
+            )
+            overall = progress_overview["overall"]
+            st.caption(
+                f"年度×事例の進捗: {overall['completed']} / {overall['total']}"
+                f" ({overall['ratio'] * 100:.0f}%)"
+            )
+
+        year_col, case_col = st.columns(2)
+        with year_col:
+            st.markdown("##### 年度別進捗")
+            if progress_overview["years"]:
+                for year_item in progress_overview["years"]:
+                    st.markdown(
+                        f"**{year_item['label']}** {year_item['completed']} / {year_item['total']} 事例"
+                    )
+                    st.progress(year_item["ratio"])
+            else:
+                st.info("問題データが登録されていません。")
+
+        with case_col:
+            st.markdown("##### 事例別進捗")
+            if progress_overview["cases"]:
+                for case_item in progress_overview["cases"]:
+                    st.markdown(
+                        f"**{case_item['label']}** {case_item['completed']} / {case_item['total']} 年度"
+                    )
+                    st.progress(case_item["ratio"])
+            else:
+                st.info("問題データが登録されていません。")
+
+        st.divider()
+        return
 
     unique_years = sorted(history_df["年度"].dropna().unique())
     unique_cases = sorted(history_df["事例"].dropna().unique())
@@ -2124,11 +2341,7 @@ def history_page(user: Dict) -> None:
 
     keyword_analysis = _analyze_keyword_records(filtered_keyword_records)
 
-    overview_tab, chart_tab, keyword_tab, detail_tab = st.tabs(
-        ["一覧", "グラフ", "キーワード分析", "詳細・エクスポート"]
-    )
-
-    with overview_tab:
+    if selected_section == "履歴一覧":
         display_df = filtered_df.copy()
         display_df["日付"] = display_df["日付"].dt.strftime("%Y-%m-%d %H:%M")
         st.data_editor(
@@ -2138,8 +2351,7 @@ def history_page(user: Dict) -> None:
             disabled=True,
         )
         st.caption("複数条件でフィルタした演習履歴を確認できます。列名をクリックすると並び替えできます。")
-
-    with chart_tab:
+    elif selected_section == "得点グラフ":
         score_history = filtered_df.dropna(subset=["得点", "日付"])
         if score_history.empty:
             st.info("選択した条件に該当する得点推移がありません。")
@@ -2161,8 +2373,7 @@ def history_page(user: Dict) -> None:
             st.subheader("事例別平均点")
             bar_chart = alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="得点:Q")
             st.altair_chart(bar_chart, use_container_width=True)
-
-    with keyword_tab:
+    elif selected_section == "キーワード分析":
         answers_df = keyword_analysis["answers"]
         summary_df = keyword_analysis["summary"]
         recommendations = keyword_analysis["recommendations"]
@@ -2259,8 +2470,7 @@ def history_page(user: Dict) -> None:
                 )
                 st.data_editor(detail_df, hide_index=True, use_container_width=True, disabled=True)
                 st.caption("各設問の到達状況と不足キーワードを一覧化しました。学習計画に反映してください。")
-
-    with detail_tab:
+    else:
         csv_export = filtered_df.copy()
         csv_export["日付"] = csv_export["日付"].dt.strftime("%Y-%m-%d %H:%M:%S")
         csv_bytes = csv_export.drop(columns=["attempt_id"]).to_csv(index=False).encode("utf-8-sig")
@@ -2295,95 +2505,113 @@ def settings_page(user: Dict) -> None:
         f"**契約プラン:** {user['plan']}"
     )
 
-    st.subheader("データ管理")
-    uploaded_file = st.file_uploader(
-        "過去問データファイルをアップロード (CSV/Excel)",
-        type=["csv", "xlsx"],
+    if st.session_state.settings_section not in SETTINGS_NAV_SECTIONS:
+        st.session_state.settings_section = SETTINGS_NAV_SECTIONS[0]
+    selected_section = st.radio(
+        "設定メニュー",
+        SETTINGS_NAV_SECTIONS,
+        horizontal=True,
+        key="settings_section",
     )
-    if uploaded_file is not None:
-        _handle_past_data_upload(uploaded_file)
 
-    if st.session_state.past_data is not None:
+    if selected_section == "データ管理":
+        st.subheader("データ管理")
+        uploaded_file = st.file_uploader(
+            "過去問データファイルをアップロード (CSV/Excel)",
+            type=["csv", "xlsx"],
+        )
+        if uploaded_file is not None:
+            _handle_past_data_upload(uploaded_file)
+
+        if st.session_state.past_data is not None:
+            st.caption(
+                f"読み込み済みのレコード数: {len(st.session_state.past_data)}件"
+            )
+            st.dataframe(st.session_state.past_data.head(), use_container_width=True)
+            if st.button("アップロードデータをクリア", key="clear_past_data"):
+                st.session_state.past_data = None
+                st.info("アップロードデータを削除しました。")
+        else:
+            st.caption(
+                "CSV もしくは Excel 形式のファイルを読み込むと、演習ページで即座に利用できます。"
+            )
+
+    elif selected_section == "プラン":
+        st.subheader("プラン一覧")
+        plan_features = pd.DataFrame(
+            [
+                {
+                    "プラン": "無料プラン",
+                    "月額料金": "¥0",
+                    "AI採点": "\u2705 月20回まで",
+                    "詳細解説": "\u26aa 最新3回分のみ",
+                    "学習レポート": "\u26aa ハイライトのみ",
+                },
+                {
+                    "プラン": "プレミアム",
+                    "月額料金": "¥1,480",
+                    "AI採点": "\u2b50\ufe0f 無制限",
+                    "詳細解説": "\u2b50\ufe0f 全設問を無制限閲覧",
+                    "学習レポート": "\u2b50\ufe0f 個別アドバイス付き",
+                },
+            ]
+        )
+        st.dataframe(plan_features, use_container_width=True, hide_index=True)
+
         st.caption(
-            f"読み込み済みのレコード数: {len(st.session_state.past_data)}件"
+            "\U0001f4a1 プレミアムプランでは AI 採点の上限が解除され、全ての模擬試験・過去問で詳細解説を好きなだけ閲覧できます。"
         )
-        st.dataframe(st.session_state.past_data.head(), use_container_width=True)
-        if st.button("アップロードデータをクリア", key="clear_past_data"):
-            st.session_state.past_data = None
-            st.info("アップロードデータを削除しました。")
 
-    st.subheader("プラン一覧")
+        st.subheader("アップグレードのメリット")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown(
+                """
+                - 🧠 **AI採点の無制限化**: 事例演習の回数を気にせずフィードバックを受けられます。
+                - 📊 **詳細な学習レポート**: 記述力の伸びや課題を自動分析し、次に取り組むべきテーマを提案します。
+                """
+            )
+        with col2:
+            st.markdown(
+                """
+                - 📚 **詳細解説の読み放題**: 各設問の模範答案・解説を制限なく確認できます。
+                - 🕒 **優先サポート**: 24時間以内のメール返信で学習の悩みをサポートします。
+                """
+            )
 
-    plan_features = pd.DataFrame(
-        [
-            {
-                "プラン": "無料プラン",
-                "月額料金": "¥0",
-                "AI採点": "\u2705 月20回まで",
-                "詳細解説": "\u26aa 最新3回分のみ",
-                "学習レポート": "\u26aa ハイライトのみ",
-            },
-            {
-                "プラン": "プレミアム",
-                "月額料金": "¥1,480",
-                "AI採点": "\u2b50\ufe0f 無制限",
-                "詳細解説": "\u2b50\ufe0f 全設問を無制限閲覧",
-                "学習レポート": "\u2b50\ufe0f 個別アドバイス付き",
-            },
-        ]
-    )
-    st.dataframe(plan_features, use_container_width=True, hide_index=True)
-
-    st.caption(
-        "\U0001f4a1 プレミアムプランでは AI 採点の上限が解除され、全ての模擬試験・過去問で詳細解説を好きなだけ閲覧できます。"
-    )
-
-    st.subheader("アップグレードのメリット")
-    col1, col2 = st.columns(2)
-    with col1:
+        st.subheader("料金とお支払い方法")
         st.markdown(
             """
-            - 🧠 **AI採点の無制限化**: 事例演習の回数を気にせずフィードバックを受けられます。
-            - 📊 **詳細な学習レポート**: 記述力の伸びや課題を自動分析し、次に取り組むべきテーマを提案します。
-            """
-        )
-    with col2:
-        st.markdown(
-            """
-            - 📚 **詳細解説の読み放題**: 各設問の模範答案・解説を制限なく確認できます。
-            - 🕒 **優先サポート**: 24時間以内のメール返信で学習の悩みをサポートします。
+            - 💳 **月額: 1,480円 (税込)**
+            - 🧾 お支払い方法: クレジットカード (Visa / MasterCard / JCB)、デビットカード、主要な電子マネーに対応
+            - 🔁 いつでも解約可能。次回更新日までは引き続きプレミアム機能をご利用いただけます。
             """
         )
 
-    st.subheader("料金とお支払い方法")
-    st.markdown(
-        """
-        - 💳 **月額: 1,480円 (税込)**
-        - 🧾 お支払い方法: クレジットカード (Visa / MasterCard / JCB)、デビットカード、主要な電子マネーに対応
-        - 🔁 いつでも解約可能。次回更新日までは引き続きプレミアム機能をご利用いただけます。
-        """
-    )
+        st.subheader("プラン変更")
+        st.write("AI採点の回数制限を拡張し、詳細解説を無制限に閲覧できる有料プランをご用意しています。")
+        if user["plan"] == "free":
+            if st.button("有料プランにアップグレードする"):
+                database.update_user_plan(user_id=user["id"], plan="premium")
+                st.session_state.user = dict(database.get_user_by_email(user["email"]))
+                st.success("プレミアムプランに変更しました。")
+        else:
+            st.info("既にプレミアムプランをご利用中です。")
 
-    st.subheader("プラン変更")
-    st.write("AI採点の回数制限を拡張し、詳細解説を無制限に閲覧できる有料プランをご用意しています。")
-    if user["plan"] == "free":
-        if st.button("有料プランにアップグレードする"):
-            database.update_user_plan(user_id=user["id"], plan="premium")
-            st.session_state.user = dict(database.get_user_by_email(user["email"]))
-            st.success("プレミアムプランに変更しました。")
     else:
-        st.info("既にプレミアムプランをご利用中です。")
-
-    st.subheader("サポート")
-    st.markdown(
-        dedent(
-            """
-            - お問い合わせ: support@example.com
-            - 利用規約: coming soon
-            - 退会をご希望の場合はサポートまでご連絡ください。
-            """
-        ).strip()
-    )
+        st.subheader("サポート")
+        st.markdown(
+            dedent(
+                """
+                - お問い合わせ: support@example.com
+                - 利用規約: coming soon
+                - 退会をご希望の場合はサポートまでご連絡ください。
+                """
+            ).strip()
+        )
+        st.caption(
+            "よくある質問集や導入事例は現在整備中です。公開され次第こちらでお知らせします。"
+        )
 
 
 logger = logging.getLogger(__name__)
