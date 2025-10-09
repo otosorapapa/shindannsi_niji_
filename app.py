@@ -628,11 +628,11 @@ def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> 
     st.session_state.drafts[key] = text
     status_placeholder = st.empty()
     action_save, action_apply = st.columns([1, 1])
-    if action_save.button("回答を保存する", key=f"save_{key}"):
+    if action_save.button("💾 回答を保存する", key=f"save_{key}"):
         st.session_state.saved_answers[key] = text
         st.session_state.drafts[key] = text
         status_placeholder.success("回答を保存しました。")
-    if action_apply.button("保存内容を適用", key=f"apply_{key}"):
+    if action_apply.button("📥 保存内容を適用", key=f"apply_{key}"):
         saved_text = st.session_state.saved_answers.get(key)
         if saved_text is None:
             status_placeholder.warning("保存済みの回答がありません。")
@@ -837,8 +837,8 @@ def practice_page(user: Dict) -> None:
     st.markdown(
         """
         <div class="practice-quick-nav">
-            <a href="#practice-answers"><button type="button">質問へ移動</button></a>
-            <a href="#practice-actions"><button type="button">下へスクロール</button></a>
+            <a href="#practice-answers"><button type="button">🧭 質問へ移動</button></a>
+            <a href="#practice-actions"><button type="button">⬇️ 下へスクロール</button></a>
         </div>
         """,
         unsafe_allow_html=True,
@@ -897,10 +897,10 @@ def practice_page(user: Dict) -> None:
     st.markdown('<div id="practice-actions"></div>', unsafe_allow_html=True)
 
     col_save, col_submit = st.columns([1, 2])
-    if col_save.button("下書きを保存"):
+    if col_save.button("💾 下書きを保存"):
         st.success("下書きを保存しました。ブラウザを閉じても維持されます。")
 
-    submitted = col_submit.button("AI採点に送信", type="primary")
+    submitted = col_submit.button("📤 AI採点に送信", type="primary")
 
     if submitted:
         answers = []
@@ -1093,7 +1093,7 @@ def mock_exam_page(user: Dict) -> None:
         with start_col:
             st.write("")
             start_clicked = st.button(
-                "模試を開始", type="primary", use_container_width=True
+                "🚀 模試を開始", type="primary", use_container_width=True
             )
 
         case_summaries = []
@@ -1133,7 +1133,7 @@ def mock_exam_page(user: Dict) -> None:
                 text = st.text_area(question["prompt"], key=f"mock_{key}", value=default, height=160)
                 st.session_state.drafts[key] = text
 
-    if st.button("模試を提出", type="primary"):
+    if st.button("📨 模試を提出", type="primary"):
         overall_results = []
         for problem_id in exam.problem_ids:
             problem = database.fetch_problem(problem_id)
@@ -1267,7 +1267,7 @@ def history_page(user: Dict) -> None:
                 default=[c for c in selected_channels if c in channel_options] or channel_options[:1],
             )
 
-            submitted = st.form_submit_button("設定を保存")
+            submitted = st.form_submit_button("💾 設定を保存")
 
             if submitted:
                 if not channels_selection:
@@ -1310,7 +1310,7 @@ def history_page(user: Dict) -> None:
         )
         if last_notified_dt:
             st.caption(f"前回記録された通知送信: {last_notified_dt.strftime('%Y-%m-%d %H:%M')}")
-        if st.button("テスト通知を送信（シミュレーション）"):
+        if st.button("📧 テスト通知を送信（シミュレーション）"):
             simulated_next = next_trigger_dt + timedelta(days=active_interval)
             database.mark_reminder_sent(
                 reminder_settings["id"], next_trigger_at=simulated_next
@@ -1405,7 +1405,7 @@ def history_page(user: Dict) -> None:
         csv_export["日付"] = csv_export["日付"].dt.strftime("%Y-%m-%d %H:%M:%S")
         csv_bytes = csv_export.drop(columns=["attempt_id"]).to_csv(index=False).encode("utf-8-sig")
         st.download_button(
-            "CSVをダウンロード",
+            "⬇️ CSVをダウンロード",
             data=csv_bytes,
             file_name="history.csv",
             mime="text/csv",
@@ -1448,14 +1448,14 @@ def settings_page(user: Dict) -> None:
             f"読み込み済みのレコード数: {len(st.session_state.past_data)}件"
         )
         st.dataframe(st.session_state.past_data.head(), use_container_width=True)
-        if st.button("アップロードデータをクリア", key="clear_past_data"):
+        if st.button("🧹 アップロードデータをクリア", key="clear_past_data"):
             st.session_state.past_data = None
             st.info("アップロードデータを削除しました。")
 
     st.subheader("プラン変更")
     st.write("AI採点の回数制限を拡張し、詳細解説を無制限に閲覧できる有料プランをご用意しています。")
     if user["plan"] == "free":
-        if st.button("有料プランにアップグレードする"):
+        if st.button("⭐ 有料プランにアップグレードする"):
             database.update_user_plan(user_id=user["id"], plan="premium")
             st.session_state.user = dict(database.get_user_by_email(user["email"]))
             st.success("プレミアムプランに変更しました。")
