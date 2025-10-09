@@ -871,6 +871,7 @@ def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> 
         st.session_state.drafts[key] = saved_default
     value = st.session_state.drafts.get(key, "")
     help_text = f"文字数目安: {question['character_limit']}字" if question["character_limit"] else ""
+    st.caption("入力内容は自動保存されます。")
     text = st.text_area(
         label=question["prompt"],
         key=f"textarea_{key}",
@@ -880,22 +881,21 @@ def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> 
         disabled=disabled,
     )
     _render_character_counter(len(text), question.get("character_limit"))
-    st.caption("入力内容は自動的に保存され、ページ離脱後も保持されます。必要に応じて下書きを明示的に保存してください。")
     st.session_state.drafts[key] = text
+    st.session_state.saved_answers.setdefault(key, value)
     status_placeholder = st.empty()
-    action_save, action_apply = st.columns([1, 1])
-    if action_save.button("回答を保存する", key=f"save_{key}"):
-        st.session_state.saved_answers[key] = text
-        st.session_state.drafts[key] = text
-        status_placeholder.success("回答を保存しました。")
-    if action_apply.button("保存内容を適用", key=f"apply_{key}"):
-        saved_text = st.session_state.saved_answers.get(key)
-        if saved_text is None:
-            status_placeholder.warning("保存済みの回答がありません。")
-        else:
-            st.session_state.drafts[key] = saved_text
-            st.session_state[f"textarea_{key}"] = saved_text
-            status_placeholder.info("保存した回答を入力欄に適用しました。")
+    saved_text = st.session_state.saved_answers.get(key)
+    restore_disabled = not saved_text
+    if restore_disabled:
+        status_placeholder.caption("復元できる下書きはまだありません。")
+    if st.button(
+        "下書きを復元",
+        key=f"restore_{key}",
+        disabled=restore_disabled,
+    ):
+        st.session_state.drafts[key] = saved_text
+        st.session_state[f"textarea_{key}"] = saved_text
+        status_placeholder.info("保存済みの下書きを復元しました。")
     return text
 
 
@@ -1537,11 +1537,7 @@ def practice_page(user: Dict) -> None:
 
     st.markdown('<div id="practice-actions"></div>', unsafe_allow_html=True)
 
-    col_save, col_submit = st.columns([1, 2])
-    if col_save.button("下書きを保存"):
-        st.success("下書きを保存しました。ブラウザを閉じても維持されます。")
-
-    submitted = col_submit.button("AI採点に送信", type="primary")
+    submitted = st.button("AI採点に送信", type="primary")
 
     if submitted:
         answers = []
