@@ -20,6 +20,7 @@ def _init_session_state() -> None:
         st.session_state.user = dict(guest)
     st.session_state.setdefault("page", "ホーム")
     st.session_state.setdefault("drafts", {})
+    st.session_state.setdefault("saved_answers", {})
     st.session_state.setdefault("practice_started", None)
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
@@ -139,6 +140,9 @@ def _draft_key(problem_id: int, question_id: int) -> str:
 
 def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> str:
     key = _draft_key(problem_id, question["id"])
+    if key not in st.session_state.drafts:
+        saved_default = st.session_state.saved_answers.get(key, "")
+        st.session_state.drafts[key] = saved_default
     value = st.session_state.drafts.get(key, "")
     help_text = f"文字数目安: {question['character_limit']}字" if question["character_limit"] else ""
     text = st.text_area(
@@ -150,7 +154,22 @@ def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> 
         disabled=disabled,
     )
     st.caption(f"現在の文字数: {len(text)}字")
+    st.caption("入力内容は自動的に保存され、ページ離脱後も保持されます。必要に応じて下書きを明示的に保存してください。")
     st.session_state.drafts[key] = text
+    status_placeholder = st.empty()
+    action_save, action_apply = st.columns([1, 1])
+    if action_save.button("回答を保存する", key=f"save_{key}"):
+        st.session_state.saved_answers[key] = text
+        st.session_state.drafts[key] = text
+        status_placeholder.success("回答を保存しました。")
+    if action_apply.button("保存内容を適用", key=f"apply_{key}"):
+        saved_text = st.session_state.saved_answers.get(key)
+        if saved_text is None:
+            status_placeholder.warning("保存済みの回答がありません。")
+        else:
+            st.session_state.drafts[key] = saved_text
+            st.session_state[f"textarea_{key}"] = saved_text
+            status_placeholder.info("保存した回答を入力欄に適用しました。")
     return text
 
 
