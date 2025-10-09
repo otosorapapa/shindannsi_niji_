@@ -10,9 +10,9 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 DB_PATH = Path("data/app.db")
 SEED_PATH = Path("data/seed_problems.json")
@@ -108,6 +108,32 @@ def initialize_database() -> None:
             last_score_ratio REAL,
             streak INTEGER NOT NULL DEFAULT 0,
             UNIQUE(user_id, problem_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS study_goals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            period_type TEXT NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            target_practice_count INTEGER NOT NULL,
+            target_study_minutes INTEGER NOT NULL,
+            target_score REAL NOT NULL,
+            preferred_start_time TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(user_id, period_type, start_date)
+        );
+
+        CREATE TABLE IF NOT EXISTS study_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            goal_id INTEGER NOT NULL REFERENCES study_goals(id) ON DELETE CASCADE,
+            session_date TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            duration_minutes INTEGER NOT NULL,
+            description TEXT,
+            created_at TEXT NOT NULL,
+            UNIQUE(goal_id, session_date, start_time)
         );
         """
     )
@@ -589,6 +615,238 @@ def get_spaced_review(user_id: int, problem_id: int) -> Optional[Dict]:
         "last_score_ratio": row["last_score_ratio"],
         "streak": row["streak"],
         "last_reviewed_at": datetime.fromisoformat(row["last_reviewed_at"]),
+    }
+
+
+def upsert_study_goal(
+    *,
+    user_id: int,
+    period_type: str,
+    start_date: dt_date,
+    end_date: dt_date,
+    target_practice_count: int,
+    target_study_minutes: int,
+    target_score: float,
+    preferred_start_time: Optional[dt_time],
+) -> int:
+    """Create or update a study goal for the specified period."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    now = datetime.utcnow().isoformat()
+    start_value = start_date.isoformat()
+    end_value = end_date.isoformat()
+    preferred_value = preferred_start_time.strftime("%H:%M") if preferred_start_time else None
+
+    cur.execute(
+        "SELECT id FROM study_goals WHERE user_id = ? AND period_type = ? AND start_date = ?",
+        (user_id, period_type, start_value),
+    )
+    row = cur.fetchone()
+
+    if row:
+        goal_id = row["id"]
+        cur.execute(
+            """
+            UPDATE study_goals
+            SET end_date = ?,
+                target_practice_count = ?,
+                target_study_minutes = ?,
+                target_score = ?,
+                preferred_start_time = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                end_value,
+                int(target_practice_count),
+                int(target_study_minutes),
+                float(target_score),
+                preferred_value,
+                now,
+                goal_id,
+            ),
+        )
+    else:
+        cur.execute(
+            """
+            INSERT INTO study_goals (
+                user_id, period_type, start_date, end_date,
+                target_practice_count, target_study_minutes, target_score,
+                preferred_start_time, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                period_type,
+                start_value,
+                end_value,
+                int(target_practice_count),
+                int(target_study_minutes),
+                float(target_score),
+                preferred_value,
+                now,
+                now,
+            ),
+        )
+        goal_id = cur.lastrowid
+
+    conn.commit()
+    conn.close()
+    return int(goal_id)
+
+
+def get_current_study_goal(
+    *, user_id: int, period_type: str, reference_date: dt_date
+) -> Optional[Dict]:
+    """Return the active study goal covering the reference date."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    ref_value = reference_date.isoformat()
+    cur.execute(
+        """
+        SELECT *
+        FROM study_goals
+        WHERE user_id = ?
+          AND period_type = ?
+          AND start_date <= ?
+          AND end_date >= ?
+        ORDER BY start_date DESC
+        LIMIT 1
+        """,
+        (user_id, period_type, ref_value, ref_value),
+    )
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return None
+
+    start = dt_date.fromisoformat(row["start_date"])
+    end = dt_date.fromisoformat(row["end_date"])
+    preferred = row["preferred_start_time"]
+    preferred_time = dt_time.fromisoformat(preferred) if preferred else None
+
+    return {
+        "id": row["id"],
+        "period_type": row["period_type"],
+        "start_date": start,
+        "end_date": end,
+        "target_practice_count": row["target_practice_count"],
+        "target_study_minutes": row["target_study_minutes"],
+        "target_score": row["target_score"],
+        "preferred_start_time": preferred_time,
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def replace_study_sessions(goal_id: int, sessions: Iterable[Dict[str, Any]]) -> None:
+    """Replace all sessions associated with a study goal."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM study_sessions WHERE goal_id = ?", (goal_id,))
+
+    now = datetime.utcnow().isoformat()
+    for session in sessions:
+        session_date: dt_date = session["session_date"]
+        start_time: dt_time = session["start_time"]
+        duration = int(session.get("duration_minutes", 0))
+        description = session.get("description")
+        cur.execute(
+            """
+            INSERT INTO study_sessions (
+                goal_id, session_date, start_time, duration_minutes, description, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                goal_id,
+                session_date.isoformat(),
+                start_time.strftime("%H:%M"),
+                duration,
+                description,
+                now,
+            ),
+        )
+
+    conn.commit()
+    conn.close()
+
+
+def list_study_sessions(goal_id: int) -> List[Dict]:
+    """Return study sessions associated with a study goal."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT session_date, start_time, duration_minutes, description
+        FROM study_sessions
+        WHERE goal_id = ?
+        ORDER BY session_date
+        """,
+        (goal_id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    sessions: List[Dict] = []
+    for row in rows:
+        sessions.append(
+            {
+                "session_date": dt_date.fromisoformat(row["session_date"]),
+                "start_time": dt_time.fromisoformat(row["start_time"]),
+                "duration_minutes": row["duration_minutes"],
+                "description": row["description"],
+            }
+        )
+
+    return sessions
+
+
+def aggregate_attempts_between(
+    *, user_id: int, start_date: dt_date, end_date: dt_date
+) -> Dict[str, Any]:
+    """Return aggregate attempt statistics within a period."""
+
+    start_dt = datetime.combine(start_date, datetime.min.time())
+    end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            COUNT(*) AS practice_count,
+            COALESCE(SUM(total_score), 0) AS total_score,
+            COALESCE(SUM(total_max_score), 0) AS total_max,
+            COALESCE(SUM(duration_seconds), 0) AS total_duration
+        FROM attempts
+        WHERE user_id = ?
+          AND submitted_at IS NOT NULL
+          AND submitted_at >= ?
+          AND submitted_at < ?
+        """,
+        (user_id, start_dt.isoformat(), end_dt.isoformat()),
+    )
+    row = cur.fetchone()
+    conn.close()
+
+    practice_count = row["practice_count"] or 0
+    total_score = row["total_score"] or 0.0
+    total_max = row["total_max"] or 0.0
+    total_duration = row["total_duration"] or 0
+
+    average_score = float(total_score) / practice_count if practice_count else 0.0
+    completion_rate = float(total_score) / total_max if total_max else 0.0
+
+    return {
+        "practice_count": int(practice_count),
+        "average_score": average_score,
+        "total_duration_minutes": int(total_duration // 60),
+        "completion_rate": completion_rate,
     }
 
 
