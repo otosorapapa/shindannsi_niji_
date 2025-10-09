@@ -26,6 +26,128 @@ def _init_session_state() -> None:
     st.session_state.setdefault("past_data", None)
 
 
+def _inject_keyboard_shortcuts() -> None:
+    if st.session_state.get("_keyboard_shortcuts_injected"):
+        return
+
+    st.session_state["_keyboard_shortcuts_injected"] = True
+    st.markdown(
+        """
+        <script>
+        (function () {
+            const focusableSelector = 'textarea, input:not([type="hidden"]), button, select, [tabindex]:not([tabindex="-1"]), a[href]';
+
+            const isFocusable = (element) => {
+                if (!element) {
+                    return false;
+                }
+                const style = window.getComputedStyle(element);
+                if (style.visibility === 'hidden' || style.display === 'none') {
+                    return false;
+                }
+                if (element.disabled) {
+                    return false;
+                }
+                if (element.offsetParent === null && style.position !== 'fixed') {
+                    return false;
+                }
+                return true;
+            };
+
+            const focusAdjacent = (current, backwards) => {
+                const focusable = Array.from(document.querySelectorAll(focusableSelector)).filter(isFocusable);
+                const index = focusable.indexOf(current);
+                if (index === -1) {
+                    return;
+                }
+                const nextIndex = backwards ? index - 1 : index + 1;
+                const nextElement = focusable[nextIndex];
+                if (nextElement) {
+                    nextElement.focus();
+                    if (typeof nextElement.select === 'function') {
+                        try {
+                            nextElement.select();
+                        } catch (error) {
+                            // ignore selection errors
+                        }
+                    }
+                }
+            };
+
+            const bindShortcuts = (textarea) => {
+                if (!textarea || textarea.dataset.shortcutsBound === 'true') {
+                    return;
+                }
+                textarea.dataset.shortcutsBound = 'true';
+                textarea.addEventListener('keydown', (event) => {
+                    if (event.key === 'Tab') {
+                        event.preventDefault();
+                        focusAdjacent(event.target, event.shiftKey);
+                        return;
+                    }
+
+                    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                        const form = event.target.closest('form');
+                        if (form) {
+                            event.preventDefault();
+                            if (typeof form.requestSubmit === 'function') {
+                                const primaryButton = form.querySelector('button[type="submit"]');
+                                if (primaryButton) {
+                                    form.requestSubmit(primaryButton);
+                                } else {
+                                    form.requestSubmit();
+                                }
+                            } else {
+                                const submitButton = form.querySelector('button[type="submit"]');
+                                if (submitButton) {
+                                    submitButton.click();
+                                }
+                            }
+                        }
+                    }
+                });
+            };
+
+            const scan = (root) => {
+                if (!root) {
+                    document.querySelectorAll('textarea').forEach(bindShortcuts);
+                    return;
+                }
+
+                if (root instanceof HTMLTextAreaElement) {
+                    bindShortcuts(root);
+                    return;
+                }
+
+                if (root.querySelectorAll) {
+                    root.querySelectorAll('textarea').forEach(bindShortcuts);
+                }
+            };
+
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        scan(node);
+                    });
+                });
+            });
+
+            if (document.body) {
+                observer.observe(document.body, { childList: true, subtree: true });
+                scan();
+            } else {
+                window.addEventListener('DOMContentLoaded', () => {
+                    observer.observe(document.body, { childList: true, subtree: true });
+                    scan();
+                });
+            }
+        })();
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def main_view() -> None:
     user = st.session_state.user
 
@@ -609,30 +731,53 @@ def _draft_key(problem_id: int, question_id: int) -> str:
 
 
 def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> str:
+    _inject_keyboard_shortcuts()
     key = _draft_key(problem_id, question["id"])
     if key not in st.session_state.drafts:
         saved_default = st.session_state.saved_answers.get(key, "")
         st.session_state.drafts[key] = saved_default
     value = st.session_state.drafts.get(key, "")
     help_text = f"文字数目安: {question['character_limit']}字" if question["character_limit"] else ""
-    text = st.text_area(
-        label=question["prompt"],
-        key=f"textarea_{key}",
-        value=value,
-        height=160,
-        help=help_text,
-        disabled=disabled,
-    )
-    st.caption(f"現在の文字数: {len(text)}字")
-    st.caption("入力内容は自動的に保存され、ページ離脱後も保持されます。必要に応じて下書きを明示的に保存してください。")
+    with st.form(key=f"question_form_{key}"):
+        text = st.text_area(
+            label=question["prompt"],
+            key=f"textarea_{key}",
+            value=value,
+            height=160,
+            help=help_text,
+            disabled=disabled,
+        )
+        st.caption(f"現在の文字数: {len(text)}字")
+        st.caption(
+            "入力内容は自動的に保存されますが、Ctrl+Enterで即時保存、Tab/Shift+Tabで設問間を移動できます。"
+        )
+        save_clicked = st.form_submit_button(
+            "回答を保存する (Ctrl+Enter)",
+            disabled=disabled,
+            use_container_width=True,
+        )
+
     st.session_state.drafts[key] = text
-    status_placeholder = st.empty()
-    action_save, action_apply = st.columns([1, 1])
-    if action_save.button("回答を保存する", key=f"save_{key}"):
+
+    status_col, apply_col = st.columns([1.6, 1])
+    status_placeholder = status_col.empty()
+    with apply_col:
+        apply_clicked = st.button(
+            "保存内容を適用",
+            key=f"apply_{key}",
+            disabled=disabled,
+            use_container_width=True,
+        )
+
+    if disabled:
+        return text
+
+    if save_clicked:
         st.session_state.saved_answers[key] = text
         st.session_state.drafts[key] = text
         status_placeholder.success("回答を保存しました。")
-    if action_apply.button("保存内容を適用", key=f"apply_{key}"):
+
+    if apply_clicked:
         saved_text = st.session_state.saved_answers.get(key)
         if saved_text is None:
             status_placeholder.warning("保存済みの回答がありません。")
@@ -766,12 +911,14 @@ def _build_schedule_preview(
 
 
 def practice_page(user: Dict) -> None:
+    _inject_keyboard_shortcuts()
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。")
 
     st.info(
         "左側のセレクターで年度・事例を切り替え、下部の解答欄から回答を入力してください。"
     )
+    st.caption("Tabキーで次の入力欄へ移動し、Ctrl+Enterで回答を保存できます。")
 
     st.markdown(
         """
@@ -937,6 +1084,7 @@ def practice_page(user: Dict) -> None:
 
 
 def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
+    _inject_keyboard_shortcuts()
     if df is None or df.empty:
         st.info("アップロード済みの過去問データがありません。設定ページからファイルを登録してください。")
         return
@@ -1071,6 +1219,7 @@ def render_attempt_results(attempt_id: int) -> None:
 
 
 def mock_exam_page(user: Dict) -> None:
+    _inject_keyboard_shortcuts()
     st.title("模擬試験モード")
     st.caption("事例I～IVをまとめて演習し、時間管理と一括採点を体験します。")
 
