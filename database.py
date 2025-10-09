@@ -680,6 +680,61 @@ def get_reminder_settings(user_id: int) -> Optional[Dict]:
     }
 
 
+def fetch_keyword_performance(user_id: int) -> List[Dict]:
+    """Return answer-level keyword performance for the specified user."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            aa.attempt_id,
+            aa.answer_text,
+            aa.score,
+            aa.feedback,
+            aa.keyword_hits_json,
+            a.mode,
+            a.submitted_at,
+            p.year,
+            p.case_label,
+            p.title,
+            q.prompt,
+            q.max_score
+        FROM attempt_answers aa
+        JOIN attempts a ON a.id = aa.attempt_id
+        JOIN questions q ON q.id = aa.question_id
+        JOIN problems p ON p.id = a.problem_id
+        WHERE a.user_id = ? AND a.submitted_at IS NOT NULL
+        ORDER BY a.submitted_at
+        """,
+        (user_id,),
+    )
+
+    rows = cur.fetchall()
+    conn.close()
+
+    keyword_records: List[Dict] = []
+    for row in rows:
+        keyword_records.append(
+            {
+                "attempt_id": row["attempt_id"],
+                "answer_text": row["answer_text"],
+                "score": row["score"],
+                "feedback": row["feedback"],
+                "keyword_hits": json.loads(row["keyword_hits_json"]) if row["keyword_hits_json"] else {},
+                "mode": row["mode"],
+                "submitted_at": row["submitted_at"],
+                "year": row["year"],
+                "case_label": row["case_label"],
+                "title": row["title"],
+                "prompt": row["prompt"],
+                "max_score": row["max_score"],
+            }
+        )
+
+    return keyword_records
+
+
 def upsert_reminder_settings(
     *,
     user_id: int,
