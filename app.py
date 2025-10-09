@@ -327,45 +327,30 @@ def dashboard_page(user: Dict) -> None:
             "label": "演習回数",
             "value": f"{total_attempts}回",
             "desc": "これまで解いたケースの累計",
-            "class": "indigo",
         },
         {
             "label": "平均得点",
             "value": f"{average_score}点",
             "desc": "全演習の平均スコア",
-            "class": "sky",
         },
         {
             "label": "得点達成率",
             "value": f"{completion_rate:.0f}%",
             "desc": "満点に対する平均達成度",
-            "class": "emerald",
         },
         {
             "label": "得意な事例",
             "value": best_case_label or "記録なし",
             "desc": f"平均達成率 {best_case_rate:.0f}%" if best_case_label else "データが蓄積されると表示されます",
-            "class": "orange",
         },
     ]
 
-    st.markdown(
-        """
-        <div class="metric-row">
-        """
-        + "\n".join(
-            f"""
-            <div class="metric-card {card['class']}">
-                <div class="metric-label">{card['label']}</div>
-                <div class="metric-value">{card['value']}</div>
-                <p class="metric-desc">{card['desc']}</p>
-            </div>
-            """
-            for card in metric_cards
-        )
-        + "\n</div>",
-        unsafe_allow_html=True,
-    )
+    st.subheader("主要指標")
+    metric_columns = st.columns(len(metric_cards))
+    for column, card in zip(metric_columns, metric_cards):
+        with column:
+            st.metric(card["label"], card["value"])
+            st.caption(card["desc"])
 
     overview_tab, chart_tab = st.tabs(["進捗サマリ", "事例別分析"])
 
@@ -386,14 +371,12 @@ def dashboard_page(user: Dict) -> None:
                     for row in attempts
                 ]
             )
-            st.markdown('<div class="table-card">', unsafe_allow_html=True)
             st.data_editor(
                 summary_df,
                 use_container_width=True,
                 hide_index=True,
                 disabled=True,
             )
-            st.markdown('</div>', unsafe_allow_html=True)
             st.caption("最近の受験結果を表形式で確認できます。列ヘッダーにマウスを合わせるとソートが可能です。")
         else:
             st.info("まだ演習結果がありません。『過去問演習』から学習を開始しましょう。")
@@ -489,47 +472,36 @@ def dashboard_page(user: Dict) -> None:
             "desc": f"{_format_datetime_label(latest_attempt['submitted_at'])} 実施",
         }
 
-    st.markdown(
-        """
-        <div class="insight-grid">
-        """
-        + "\n".join(
-            f"""
-            <div class="insight-card">
-                <div class="insight-icon">{card['icon']}</div>
-                <div>
-                    <p class="insight-title">{card['title']}</p>
-                    <p class="insight-value">{card['value']}</p>
-                    <p class="insight-desc">{card['desc']}</p>
-                </div>
-            </div>
-            """
-            for card in [next_focus_card, learning_time_card, latest_result_card]
-        )
-        + "\n</div>",
-        unsafe_allow_html=True,
-    )
+    st.subheader("重点インサイト")
+    insight_columns = st.columns(3)
+    for column, card in zip(
+        insight_columns,
+        [next_focus_card, learning_time_card, latest_result_card],
+    ):
+        with column:
+            st.metric(f"{card['icon']} {card['title']}", card["value"])
+            st.caption(card["desc"])
 
-    st.markdown(
-        """
-        ### 次のアクション
-        <div class="action-grid">
-            <div class="action-card">
-                <strong>過去問演習</strong>
-                <p>年度・事例を指定して弱点補強の演習を行いましょう。</p>
-            </div>
-            <div class="action-card">
-                <strong>模擬試験</strong>
-                <p>タイマー付きの本番形式で得点力とタイムマネジメントを鍛えます。</p>
-            </div>
-            <div class="action-card">
-                <strong>学習履歴</strong>
-                <p>得点推移を可視化し、改善の兆しや課題を振り返りましょう。</p>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.subheader("次のアクション")
+    action_columns = st.columns(3)
+    actions = [
+        {
+            "title": "過去問演習",
+            "description": "年度・事例を指定して弱点補強の演習を行いましょう。",
+        },
+        {
+            "title": "模擬試験",
+            "description": "タイマー付きの本番形式で得点力とタイムマネジメントを鍛えます。",
+        },
+        {
+            "title": "学習履歴",
+            "description": "得点推移を可視化し、改善の兆しや課題を振り返りましょう。",
+        },
+    ]
+    for column, action in zip(action_columns, actions):
+        with column:
+            st.write(f"**{action['title']}**")
+            st.caption(action["description"])
 
 
 def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
