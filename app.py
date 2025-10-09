@@ -26,6 +26,202 @@ def _init_session_state() -> None:
     st.session_state.setdefault("past_data", None)
 
 
+def _inject_global_responsive_styles() -> None:
+    if st.session_state.get("_global_styles_injected"):
+        return
+
+    st.markdown(
+        """
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
+
+        :root {
+            --primary-color: #1d4ed8;
+            --primary-color-rgb: 29, 78, 216;
+            --accent-color: #0ea5e9;
+            --surface-color: #f8fafc;
+            --text-color: #1f2937;
+            --muted-text-color: #4b5563;
+        }
+
+        html, body, [data-testid="stAppViewContainer"] * {
+            font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+            color: var(--text-color);
+        }
+
+        body {
+            background-color: var(--surface-color);
+        }
+
+        .block-container {
+            padding-left: clamp(1rem, 4vw, 2.5rem);
+            padding-right: clamp(1rem, 4vw, 2.5rem);
+        }
+
+        .stMarkdown, .stText, .stCaption, .stSubheader, .stHeader, .stTitle {
+            color: var(--text-color);
+        }
+
+        .stCaption,
+        .stMarkdown small,
+        .stMarkdown p span,
+        .stMarkdown p em {
+            color: var(--muted-text-color);
+        }
+
+        .stButton>button,
+        .stDownloadButton>button,
+        .stFormSubmitButton>button,
+        .practice-quick-nav a button {
+            min-height: 3rem;
+            padding: 0.75rem 1.6rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(var(--primary-color-rgb), 0.4);
+            background: linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.95), rgba(59, 130, 246, 0.95));
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            box-shadow: 0 6px 18px rgba(var(--primary-color-rgb), 0.25);
+            transition: transform 0.16s ease, box-shadow 0.16s ease;
+        }
+
+        .stButton>button:focus-visible,
+        .stDownloadButton>button:focus-visible,
+        .stFormSubmitButton>button:focus-visible,
+        .practice-quick-nav a button:focus-visible {
+            outline: 3px solid rgba(var(--primary-color-rgb), 0.5);
+            outline-offset: 3px;
+            box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.25);
+        }
+
+        .stButton>button:hover,
+        .stDownloadButton>button:hover,
+        .stFormSubmitButton>button:hover,
+        .practice-quick-nav a button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 22px rgba(var(--primary-color-rgb), 0.3);
+        }
+
+        .stButton>button:active,
+        .stDownloadButton>button:active,
+        .stFormSubmitButton>button:active,
+        .practice-quick-nav a button:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 12px rgba(var(--primary-color-rgb), 0.2);
+        }
+
+        .stButton>button:disabled,
+        .stDownloadButton>button:disabled,
+        .stFormSubmitButton>button:disabled,
+        .practice-quick-nav a button:disabled {
+            background: linear-gradient(135deg, rgba(148, 163, 184, 0.65), rgba(203, 213, 225, 0.65));
+            color: rgba(30, 41, 59, 0.8);
+            box-shadow: none;
+            border-color: rgba(148, 163, 184, 0.55);
+        }
+
+        .stButton,
+        .stDownloadButton,
+        .stFormSubmitButton {
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        section[data-testid="stSidebar"] {
+            background: #ffffff;
+        }
+
+        section[data-testid="stSidebar"] .stButton>button {
+            width: 100%;
+        }
+
+        .practice-quick-nav {
+            display: flex;
+            gap: clamp(0.6rem, 2vw, 1rem);
+            flex-wrap: wrap;
+            margin-bottom: 0.75rem;
+        }
+
+        .practice-quick-nav a button {
+            background: linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.9), rgba(14, 165, 233, 0.9));
+            border: none;
+        }
+
+        .practice-quick-nav a button span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .insight-card,
+        .metric-card,
+        .action-card,
+        .table-card {
+            border-color: rgba(15, 23, 42, 0.08);
+        }
+
+        .stTabs [data-baseweb="tab-list"] {
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 900px) {
+            .metric-row,
+            .insight-grid,
+            .action-grid {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            }
+
+            .block-container {
+                padding-left: clamp(0.8rem, 4vw, 1.5rem);
+                padding-right: clamp(0.8rem, 4vw, 1.5rem);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .metric-card,
+            .insight-card,
+            .action-card,
+            .table-card {
+                padding: 1rem;
+            }
+
+            .practice-quick-nav {
+                flex-direction: column;
+            }
+
+            .practice-quick-nav a {
+                width: 100%;
+            }
+
+            .practice-quick-nav a button {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .stButton>button,
+            .stDownloadButton>button,
+            .stFormSubmitButton>button {
+                width: 100%;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.session_state["_global_styles_injected"] = True
+
+
 def main_view() -> None:
     user = st.session_state.user
 
@@ -36,6 +232,8 @@ def main_view() -> None:
         "学習履歴": history_page,
         "設定": settings_page,
     }
+
+    _inject_global_responsive_styles()
 
     st.sidebar.title("ナビゲーション")
     st.sidebar.markdown(
@@ -777,25 +975,38 @@ def practice_page(user: Dict) -> None:
         """
         <style>
         .practice-quick-nav {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-            margin-bottom: 0.5rem;
+            width: 100%;
         }
         .practice-quick-nav a {
             text-decoration: none;
+            flex: 1 1 auto;
+            min-width: clamp(180px, 40%, 260px);
         }
         .practice-quick-nav a button {
-            padding: 0.45rem 1.2rem;
-            border-radius: 0.5rem;
-            border: none;
-            background-color: #0f62fe;
-            color: white;
-            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            width: 100%;
+            font-size: 1rem;
             cursor: pointer;
         }
-        .practice-quick-nav a button:hover {
-            background-color: #0353e9;
+        .practice-quick-nav a button::before {
+            content: "";
+            display: inline-block;
+            width: 0.65rem;
+            height: 0.65rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
+        }
+        .practice-quick-nav a button:hover::before {
+            background: rgba(255, 255, 255, 1);
+        }
+        @media (max-width: 640px) {
+            .practice-quick-nav a {
+                min-width: 100%;
+            }
         }
         </style>
         """,
