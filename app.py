@@ -137,12 +137,35 @@ def _draft_key(problem_id: int, question_id: int) -> str:
     return f"draft_{problem_id}_{question_id}"
 
 
-def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> str:
+def _question_input(
+    problem_id: int, question: Dict, order: int, disabled: bool = False
+) -> str:
     key = _draft_key(problem_id, question["id"])
     value = st.session_state.drafts.get(key, "")
-    help_text = f"文字数目安: {question['character_limit']}字" if question["character_limit"] else ""
+    st.session_state.setdefault(f"show_guideline_{key}", False)
+
+    header_col, action_col = st.columns([6, 1])
+    with header_col:
+        st.markdown(f"#### 設問{order}")
+        st.write(question["prompt"])
+    button_label = (
+        "📘 ガイドラインを閉じる"
+        if st.session_state[f"show_guideline_{key}"]
+        else "📘 ガイドラインを表示"
+    )
+    if action_col.button(button_label, key=f"btn_guideline_{key}"):
+        st.session_state[f"show_guideline_{key}"] = not st.session_state[
+            f"show_guideline_{key}"
+        ]
+
+    help_text = (
+        f"文字数目安: {question['character_limit']}字"
+        if question["character_limit"]
+        else ""
+    )
     text = st.text_area(
         label=question["prompt"],
+        label_visibility="collapsed",
         key=f"textarea_{key}",
         value=value,
         height=160,
@@ -151,6 +174,29 @@ def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> 
     )
     st.caption(f"現在の文字数: {len(text)}字")
     st.session_state.drafts[key] = text
+
+    if st.session_state[f"show_guideline_{key}"]:
+        st.markdown("**採点ガイドライン**")
+        if question["keywords"]:
+            st.markdown(
+                "**キーワード評価**:\n"
+                + "、".join(question["keywords"])
+                + " を含めると加点対象です。"
+            )
+        st.markdown("**模範解答の背景**")
+        st.write(question["model_answer"])
+        st.caption(
+            "模範解答は構成や論理展開の参考例です。キーワードを押さえつつ自分の言葉で表現しましょう。"
+        )
+    else:
+        st.markdown(
+            "<div style='margin-top:0.25rem;margin-bottom:0.75rem;padding:0.5rem 0.75rem;"
+            "background-color:#fff8e1;border-left:4px solid #f0a500;font-size:0.9rem;'>"
+            "右上の <strong>📘 ガイドラインを表示</strong> ボタンから採点の観点を確認できます。"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
     return text
 
 
@@ -218,8 +264,8 @@ def practice_page(user: Dict) -> None:
 
     answers: List[RecordedAnswer] = []
     question_specs: List[QuestionSpec] = []
-    for question in problem["questions"]:
-        text = _question_input(problem["id"], question)
+    for idx, question in enumerate(problem["questions"], start=1):
+        text = _question_input(problem["id"], question, order=idx)
         question_specs.append(
             QuestionSpec(
                 id=question["id"],
@@ -229,16 +275,6 @@ def practice_page(user: Dict) -> None:
                 keywords=question["keywords"],
             )
         )
-        with st.expander("採点ガイドライン", expanded=False):
-            if question["keywords"]:
-                st.markdown(
-                    "**キーワード評価**:\n" + "、".join(question["keywords"]) + " を含めると加点対象です。"
-                )
-            st.markdown("**模範解答の背景**")
-            st.write(question["model_answer"])
-            st.caption(
-                "模範解答は構成や論理展開の参考例です。キーワードを押さえつつ自分の言葉で表現しましょう。"
-            )
 
     col_save, col_submit = st.columns([1, 2])
     if col_save.button("下書きを保存"):
