@@ -293,24 +293,20 @@ def _inject_dashboard_styles() -> None:
                 color: #64748b;
                 margin: 0;
             }
-            .metric-card.indigo {
-                background: linear-gradient(135deg, #2740ff, #4f74ff);
+            .metric-card.progress {
+                background: linear-gradient(135deg, #1d4ed8, #2563eb);
                 color: #f8fafc;
             }
-            .metric-card.indigo .metric-label,
-            .metric-card.indigo .metric-desc {
+            .metric-card.progress .metric-label,
+            .metric-card.progress .metric-desc {
                 color: rgba(248, 250, 252, 0.85);
             }
-            .metric-card.emerald {
-                background: linear-gradient(135deg, #00b894, #4ade80);
+            .metric-card.score {
+                background: linear-gradient(135deg, #15803d, #22c55e);
                 color: #0f172a;
             }
-            .metric-card.orange {
-                background: linear-gradient(135deg, #ff8a4c, #ffb347);
-                color: #0f172a;
-            }
-            .metric-card.sky {
-                background: linear-gradient(135deg, #38bdf8, #60a5fa);
+            .metric-card.alert {
+                background: linear-gradient(135deg, #f97316, #fb923c);
                 color: #0f172a;
             }
             .insight-grid {
@@ -488,25 +484,25 @@ def dashboard_page(user: Dict) -> None:
             "label": "演習回数",
             "value": f"{total_attempts}回",
             "desc": "これまで解いたケースの累計",
-            "class": "indigo",
+            "class": "progress",
         },
         {
             "label": "平均得点",
             "value": f"{average_score}点",
             "desc": "全演習の平均スコア",
-            "class": "sky",
+            "class": "score",
         },
         {
             "label": "得点達成率",
             "value": f"{completion_rate:.0f}%",
             "desc": "満点に対する平均達成度",
-            "class": "emerald",
+            "class": "score",
         },
         {
             "label": "得意な事例",
             "value": best_case_label or "記録なし",
             "desc": f"平均達成率 {best_case_rate:.0f}%" if best_case_label else "データが蓄積されると表示されます",
-            "class": "orange",
+            "class": "progress",
         },
     ]
 
@@ -613,16 +609,13 @@ def dashboard_page(user: Dict) -> None:
                 axis=1,
             )
             st.subheader("事例別平均達成率")
-            color_scale = alt.Scale(
-                range=["#4f46e5", "#2563eb", "#0ea5e9", "#10b981", "#f97316", "#ec4899"],
-            )
             bar = (
                 alt.Chart(df)
                 .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
                 .encode(
                     y=alt.Y("事例:N", sort="-x", title=None),
                     x=alt.X("達成率:Q", scale=alt.Scale(domain=[0, 100]), title="平均達成率 (%)"),
-                    color=alt.Color("事例:N", scale=color_scale, legend=None),
+                    color=alt.value("#22c55e"),
                     tooltip=["事例", "得点", "満点", alt.Tooltip("達成率:Q", format=".1f")],
                 )
             )
@@ -1399,13 +1392,13 @@ def practice_page(user: Dict) -> None:
                 padding: 0.45rem 1.2rem;
                 border-radius: 0.5rem;
                 border: none;
-                background-color: #0f62fe;
+                background-color: #2563eb;
                 color: white;
                 font-weight: 600;
                 cursor: pointer;
             }
             .practice-quick-nav a button:hover {
-                background-color: #0353e9;
+                background-color: #1d4ed8;
             }
             </style>
             """
