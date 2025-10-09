@@ -69,14 +69,48 @@ def score_answer(answer: str, question: QuestionSpec) -> ScoreResult:
     score = round(min(question.max_score, max(0.0, raw_score)), 2)
 
     missing_keywords = [kw for kw, hit in keyword_hits.items() if not hit]
-    comments: List[str] = []
-    comments.append(f"類似度: {similarity:.2f} / キーワード網羅率: {keyword_ratio:.2f}")
-    if missing_keywords:
-        comments.append("不足キーワード: " + ", ".join(missing_keywords))
-    else:
-        comments.append("主要キーワードをすべて含めています。")
+    positive_points: List[str] = []
+    if keyword_ratio >= 0.8:
+        positive_points.append("主要キーワードをバランス良く押さえています。")
+    elif keyword_ratio >= 0.4:
+        positive_points.append(
+            f"キーワードに{sum(keyword_hits.values())}件触れており、論点を一部捉えています。"
+        )
 
-    feedback = "\n".join(comments)
+    if similarity >= 0.65:
+        positive_points.append("模範解答と主旨が近く、論理展開も概ね整っています。")
+    elif similarity >= 0.45:
+        positive_points.append("模範解答との方向性は合っています。表現を磨くとさらに良くなります。")
+
+    if not positive_points:
+        positive_points.append("自分の言葉で答案をまとめようとしている点は評価できます。")
+
+    improvement_points: List[str] = []
+    if missing_keywords:
+        improvement_points.append("「" + "、".join(missing_keywords) + "」に触れると加点につながります。")
+    if keyword_ratio < 0.4:
+        improvement_points.append("解答内に重要キーワードが少ないため、設問要求を再確認しましょう。")
+    if similarity < 0.45:
+        improvement_points.append("模範解答と論点がずれている可能性があります。因果関係を意識した構成を意識してください。")
+    if not improvement_points:
+        improvement_points.append("細部の表現を磨くと、より説得力の高い答案になります。")
+
+    if missing_keywords:
+        study_keywords = list(missing_keywords)
+    else:
+        study_keywords = list(question.keywords)
+
+    improvement_suggestion = "設問文から与件企業の課題・強みを抜き出し、キーワードを盛り込んだうえで因果を意識して記述しましょう。"
+
+    feedback_sections = [
+        f"【得点サマリー】類似度: {similarity:.2f} / キーワード網羅率: {keyword_ratio:.2f}",
+        "【良かった点】\n" + "\n".join(f"- {point}" for point in positive_points),
+        "【改善が必要な点】\n" + "\n".join(f"- {point}" for point in improvement_points),
+        "【学習すべきキーワード】\n" + "\n".join(f"- {kw}" for kw in study_keywords) if study_keywords else "",
+        "【改善のヒント】\n- " + improvement_suggestion,
+    ]
+
+    feedback = "\n\n".join(section for section in feedback_sections if section)
     return ScoreResult(score=score, feedback=feedback, keyword_hits=keyword_hits)
 
 
