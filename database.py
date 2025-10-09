@@ -12,7 +12,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 DB_PATH = Path("data/app.db")
 SEED_PATH = Path("data/seed_problems.json")
@@ -377,7 +377,13 @@ def record_attempt(
 
 
 def _next_review_interval(
-    *, previous_interval: Optional[int], score_ratio: float
+    *,
+    previous_interval: Optional[int],
+    score_ratio: float,
+    trend: Optional[float],
+    lowest_question_ratio: Optional[float],
+    pattern_variance: float,
+    previous_streak: int,
 ) -> tuple[int, int]:
     """Return (interval_days, streak_increment) for spaced repetition scheduling."""
 
@@ -390,17 +396,46 @@ def _next_review_interval(
 
     if score_ratio >= 0.85:
         base = previous_interval if previous_interval else 3
-        next_interval = max(base * 2, base + 1)
+        next_interval = max(base * 2, base + 2)
         streak_increment = 1
     elif score_ratio >= 0.6:
         base = previous_interval if previous_interval else 2
         next_interval = max(int(round(base * 1.5)), base + 1, 2)
-        streak_increment = 0
+        streak_increment = 1 if previous_streak else 0
     else:
         next_interval = 1
         streak_increment = 0
 
-    next_interval = int(max(1, min(next_interval, 45)))
+    if trend is not None:
+        if trend >= 0.1:
+            next_interval = max(int(round(next_interval * 1.35)), next_interval + 1)
+            streak_increment = max(streak_increment, 1)
+        elif trend >= 0.04:
+            next_interval = max(int(round(next_interval * 1.15)), next_interval)
+        elif trend <= -0.08:
+            next_interval = max(1, int(round(next_interval * 0.6)))
+            streak_increment = 0
+        elif trend <= -0.04:
+            next_interval = max(1, int(round(next_interval * 0.75)))
+            streak_increment = 0
+
+    if lowest_question_ratio is not None:
+        if lowest_question_ratio < 0.4:
+            next_interval = max(1, int(round(next_interval * 0.4)))
+            streak_increment = 0
+        elif lowest_question_ratio < 0.6:
+            next_interval = max(1, int(round(next_interval * 0.65)))
+            streak_increment = 0
+        elif lowest_question_ratio < 0.75:
+            next_interval = max(1, int(round(next_interval * 0.85)))
+
+    if pattern_variance > 0.04:
+        next_interval = max(1, int(round(next_interval * 0.8)))
+        streak_increment = 0
+    elif pattern_variance < 0.01 and score_ratio >= 0.85 and trend and trend >= 0:
+        next_interval = max(int(round(next_interval * 1.1)), next_interval + 1)
+
+    next_interval = int(max(1, min(next_interval, 60)))
     return next_interval, streak_increment
 
 
@@ -410,6 +445,7 @@ def update_spaced_review(
     *,
     score_ratio: float,
     reviewed_at: datetime,
+    question_ratios: Optional[Sequence[float]] = None,
 ) -> None:
     """Create or update spaced repetition schedule for a problem."""
 
@@ -424,8 +460,52 @@ def update_spaced_review(
     previous_interval = row["interval_days"] if row else None
     previous_streak = row["streak"] if row else 0
 
+    safe_question_ratios: List[float] = []
+    if question_ratios:
+        for value in question_ratios:
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                continue
+            safe_question_ratios.append(max(0.0, min(number, 1.0)))
+
+    lowest_question_ratio = min(safe_question_ratios) if safe_question_ratios else None
+    pattern_variance = 0.0
+    if safe_question_ratios:
+        mean_ratio = sum(safe_question_ratios) / len(safe_question_ratios)
+        pattern_variance = sum(
+            (ratio - mean_ratio) ** 2 for ratio in safe_question_ratios
+        ) / len(safe_question_ratios)
+
+    cur.execute(
+        """
+        SELECT total_score, total_max_score
+        FROM attempts
+        WHERE user_id = ? AND problem_id = ? AND submitted_at IS NOT NULL
+        ORDER BY submitted_at DESC
+        LIMIT 5
+        """,
+        (user_id, problem_id),
+    )
+    ratio_rows = cur.fetchall()
+    recent_ratios: List[float] = []
+    for ratio_row in ratio_rows:
+        max_score = ratio_row["total_max_score"] or 0
+        if max_score:
+            recent_ratios.append((ratio_row["total_score"] or 0) / max_score)
+
+    trend = None
+    if len(recent_ratios) > 1:
+        previous_average = sum(recent_ratios[1:]) / len(recent_ratios[1:])
+        trend = score_ratio - previous_average
+
     interval_days, streak_increment = _next_review_interval(
-        previous_interval=previous_interval, score_ratio=score_ratio
+        previous_interval=previous_interval,
+        score_ratio=score_ratio,
+        trend=trend,
+        lowest_question_ratio=lowest_question_ratio,
+        pattern_variance=pattern_variance,
+        previous_streak=previous_streak,
     )
     next_due = reviewed_at + timedelta(days=interval_days)
 
@@ -469,6 +549,212 @@ def update_spaced_review(
 
     conn.commit()
     conn.close()
+
+
+def _calculate_priority_components(
+    *,
+    avg_ratio: Optional[float],
+    trend: Optional[float],
+    min_question_ratio: Optional[float],
+    due_at: Optional[datetime],
+    attempt_count: int,
+    now: datetime,
+) -> Tuple[float, List[str]]:
+    reasons: List[str] = []
+    priority = 0.0
+
+    if due_at:
+        days_until_due = (due_at - now).total_seconds() / (60 * 60 * 24)
+        if days_until_due <= 0:
+            priority += 60 + min(20, abs(days_until_due) * 6)
+            reasons.append("復習期限を超過しています")
+        elif days_until_due <= 2:
+            priority += 45 - days_until_due * 5
+            reasons.append("復習期限が近づいています")
+        else:
+            priority += max(20 - days_until_due, 0)
+    else:
+        priority += 5
+
+    if avg_ratio is not None:
+        priority += (1.0 - avg_ratio) * 40
+        if avg_ratio < 0.6:
+            reasons.append("平均達成率が低めです")
+        elif avg_ratio < 0.75:
+            reasons.append("安定した定着が課題です")
+
+    if min_question_ratio is not None:
+        if min_question_ratio < 0.5:
+            priority += 20
+            reasons.append("設問ごとの得点にばらつきがあります")
+        elif min_question_ratio < 0.65:
+            priority += 10
+            reasons.append("一部設問の理解が不十分です")
+
+    if trend is not None:
+        if trend <= -0.05:
+            priority += 18
+            reasons.append("得点が下がり気味です")
+        elif trend >= 0.08:
+            priority -= 10
+        elif trend >= 0.04:
+            priority -= 5
+
+    if attempt_count <= 1:
+        priority += 12
+        reasons.append("演習回数が少ないテーマです")
+
+    return priority, reasons
+
+
+def recommend_learning_sequence(user_id: int, *, limit: int = 6) -> List[Dict]:
+    """Return ordered learning recommendations based on performance patterns."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT
+            p.id AS problem_id,
+            p.year,
+            p.case_label,
+            p.title,
+            sr.due_at,
+            sr.interval_days,
+            sr.last_score_ratio,
+            sr.streak,
+            stats.last_attempt,
+            stats.avg_ratio,
+            stats.attempt_count
+        FROM problems p
+        LEFT JOIN spaced_reviews sr
+            ON sr.user_id = ? AND sr.problem_id = p.id
+        LEFT JOIN (
+            SELECT
+                problem_id,
+                MAX(submitted_at) AS last_attempt,
+                AVG(
+                    CASE WHEN total_max_score > 0 THEN total_score / total_max_score ELSE NULL END
+                ) AS avg_ratio,
+                COUNT(*) AS attempt_count
+            FROM attempts
+            WHERE user_id = ? AND submitted_at IS NOT NULL
+            GROUP BY problem_id
+        ) AS stats ON stats.problem_id = p.id
+        WHERE stats.attempt_count IS NOT NULL OR sr.id IS NOT NULL
+        """,
+        (user_id, user_id),
+    )
+
+    rows = cur.fetchall()
+
+    cur.execute(
+        """
+        SELECT
+            a.id AS attempt_id,
+            a.problem_id,
+            a.submitted_at,
+            aa.score,
+            q.max_score
+        FROM attempt_answers aa
+        JOIN attempts a ON a.id = aa.attempt_id
+        JOIN questions q ON q.id = aa.question_id
+        WHERE a.user_id = ? AND a.submitted_at IS NOT NULL
+        ORDER BY a.submitted_at DESC, a.id DESC
+        """,
+        (user_id,),
+    )
+    answer_rows = cur.fetchall()
+
+    cur.execute(
+        """
+        SELECT problem_id, total_score, total_max_score, submitted_at
+        FROM attempts
+        WHERE user_id = ? AND submitted_at IS NOT NULL
+        ORDER BY submitted_at DESC
+        """,
+        (user_id,),
+    )
+    attempt_rows = cur.fetchall()
+
+    conn.close()
+
+    latest_attempt_ratios: Dict[int, List[float]] = {}
+    for row in attempt_rows:
+        problem_id = row["problem_id"]
+        max_score = row["total_max_score"] or 0
+        if max_score == 0:
+            continue
+        ratio = (row["total_score"] or 0) / max_score
+        latest_attempt_ratios.setdefault(problem_id, []).append(ratio)
+
+    latest_question_stats: Dict[int, Dict[str, float]] = {}
+    for row in answer_rows:
+        problem_id = row["problem_id"]
+        max_score = row["max_score"] or 0
+        if max_score == 0:
+            continue
+        ratio = (row["score"] or 0) / max_score
+        stats = latest_question_stats.setdefault(
+            problem_id,
+            {
+                "attempt_id": row["attempt_id"],
+                "submitted_at": row["submitted_at"],
+                "ratios": [],
+            },
+        )
+        if row["attempt_id"] != stats["attempt_id"] or row["submitted_at"] != stats["submitted_at"]:
+            continue
+        stats["ratios"].append(max(0.0, min(ratio, 1.0)))
+
+    now = datetime.utcnow()
+    recommendations: List[Dict] = []
+
+    for row in rows:
+        problem_id = row["problem_id"]
+        due_at = datetime.fromisoformat(row["due_at"]) if row["due_at"] else None
+        avg_ratio = row["avg_ratio"]
+        attempt_count = row["attempt_count"] or 0
+
+        ratios = latest_attempt_ratios.get(problem_id, [])
+        trend = None
+        if len(ratios) > 1:
+            previous_average = sum(ratios[1:]) / len(ratios[1:])
+            trend = ratios[0] - previous_average
+
+        question_stats = latest_question_stats.get(problem_id)
+        min_question_ratio = None
+        if question_stats and question_stats.get("ratios"):
+            min_question_ratio = min(question_stats["ratios"])
+
+        priority, reasons = _calculate_priority_components(
+            avg_ratio=avg_ratio,
+            trend=trend,
+            min_question_ratio=min_question_ratio,
+            due_at=due_at,
+            attempt_count=attempt_count,
+            now=now,
+        )
+
+        if not reasons:
+            reasons.append("定期復習のおすすめ")
+
+        recommendation = {
+            "problem_id": problem_id,
+            "year": row["year"],
+            "case_label": row["case_label"],
+            "title": row["title"],
+            "priority": priority,
+            "due_at": due_at,
+            "reasons": reasons,
+            "avg_ratio": avg_ratio,
+            "attempt_count": attempt_count,
+        }
+        recommendations.append(recommendation)
+
+    recommendations.sort(key=lambda item: (-item["priority"], item["due_at"] or now))
+    return recommendations[:limit]
 
 
 def list_due_reviews(

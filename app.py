@@ -565,6 +565,34 @@ def dashboard_page(user: Dict) -> None:
     else:
         st.info("演習データが蓄積されると復習スケジュールがここに表示されます。")
 
+    st.subheader("AI推奨の学習順序")
+    recommendations = database.recommend_learning_sequence(user_id=user["id"], limit=6)
+    if recommendations:
+        recommendation_df = pd.DataFrame(
+            [
+                {
+                    "優先度": idx + 1,
+                    "事例": f"{item['year']} {item['case_label']}",
+                    "タイトル": item["title"],
+                    "目安期限": item["due_at"].strftime("%Y-%m-%d") if item["due_at"] else "ー",
+                    "推奨アクション": "復習" if item.get("avg_ratio") is not None else "初回演習",
+                    "理由": " / ".join(item["reasons"]),
+                }
+                for idx, item in enumerate(recommendations)
+            ]
+        )
+        st.data_editor(
+            recommendation_df,
+            hide_index=True,
+            use_container_width=True,
+            disabled=True,
+        )
+        st.caption(
+            "得点推移・設問ごとの達成度・復習期限を加味して、次に取り組むと効果的な順序をAIが提案します。"
+        )
+    else:
+        st.info("演習履歴が蓄積されるとAIが優先順を提案します。")
+
     overview_tab, chart_tab = st.tabs(["進捗サマリ", "事例別分析"])
 
     with overview_tab:
@@ -1545,6 +1573,7 @@ def practice_page(user: Dict) -> None:
 
     if submitted:
         answers = []
+        question_ratios: List[float] = []
         for question, spec in zip(problem["questions"], question_specs):
             text = st.session_state.drafts.get(_draft_key(problem["id"], question["id"]), "")
             result = scoring.score_answer(text, spec)
@@ -1557,6 +1586,9 @@ def practice_page(user: Dict) -> None:
                     keyword_hits=result.keyword_hits,
                 )
             )
+            max_score = question.get("max_score") or 0
+            if max_score:
+                question_ratios.append(result.score / max_score)
 
         submitted_at = datetime.utcnow()
         started_at = st.session_state.practice_started or submitted_at
@@ -1579,6 +1611,7 @@ def practice_page(user: Dict) -> None:
             problem_id=problem["id"],
             score_ratio=score_ratio,
             reviewed_at=submitted_at,
+            question_ratios=question_ratios,
         )
         st.session_state.practice_started = None
 
@@ -1803,6 +1836,7 @@ def mock_exam_page(user: Dict) -> None:
         for problem_id in exam.problem_ids:
             problem = database.fetch_problem(problem_id)
             answers: List[RecordedAnswer] = []
+            question_ratios: List[float] = []
             for question in problem["questions"]:
                 text = st.session_state.drafts.get(_draft_key(problem_id, question["id"]), "")
                 result = scoring.score_answer(
@@ -1824,6 +1858,9 @@ def mock_exam_page(user: Dict) -> None:
                         keyword_hits=result.keyword_hits,
                     )
                 )
+                max_score = question.get("max_score") or 0
+                if max_score:
+                    question_ratios.append(result.score / max_score)
             submitted_at = datetime.utcnow()
             attempt_id = database.record_attempt(
                 user_id=user["id"],
@@ -1842,6 +1879,7 @@ def mock_exam_page(user: Dict) -> None:
                 problem_id=problem_id,
                 score_ratio=score_ratio,
                 reviewed_at=submitted_at,
+                question_ratios=question_ratios,
             )
             overall_results.append((problem, attempt_id))
 
