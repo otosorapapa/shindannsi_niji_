@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
+from textwrap import dedent
 from typing import Any, Dict, List, Optional
 
 import altair as alt
@@ -39,34 +40,36 @@ def main_view() -> None:
 
     st.sidebar.title("ナビゲーション")
     st.sidebar.markdown(
-        """
-        <style>
-        section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] {
-            margin-bottom: 0.3rem;
-        }
-        section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:first-child {
-            display: none;
-        }
-        section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
-            width: 100%;
-            padding: 0.5rem 0.75rem;
-            border-radius: 0.6rem;
-            border: 1px solid transparent;
-            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-        }
-        section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child:hover {
-            border-color: rgba(49, 51, 63, 0.2);
-            background-color: rgba(49, 51, 63, 0.05);
-        }
-        section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > input:checked + div {
-            background-color: rgba(49, 51, 63, 0.06);
-            border-color: var(--primary-color);
-            color: var(--primary-color);
-            box-shadow: 0 0 0 1px var(--primary-color) inset;
-            font-weight: 600;
-        }
-        </style>
-        """,
+        dedent(
+            """
+            <style>
+            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] {
+                margin-bottom: 0.3rem;
+            }
+            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:first-child {
+                display: none;
+            }
+            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
+                width: 100%;
+                padding: 0.5rem 0.75rem;
+                border-radius: 0.6rem;
+                border: 1px solid transparent;
+                transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+            }
+            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child:hover {
+                border-color: rgba(49, 51, 63, 0.2);
+                background-color: rgba(49, 51, 63, 0.05);
+            }
+            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > input:checked + div {
+                background-color: rgba(49, 51, 63, 0.06);
+                border-color: var(--primary-color);
+                color: var(--primary-color);
+                box-shadow: 0 0 0 1px var(--primary-color) inset;
+                font-weight: 600;
+            }
+            </style>
+            """
+        ).strip(),
         unsafe_allow_html=True,
     )
 
@@ -96,160 +99,162 @@ def _inject_dashboard_styles() -> None:
         return
 
     st.markdown(
-        """
-        <style>
-        [data-testid="stAppViewContainer"] {
-            background: linear-gradient(180deg, #f3f6fb 0%, #ffffff 45%);
-        }
-        .block-container {
-            padding-top: 1.2rem;
-            padding-bottom: 3rem;
-            max-width: 1100px;
-        }
-        .metric-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-        .metric-card {
-            position: relative;
-            border-radius: 18px;
-            padding: 1.4rem;
-            color: #0f172a;
-            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(241,245,249,0.95));
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
-        }
-        .metric-card::after {
-            content: "";
-            position: absolute;
-            inset: 1px;
-            border-radius: 16px;
-            border: 1px solid rgba(255,255,255,0.5);
-        }
-        .metric-card .metric-label {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #475569;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-        }
-        .metric-card .metric-value {
-            font-size: 2rem;
-            font-weight: 700;
-            margin: 0.4rem 0;
-        }
-        .metric-card .metric-desc {
-            font-size: 0.85rem;
-            color: #64748b;
-            margin: 0;
-        }
-        .metric-card.indigo {
-            background: linear-gradient(135deg, #2740ff, #4f74ff);
-            color: #f8fafc;
-        }
-        .metric-card.indigo .metric-label,
-        .metric-card.indigo .metric-desc {
-            color: rgba(248, 250, 252, 0.85);
-        }
-        .metric-card.emerald {
-            background: linear-gradient(135deg, #00b894, #4ade80);
-            color: #0f172a;
-        }
-        .metric-card.orange {
-            background: linear-gradient(135deg, #ff8a4c, #ffb347);
-            color: #0f172a;
-        }
-        .metric-card.sky {
-            background: linear-gradient(135deg, #38bdf8, #60a5fa);
-            color: #0f172a;
-        }
-        .insight-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin: 1.5rem 0 0;
-        }
-        .insight-card {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-            border-radius: 18px;
-            padding: 1.2rem 1.4rem;
-            background: #ffffff;
-            border: 1px solid rgba(148, 163, 184, 0.28);
-            box-shadow: 0 20px 32px rgba(15, 23, 42, 0.12);
-        }
-        .insight-icon {
-            font-size: 1.8rem;
-        }
-        .insight-title {
-            font-weight: 600;
-            margin: 0;
-            color: #475569;
-        }
-        .insight-value {
-            font-size: 1.35rem;
-            font-weight: 700;
-            margin: 0.2rem 0 0.3rem;
-            color: #0f172a;
-        }
-        .insight-desc {
-            font-size: 0.85rem;
-            margin: 0;
-            color: #64748b;
-        }
-        .action-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-        .action-card {
-            border-radius: 16px;
-            padding: 1.2rem 1.3rem;
-            background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(14,165,233,0.08));
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-        }
-        .action-card strong {
-            display: block;
-            font-size: 1.05rem;
-            margin-bottom: 0.4rem;
-            color: #1e293b;
-        }
-        .action-card p {
-            margin: 0;
-            font-size: 0.88rem;
-            color: #475569;
-        }
-        .table-card {
-            border-radius: 18px;
-            padding: 1.2rem 1rem 0.6rem;
-            background: rgba(255, 255, 255, 0.95);
-            border: 1px solid rgba(226, 232, 240, 0.7);
-            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
-        }
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 0.6rem;
-            padding: 0.4rem;
-            background: rgba(226, 232, 240, 0.5);
-            border-radius: 999px;
-        }
-        .stTabs [data-baseweb="tab"] {
-            border-radius: 999px;
-            padding: 0.4rem 1.4rem;
-            background: rgba(255,255,255,0.7);
-            border: 1px solid transparent;
-        }
-        .stTabs [aria-selected="true"] {
-            background: rgba(37, 99, 235, 0.14) !important;
-            border-color: rgba(59, 130, 246, 0.4) !important;
-            color: #1d4ed8 !important;
-        }
-        </style>
-        """,
+        dedent(
+            """
+            <style>
+            [data-testid="stAppViewContainer"] {
+                background: linear-gradient(180deg, #f3f6fb 0%, #ffffff 45%);
+            }
+            .block-container {
+                padding-top: 1.2rem;
+                padding-bottom: 3rem;
+                max-width: 1100px;
+            }
+            .metric-row {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+                gap: 1rem;
+                margin-top: 1rem;
+            }
+            .metric-card {
+                position: relative;
+                border-radius: 18px;
+                padding: 1.4rem;
+                color: #0f172a;
+                background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(241,245,249,0.95));
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+            }
+            .metric-card::after {
+                content: "";
+                position: absolute;
+                inset: 1px;
+                border-radius: 16px;
+                border: 1px solid rgba(255,255,255,0.5);
+            }
+            .metric-card .metric-label {
+                font-size: 0.9rem;
+                font-weight: 600;
+                color: #475569;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+            }
+            .metric-card .metric-value {
+                font-size: 2rem;
+                font-weight: 700;
+                margin: 0.4rem 0;
+            }
+            .metric-card .metric-desc {
+                font-size: 0.85rem;
+                color: #64748b;
+                margin: 0;
+            }
+            .metric-card.indigo {
+                background: linear-gradient(135deg, #2740ff, #4f74ff);
+                color: #f8fafc;
+            }
+            .metric-card.indigo .metric-label,
+            .metric-card.indigo .metric-desc {
+                color: rgba(248, 250, 252, 0.85);
+            }
+            .metric-card.emerald {
+                background: linear-gradient(135deg, #00b894, #4ade80);
+                color: #0f172a;
+            }
+            .metric-card.orange {
+                background: linear-gradient(135deg, #ff8a4c, #ffb347);
+                color: #0f172a;
+            }
+            .metric-card.sky {
+                background: linear-gradient(135deg, #38bdf8, #60a5fa);
+                color: #0f172a;
+            }
+            .insight-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 1rem;
+                margin: 1.5rem 0 0;
+            }
+            .insight-card {
+                display: flex;
+                gap: 1rem;
+                align-items: center;
+                border-radius: 18px;
+                padding: 1.2rem 1.4rem;
+                background: #ffffff;
+                border: 1px solid rgba(148, 163, 184, 0.28);
+                box-shadow: 0 20px 32px rgba(15, 23, 42, 0.12);
+            }
+            .insight-icon {
+                font-size: 1.8rem;
+            }
+            .insight-title {
+                font-weight: 600;
+                margin: 0;
+                color: #475569;
+            }
+            .insight-value {
+                font-size: 1.35rem;
+                font-weight: 700;
+                margin: 0.2rem 0 0.3rem;
+                color: #0f172a;
+            }
+            .insight-desc {
+                font-size: 0.85rem;
+                margin: 0;
+                color: #64748b;
+            }
+            .action-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 1rem;
+                margin-top: 1rem;
+            }
+            .action-card {
+                border-radius: 16px;
+                padding: 1.2rem 1.3rem;
+                background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(14,165,233,0.08));
+                border: 1px solid rgba(148, 163, 184, 0.3);
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+            }
+            .action-card strong {
+                display: block;
+                font-size: 1.05rem;
+                margin-bottom: 0.4rem;
+                color: #1e293b;
+            }
+            .action-card p {
+                margin: 0;
+                font-size: 0.88rem;
+                color: #475569;
+            }
+            .table-card {
+                border-radius: 18px;
+                padding: 1.2rem 1rem 0.6rem;
+                background: rgba(255, 255, 255, 0.95);
+                border: 1px solid rgba(226, 232, 240, 0.7);
+                box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+            }
+            .stTabs [data-baseweb="tab-list"] {
+                gap: 0.6rem;
+                padding: 0.4rem;
+                background: rgba(226, 232, 240, 0.5);
+                border-radius: 999px;
+            }
+            .stTabs [data-baseweb="tab"] {
+                border-radius: 999px;
+                padding: 0.4rem 1.4rem;
+                background: rgba(255,255,255,0.7);
+                border: 1px solid transparent;
+            }
+            .stTabs [aria-selected="true"] {
+                background: rgba(37, 99, 235, 0.14) !important;
+                border-color: rgba(59, 130, 246, 0.4) !important;
+                color: #1d4ed8 !important;
+            }
+            </style>
+            """
+        ).strip(),
         unsafe_allow_html=True,
     )
     st.session_state["_dashboard_styles_injected"] = True
@@ -349,11 +354,8 @@ def dashboard_page(user: Dict) -> None:
         },
     ]
 
-    st.markdown(
-        """
-        <div class="metric-row">
-        """
-        + "\n".join(
+    card_blocks = "\n".join(
+        dedent(
             f"""
             <div class="metric-card {card['class']}">
                 <div class="metric-label">{card['label']}</div>
@@ -361,9 +363,17 @@ def dashboard_page(user: Dict) -> None:
                 <p class="metric-desc">{card['desc']}</p>
             </div>
             """
-            for card in metric_cards
-        )
-        + "\n</div>",
+        ).strip()
+        for card in metric_cards
+    )
+    st.markdown(
+        dedent(
+            f"""
+            <div class="metric-row">
+            {card_blocks}
+            </div>
+            """
+        ).strip(),
         unsafe_allow_html=True,
     )
 
@@ -489,11 +499,8 @@ def dashboard_page(user: Dict) -> None:
             "desc": f"{_format_datetime_label(latest_attempt['submitted_at'])} 実施",
         }
 
-    st.markdown(
-        """
-        <div class="insight-grid">
-        """
-        + "\n".join(
+    insight_cards = "\n".join(
+        dedent(
             f"""
             <div class="insight-card">
                 <div class="insight-icon">{card['icon']}</div>
@@ -504,30 +511,40 @@ def dashboard_page(user: Dict) -> None:
                 </div>
             </div>
             """
-            for card in [next_focus_card, learning_time_card, latest_result_card]
-        )
-        + "\n</div>",
+        ).strip()
+        for card in [next_focus_card, learning_time_card, latest_result_card]
+    )
+    st.markdown(
+        dedent(
+            f"""
+            <div class="insight-grid">
+            {insight_cards}
+            </div>
+            """
+        ).strip(),
         unsafe_allow_html=True,
     )
 
     st.markdown(
-        """
-        ### 次のアクション
-        <div class="action-grid">
-            <div class="action-card">
-                <strong>過去問演習</strong>
-                <p>年度・事例を指定して弱点補強の演習を行いましょう。</p>
+        dedent(
+            """
+            ### 次のアクション
+            <div class="action-grid">
+                <div class="action-card">
+                    <strong>過去問演習</strong>
+                    <p>年度・事例を指定して弱点補強の演習を行いましょう。</p>
+                </div>
+                <div class="action-card">
+                    <strong>模擬試験</strong>
+                    <p>タイマー付きの本番形式で得点力とタイムマネジメントを鍛えます。</p>
+                </div>
+                <div class="action-card">
+                    <strong>学習履歴</strong>
+                    <p>得点推移を可視化し、改善の兆しや課題を振り返りましょう。</p>
+                </div>
             </div>
-            <div class="action-card">
-                <strong>模擬試験</strong>
-                <p>タイマー付きの本番形式で得点力とタイムマネジメントを鍛えます。</p>
-            </div>
-            <div class="action-card">
-                <strong>学習履歴</strong>
-                <p>得点推移を可視化し、改善の兆しや課題を振り返りましょう。</p>
-            </div>
-        </div>
-        """,
+            """
+        ).strip(),
         unsafe_allow_html=True,
     )
 
@@ -774,31 +791,33 @@ def practice_page(user: Dict) -> None:
     )
 
     st.markdown(
-        """
-        <style>
-        .practice-quick-nav {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-            margin-bottom: 0.5rem;
-        }
-        .practice-quick-nav a {
-            text-decoration: none;
-        }
-        .practice-quick-nav a button {
-            padding: 0.45rem 1.2rem;
-            border-radius: 0.5rem;
-            border: none;
-            background-color: #0f62fe;
-            color: white;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .practice-quick-nav a button:hover {
-            background-color: #0353e9;
-        }
-        </style>
-        """,
+        dedent(
+            """
+            <style>
+            .practice-quick-nav {
+                display: flex;
+                gap: 0.75rem;
+                flex-wrap: wrap;
+                margin-bottom: 0.5rem;
+            }
+            .practice-quick-nav a {
+                text-decoration: none;
+            }
+            .practice-quick-nav a button {
+                padding: 0.45rem 1.2rem;
+                border-radius: 0.5rem;
+                border: none;
+                background-color: #0f62fe;
+                color: white;
+                font-weight: 600;
+                cursor: pointer;
+            }
+            .practice-quick-nav a button:hover {
+                background-color: #0353e9;
+            }
+            </style>
+            """
+        ).strip(),
         unsafe_allow_html=True,
     )
 
@@ -835,12 +854,14 @@ def practice_page(user: Dict) -> None:
     st.write(problem["overview"])
 
     st.markdown(
-        """
-        <div class="practice-quick-nav">
-            <a href="#practice-answers"><button type="button">質問へ移動</button></a>
-            <a href="#practice-actions"><button type="button">下へスクロール</button></a>
-        </div>
-        """,
+        dedent(
+            """
+            <div class="practice-quick-nav">
+                <a href="#practice-answers"><button type="button">質問へ移動</button></a>
+                <a href="#practice-actions"><button type="button">下へスクロール</button></a>
+            </div>
+            """
+        ).strip(),
         unsafe_allow_html=True,
     )
 
@@ -1463,11 +1484,15 @@ def settings_page(user: Dict) -> None:
         st.info("既にプレミアムプランをご利用中です。")
 
     st.subheader("サポート")
-    st.markdown("""
-    - お問い合わせ: support@example.com
-    - 利用規約: coming soon
-    - 退会をご希望の場合はサポートまでご連絡ください。
-    """)
+    st.markdown(
+        dedent(
+            """
+            - お問い合わせ: support@example.com
+            - 利用規約: coming soon
+            - 退会をご希望の場合はサポートまでご連絡ください。
+            """
+        ).strip()
+    )
 
 
 if __name__ == "__main__":
