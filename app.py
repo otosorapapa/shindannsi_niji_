@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
-from textwrap import dedent
+from textwrap import dedent, shorten
 from typing import Any, Dict, List, Optional
 import logging
 
 import html
+import re
 
 import random
 
@@ -126,6 +127,9 @@ def _init_session_state() -> None:
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
     st.session_state.setdefault("flashcard_states", {})
+    st.session_state.setdefault("global_search_query", "")
+    st.session_state.setdefault("practice_year_select", None)
+    st.session_state.setdefault("practice_case_select", None)
 
 
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
@@ -169,6 +173,267 @@ def _inject_guideline_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_guideline_styles_injected"] = True
+
+
+GLOBAL_SEARCH_MAX_RESULTS = 6
+
+
+def _inject_global_search_styles() -> None:
+    if st.session_state.get("_global_search_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .global-search-heading {
+                font-weight: 700;
+                font-size: 1.05rem;
+                color: #1e293b;
+                margin-bottom: 0.35rem;
+                display: flex;
+                align-items: center;
+                gap: 0.35rem;
+            }
+            .global-search-heading::before {
+                content: "";
+                display: inline-block;
+                width: 10px;
+                height: 10px;
+                border-radius: 999px;
+                background: linear-gradient(135deg, #2563eb, #38bdf8);
+            }
+            .global-search-card {
+                padding: 1rem 1.2rem 0.8rem;
+                border-radius: 18px;
+                background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(14,165,233,0.08));
+                border: 1px solid rgba(148, 163, 184, 0.32);
+                box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+                margin-bottom: 1rem;
+            }
+            .global-search-card [data-testid="stTextInput"] > label {
+                display: none;
+            }
+            .global-search-card [data-testid="stTextInput"] input {
+                border-radius: 999px;
+                padding: 0.75rem 1.1rem;
+                border: 1px solid rgba(59, 130, 246, 0.2);
+                box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.12);
+            }
+            .global-search-card .search-caption {
+                color: #475569;
+                font-size: 0.83rem;
+                margin: 0.45rem 0 0.2rem;
+            }
+            .global-search-results .stButton > button {
+                width: 100%;
+                justify-content: flex-start;
+                text-align: left;
+                border-radius: 12px;
+                padding: 0.75rem 0.9rem;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: rgba(255,255,255,0.95);
+                color: #1e293b;
+                font-weight: 600;
+                transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            }
+            .global-search-results .stButton > button:hover {
+                border-color: rgba(59, 130, 246, 0.6);
+                box-shadow: 0 8px 18px rgba(37, 99, 235, 0.15);
+            }
+            .global-search-result-meta {
+                margin: 0.15rem 0 0;
+                font-size: 0.8rem;
+                color: #64748b;
+            }
+            .global-search-result-meta strong {
+                color: #1d4ed8;
+            }
+            .global-search-results {
+                margin-bottom: 0.6rem;
+            }
+            </style>
+            """
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_global_search_styles_injected"] = True
+
+
+def _build_problem_search_index() -> List[Dict[str, Any]]:
+    index: List[Dict[str, Any]] = []
+    for problem_row in database.list_problems():
+        detail = database.fetch_problem(problem_row["id"])
+        if not detail:
+            continue
+        keyword_set = {
+            keyword
+            for question in detail.get("questions", [])
+            for keyword in question.get("keywords", [])
+            if keyword
+        }
+        keywords = sorted(keyword_set)
+        blob_parts = [
+            str(detail.get("year", "")),
+            detail.get("case_label", ""),
+            detail.get("title", ""),
+            detail.get("overview", ""),
+            " ".join(keywords),
+        ]
+        search_blob = " ".join(part for part in blob_parts if part).casefold()
+        index.append(
+            {
+                "problem_id": detail["id"],
+                "year": detail.get("year", ""),
+                "case_label": detail.get("case_label", ""),
+                "title": detail.get("title", ""),
+                "overview": detail.get("overview", ""),
+                "keywords": keywords,
+                "search_blob": search_blob,
+            }
+        )
+    return index
+
+
+def _build_global_search_suggestions(user: Dict, index: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    if not index:
+        return []
+
+    by_id = {item["problem_id"]: item for item in index}
+    seen: set[int] = set()
+    suggestions: List[Dict[str, Any]] = []
+
+    for attempt in database.list_attempts(user_id=user["id"])[: GLOBAL_SEARCH_MAX_RESULTS * 2]:
+        item = by_id.get(attempt["problem_id"])
+        if item and item["problem_id"] not in seen:
+            enriched = dict(item)
+            enriched["badge"] = "最近"
+            suggestions.append(enriched)
+            seen.add(item["problem_id"])
+        if len(suggestions) >= GLOBAL_SEARCH_MAX_RESULTS:
+            break
+
+    if len(suggestions) < GLOBAL_SEARCH_MAX_RESULTS:
+        for review in database.list_due_reviews(user["id"], limit=GLOBAL_SEARCH_MAX_RESULTS * 2):
+            item = by_id.get(review["problem_id"])
+            if item and item["problem_id"] not in seen:
+                enriched = dict(item)
+                enriched["badge"] = "復習"
+                suggestions.append(enriched)
+                seen.add(item["problem_id"])
+            if len(suggestions) >= GLOBAL_SEARCH_MAX_RESULTS:
+                break
+
+    if len(suggestions) < GLOBAL_SEARCH_MAX_RESULTS:
+        for item in index:
+            if item["problem_id"] in seen:
+                continue
+            enriched = dict(item)
+            enriched["badge"] = "おすすめ"
+            suggestions.append(enriched)
+            seen.add(item["problem_id"])
+            if len(suggestions) >= GLOBAL_SEARCH_MAX_RESULTS:
+                break
+
+    return suggestions[:GLOBAL_SEARCH_MAX_RESULTS]
+
+
+def _open_problem_from_search(item: Dict[str, Any]) -> None:
+    st.session_state.page = "過去問演習"
+    st.session_state.practice_year_select = item.get("year")
+    st.session_state.practice_case_select = item.get("case_label")
+    st.session_state.global_search_query = ""
+    st.session_state["_global_search_feedback"] = (
+        f"{item.get('year')} {item.get('case_label')}『{item.get('title')}』を開きました。"
+    )
+    st.experimental_rerun()
+
+
+def _render_global_search_result(item: Dict[str, Any], tokens: List[str]) -> None:
+    badge_display = {
+        "最近": "🕒 最近の演習",
+        "復習": "🔁 復習おすすめ",
+        "おすすめ": "✨ おすすめ事例",
+        "検索": "🔍 検索ヒット",
+    }
+    badge = item.get("badge")
+    prefix = f"{badge_display.get(badge, '')}｜" if badge in badge_display else ""
+    title = f"{item.get('year')} {item.get('case_label')}｜{item.get('title')}"
+    button_label = f"{prefix}{title}" if prefix else title
+    button_key = f"global-search-open-{item.get('problem_id')}-{badge or 'default'}"
+
+    if st.button(button_label, key=button_key, use_container_width=True):
+        _open_problem_from_search(item)
+
+    keywords = item.get("keywords", [])
+    if keywords:
+        st.caption(f"キーワード: {'、'.join(keywords)}")
+    overview = item.get("overview")
+    if overview:
+        st.caption(shorten(overview, width=80, placeholder="…"))
+    if tokens and badge == "検索":
+        unique_tokens = []
+        seen = set()
+        for token in tokens:
+            lowered = token.casefold()
+            if lowered in seen:
+                continue
+            seen.add(lowered)
+            unique_tokens.append(token)
+        if unique_tokens:
+            st.caption(f"一致した語: {'、'.join(unique_tokens)}")
+
+
+def _render_global_search_bar(user: Dict) -> None:
+    index = _build_problem_search_index()
+    if not index:
+        return
+
+    _inject_global_search_styles()
+
+    feedback = st.session_state.pop("_global_search_feedback", None)
+
+    st.markdown('<div class="global-search-heading">🔍 グローバル検索</div>', unsafe_allow_html=True)
+    with st.container():
+        st.markdown('<div class="global-search-card">', unsafe_allow_html=True)
+        query = st.text_input(
+            "演習検索",
+            key="global_search_query",
+            placeholder="過去問タイトル、キーワード、事例名で検索",
+            label_visibility="collapsed",
+        ).strip()
+        st.markdown(
+            '<div class="search-caption">検索候補からすぐに目的の事例へ移動できます。</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    if feedback:
+        st.success(feedback, icon="✅")
+
+    tokens = [token for token in re.split(r"\s+", query.replace("　", " ")) if token]
+    if tokens:
+        token_folds = [token.casefold() for token in tokens]
+        matches: List[Dict[str, Any]] = []
+        for item in index:
+            if all(token in item["search_blob"] for token in token_folds):
+                enriched = dict(item)
+                enriched["badge"] = "検索"
+                matches.append(enriched)
+        results = matches[:GLOBAL_SEARCH_MAX_RESULTS]
+    else:
+        results = _build_global_search_suggestions(user, index)
+
+    results_container = st.container()
+    with results_container:
+        st.markdown('<div class="global-search-results">', unsafe_allow_html=True)
+        if tokens and not results:
+            st.info("該当する演習が見つかりませんでした。キーワードを変えて再検索してください。")
+        for item in results:
+            _render_global_search_result(item, tokens)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.divider()
 
 
 def main_view() -> None:
@@ -235,6 +500,7 @@ def main_view() -> None:
     )
 
     page = st.session_state.page
+    _render_global_search_bar(user)
     navigation_items[page](user)
 
 
@@ -1431,9 +1697,19 @@ def practice_page(user: Dict) -> None:
     if not years:
         st.warning("問題データが登録されていません。seed_problems.jsonを確認してください。")
         return
-    selected_year = st.selectbox("年度", years)
+    current_year = st.session_state.get("practice_year_select")
+    if current_year not in years:
+        st.session_state.practice_year_select = years[0]
+    selected_year = st.selectbox("年度", years, key="practice_year_select")
+
     cases = database.list_problem_cases(selected_year)
-    selected_case = st.selectbox("事例", cases)
+    if not cases:
+        st.warning("選択した年度の事例が取得できませんでした。")
+        return
+    current_case = st.session_state.get("practice_case_select")
+    if current_case not in cases:
+        st.session_state.practice_case_select = cases[0]
+    selected_case = st.selectbox("事例", cases, key="practice_case_select")
 
     problem = database.fetch_problem_by_year_case(selected_year, selected_case)
     if not problem:
