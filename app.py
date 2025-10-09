@@ -26,8 +26,137 @@ def _init_session_state() -> None:
     st.session_state.setdefault("past_data", None)
 
 
+def _inject_global_theme() -> None:
+    if st.session_state.get("_global_theme_injected"):
+        return
+
+    st.markdown(
+        """
+        <style>
+        :root {
+            --primary-color: #2b4c7e;
+            --primary-color-strong: #1f3a5f;
+            --primary-color-soft: #d8e1ef;
+            --secondary-color: #4f6d95;
+            --surface-color: #f5f7fa;
+            --surface-elevated: #ffffff;
+            --border-color: #d0d7e3;
+            --text-color: #1f2933;
+            --muted-text-color: #52606d;
+            --accent-color: #f59e0b;
+            --accent-color-soft: #fde68a;
+        }
+
+        html, body, [data-testid="stAppViewContainer"] {
+            font-family: "Noto Sans JP", "Inter", "Hiragino Sans", sans-serif;
+            background: var(--surface-color);
+            color: var(--text-color);
+        }
+
+        [data-testid="stHeader"] {
+            background: transparent;
+        }
+
+        .block-container {
+            padding-top: 1.2rem;
+        }
+
+        h1, h2, h3, h4 {
+            color: var(--primary-color-strong);
+            letter-spacing: 0.02em;
+        }
+
+        p, li, label, span {
+            color: var(--text-color);
+        }
+
+        a {
+            color: var(--primary-color);
+        }
+
+        .stButton > button {
+            border-radius: 0.6rem;
+            border: 1px solid var(--primary-color);
+            background: linear-gradient(135deg, var(--primary-color-strong), var(--primary-color));
+            color: #ffffff;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        .stButton > button:hover {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-color: var(--secondary-color);
+        }
+
+        .stButton > button:focus {
+            box-shadow: 0 0 0 0.2rem rgba(43, 76, 126, 0.25);
+            outline: none;
+        }
+
+        [data-testid="stSidebar"] {
+            background: linear-gradient(180deg, #f7f9fc 0%, #edf2fb 100%);
+            border-right: 1px solid var(--primary-color-soft);
+        }
+
+        [data-testid="stSidebar"] * {
+            color: var(--muted-text-color) !important;
+            font-family: "Noto Sans JP", "Inter", sans-serif;
+        }
+
+        [data-testid="stSidebar"] .stMarkdown, [data-testid="stSidebar"] .stMarkdown p {
+            color: var(--muted-text-color) !important;
+        }
+
+        [data-testid="stSidebar"] .stRadio label {
+            font-weight: 600;
+        }
+
+        .stAlert {
+            border-radius: 0.9rem;
+            border: 1px solid var(--primary-color-soft);
+            background: rgba(43, 76, 126, 0.05);
+        }
+
+        .stMetric label, .stMetric span {
+            color: var(--muted-text-color);
+        }
+
+        .stMetric > div:nth-child(2) {
+            color: var(--primary-color-strong);
+            font-weight: 700;
+        }
+
+        .stDataFrame thead tr th, .stDataFrame tbody tr td {
+            color: var(--text-color);
+        }
+
+        .stTabs [data-baseweb="tab-list"] {
+            background: rgba(43, 76, 126, 0.08);
+        }
+
+        .stTabs [data-baseweb="tab"] {
+            color: var(--muted-text-color);
+        }
+
+        .stTabs [aria-selected="true"] {
+            background: rgba(43, 76, 126, 0.18) !important;
+            color: var(--primary-color-strong) !important;
+        }
+
+        .css-1kyxreq, .css-1n543e5 {
+            font-family: "Noto Sans JP", "Inter", "Hiragino Sans", sans-serif !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state["_global_theme_injected"] = True
+
+
 def main_view() -> None:
     user = st.session_state.user
+
+    _inject_global_theme()
 
     navigation_items = {
         "ホーム": dashboard_page,
@@ -52,18 +181,21 @@ def main_view() -> None:
             padding: 0.5rem 0.75rem;
             border-radius: 0.6rem;
             border: 1px solid transparent;
+            background: rgba(43, 76, 126, 0.04);
+            color: var(--muted-text-color);
             transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
         }
         section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child:hover {
-            border-color: rgba(49, 51, 63, 0.2);
-            background-color: rgba(49, 51, 63, 0.05);
+            border-color: rgba(43, 76, 126, 0.25);
+            background-color: rgba(43, 76, 126, 0.08);
+            color: var(--primary-color-strong);
         }
         section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > input:checked + div {
-            background-color: rgba(49, 51, 63, 0.06);
+            background-color: rgba(43, 76, 126, 0.16);
             border-color: var(--primary-color);
-            color: var(--primary-color);
-            box-shadow: 0 0 0 1px var(--primary-color) inset;
-            font-weight: 600;
+            color: var(--primary-color-strong);
+            box-shadow: 0 0 0 1px rgba(43, 76, 126, 0.3) inset;
+            font-weight: 700;
         }
         </style>
         """,
@@ -99,7 +231,7 @@ def _inject_dashboard_styles() -> None:
         """
         <style>
         [data-testid="stAppViewContainer"] {
-            background: linear-gradient(180deg, #f3f6fb 0%, #ffffff 45%);
+            background: linear-gradient(180deg, var(--surface-color) 0%, #ffffff 55%);
         }
         .block-container {
             padding-top: 1.2rem;
@@ -116,54 +248,60 @@ def _inject_dashboard_styles() -> None:
             position: relative;
             border-radius: 18px;
             padding: 1.4rem;
-            color: #0f172a;
-            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(241,245,249,0.95));
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+            color: var(--text-color);
+            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(236, 242, 250, 0.95));
+            border: 1px solid rgba(79, 109, 149, 0.18);
+            box-shadow: 0 16px 30px rgba(31, 58, 95, 0.08);
         }
         .metric-card::after {
             content: "";
             position: absolute;
             inset: 1px;
             border-radius: 16px;
-            border: 1px solid rgba(255,255,255,0.5);
+            border: 1px solid rgba(255,255,255,0.6);
         }
         .metric-card .metric-label {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: 600;
-            color: #475569;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
+            color: var(--muted-text-color);
+            letter-spacing: 0.05em;
         }
         .metric-card .metric-value {
             font-size: 2rem;
             font-weight: 700;
             margin: 0.4rem 0;
+            color: var(--primary-color-strong);
         }
         .metric-card .metric-desc {
             font-size: 0.85rem;
-            color: #64748b;
+            color: var(--muted-text-color);
             margin: 0;
         }
         .metric-card.indigo {
-            background: linear-gradient(135deg, #2740ff, #4f74ff);
+            background: linear-gradient(135deg, rgba(31, 58, 95, 0.95), rgba(43, 76, 126, 0.92));
             color: #f8fafc;
         }
         .metric-card.indigo .metric-label,
         .metric-card.indigo .metric-desc {
-            color: rgba(248, 250, 252, 0.85);
-        }
-        .metric-card.emerald {
-            background: linear-gradient(135deg, #00b894, #4ade80);
-            color: #0f172a;
-        }
-        .metric-card.orange {
-            background: linear-gradient(135deg, #ff8a4c, #ffb347);
-            color: #0f172a;
+            color: rgba(248, 250, 252, 0.78);
         }
         .metric-card.sky {
-            background: linear-gradient(135deg, #38bdf8, #60a5fa);
-            color: #0f172a;
+            background: linear-gradient(135deg, rgba(220, 230, 244, 0.96), rgba(199, 213, 233, 0.92));
+        }
+        .metric-card.emerald {
+            background: linear-gradient(135deg, rgba(79, 109, 149, 0.95), rgba(99, 129, 168, 0.92));
+            color: #f8fafc;
+        }
+        .metric-card.emerald .metric-label,
+        .metric-card.emerald .metric-desc {
+            color: rgba(240, 244, 249, 0.85);
+        }
+        .metric-card.orange {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(245, 158, 11, 0.05));
+            color: var(--primary-color-strong);
+        }
+        .metric-card.orange .metric-label {
+            color: var(--accent-color);
         }
         .insight-grid {
             display: grid;
@@ -177,9 +315,9 @@ def _inject_dashboard_styles() -> None:
             align-items: center;
             border-radius: 18px;
             padding: 1.2rem 1.4rem;
-            background: #ffffff;
-            border: 1px solid rgba(148, 163, 184, 0.28);
-            box-shadow: 0 20px 32px rgba(15, 23, 42, 0.12);
+            background: var(--surface-elevated);
+            border: 1px solid rgba(79, 109, 149, 0.18);
+            box-shadow: 0 20px 28px rgba(31, 58, 95, 0.08);
         }
         .insight-icon {
             font-size: 1.8rem;
@@ -187,18 +325,18 @@ def _inject_dashboard_styles() -> None:
         .insight-title {
             font-weight: 600;
             margin: 0;
-            color: #475569;
+            color: var(--muted-text-color);
         }
         .insight-value {
             font-size: 1.35rem;
             font-weight: 700;
             margin: 0.2rem 0 0.3rem;
-            color: #0f172a;
+            color: var(--primary-color-strong);
         }
         .insight-desc {
             font-size: 0.85rem;
             margin: 0;
-            color: #64748b;
+            color: var(--muted-text-color);
         }
         .action-grid {
             display: grid;
@@ -209,44 +347,27 @@ def _inject_dashboard_styles() -> None:
         .action-card {
             border-radius: 16px;
             padding: 1.2rem 1.3rem;
-            background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(14,165,233,0.08));
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+            background: linear-gradient(135deg, rgba(43, 76, 126, 0.08), rgba(79, 109, 149, 0.05));
+            border: 1px solid rgba(79, 109, 149, 0.18);
+            box-shadow: 0 12px 22px rgba(31, 58, 95, 0.08);
         }
         .action-card strong {
             display: block;
             font-size: 1.05rem;
             margin-bottom: 0.4rem;
-            color: #1e293b;
+            color: var(--primary-color-strong);
         }
         .action-card p {
             margin: 0;
             font-size: 0.88rem;
-            color: #475569;
+            color: var(--muted-text-color);
         }
         .table-card {
             border-radius: 18px;
             padding: 1.2rem 1rem 0.6rem;
-            background: rgba(255, 255, 255, 0.95);
-            border: 1px solid rgba(226, 232, 240, 0.7);
-            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
-        }
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 0.6rem;
-            padding: 0.4rem;
-            background: rgba(226, 232, 240, 0.5);
-            border-radius: 999px;
-        }
-        .stTabs [data-baseweb="tab"] {
-            border-radius: 999px;
-            padding: 0.4rem 1.4rem;
-            background: rgba(255,255,255,0.7);
-            border: 1px solid transparent;
-        }
-        .stTabs [aria-selected="true"] {
-            background: rgba(37, 99, 235, 0.14) !important;
-            border-color: rgba(59, 130, 246, 0.4) !important;
-            color: #1d4ed8 !important;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(79, 109, 149, 0.16);
+            box-shadow: 0 10px 20px rgba(31, 58, 95, 0.08);
         }
         </style>
         """,
@@ -416,7 +537,14 @@ def dashboard_page(user: Dict) -> None:
             )
             st.subheader("事例別平均達成率")
             color_scale = alt.Scale(
-                range=["#4f46e5", "#2563eb", "#0ea5e9", "#10b981", "#f97316", "#ec4899"],
+                range=[
+                    "#1f3a5f",
+                    "#2b4c7e",
+                    "#3b5f8a",
+                    "#4f6d95",
+                    "#6b7fa9",
+                    "#f59e0b",
+                ],
             )
             bar = (
                 alt.Chart(df)
@@ -430,7 +558,7 @@ def dashboard_page(user: Dict) -> None:
             )
             target_line = (
                 alt.Chart(pd.DataFrame({"ベンチマーク": [60]}))
-                .mark_rule(color="#f97316", strokeDash=[6, 4])
+                .mark_rule(color="#f59e0b", strokeDash=[6, 4])
                 .encode(x="ベンチマーク:Q")
             )
             st.altair_chart(bar + target_line, use_container_width=True)
@@ -789,13 +917,13 @@ def practice_page(user: Dict) -> None:
             padding: 0.45rem 1.2rem;
             border-radius: 0.5rem;
             border: none;
-            background-color: #0f62fe;
-            color: white;
+            background: linear-gradient(135deg, var(--primary-color-strong), var(--primary-color));
+            color: #ffffff;
             font-weight: 600;
             cursor: pointer;
         }
         .practice-quick-nav a button:hover {
-            background-color: #0353e9;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
         }
         </style>
         """,
