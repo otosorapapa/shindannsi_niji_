@@ -24,6 +24,8 @@ def _init_session_state() -> None:
     st.session_state.setdefault("practice_started", None)
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
+    st.session_state.setdefault("plan_target_score", 70)
+    st.session_state.setdefault("plan_exam_date", dt_date.today() + timedelta(days=90))
 
 
 def main_view() -> None:
@@ -224,6 +226,65 @@ def _inject_dashboard_styles() -> None:
             font-size: 0.88rem;
             color: #475569;
         }
+        .plan-section {
+            margin-top: 2.2rem;
+        }
+        .plan-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .plan-summary-card {
+            border-radius: 16px;
+            padding: 1.1rem 1.3rem;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.08));
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            box-shadow: 0 12px 22px rgba(15, 23, 42, 0.1);
+        }
+        .plan-summary-card h4 {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #1d4ed8;
+            letter-spacing: 0.02em;
+        }
+        .plan-summary-card p {
+            margin: 0.3rem 0 0;
+            color: #0f172a;
+        }
+        .plan-summary-card .plan-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-top: 0.4rem;
+        }
+        .focus-list {
+            list-style: none;
+            padding-left: 0;
+            margin: 0.8rem 0 0;
+        }
+        .focus-list li {
+            margin-bottom: 0.75rem;
+            padding: 0.75rem 0.9rem;
+            border-left: 4px solid #2563eb;
+            border-radius: 12px;
+            background: rgba(37, 99, 235, 0.06);
+        }
+        .focus-list li strong {
+            display: block;
+            font-size: 1rem;
+            color: #1e293b;
+            margin-bottom: 0.2rem;
+        }
+        .focus-list li span {
+            display: block;
+            font-size: 0.85rem;
+            color: #475569;
+        }
+        .focus-list li .focus-advice {
+            margin-top: 0.35rem;
+            font-size: 0.82rem;
+            color: #1d4ed8;
+        }
         .table-card {
             border-radius: 18px;
             padding: 1.2rem 1rem 0.6rem;
@@ -274,6 +335,155 @@ def _format_duration_minutes(total_minutes: int) -> str:
     if hours:
         return f"{hours}時間"
     return f"{minutes}分"
+
+
+def _parse_datetime(value: datetime | str | None) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _summarise_case_performance(attempts: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    summary: Dict[str, Dict[str, Any]] = {}
+    for attempt in attempts:
+        if attempt.get("total_score") is None or attempt.get("total_max_score") is None:
+            continue
+        case_label = attempt.get("case_label")
+        if not case_label:
+            continue
+        record = summary.setdefault(
+            case_label,
+            {
+                "total_score": 0.0,
+                "total_max": 0.0,
+                "attempts": 0,
+                "last_attempt": None,
+                "durations": [],
+            },
+        )
+        record["total_score"] += attempt.get("total_score") or 0.0
+        record["total_max"] += attempt.get("total_max_score") or 0.0
+        record["attempts"] += 1
+        if attempt.get("duration_seconds") is not None:
+            record["durations"].append(attempt.get("duration_seconds") or 0)
+        submitted = _parse_datetime(attempt.get("submitted_at"))
+        if submitted and (
+            record["last_attempt"] is None or submitted > record["last_attempt"]
+        ):
+            record["last_attempt"] = submitted
+    return summary
+
+
+def _build_learning_diagnostics(
+    summary: Dict[str, Dict[str, Any]]
+) -> Dict[str, Any]:
+    today = datetime.now().date()
+    focus_areas: List[Dict[str, Any]] = []
+
+    for case_label, record in summary.items():
+        if not record["total_max"]:
+            continue
+        avg_ratio = (record["total_score"] / record["total_max"]) * 100
+        last_attempt = record.get("last_attempt")
+        days_since_last: Optional[int] = None
+        if last_attempt:
+            days_since_last = max((today - last_attempt.date()).days, 0)
+
+        if avg_ratio < 50:
+            advice = "設問分解と与件整理を重点的に練習しましょう。"
+        elif avg_ratio < 65:
+            advice = "答案構成テンプレートを活用し、再現性を高める訓練が効果的です。"
+        elif avg_ratio < 80:
+            advice = "安定してきました。タイムマネジメントとキーワード精度を磨きましょう。"
+        else:
+            advice = "高得点帯です。模試形式で最終仕上げを行いましょう。"
+
+        if days_since_last is not None and days_since_last > 21:
+            advice += f" 最後の演習から{days_since_last}日空いています。早めに再演習しましょう。"
+
+        focus_areas.append(
+            {
+                "case": case_label,
+                "avg_ratio": avg_ratio,
+                "attempts": record["attempts"],
+                "days_since_last": days_since_last,
+                "advice": advice,
+                "summary": (
+                    f"平均達成率 {avg_ratio:.0f}% / 演習{record['attempts']}回"
+                ),
+            }
+        )
+
+    def _sort_key(area: Dict[str, Any]) -> tuple[float, float]:
+        days = area["days_since_last"] if area["days_since_last"] is not None else -1
+        return (area["avg_ratio"], -float(days))
+
+    focus_areas.sort(key=_sort_key)
+    next_case = focus_areas[0] if focus_areas else None
+
+    return {"focus_areas": focus_areas, "next_case": next_case}
+
+
+def _generate_study_schedule(
+    focus_areas: List[Dict[str, Any]],
+    target_score: float,
+    current_average: float,
+    exam_date: Optional[dt_date],
+) -> pd.DataFrame:
+    if not focus_areas:
+        return pd.DataFrame()
+
+    today = dt_date.today()
+    if exam_date and exam_date >= today:
+        remaining_days = (exam_date - today).days
+        weeks = max(1, min(12, remaining_days // 7 + 1))
+    else:
+        weeks = 4
+
+    score_gap = max(target_score - current_average, 0)
+    weekly_increment = score_gap / weeks if weeks else 0
+
+    rows: List[Dict[str, Any]] = []
+    sequence = focus_areas if focus_areas else []
+    if not sequence:
+        return pd.DataFrame()
+
+    for index in range(weeks):
+        area = sequence[index % len(sequence)]
+        week_start = today + timedelta(days=7 * index)
+        week_end = week_start + timedelta(days=6)
+        if exam_date and week_end > exam_date:
+            week_end = exam_date
+
+        if area["avg_ratio"] < 55:
+            action = "与件読み・骨子作成の型を固める過去問演習を2回実施"
+        elif area["avg_ratio"] < 70:
+            action = "答案構成→清書までを通しで練習し、フィードバックを反映"
+        elif area["avg_ratio"] < 85:
+            action = "80分タイムトライアルで答案の精度とスピードを両立"
+        else:
+            action = "模試形式で弱点確認。解答プロセスの最終調整"
+
+        if area.get("days_since_last") and area["days_since_last"] > 14:
+            action += "／直近演習の振り返りメモを更新"
+
+        projected = min(target_score, current_average + weekly_increment * (index + 1))
+        rows.append(
+            {
+                "週": f"W{index + 1}",
+                "期間": f"{week_start.strftime('%m/%d')} - {week_end.strftime('%m/%d')}",
+                "重点テーマ": area["case"],
+                "推奨アクション": action,
+                "累積目標": f"平均{projected:.1f}点を目指す",
+            }
+        )
+
+    return pd.DataFrame(rows)
 
 
 def dashboard_page(user: Dict) -> None:
@@ -530,6 +740,126 @@ def dashboard_page(user: Dict) -> None:
         """,
         unsafe_allow_html=True,
     )
+
+    st.divider()
+    st.markdown('<div class="plan-section">', unsafe_allow_html=True)
+    st.subheader("AI学習プラン提案と自己診断")
+    st.caption("過去の得点や回答傾向を基に、重点的に強化すべき領域と学習スケジュールを自動生成します。")
+
+    input_col1, input_col2 = st.columns(2)
+    with input_col1:
+        target_score = st.number_input(
+            "目標得点 (1事例あたり)",
+            min_value=40,
+            max_value=100,
+            step=1,
+            value=int(st.session_state.plan_target_score),
+            key="plan_target_score_widget",
+            help="一次試験後の平均目標点数を設定します。例: 70点",
+        )
+        st.session_state.plan_target_score = target_score
+    with input_col2:
+        exam_date = st.date_input(
+            "試験日",
+            value=st.session_state.plan_exam_date,
+            min_value=dt_date.today(),
+            key="plan_exam_date_widget",
+            help="本番試験や模試の日程を入力すると、残り週数に応じた計画を作成します。",
+        )
+        st.session_state.plan_exam_date = exam_date
+
+    if not attempts:
+        st.info("演習データがまだありません。過去問演習を実施すると、個別の学習プランを提示します。")
+        st.markdown('</div>', unsafe_allow_html=True)
+        return
+
+    attempt_dicts = [dict(row) for row in attempts]
+    performance_summary = _summarise_case_performance(attempt_dicts)
+    diagnostics = _build_learning_diagnostics(performance_summary)
+    focus_areas = diagnostics.get("focus_areas", [])
+
+    if not focus_areas:
+        st.info("採点済みの演習データが不足しています。結果が蓄積されると学習プランを生成します。")
+        st.markdown('</div>', unsafe_allow_html=True)
+        return
+
+    def _format_recency(area: Dict[str, Any]) -> str:
+        if area["days_since_last"] is None:
+            return "最新演習日: 記録なし"
+        if area["days_since_last"] == 0:
+            return "本日演習済み"
+        return f"最終演習から{area['days_since_last']}日"
+
+    primary_focus_labels = " / ".join(area["case"] for area in focus_areas[:2])
+    next_case = diagnostics.get("next_case")
+    gap = target_score - average_score
+    gap_desc = f"あと {gap:.1f}点で目標達成" if gap > 0 else "目標をクリアしています。仕上げフェーズに入りましょう。"
+
+    next_case_desc = "演習データを蓄積すると推奨事例を表示します。"
+    if next_case:
+        next_case_desc = f"{_format_recency(next_case)} / {next_case['advice']}"
+
+    plan_cards = [
+        {
+            "title": "現在の平均得点",
+            "value": f"{average_score:.1f}点",
+            "desc": gap_desc,
+        },
+        {
+            "title": "重点的に強化すべき分野",
+            "value": primary_focus_labels,
+            "desc": focus_areas[0]["advice"],
+        },
+        {
+            "title": "次に挑戦するべき事例",
+            "value": next_case["case"] if next_case else "データ不足",
+            "desc": next_case_desc,
+        },
+    ]
+
+    st.markdown(
+        "<div class=\"plan-summary-grid\">"
+        + "\n".join(
+            f"""
+            <div class=\"plan-summary-card\">
+                <h4>{card['title']}</h4>
+                <div class=\"plan-value\">{card['value']}</div>
+                <p>{card['desc']}</p>
+            </div>
+            """
+            for card in plan_cards
+        )
+        + "\n</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("#### 重点的に強化すべき分野の詳細")
+    focus_items = []
+    for area in focus_areas[:3]:
+        recency = _format_recency(area)
+        focus_items.append(
+            f"<li><strong>{area['case']}</strong><span>{area['summary']} / {recency}</span><div class=\"focus-advice\">{area['advice']}</div></li>"
+        )
+    st.markdown(
+        "<ul class=\"focus-list\">" + "".join(focus_items) + "</ul>",
+        unsafe_allow_html=True,
+    )
+
+    plan_df = _generate_study_schedule(
+        focus_areas,
+        float(target_score),
+        float(average_score),
+        exam_date,
+    )
+
+    if not plan_df.empty:
+        st.markdown("#### 自動生成された学習計画表")
+        st.dataframe(plan_df, use_container_width=True, hide_index=True)
+        st.caption("週ごとに重点テーマと推奨アクションを確認し、自主学習計画に役立ててください。")
+    else:
+        st.info("残り週数が短いため詳細な計画を生成できませんでした。試験日や目標値を見直してください。")
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
