@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from textwrap import dedent
 from typing import Any, Dict, List, Optional
@@ -904,6 +905,128 @@ def _compute_learning_stats(history_df: pd.DataFrame) -> Dict[str, Any]:
     return stats
 
 
+def _calculate_level(total_experience: float) -> Dict[str, float]:
+    level = 1
+    xp_needed = 200.0
+    xp_floor = 0.0
+    xp_remaining = float(total_experience)
+
+    while xp_remaining >= xp_needed:
+        xp_remaining -= xp_needed
+        xp_floor += xp_needed
+        level += 1
+        xp_needed = 200.0 + (level - 1) * 120.0
+
+    progress_ratio = 0.0
+    if xp_needed > 0:
+        progress_ratio = max(0.0, min(1.0, xp_remaining / xp_needed))
+
+    return {
+        "level": level,
+        "total_experience": total_experience,
+        "current_level_floor": xp_floor,
+        "next_level_cap": xp_floor + xp_needed,
+        "xp_into_level": xp_remaining,
+        "xp_to_next_level": max(xp_needed - xp_remaining, 0.0),
+        "next_level_requirement": xp_needed,
+        "progress_ratio": progress_ratio,
+    }
+
+
+def _compute_progress_overview(history_df: pd.DataFrame) -> Dict[str, Any]:
+    problems = database.list_problems()
+    total_pairs = {
+        (row["year"], row["case_label"])
+        for row in problems
+        if row["year"] and row["case_label"]
+    }
+
+    year_totals: Dict[str, set] = defaultdict(set)
+    case_totals: Dict[str, set] = defaultdict(set)
+    for row in problems:
+        year = row["year"]
+        case_label = row["case_label"]
+        if not year or not case_label:
+            continue
+        year_totals[year].add(case_label)
+        case_totals[case_label].add(year)
+
+    completed_pairs: set = set()
+    pair_bonus_awarded: set = set()
+    total_experience = 0.0
+
+    if not history_df.empty:
+        for _, record in history_df.iterrows():
+            score = record.get("得点")
+            max_score = record.get("満点")
+            mode_label = record.get("モード")
+            year = record.get("年度")
+            case_label = record.get("事例")
+
+            base_xp = 120.0 if mode_label == "模試" else 100.0
+            ratio = 0.0
+            if pd.notna(score) and pd.notna(max_score) and max_score:
+                try:
+                    ratio = max(0.0, min(1.0, float(score) / float(max_score)))
+                except (TypeError, ZeroDivisionError):
+                    ratio = 0.0
+            total_experience += base_xp + ratio * 100.0
+
+            if isinstance(year, str) and isinstance(case_label, str):
+                pair = (year, case_label)
+                if pair in total_pairs:
+                    completed_pairs.add(pair)
+                    if pair not in pair_bonus_awarded:
+                        total_experience += 40.0
+                        pair_bonus_awarded.add(pair)
+
+    year_progress = []
+    for year in sorted(year_totals.keys(), reverse=True):
+        total_count = len(year_totals[year])
+        completed_count = len({case for (y, case) in completed_pairs if y == year})
+        ratio = completed_count / total_count if total_count else 0.0
+        year_progress.append(
+            {
+                "label": year,
+                "completed": completed_count,
+                "total": total_count,
+                "ratio": max(0.0, min(1.0, ratio)),
+            }
+        )
+
+    case_progress = []
+    for case_label in sorted(case_totals.keys()):
+        total_count = len(case_totals[case_label])
+        completed_count = len({y for (y, c) in completed_pairs if c == case_label})
+        ratio = completed_count / total_count if total_count else 0.0
+        case_progress.append(
+            {
+                "label": case_label,
+                "completed": completed_count,
+                "total": total_count,
+                "ratio": max(0.0, min(1.0, ratio)),
+            }
+        )
+
+    overall_total = len(total_pairs)
+    overall_completed = len(completed_pairs)
+    overall_ratio = overall_completed / overall_total if overall_total else 0.0
+
+    level_info = _calculate_level(total_experience)
+
+    return {
+        "experience": total_experience,
+        "level": level_info,
+        "years": year_progress,
+        "cases": case_progress,
+        "overall": {
+            "completed": overall_completed,
+            "total": overall_total,
+            "ratio": max(0.0, min(1.0, overall_ratio)),
+        },
+    }
+
+
 def _safe_time_from_string(value: Optional[str]) -> dt_time:
     if not value:
         return dt_time(hour=20, minute=0)
@@ -1470,6 +1593,7 @@ def history_page(user: Dict) -> None:
     history_df.sort_values("日付", inplace=True)
 
     stats = _compute_learning_stats(history_df)
+    progress_overview = _compute_progress_overview(history_df)
     reminder_settings = database.get_reminder_settings(user["id"])
     review_schedule = database.list_upcoming_reviews(user_id=user["id"], limit=10)
     due_reviews_count = database.count_due_reviews(user_id=user["id"])
@@ -1644,6 +1768,47 @@ def history_page(user: Dict) -> None:
     st.caption(
         "通知APIやワークフロー自動化ツールと連携すると、保存した予定に合わせたメール送信やモバイル通知の運用が可能です。"
     )
+
+    st.subheader("学習レベルと進捗状況")
+    level_info = progress_overview["level"]
+    level_col, summary_col = st.columns([1, 2])
+    with level_col:
+        st.metric("現在のレベル", f"Lv.{int(level_info['level'])}")
+        st.caption(f"累計経験値: {level_info['total_experience']:.0f} XP")
+    with summary_col:
+        st.markdown("次のレベルまで")
+        st.progress(level_info["progress_ratio"])
+        st.caption(
+            f"あと {level_info['xp_to_next_level']:.0f} XP でレベル{int(level_info['level']) + 1}"
+        )
+        overall = progress_overview["overall"]
+        st.caption(
+            f"年度×事例の進捗: {overall['completed']} / {overall['total']}"
+            f" ({overall['ratio'] * 100:.0f}%)"
+        )
+
+    year_col, case_col = st.columns(2)
+    with year_col:
+        st.markdown("##### 年度別進捗")
+        if progress_overview["years"]:
+            for year_item in progress_overview["years"]:
+                st.markdown(
+                    f"**{year_item['label']}** {year_item['completed']} / {year_item['total']} 事例"
+                )
+                st.progress(year_item["ratio"])
+        else:
+            st.info("問題データが登録されていません。")
+
+    with case_col:
+        st.markdown("##### 事例別進捗")
+        if progress_overview["cases"]:
+            for case_item in progress_overview["cases"]:
+                st.markdown(
+                    f"**{case_item['label']}** {case_item['completed']} / {case_item['total']} 年度"
+                )
+                st.progress(case_item["ratio"])
+        else:
+            st.info("問題データが登録されていません。")
 
     st.divider()
 
