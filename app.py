@@ -290,7 +290,19 @@ def dashboard_page(user: Dict) -> None:
     average_score = round(total_score / total_attempts, 1) if total_attempts else 0
     completion_rate = (total_score / total_max * 100) if total_max else 0
 
-    streak_col, badge_col = st.columns([1, 2])
+    point_col, streak_col, badge_col = st.columns([1, 1, 2])
+    with point_col:
+        st.metric("累計ポイント", f"{gamification['points']} pt")
+        level_progress = 0.0
+        if gamification["level_threshold"]:
+            level_progress = gamification["level_progress"] / gamification["level_threshold"]
+        st.progress(min(level_progress, 1.0))
+        if gamification["points"] == 0:
+            st.caption("演習を実施するとポイントが貯まりレベルアップします。")
+        else:
+            st.caption(
+                f"レベル{gamification['level']} / 次のレベルまであと {gamification['points_to_next_level']} pt"
+            )
     with streak_col:
         st.metric("連続学習日数", f"{gamification['current_streak']}日")
         if gamification["next_milestone"]:
@@ -539,6 +551,11 @@ def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
             "current_streak": 0,
             "badges": [],
             "next_milestone": 3,
+            "points": 0,
+            "level": 1,
+            "level_progress": 0,
+            "level_threshold": 100,
+            "points_to_next_level": 100,
         }
 
     parsed_attempts = []
@@ -568,15 +585,31 @@ def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
 
     best_ratio = 0.0
     mock_clears = 0
+    high_mock_scores = 0
     badges: List[Dict[str, str]] = []
     total_attempts = len(attempts)
+    points = 0
+    level_threshold = 100
     for row in attempts:
         total = row.get("total_score") or 0
         maximum = row.get("total_max_score") or 0
         ratio = (total / maximum) if maximum else 0
         best_ratio = max(best_ratio, ratio)
-        if row.get("mode") == "mock" and ratio >= 0.7:
-            mock_clears += 1
+        mode = row.get("mode")
+        if mode == "mock":
+            points += 40
+            if ratio >= 0.7:
+                mock_clears += 1
+            if ratio >= 0.85:
+                high_mock_scores += 1
+        else:
+            points += 20
+        if ratio >= 0.8:
+            points += 10
+        elif ratio >= 0.6:
+            points += 5
+
+    points += streak * 2
 
     if total_attempts >= 1:
         badges.append({"title": "スタートダッシュ", "description": "初めての演習を完了しました"})
@@ -588,6 +621,10 @@ def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
         badges.append({"title": "模擬試験クリア", "description": "模擬試験で70%の得点を獲得しました"})
     if best_ratio >= 0.85:
         badges.append({"title": "ハイスコア達人", "description": "高得点を獲得し自信が高まりました"})
+    if total_attempts >= 10:
+        badges.append({"title": "継続学習バッジ", "description": "演習を積み重ね学習の習慣化が進んでいます"})
+    if high_mock_scores:
+        badges.append({"title": "優秀回答者バッジ", "description": "模試で高得点を記録しました"})
 
     milestones = [3, 7, 15, 30]
     next_milestone = None
@@ -596,11 +633,20 @@ def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
             next_milestone = milestone
             break
 
+    level = points // level_threshold + 1
+    level_progress = points % level_threshold
+    points_to_next_level = level_threshold - level_progress if level_progress else level_threshold
+
     return {
         "attempts": total_attempts,
         "current_streak": streak,
         "badges": badges,
         "next_milestone": next_milestone,
+        "points": points,
+        "level": level,
+        "level_progress": level_progress,
+        "level_threshold": level_threshold,
+        "points_to_next_level": points_to_next_level,
     }
 
 
