@@ -106,65 +106,6 @@ def _inject_dashboard_styles() -> None:
             padding-bottom: 3rem;
             max-width: 1100px;
         }
-        .metric-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-        .metric-card {
-            position: relative;
-            border-radius: 18px;
-            padding: 1.4rem;
-            color: #0f172a;
-            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(241,245,249,0.95));
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
-        }
-        .metric-card::after {
-            content: "";
-            position: absolute;
-            inset: 1px;
-            border-radius: 16px;
-            border: 1px solid rgba(255,255,255,0.5);
-        }
-        .metric-card .metric-label {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #475569;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-        }
-        .metric-card .metric-value {
-            font-size: 2rem;
-            font-weight: 700;
-            margin: 0.4rem 0;
-        }
-        .metric-card .metric-desc {
-            font-size: 0.85rem;
-            color: #64748b;
-            margin: 0;
-        }
-        .metric-card.indigo {
-            background: linear-gradient(135deg, #2740ff, #4f74ff);
-            color: #f8fafc;
-        }
-        .metric-card.indigo .metric-label,
-        .metric-card.indigo .metric-desc {
-            color: rgba(248, 250, 252, 0.85);
-        }
-        .metric-card.emerald {
-            background: linear-gradient(135deg, #00b894, #4ade80);
-            color: #0f172a;
-        }
-        .metric-card.orange {
-            background: linear-gradient(135deg, #ff8a4c, #ffb347);
-            color: #0f172a;
-        }
-        .metric-card.sky {
-            background: linear-gradient(135deg, #38bdf8, #60a5fa);
-            color: #0f172a;
-        }
         .insight-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -178,8 +119,8 @@ def _inject_dashboard_styles() -> None:
             border-radius: 18px;
             padding: 1.2rem 1.4rem;
             background: #ffffff;
-            border: 1px solid rgba(148, 163, 184, 0.28);
-            box-shadow: 0 20px 32px rgba(15, 23, 42, 0.12);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
         }
         .insight-icon {
             font-size: 1.8rem;
@@ -209,9 +150,9 @@ def _inject_dashboard_styles() -> None:
         .action-card {
             border-radius: 16px;
             padding: 1.2rem 1.3rem;
-            background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(14,165,233,0.08));
+            background: #f8fafc;
             border: 1px solid rgba(148, 163, 184, 0.3);
-            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+            box-shadow: none;
         }
         .action-card strong {
             display: block;
@@ -276,6 +217,35 @@ def _format_duration_minutes(total_minutes: int) -> str:
     return f"{minutes}分"
 
 
+def _build_progress_chart(completion_rate: float) -> alt.Chart:
+    bounded_rate = max(0.0, min(100.0, completion_rate))
+    chart_data = pd.DataFrame(
+        {
+            "カテゴリ": ["達成度", "残り"],
+            "割合": [bounded_rate, max(100.0 - bounded_rate, 0.0)],
+        }
+    )
+    base = (
+        alt.Chart(chart_data)
+        .encode(
+            theta=alt.Theta("割合:Q", stack=True),
+            color=alt.Color(
+                "カテゴリ:N",
+                scale=alt.Scale(domain=["達成度", "残り"], range=["#2563eb", "#e2e8f0"]),
+                legend=None,
+            ),
+        )
+        .properties(height=260, width=260)
+    )
+    donut = base.mark_arc(innerRadius=90, outerRadius=120)
+    label = (
+        alt.Chart(pd.DataFrame({"表示": [f"{bounded_rate:.0f}%"]}))
+        .mark_text(fontSize=36, fontWeight=700, color="#1f2937")
+        .encode(text="表示:N")
+    )
+    return donut + label
+
+
 def dashboard_page(user: Dict) -> None:
     _inject_dashboard_styles()
 
@@ -289,6 +259,8 @@ def dashboard_page(user: Dict) -> None:
     total_max = sum(row["total_max_score"] or 0 for row in attempts)
     average_score = round(total_score / total_attempts, 1) if total_attempts else 0
     completion_rate = (total_score / total_max * 100) if total_max else 0
+    activity_timeline = database.aggregate_activity_timeline(user["id"])
+    total_answers = sum(entry["answer_count"] for entry in activity_timeline)
 
     streak_col, badge_col = st.columns([1, 2])
     with streak_col:
@@ -314,6 +286,8 @@ def dashboard_page(user: Dict) -> None:
 
     best_case_label = None
     best_case_rate = 0.0
+    weakest_case_label = None
+    weakest_case_rate = 0.0
     if stats:
         case_ratios = [
             (case_label, (values["avg_score"] / values["avg_max"] * 100) if values["avg_max"] else 0)
@@ -321,51 +295,40 @@ def dashboard_page(user: Dict) -> None:
         ]
         if case_ratios:
             best_case_label, best_case_rate = max(case_ratios, key=lambda item: item[1])
+            weakest_case_label, weakest_case_rate = min(case_ratios, key=lambda item: item[1])
 
-    metric_cards = [
-        {
-            "label": "演習回数",
-            "value": f"{total_attempts}回",
-            "desc": "これまで解いたケースの累計",
-            "class": "indigo",
-        },
-        {
-            "label": "平均得点",
-            "value": f"{average_score}点",
-            "desc": "全演習の平均スコア",
-            "class": "sky",
-        },
-        {
-            "label": "得点達成率",
-            "value": f"{completion_rate:.0f}%",
-            "desc": "満点に対する平均達成度",
-            "class": "emerald",
-        },
-        {
-            "label": "得意な事例",
-            "value": best_case_label or "記録なし",
-            "desc": f"平均達成率 {best_case_rate:.0f}%" if best_case_label else "データが蓄積されると表示されます",
-            "class": "orange",
-        },
-    ]
+    progress_col, metrics_col = st.columns([1.1, 1.9])
+    with progress_col:
+        st.subheader("全体の学習進捗率")
+        if total_max:
+            st.altair_chart(_build_progress_chart(completion_rate), use_container_width=True)
+            st.caption(f"累計得点 {total_score:.1f} / {total_max:.1f} 点")
+        else:
+            st.info("演習結果が登録されると進捗率が表示されます。")
 
-    st.markdown(
-        """
-        <div class="metric-row">
-        """
-        + "\n".join(
-            f"""
-            <div class="metric-card {card['class']}">
-                <div class="metric-label">{card['label']}</div>
-                <div class="metric-value">{card['value']}</div>
-                <p class="metric-desc">{card['desc']}</p>
-            </div>
-            """
-            for card in metric_cards
+    with metrics_col:
+        st.subheader("主要指標")
+        metric_left, metric_right = st.columns(2)
+        metric_left.metric("平均得点", f"{average_score}点")
+        metric_right.metric("演習回数", f"{total_attempts}回")
+        metric_left.metric("総回答数", f"{int(total_answers)}件")
+        metric_right.metric(
+            "総学習時間",
+            _format_duration_minutes(total_learning_minutes) if total_learning_minutes else "記録なし",
         )
-        + "\n</div>",
-        unsafe_allow_html=True,
-    )
+        if best_case_label:
+            insight_col1, insight_col2 = st.columns(2)
+            insight_col1.metric("強みの事例", best_case_label, f"平均達成率 {best_case_rate:.0f}%")
+            if weakest_case_label and weakest_case_label != best_case_label:
+                insight_col2.metric(
+                    "伸びしろの事例",
+                    weakest_case_label,
+                    f"平均達成率 {weakest_case_rate:.0f}%",
+                )
+            else:
+                insight_col2.metric("伸びしろの事例", "分析中", "データが増えると判定されます")
+        else:
+            st.caption("事例ごとの成績は演習が一定数溜まると表示されます。")
 
     overview_tab, chart_tab = st.tabs(["進捗サマリ", "事例別分析"])
 
@@ -415,16 +378,13 @@ def dashboard_page(user: Dict) -> None:
                 axis=1,
             )
             st.subheader("事例別平均達成率")
-            color_scale = alt.Scale(
-                range=["#4f46e5", "#2563eb", "#0ea5e9", "#10b981", "#f97316", "#ec4899"],
-            )
             bar = (
                 alt.Chart(df)
                 .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
                 .encode(
                     y=alt.Y("事例:N", sort="-x", title=None),
                     x=alt.X("達成率:Q", scale=alt.Scale(domain=[0, 100]), title="平均達成率 (%)"),
-                    color=alt.Color("事例:N", scale=color_scale, legend=None),
+                    color=alt.Color("事例:N", legend=None),
                     tooltip=["事例", "得点", "満点", alt.Tooltip("達成率:Q", format=".1f")],
                 )
             )
@@ -434,8 +394,57 @@ def dashboard_page(user: Dict) -> None:
                 .encode(x="ベンチマーク:Q")
             )
             st.altair_chart(bar + target_line, use_container_width=True)
+
+            st.subheader("事例別の取り組み量")
+            counts_records = []
+            for case_label, values in stats.items():
+                counts_records.append(
+                    {"事例": case_label, "指標": "実施回数", "件数": values["attempt_count"]}
+                )
+                counts_records.append(
+                    {"事例": case_label, "指標": "回答件数", "件数": values["answer_count"]}
+                )
+            counts_df = pd.DataFrame(counts_records)
+            counts_chart = (
+                alt.Chart(counts_df)
+                .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+                .encode(
+                    x=alt.X(
+                        "事例:N",
+                        title=None,
+                        sort=alt.SortField(field="件数", order="descending"),
+                    ),
+                    y=alt.Y("件数:Q", title="件数"),
+                    color=alt.Color("指標:N", scale=alt.Scale(range=["#2563eb", "#22c55e"])),
+                    column=alt.Column("指標:N", title=None),
+                    tooltip=["事例", "指標", "件数"],
+                )
+            ).resolve_scale(y="independent")
+            st.altair_chart(counts_chart, use_container_width=True)
         else:
             st.info("演習データが蓄積すると事例別の分析が表示されます。")
+
+        if activity_timeline:
+            st.subheader("日別の学習ボリューム推移")
+            activity_df = pd.DataFrame(activity_timeline)
+            activity_df["日付"] = pd.to_datetime(activity_df["date"])
+            activity_df = activity_df.drop(columns=["date"])
+            activity_df = activity_df.rename(
+                columns={"attempt_count": "実施回数", "answer_count": "回答件数"}
+            )
+            trend_df = activity_df.melt("日付", var_name="指標", value_name="件数")
+            trend_chart = (
+                alt.Chart(trend_df)
+                .mark_line(point=True)
+                .encode(
+                    x=alt.X("日付:T", title="日付"),
+                    y=alt.Y("件数:Q", title="件数"),
+                    color=alt.Color("指標:N", scale=alt.Scale(range=["#2563eb", "#22c55e"])),
+                    tooltip=["日付:T", "指標", "件数"],
+                )
+                .properties(height=300)
+            )
+            st.altair_chart(trend_chart, use_container_width=True)
 
     latest_attempt = attempts[0] if attempts else None
     next_focus_card = {
