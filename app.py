@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import replace
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from textwrap import dedent
 from typing import Any, Dict, List, Optional
@@ -171,16 +172,35 @@ def _inject_guideline_styles() -> None:
     st.session_state["_guideline_styles_injected"] = True
 
 
+def _apply_answer_order(problem_ids: List[int], order_key: str) -> List[int]:
+    """Return problem ids reordered according to the selected strategy."""
+
+    if order_key == "reverse":
+        return list(reversed(problem_ids))
+    if order_key == "finance_first":
+        priority = {"事例IV": 0, "事例III": 1, "事例I": 2, "事例II": 3}
+        return sorted(
+            problem_ids,
+            key=lambda pid: priority.get(database.fetch_problem(pid)["case_label"], 99),
+        )
+    return list(problem_ids)
+
+
 def main_view() -> None:
     user = st.session_state.user
 
-    navigation_items = {
+    base_navigation = {
         "ホーム": dashboard_page,
         "過去問演習": practice_page,
         "模擬試験": mock_exam_page,
         "学習履歴": history_page,
         "設定": settings_page,
     }
+
+    if st.session_state.get("mock_session"):
+        navigation_items = {"模擬試験": mock_exam_page}
+    else:
+        navigation_items = base_navigation
 
     st.sidebar.title("ナビゲーション")
     st.sidebar.markdown(
@@ -227,6 +247,9 @@ def main_view() -> None:
         nav_labels,
         index=selected_index,
     )
+
+    if st.session_state.get("mock_session"):
+        st.sidebar.warning("模試に集中できるよう、他のメニューを一時的に非表示にしています。", icon="🎯")
 
     st.sidebar.divider()
     st.sidebar.info(f"利用者: {user['name']} ({user['plan']}プラン)")
@@ -1746,14 +1769,32 @@ def mock_exam_page(user: Dict) -> None:
         exam_options = {exam.title: exam for exam in exams}
         exam_options["ランダム演習セット"] = mock_exam.random_mock_exam()
 
-        select_col, start_col = st.columns([3, 1])
+        timer_options = {
+            "120分（推奨）": 120,
+            "90分（集中トレーニング）": 90,
+            "タイマーなし": None,
+        }
+        difficulty_options = ["標準", "チャレンジ", "確認テスト"]
+        order_options = {
+            "出題順（事例I→IV）": "default",
+            "逆順でウォームアップ": "reverse",
+            "財務・分析から着手": "finance_first",
+        }
+
+        select_col, controls_col = st.columns([2, 3])
         with select_col:
             selected_title = st.selectbox("模試セット", list(exam_options.keys()))
 
         selected_exam = exam_options[selected_title]
 
-        with start_col:
-            st.write("")
+        control_cols = controls_col.columns(4)
+        with control_cols[0]:
+            timer_choice = st.selectbox("タイマー設定", list(timer_options.keys()))
+        with control_cols[1]:
+            difficulty_choice = st.selectbox("難易度", difficulty_options)
+        with control_cols[2]:
+            order_choice = st.selectbox("解答の順序", list(order_options.keys()))
+        with control_cols[3]:
             start_clicked = st.button(
                 "模試を開始", type="primary", use_container_width=True
             )
@@ -1769,18 +1810,67 @@ def mock_exam_page(user: Dict) -> None:
             st.markdown("\n".join(case_summaries))
 
         if start_clicked:
+            timer_minutes = timer_options[timer_choice]
+            ordered_problem_ids = _apply_answer_order(
+                selected_exam.problem_ids, order_options[order_choice]
+            )
+            configured_exam = replace(selected_exam, problem_ids=ordered_problem_ids)
             st.session_state.mock_session = {
-                "exam": selected_exam,
+                "exam": configured_exam,
                 "start": datetime.utcnow(),
                 "answers": {},
+                "preferences": {
+                    "timer_label": timer_choice,
+                    "timer_minutes": timer_minutes,
+                    "difficulty": difficulty_choice,
+                    "order_label": order_choice,
+                },
+                "show_guide": True,
             }
+            st.session_state.page = "模擬試験"
             st.rerun()
         return
 
     exam = session["exam"]
     start_time = session["start"]
     elapsed = datetime.utcnow() - start_time
-    st.info(f"模試開始からの経過時間: {elapsed}")
+    preferences = session.get("preferences", {})
+
+    if st.sidebar.button("模試を中断", use_container_width=True):
+        st.session_state.mock_session = None
+        st.session_state.page = "ホーム"
+        st.rerun()
+
+    if session.get("show_guide"):
+        st.success(
+            "模試の進め方ガイド\n\n"
+            "1. 右上のタブから解答したい事例を選択できます。\n"
+            "2. 入力欄の下に文字数カウンターが表示されます。\n"
+            "3. ページ下部の『模試を提出』ボタンから一括で提出できます。",
+        )
+        session["show_guide"] = False
+
+    timer_minutes = preferences.get("timer_minutes")
+    if timer_minutes:
+        remaining_seconds = max(timer_minutes * 60 - elapsed.total_seconds(), 0)
+        progress_value = max(0.0, min(1.0, 1 - elapsed.total_seconds() / (timer_minutes * 60)))
+        st.metric(
+            "残り時間",
+            f"{int(remaining_seconds // 60):02d}:{int(remaining_seconds % 60):02d}",
+            delta=f"経過 {elapsed}",
+        )
+        st.progress(progress_value)
+        st.caption("タイマーの進行状況")
+    else:
+        st.info(f"模試開始からの経過時間: {elapsed}")
+
+    if preferences:
+        st.caption(
+            "設定: "
+            f"{preferences.get('timer_label', 'タイマーなし')} / "
+            f"{preferences.get('difficulty', '標準')} / "
+            f"{preferences.get('order_label', '出題順（事例I→IV）')}"
+        )
 
     tabs = st.tabs([f"{idx+1}. {database.fetch_problem(problem_id)['case_label']}" for idx, problem_id in enumerate(exam.problem_ids)])
     for tab, problem_id in zip(tabs, exam.problem_ids):
