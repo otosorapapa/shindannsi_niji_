@@ -1112,7 +1112,7 @@ def mock_exam_page(user: Dict) -> None:
                 "start": datetime.utcnow(),
                 "answers": {},
             }
-            st.experimental_rerun()
+            st.rerun()
         return
 
     exam = session["exam"]
