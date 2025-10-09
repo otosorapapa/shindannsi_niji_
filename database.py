@@ -12,7 +12,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 DB_PATH = Path("data/app.db")
 SEED_PATH = Path("data/seed_problems.json")
@@ -85,6 +85,19 @@ def initialize_database() -> None:
             score REAL,
             feedback TEXT,
             keyword_hits_json TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS explanation_library (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            attempt_id INTEGER NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
+            question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+            summary TEXT NOT NULL,
+            feedback TEXT NOT NULL,
+            focus_keywords_json TEXT NOT NULL,
+            resources_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(attempt_id, question_id)
         );
         """
     )
@@ -290,6 +303,10 @@ class RecordedAnswer:
     keyword_hits: Dict[str, bool]
 
 
+def _as_json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
 def record_attempt(
     user_id: int,
     problem_id: int,
@@ -344,7 +361,7 @@ def record_attempt(
                 answer.answer_text,
                 answer.score,
                 answer.feedback,
-                json.dumps(answer.keyword_hits, ensure_ascii=False),
+                _as_json(answer.keyword_hits),
             ),
         )
 
@@ -441,6 +458,7 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
     for row in answers:
         formatted_answers.append(
             {
+                "question_id": row["question_id"],
                 "prompt": row["prompt"],
                 "answer_text": row["answer_text"],
                 "score": row["score"],
@@ -456,6 +474,112 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
         "attempt": attempt,
         "answers": formatted_answers,
     }
+
+
+def save_explanation_entries(
+    user_id: int,
+    attempt_id: int,
+    entries: Iterable[Dict[str, Any]],
+) -> None:
+    entries = list(entries)
+    if not entries:
+        return
+
+    conn = get_connection()
+    cur = conn.cursor()
+    for entry in entries:
+        cur.execute(
+            """
+            INSERT OR REPLACE INTO explanation_library (
+                user_id, attempt_id, question_id, summary, feedback,
+                focus_keywords_json, resources_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                attempt_id,
+                entry["question_id"],
+                entry["summary"],
+                entry["feedback"],
+                _as_json(entry.get("focus_keywords", [])),
+                _as_json(entry.get("resources", [])),
+                datetime.utcnow().isoformat(),
+            ),
+        )
+
+    conn.commit()
+    conn.close()
+
+
+def fetch_explanations_for_attempt(attempt_id: int) -> List[Dict[str, Any]]:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT el.*, q.prompt, q.question_order
+        FROM explanation_library el
+        JOIN questions q ON q.id = el.question_id
+        WHERE el.attempt_id = ?
+        ORDER BY q.question_order
+        """,
+        (attempt_id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    explanations: List[Dict[str, Any]] = []
+    for row in rows:
+        explanations.append(
+            {
+                "question_id": row["question_id"],
+                "summary": row["summary"],
+                "feedback": row["feedback"],
+                "focus_keywords": json.loads(row["focus_keywords_json"] or "[]"),
+                "resources": json.loads(row["resources_json"] or "[]"),
+            }
+        )
+    return explanations
+
+
+def list_explanation_library(user_id: int) -> List[Dict[str, Any]]:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT 
+            el.*, p.year, p.case_label, q.prompt, q.question_order,
+            a.submitted_at, a.mode
+        FROM explanation_library el
+        JOIN questions q ON q.id = el.question_id
+        JOIN problems p ON p.id = q.problem_id
+        JOIN attempts a ON a.id = el.attempt_id
+        WHERE el.user_id = ?
+        ORDER BY el.created_at DESC
+        """,
+        (user_id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    explanations: List[Dict[str, Any]] = []
+    for row in rows:
+        explanations.append(
+            {
+                "question_id": row["question_id"],
+                "summary": row["summary"],
+                "feedback": row["feedback"],
+                "focus_keywords": json.loads(row["focus_keywords_json"] or "[]"),
+                "resources": json.loads(row["resources_json"] or "[]"),
+                "created_at": row["created_at"],
+                "year": row["year"],
+                "case_label": row["case_label"],
+                "prompt": row["prompt"],
+                "question_order": row["question_order"],
+                "attempt_mode": row["mode"],
+                "attempt_submitted_at": row["submitted_at"],
+            }
+        )
+    return explanations
 
 
 def aggregate_statistics(user_id: int) -> Dict[str, Dict[str, float]]:

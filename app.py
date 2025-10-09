@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import datetime
 from typing import Dict, List
 
@@ -8,6 +9,7 @@ import pandas as pd
 import streamlit as st
 
 import database
+import learning_support
 import mock_exam
 import scoring
 from database import RecordedAnswer
@@ -31,8 +33,10 @@ def main_view() -> None:
     st.sidebar.title("ナビゲーション")
     st.session_state.page = st.sidebar.radio(
         "ページを選択",
-        ["ホーム", "過去問演習", "模擬試験", "学習履歴", "設定"],
-        index=["ホーム", "過去問演習", "模擬試験", "学習履歴", "設定"].index(st.session_state.page),
+        ["ホーム", "過去問演習", "模擬試験", "学習履歴", "解説ライブラリ", "設定"],
+        index=["ホーム", "過去問演習", "模擬試験", "学習履歴", "解説ライブラリ", "設定"].index(
+            st.session_state.page
+        ),
     )
 
     st.sidebar.divider()
@@ -50,6 +54,8 @@ def main_view() -> None:
         mock_exam_page(user)
     elif page == "学習履歴":
         history_page(user)
+    elif page == "解説ライブラリ":
+        library_page(user)
     elif page == "設定":
         settings_page(user)
 
@@ -217,6 +223,7 @@ def practice_page(user: Dict) -> None:
         st.session_state.practice_started = datetime.utcnow()
 
     answers: List[RecordedAnswer] = []
+    learning_entries: List[Dict] = []
     question_specs: List[QuestionSpec] = []
     for question in problem["questions"]:
         text = _question_input(problem["id"], question)
@@ -248,6 +255,7 @@ def practice_page(user: Dict) -> None:
 
     if submitted:
         answers = []
+        learning_entries = []
         for question, spec in zip(problem["questions"], question_specs):
             text = st.session_state.drafts.get(_draft_key(problem["id"], question["id"]), "")
             result = scoring.score_answer(text, spec)
@@ -260,6 +268,10 @@ def practice_page(user: Dict) -> None:
                     keyword_hits=result.keyword_hits,
                 )
             )
+            entry = learning_support.create_learning_entry(
+                question, result.keyword_hits, result.feedback
+            )
+            learning_entries.append(asdict(entry))
 
         submitted_at = datetime.utcnow()
         started_at = st.session_state.practice_started or submitted_at
@@ -274,6 +286,7 @@ def practice_page(user: Dict) -> None:
             submitted_at=submitted_at,
             duration_seconds=duration,
         )
+        database.save_explanation_entries(user["id"], attempt_id, learning_entries)
         st.session_state.practice_started = None
 
         st.success("採点が完了しました。結果を確認してください。")
@@ -360,6 +373,8 @@ def render_attempt_results(attempt_id: int) -> None:
     detail = database.fetch_attempt_detail(attempt_id)
     attempt = detail["attempt"]
     answers = detail["answers"]
+    explanations = database.fetch_explanations_for_attempt(attempt_id)
+    explanation_map = {entry["question_id"]: entry for entry in explanations}
 
     st.subheader("採点結果")
     total_score = attempt["total_score"] or 0
@@ -389,6 +404,7 @@ def render_attempt_results(attempt_id: int) -> None:
         st.caption("各設問の得点とキーワード達成状況を整理しました。弱点分析に活用してください。")
 
     for idx, answer in enumerate(answers, start=1):
+        support = explanation_map.get(answer["question_id"])
         with st.expander(f"設問{idx}の結果", expanded=True):
             st.write(f"**得点:** {answer['score']} / {answer['max_score']}")
             st.write("**フィードバック**")
@@ -405,6 +421,19 @@ def render_attempt_results(attempt_id: int) -> None:
                 st.write("**解説**")
                 st.write(answer["explanation"])
                 st.caption("採点基準: 模範解答の論点とキーワードが盛り込まれているかを中心に評価しています。")
+            if support:
+                st.markdown("**復習サポート**")
+                st.write(support["summary"])
+                if support["focus_keywords"]:
+                    st.caption("重点キーワード: " + "、".join(support["focus_keywords"]))
+                if support["resources"]:
+                    st.markdown("**関連講義・参考資料**")
+                    for resource in support["resources"]:
+                        st.markdown(
+                            f"- [{resource['title']}]({resource['url']}) — {resource['description']}"
+                        )
+                    st.caption("不足キーワードを補うための資料を自動レコメンドしています。")
+                st.divider()
 
     st.info("学習履歴ページから過去の答案をいつでも振り返ることができます。")
 
@@ -454,6 +483,7 @@ def mock_exam_page(user: Dict) -> None:
         for problem_id in exam.problem_ids:
             problem = database.fetch_problem(problem_id)
             answers: List[RecordedAnswer] = []
+            learning_entries: List[Dict] = []
             for question in problem["questions"]:
                 text = st.session_state.drafts.get(_draft_key(problem_id, question["id"]), "")
                 result = scoring.score_answer(
@@ -475,6 +505,10 @@ def mock_exam_page(user: Dict) -> None:
                         keyword_hits=result.keyword_hits,
                     )
                 )
+                entry = learning_support.create_learning_entry(
+                    question, result.keyword_hits, result.feedback
+                )
+                learning_entries.append(asdict(entry))
             attempt_id = database.record_attempt(
                 user_id=user["id"],
                 problem_id=problem_id,
@@ -484,6 +518,7 @@ def mock_exam_page(user: Dict) -> None:
                 submitted_at=datetime.utcnow(),
                 duration_seconds=int((datetime.utcnow() - start_time).total_seconds()),
             )
+            database.save_explanation_entries(user["id"], attempt_id, learning_entries)
             overall_results.append((problem, attempt_id))
 
         st.session_state.mock_session = None
@@ -588,6 +623,82 @@ def history_page(user: Dict) -> None:
         attempt_id = int(recent_history.loc[selected_idx, "attempt_id"])
         render_attempt_results(attempt_id)
 
+
+def library_page(user: Dict) -> None:
+    st.title("解説ライブラリ")
+    st.caption("AIが自動生成した解説と関連資料のリンクを蓄積し、復習に活用できます。")
+
+    entries = database.list_explanation_library(user["id"])
+    if not entries:
+        st.info("まだ解説ライブラリは空です。演習や模試の採点を行うと自動で登録されます。")
+        return
+
+    keyword_pool = sorted({kw for entry in entries for kw in entry["focus_keywords"]})
+    filter_col1, filter_col2 = st.columns([2, 1])
+    with filter_col1:
+        selected_keywords = st.multiselect(
+            "重点キーワードで絞り込む",
+            options=keyword_pool,
+            help="不足していたキーワードで絞り込み、弱点テーマを素早く探せます。",
+        )
+    with filter_col2:
+        mode_filter = st.selectbox(
+            "モード",
+            options=["すべて", "演習", "模試"],
+            help="演習か模試かで解説メモを切り替えられます。",
+        )
+
+    filtered_entries = entries
+    if selected_keywords:
+        keyword_set = set(selected_keywords)
+        filtered_entries = [
+            entry for entry in filtered_entries if keyword_set.issubset(set(entry["focus_keywords"]))
+        ]
+    if mode_filter != "すべて":
+        expected = "practice" if mode_filter == "演習" else "mock"
+        filtered_entries = [entry for entry in filtered_entries if entry["attempt_mode"] == expected]
+
+    summary_rows = []
+    for entry in filtered_entries:
+        summary_rows.append(
+            {
+                "登録日": entry["created_at"],
+                "年度": entry["year"],
+                "事例": entry["case_label"],
+                "設問": entry["question_order"],
+                "要点": entry["summary"],
+                "重点キーワード": "、".join(entry["focus_keywords"]) or "-",
+                "モード": "模試" if entry["attempt_mode"] == "mock" else "演習",
+                "提出日時": entry["attempt_submitted_at"],
+            }
+        )
+
+    if summary_rows:
+        df = pd.DataFrame(summary_rows)
+        st.data_editor(df, hide_index=True, use_container_width=True, disabled=True)
+        st.caption("フィルタ条件に合致した解説メモを一覧表示しています。詳細は下部のアコーディオンから確認できます。")
+    else:
+        st.info("選択した条件に該当する解説メモはありません。フィルタを変更してみてください。")
+
+    for entry in filtered_entries:
+        header = f"{entry['year']} {entry['case_label']} 設問{entry['question_order']}"
+        with st.expander(header):
+            st.markdown(f"**要約**\n{entry['summary']}")
+            st.markdown(
+                f"**AIフィードバック**\n<pre>{entry['feedback']}</pre>",
+                unsafe_allow_html=True,
+            )
+            if entry["focus_keywords"]:
+                st.caption("重点キーワード: " + "、".join(entry["focus_keywords"]))
+            if entry["resources"]:
+                st.markdown("**関連講義・参考資料**")
+                for resource in entry["resources"]:
+                    st.markdown(
+                        f"- [{resource['title']}]({resource['url']}) — {resource['description']}"
+                    )
+            submitted = entry["attempt_submitted_at"]
+            if submitted:
+                st.caption(f"原答案の提出日時: {submitted}")
 
 def settings_page(user: Dict) -> None:
     st.title("設定・プラン管理")
