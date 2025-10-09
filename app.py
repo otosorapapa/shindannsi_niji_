@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from textwrap import dedent
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 import logging
 
 import html
@@ -113,6 +113,69 @@ KEYWORD_RESOURCE_MAP = {
         },
     ],
 }
+
+
+BadgeEvaluator = Callable[[Dict[str, float]], bool]
+
+
+BADGE_DEFINITIONS: List[Dict[str, object]] = [
+    {
+        "id": "first_practice",
+        "title": "スタートダッシュ",
+        "description": "初めての演習を完了しました",
+        "condition": "演習を1回実施",
+        "icon": "🚀",
+        "evaluator": lambda metrics: metrics["total_attempts"] >= 1,
+    },
+    {
+        "id": "practice_10",
+        "title": "継続学習バッジ",
+        "description": "演習を積み重ね学習の習慣化が進んでいます",
+        "condition": "演習10回達成",
+        "icon": "📘",
+        "evaluator": lambda metrics: metrics["total_attempts"] >= 10,
+    },
+    {
+        "id": "streak_3",
+        "title": "連続学習3日達成",
+        "description": "継続学習のリズムが身についています",
+        "condition": "3日連続で学習",
+        "icon": "🔥",
+        "evaluator": lambda metrics: metrics["streak"] >= 3,
+    },
+    {
+        "id": "streak_7",
+        "title": "週間皆勤",
+        "description": "7日連続で学習を継続しました",
+        "condition": "7日連続で学習",
+        "icon": "📅",
+        "evaluator": lambda metrics: metrics["streak"] >= 7,
+    },
+    {
+        "id": "mock_clear",
+        "title": "模擬試験クリア",
+        "description": "模擬試験で70%の得点を獲得しました",
+        "condition": "模試で70点以上",
+        "icon": "🎯",
+        "evaluator": lambda metrics: metrics["mock_clears"] > 0,
+    },
+    {
+        "id": "high_score",
+        "title": "ハイスコア達人",
+        "description": "高得点を獲得し自信が高まりました",
+        "condition": "AI採点で80点以上",
+        "icon": "🏆",
+        "evaluator": lambda metrics: metrics["best_ratio"] >= 0.8,
+    },
+    {
+        "id": "mock_master",
+        "title": "優秀回答者バッジ",
+        "description": "模試で高得点を記録しました",
+        "condition": "模試で85点以上",
+        "icon": "🌟",
+        "evaluator": lambda metrics: metrics["high_mock_scores"] > 0,
+    },
+]
 
 
 def _init_session_state() -> None:
@@ -372,6 +435,106 @@ def _inject_dashboard_styles() -> None:
                 font-size: 0.88rem;
                 color: #475569;
             }
+            .badge-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 0.9rem;
+                margin-top: 0.6rem;
+            }
+            .badge-card {
+                position: relative;
+                display: flex;
+                gap: 0.85rem;
+                padding: 1rem 1.15rem;
+                border-radius: 16px;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: rgba(255, 255, 255, 0.85);
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+                overflow: hidden;
+            }
+            .badge-card::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                border-radius: 16px;
+                border: 1px solid rgba(255, 255, 255, 0.35);
+                pointer-events: none;
+            }
+            .badge-card .badge-icon {
+                font-size: 2rem;
+                line-height: 1;
+                filter: drop-shadow(0 8px 16px rgba(15, 23, 42, 0.15));
+            }
+            .badge-card .badge-info {
+                display: flex;
+                flex-direction: column;
+                gap: 0.2rem;
+            }
+            .badge-card .badge-title {
+                font-weight: 700;
+                color: #1e293b;
+            }
+            .badge-card .badge-condition {
+                font-size: 0.82rem;
+                font-weight: 600;
+                color: #2563eb;
+                letter-spacing: 0.04em;
+            }
+            .badge-card .badge-desc {
+                font-size: 0.8rem;
+                color: #475569;
+                line-height: 1.5;
+            }
+            .badge-card .badge-status {
+                margin-top: 0.15rem;
+                font-size: 0.72rem;
+                font-weight: 600;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: #0f172a;
+            }
+            .badge-card.locked {
+                background: rgba(226, 232, 240, 0.65);
+                border-style: dashed;
+                border-color: rgba(148, 163, 184, 0.55);
+                box-shadow: none;
+            }
+            .badge-card.locked .badge-icon {
+                filter: grayscale(100%);
+                opacity: 0.35;
+            }
+            .badge-card.locked .badge-title,
+            .badge-card.locked .badge-desc {
+                color: #94a3b8;
+            }
+            .badge-card.locked .badge-condition {
+                color: #64748b;
+            }
+            .badge-card.locked .badge-status {
+                color: #475569;
+            }
+            .badge-card.achieved {
+                background: linear-gradient(135deg, rgba(236, 253, 245, 0.95), rgba(167, 243, 208, 0.95));
+                border-color: rgba(16, 185, 129, 0.55);
+                box-shadow: 0 18px 32px rgba(5, 150, 105, 0.25);
+                animation: badge-pop 0.8s ease;
+            }
+            .badge-card.achieved .badge-condition {
+                color: #0d9488;
+            }
+            @keyframes badge-pop {
+                0% {
+                    transform: scale(0.92);
+                    opacity: 0;
+                }
+                60% {
+                    transform: scale(1.04);
+                    opacity: 1;
+                }
+                100% {
+                    transform: scale(1);
+                }
+            }
             .table-card {
                 border-radius: 18px;
                 padding: 1.2rem 1rem 0.6rem;
@@ -463,12 +626,35 @@ def dashboard_page(user: Dict) -> None:
         else:
             st.caption("最高ランクに到達しました！継続おめでとうございます。")
     with badge_col:
-        st.subheader("獲得バッジ")
-        if gamification["badges"]:
-            for badge in gamification["badges"]:
-                st.markdown(f"- 🏅 **{badge['title']}** — {badge['description']}")
-        else:
-            st.caption("バッジはまだありません。演習や模試で獲得を目指しましょう。")
+        st.subheader("バッジコレクション")
+        st.caption("未取得バッジはシルエット表示。条件をクリアしてコレクションを完成させましょう。")
+
+        badge_cards = []
+        for badge in gamification["badges"]:
+            classes = "badge-card achieved" if badge["achieved"] else "badge-card locked"
+            status_label = "達成！" if badge["achieved"] else "未取得"
+            badge_cards.append(
+                dedent(
+                    f"""
+                    <div class="{classes}">
+                        <div class="badge-icon">{badge['icon']}</div>
+                        <div class="badge-info">
+                            <div class="badge-title">{badge['title']}</div>
+                            <div class="badge-condition">{badge['condition']}</div>
+                            <div class="badge-desc">{badge['description']}</div>
+                            <div class="badge-status">{status_label}</div>
+                        </div>
+                    </div>
+                    """
+                )
+            )
+
+        st.markdown(
+            "\n".join(
+                ["<div class=\"badge-grid\">", *badge_cards, "</div>"]
+            ),
+            unsafe_allow_html=True,
+        )
 
     stats = database.aggregate_statistics(user["id"])
     total_learning_minutes = sum((row["duration_seconds"] or 0) for row in attempts) // 60
@@ -738,20 +924,12 @@ def dashboard_page(user: Dict) -> None:
 
 
 def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
-    if not attempts:
-        return {
-            "attempts": 0,
-            "current_streak": 0,
-            "badges": [],
-            "next_milestone": 3,
-            "points": 0,
-            "level": 1,
-            "level_progress": 0,
-            "level_threshold": 100,
-            "points_to_next_level": 100,
-        }
+    parsed_attempts: List[datetime] = []
+    best_ratio = 0.0
+    mock_clears = 0
+    high_mock_scores = 0
+    points = 0
 
-    parsed_attempts = []
     for row in attempts:
         submitted_at = row.get("submitted_at")
         if isinstance(submitted_at, datetime):
@@ -762,9 +940,29 @@ def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
             except ValueError:
                 continue
 
-    unique_dates = sorted({dt.date() for dt in parsed_attempts}, reverse=True)
+        total = row.get("total_score") or 0
+        maximum = row.get("total_max_score") or 0
+        ratio = (total / maximum) if maximum else 0
+        best_ratio = max(best_ratio, ratio)
+
+        mode = row.get("mode")
+        if mode == "mock":
+            points += 40
+            if ratio >= 0.7:
+                mock_clears += 1
+            if ratio >= 0.85:
+                high_mock_scores += 1
+        else:
+            points += 20
+
+        if ratio >= 0.8:
+            points += 10
+        elif ratio >= 0.6:
+            points += 5
+
+    unique_dates = sorted({value.date() for value in parsed_attempts}, reverse=True)
     streak = 0
-    previous_date = None
+    previous_date: Optional[dt_date] = None
     for current in unique_dates:
         if previous_date is None:
             streak = 1
@@ -776,49 +974,10 @@ def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
                 break
         previous_date = current
 
-    best_ratio = 0.0
-    mock_clears = 0
-    high_mock_scores = 0
-    badges: List[Dict[str, str]] = []
-    total_attempts = len(attempts)
-    points = 0
-    level_threshold = 100
-    for row in attempts:
-        total = row.get("total_score") or 0
-        maximum = row.get("total_max_score") or 0
-        ratio = (total / maximum) if maximum else 0
-        best_ratio = max(best_ratio, ratio)
-        mode = row.get("mode")
-        if mode == "mock":
-            points += 40
-            if ratio >= 0.7:
-                mock_clears += 1
-            if ratio >= 0.85:
-                high_mock_scores += 1
-        else:
-            points += 20
-        if ratio >= 0.8:
-            points += 10
-        elif ratio >= 0.6:
-            points += 5
-
     points += streak * 2
 
-    if total_attempts >= 1:
-        badges.append({"title": "スタートダッシュ", "description": "初めての演習を完了しました"})
-    if streak >= 3:
-        badges.append({"title": "連続学習3日達成", "description": "継続学習のリズムが身についています"})
-    if streak >= 7:
-        badges.append({"title": "週間皆勤", "description": "7日連続で学習を継続しました"})
-    if mock_clears:
-        badges.append({"title": "模擬試験クリア", "description": "模擬試験で70%の得点を獲得しました"})
-    if best_ratio >= 0.85:
-        badges.append({"title": "ハイスコア達人", "description": "高得点を獲得し自信が高まりました"})
-    if total_attempts >= 10:
-        badges.append({"title": "継続学習バッジ", "description": "演習を積み重ね学習の習慣化が進んでいます"})
-    if high_mock_scores:
-        badges.append({"title": "優秀回答者バッジ", "description": "模試で高得点を記録しました"})
-
+    total_attempts = len(attempts)
+    level_threshold = 100
     milestones = [3, 7, 15, 30]
     next_milestone = None
     for milestone in milestones:
@@ -829,6 +988,29 @@ def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
     level = points // level_threshold + 1
     level_progress = points % level_threshold
     points_to_next_level = level_threshold - level_progress if level_progress else level_threshold
+
+    metrics = {
+        "total_attempts": total_attempts,
+        "streak": streak,
+        "mock_clears": mock_clears,
+        "best_ratio": best_ratio,
+        "high_mock_scores": high_mock_scores,
+    }
+
+    badges = []
+    for definition in BADGE_DEFINITIONS:
+        evaluator: BadgeEvaluator = definition["evaluator"]  # type: ignore[assignment]
+        achieved = bool(evaluator(metrics))
+        badges.append(
+            {
+                "id": definition["id"],
+                "title": definition["title"],
+                "description": definition["description"],
+                "condition": definition["condition"],
+                "icon": definition["icon"],
+                "achieved": achieved,
+            }
+        )
 
     return {
         "attempts": total_attempts,
