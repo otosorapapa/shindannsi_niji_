@@ -426,6 +426,38 @@ def dashboard_page(user: Dict) -> None:
         unsafe_allow_html=True,
     )
 
+    upcoming_reviews = database.list_upcoming_reviews(user_id=user["id"], limit=6)
+    due_review_count = database.count_due_reviews(user_id=user["id"])
+    st.subheader("復習スケジュール（間隔反復）")
+    if upcoming_reviews:
+        if due_review_count:
+            st.warning(
+                f"{due_review_count}件の復習が期限到来または超過しています。優先的に取り組みましょう。",
+                icon="⏳",
+            )
+        schedule_df = pd.DataFrame(
+            [
+                {
+                    "次回予定": review["due_at"].strftime("%Y-%m-%d"),
+                    "事例": f"{review['year']} {review['case_label']}",
+                    "タイトル": review["title"],
+                    "前回達成度": f"{(review['last_score_ratio'] or 0) * 100:.0f}%",
+                    "間隔": f"{review['interval_days']}日",
+                    "ステータス": "要復習" if review["due_at"] <= datetime.utcnow() else "予定",
+                }
+                for review in upcoming_reviews
+            ]
+        )
+        st.data_editor(
+            schedule_df,
+            hide_index=True,
+            use_container_width=True,
+            disabled=True,
+        )
+        st.caption("演習結果に応じて次回の復習タイミングを自動で提案します。")
+    else:
+        st.info("演習データが蓄積されると復習スケジュールがここに表示されます。")
+
     overview_tab, chart_tab = st.tabs(["進捗サマリ", "事例別分析"])
 
     with overview_tab:
@@ -941,6 +973,19 @@ def practice_page(user: Dict) -> None:
         "左側のセレクターで年度・事例を切り替え、下部の解答欄から回答を入力してください。"
     )
 
+    due_reviews = database.list_due_reviews(user["id"], limit=3)
+    if due_reviews:
+        st.warning(
+            "本日復習推奨の事例があります。該当の年度・事例を選択して復習しましょう。",
+            icon="⏰",
+        )
+        for review in due_reviews:
+            ratio = review["last_score_ratio"] or 0
+            st.markdown(
+                f"- **{review['year']} {review['case_label']}** {review['title']}"
+                f" — 前回達成度 {ratio * 100:.0f}% / 推奨間隔 {review['interval_days']}日"
+            )
+
     st.markdown(
         dedent(
             """
@@ -1120,6 +1165,9 @@ def practice_page(user: Dict) -> None:
         submitted_at = datetime.utcnow()
         started_at = st.session_state.practice_started or submitted_at
         duration = int((submitted_at - started_at).total_seconds())
+        total_score = sum(answer.score for answer in answers)
+        total_max = sum(question["max_score"] for question in problem["questions"])
+        score_ratio = (total_score / total_max) if total_max else 0.0
 
         attempt_id = database.record_attempt(
             user_id=user["id"],
@@ -1129,6 +1177,12 @@ def practice_page(user: Dict) -> None:
             started_at=started_at,
             submitted_at=submitted_at,
             duration_seconds=duration,
+        )
+        database.update_spaced_review(
+            user_id=user["id"],
+            problem_id=problem["id"],
+            score_ratio=score_ratio,
+            reviewed_at=submitted_at,
         )
         st.session_state.practice_started = None
 
@@ -1219,6 +1273,20 @@ def render_attempt_results(attempt_id: int) -> None:
     total_score = attempt["total_score"] or 0
     total_max = attempt["total_max_score"] or 0
     st.metric("総合得点", f"{total_score:.1f} / {total_max:.1f}")
+    review_plan = database.get_spaced_review(attempt["user_id"], attempt["problem_id"])
+    if review_plan:
+        due_at = review_plan["due_at"]
+        interval = review_plan["interval_days"]
+        if due_at <= datetime.utcnow():
+            st.warning(
+                f"この事例の復習期限が到来しています。推奨: {due_at.strftime('%Y-%m-%d %H:%M')} (間隔 {interval}日)",
+                icon="🔁",
+            )
+        else:
+            st.info(
+                f"次回の復習目安は {due_at.strftime('%Y-%m-%d %H:%M')} ごろです (推奨間隔 {interval}日)",
+                icon="🔁",
+            )
     if attempt["mode"] == "mock" and total_max:
         ratio = total_score / total_max
         if ratio >= 0.7:
@@ -1360,14 +1428,24 @@ def mock_exam_page(user: Dict) -> None:
                         keyword_hits=result.keyword_hits,
                     )
                 )
+            submitted_at = datetime.utcnow()
             attempt_id = database.record_attempt(
                 user_id=user["id"],
                 problem_id=problem_id,
                 mode="mock",
                 answers=answers,
                 started_at=start_time,
-                submitted_at=datetime.utcnow(),
-                duration_seconds=int((datetime.utcnow() - start_time).total_seconds()),
+                submitted_at=submitted_at,
+                duration_seconds=int((submitted_at - start_time).total_seconds()),
+            )
+            total_score = sum(answer.score for answer in answers)
+            total_max = sum(question["max_score"] for question in problem["questions"])
+            score_ratio = (total_score / total_max) if total_max else 0.0
+            database.update_spaced_review(
+                user_id=user["id"],
+                problem_id=problem_id,
+                score_ratio=score_ratio,
+                reviewed_at=submitted_at,
             )
             overall_results.append((problem, attempt_id))
 
@@ -1393,6 +1471,8 @@ def history_page(user: Dict) -> None:
 
     stats = _compute_learning_stats(history_df)
     reminder_settings = database.get_reminder_settings(user["id"])
+    review_schedule = database.list_upcoming_reviews(user_id=user["id"], limit=10)
+    due_reviews_count = database.count_due_reviews(user_id=user["id"])
     active_interval = (
         reminder_settings["interval_days"] if reminder_settings else stats["recommended_interval"]
     )
@@ -1426,6 +1506,29 @@ def history_page(user: Dict) -> None:
         )
     else:
         st.info("これから学習を始めましょう。初期推奨リマインダーは3日おきです。")
+
+    if review_schedule:
+        st.markdown("#### 復習予定リスト")
+        if due_reviews_count:
+            st.warning(
+                f"{due_reviews_count}件の復習期限が到来しています。『過去問演習』から優先的に復習しましょう。",
+                icon="📌",
+            )
+        review_df = pd.DataFrame(
+            [
+                {
+                    "次回予定": item["due_at"].strftime("%Y-%m-%d"),
+                    "事例": f"{item['year']} {item['case_label']}",
+                    "タイトル": item["title"],
+                    "達成度": f"{(item['last_score_ratio'] or 0) * 100:.0f}%",
+                    "間隔": f"{item['interval_days']}日",
+                }
+                for item in review_schedule
+            ]
+        )
+        st.dataframe(review_df, use_container_width=True)
+    else:
+        st.caption("演習完了後に復習予定が自動生成されます。")
 
     with st.expander("リマインダー設定", expanded=reminder_settings is None):
         st.write("学習リズムに合わせて通知頻度・時刻・チャネルをカスタマイズできます。")
