@@ -608,6 +608,23 @@ def _draft_key(problem_id: int, question_id: int) -> str:
     return f"draft_{problem_id}_{question_id}"
 
 
+def _render_character_counter(current_length: int, limit: Optional[int]) -> None:
+    remaining_text: str
+    if limit is None:
+        st.caption(f"現在の文字数: {current_length}字")
+        return
+
+    remaining = limit - current_length
+    if remaining >= 0:
+        remaining_text = f"残り {remaining}字"
+    else:
+        remaining_text = f"{abs(remaining)}字オーバー"
+
+    st.caption(f"文字数: {current_length} / {limit}字（{remaining_text}）")
+    if remaining < 0:
+        st.warning("文字数が上限を超えています。")
+
+
 def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> str:
     key = _draft_key(problem_id, question["id"])
     if key not in st.session_state.drafts:
@@ -623,7 +640,7 @@ def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> 
         help=help_text,
         disabled=disabled,
     )
-    st.caption(f"現在の文字数: {len(text)}字")
+    _render_character_counter(len(text), question.get("character_limit"))
     st.caption("入力内容は自動的に保存され、ページ離脱後も保持されます。必要に応じて下書きを明示的に保存してください。")
     st.session_state.drafts[key] = text
     status_placeholder = st.empty()
@@ -978,9 +995,7 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         max_chars = 60 if pd.notna(row["配点"]) and row["配点"] <= 25 else 80
         answer_key = f"uploaded_answer_{selected_year}_{selected_case}_{row['設問番号']}"
         user_answer = st.text_area("回答を入力", key=answer_key)
-        st.caption(f"現在の文字数: {len(user_answer)} / {max_chars}文字")
-        if len(user_answer) > max_chars:
-            st.warning("文字数が上限を超えています。")
+        _render_character_counter(len(user_answer), max_chars)
         with st.expander("模範解答／解説を見る"):
             st.markdown("**模範解答**")
             st.write(row["模範解答"])
@@ -1130,7 +1145,10 @@ def mock_exam_page(user: Dict) -> None:
                 key = _draft_key(problem_id, question["id"])
                 st.session_state.drafts.setdefault(key, "")
                 default = st.session_state.drafts[key]
-                text = st.text_area(question["prompt"], key=f"mock_{key}", value=default, height=160)
+                text = st.text_area(
+                    question["prompt"], key=f"mock_{key}", value=default, height=160
+                )
+                _render_character_counter(len(text), question.get("character_limit"))
                 st.session_state.drafts[key] = text
 
     if st.button("模試を提出", type="primary"):
