@@ -405,12 +405,21 @@ def main_view() -> None:
     if st.session_state.page not in navigation_items:
         st.session_state.page = nav_labels[0]
 
-    selected_index = nav_labels.index(st.session_state.page)
-    st.session_state.page = st.sidebar.radio(
+    navigation_key = "navigation_selection"
+    current_page = st.session_state.page
+
+    if navigation_key not in st.session_state:
+        st.session_state[navigation_key] = current_page
+    elif st.session_state[navigation_key] not in navigation_items:
+        st.session_state[navigation_key] = current_page
+
+    selected_page = st.sidebar.radio(
         "ページを選択",
         nav_labels,
-        index=selected_index,
+        key=navigation_key,
     )
+
+    st.session_state.page = selected_page
 
     st.sidebar.divider()
     st.sidebar.info(f"利用者: {user['name']} ({user['plan']}プラン)")
