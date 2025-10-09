@@ -131,6 +131,7 @@ def _init_session_state() -> None:
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
     st.session_state.setdefault("flashcard_states", {})
+    st.session_state.setdefault("ui_theme", "システム設定に合わせる")
 
 
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
@@ -2785,95 +2786,119 @@ def settings_page(user: Dict) -> None:
         f"**契約プラン:** {user['plan']}"
     )
 
-    st.subheader("データ管理")
-    uploaded_file = st.file_uploader(
-        "過去問データファイルをアップロード (CSV/Excel)",
-        type=["csv", "xlsx"],
-    )
-    if uploaded_file is not None:
-        _handle_past_data_upload(uploaded_file)
+    plan_tab, learning_tab = st.tabs(["プラン管理", "学習設定"])
 
-    if st.session_state.past_data is not None:
+    with plan_tab:
+        st.subheader("プラン一覧")
+
+        plan_features = pd.DataFrame(
+            [
+                {
+                    "プラン": "無料プラン",
+                    "月額料金": "¥0",
+                    "AI採点": "\u2705 月20回まで",
+                    "詳細解説": "\u26aa 最新3回分のみ",
+                    "学習レポート": "\u26aa ハイライトのみ",
+                },
+                {
+                    "プラン": "プレミアム",
+                    "月額料金": "¥1,480",
+                    "AI採点": "\u2b50\ufe0f 無制限",
+                    "詳細解説": "\u2b50\ufe0f 全設問を無制限閲覧",
+                    "学習レポート": "\u2b50\ufe0f 個別アドバイス付き",
+                },
+            ]
+        )
+        st.dataframe(plan_features, use_container_width=True, hide_index=True)
+
         st.caption(
-            f"読み込み済みのレコード数: {len(st.session_state.past_data)}件"
+            "\U0001f4a1 プレミアムプランでは AI 採点の上限が解除され、全ての模擬試験・過去問で詳細解説を好きなだけ閲覧できます。"
         )
-        st.dataframe(st.session_state.past_data.head(), use_container_width=True)
-        if st.button("アップロードデータをクリア", key="clear_past_data"):
-            st.session_state.past_data = None
-            st.info("アップロードデータを削除しました。")
 
-    st.subheader("プラン一覧")
+        st.subheader("アップグレードのメリット")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown(
+                """
+                - 🧠 **AI採点の無制限化**: 事例演習の回数を気にせずフィードバックを受けられます。
+                - 📊 **詳細な学習レポート**: 記述力の伸びや課題を自動分析し、次に取り組むべきテーマを提案します。
+                """
+            )
+        with col2:
+            st.markdown(
+                """
+                - 📚 **詳細解説の読み放題**: 各設問の模範答案・解説を制限なく確認できます。
+                - 🕒 **優先サポート**: 24時間以内のメール返信で学習の悩みをサポートします。
+                """
+            )
 
-    plan_features = pd.DataFrame(
-        [
-            {
-                "プラン": "無料プラン",
-                "月額料金": "¥0",
-                "AI採点": "\u2705 月20回まで",
-                "詳細解説": "\u26aa 最新3回分のみ",
-                "学習レポート": "\u26aa ハイライトのみ",
-            },
-            {
-                "プラン": "プレミアム",
-                "月額料金": "¥1,480",
-                "AI採点": "\u2b50\ufe0f 無制限",
-                "詳細解説": "\u2b50\ufe0f 全設問を無制限閲覧",
-                "学習レポート": "\u2b50\ufe0f 個別アドバイス付き",
-            },
+        st.subheader("プラン変更")
+        st.write("AI採点の回数制限を拡張し、詳細解説を無制限に閲覧できる有料プランをご用意しています。")
+
+        pricing_col, action_col = st.columns([1.2, 1])
+        with pricing_col:
+            st.markdown(
+                """
+                - 💳 **月額: 1,480円 (税込)**
+                - 🧾 クレジットカード (Visa / MasterCard / JCB)、デビットカード、主要電子マネーに対応
+                - 🔁 いつでも解約可能。更新日まではプレミアム機能を利用できます。
+                """
+            )
+        with action_col:
+            if user["plan"] == "free":
+                if st.button("有料プランにアップグレードする"):
+                    database.update_user_plan(user_id=user["id"], plan="premium")
+                    st.session_state.user = dict(database.get_user_by_email(user["email"]))
+                    st.success("プレミアムプランに変更しました。")
+            else:
+                st.info("既にプレミアムプランをご利用中です。")
+
+        st.subheader("サポート")
+        st.markdown(
+            dedent(
+                """
+                - お問い合わせ: support@example.com
+                - 利用規約: coming soon
+                - 退会をご希望の場合はサポートまでご連絡ください。
+                """
+            ).strip()
+        )
+
+    with learning_tab:
+        st.subheader("データ管理")
+        uploaded_file = st.file_uploader(
+            "過去問データファイルをアップロード (CSV/Excel)",
+            type=["csv", "xlsx"],
+        )
+        if uploaded_file is not None:
+            _handle_past_data_upload(uploaded_file)
+
+        if st.session_state.past_data is not None:
+            st.caption(
+                f"読み込み済みのレコード数: {len(st.session_state.past_data)}件"
+            )
+            st.dataframe(st.session_state.past_data.head(), use_container_width=True)
+            if st.button("アップロードデータをクリア", key="clear_past_data"):
+                st.session_state.past_data = None
+                st.info("アップロードデータを削除しました。")
+
+        st.subheader("表示テーマ")
+        theme_options = [
+            "システム設定に合わせる",
+            "ライトモード",
+            "ダークモード",
         ]
-    )
-    st.dataframe(plan_features, use_container_width=True, hide_index=True)
-
-    st.caption(
-        "\U0001f4a1 プレミアムプランでは AI 採点の上限が解除され、全ての模擬試験・過去問で詳細解説を好きなだけ閲覧できます。"
-    )
-
-    st.subheader("アップグレードのメリット")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown(
-            """
-            - 🧠 **AI採点の無制限化**: 事例演習の回数を気にせずフィードバックを受けられます。
-            - 📊 **詳細な学習レポート**: 記述力の伸びや課題を自動分析し、次に取り組むべきテーマを提案します。
-            """
+        selected_theme = st.radio(
+            "アプリのカラーテーマ",
+            options=theme_options,
+            index=theme_options.index(st.session_state.ui_theme)
+            if st.session_state.ui_theme in theme_options
+            else 0,
+            help="視認性に合わせてテーマを切り替えできます。",
         )
-    with col2:
-        st.markdown(
-            """
-            - 📚 **詳細解説の読み放題**: 各設問の模範答案・解説を制限なく確認できます。
-            - 🕒 **優先サポート**: 24時間以内のメール返信で学習の悩みをサポートします。
-            """
-        )
-
-    st.subheader("料金とお支払い方法")
-    st.markdown(
-        """
-        - 💳 **月額: 1,480円 (税込)**
-        - 🧾 お支払い方法: クレジットカード (Visa / MasterCard / JCB)、デビットカード、主要な電子マネーに対応
-        - 🔁 いつでも解約可能。次回更新日までは引き続きプレミアム機能をご利用いただけます。
-        """
-    )
-
-    st.subheader("プラン変更")
-    st.write("AI採点の回数制限を拡張し、詳細解説を無制限に閲覧できる有料プランをご用意しています。")
-    if user["plan"] == "free":
-        if st.button("有料プランにアップグレードする"):
-            database.update_user_plan(user_id=user["id"], plan="premium")
-            st.session_state.user = dict(database.get_user_by_email(user["email"]))
-            st.success("プレミアムプランに変更しました。")
-    else:
-        st.info("既にプレミアムプランをご利用中です。")
-
-    st.subheader("サポート")
-    st.markdown(
-        dedent(
-            """
-            - お問い合わせ: support@example.com
-            - 利用規約: coming soon
-            - 退会をご希望の場合はサポートまでご連絡ください。
-            """
-        ).strip()
-    )
+        if selected_theme != st.session_state.ui_theme:
+            st.session_state.ui_theme = selected_theme
+            st.success(f"テーマを『{selected_theme}』に変更しました。")
 
 
 logger = logging.getLogger(__name__)
