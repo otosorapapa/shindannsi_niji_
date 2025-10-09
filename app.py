@@ -723,6 +723,9 @@ def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> 
     return text
 
 
+MIN_REMINDER_INTERVAL_DAYS = 2
+
+
 def _compute_learning_stats(history_df: pd.DataFrame) -> Dict[str, Any]:
     stats: Dict[str, Any] = {"total_sessions": int(len(history_df))}
     if history_df.empty:
@@ -733,9 +736,13 @@ def _compute_learning_stats(history_df: pd.DataFrame) -> Dict[str, Any]:
                 "best_score": None,
                 "streak_days": 0,
                 "last_study_at": None,
-                "recommended_interval": 3,
+                "recommended_interval": max(MIN_REMINDER_INTERVAL_DAYS, 3),
                 "next_study_at": now + timedelta(days=3),
                 "reference_datetime": now,
+                "weekly_sessions": 0,
+                "weekly_target_sessions": max(1, 7 // MIN_REMINDER_INTERVAL_DAYS),
+                "weekly_progress_pct": 0,
+                "last_mock_at": None,
             }
         )
         return stats
@@ -750,7 +757,7 @@ def _compute_learning_stats(history_df: pd.DataFrame) -> Dict[str, Any]:
     intervals_days = intervals.dt.total_seconds() / (60 * 60 * 24)
     intervals_days = intervals_days[intervals_days > 0]
     recommended_interval = int(round(intervals_days.median())) if not intervals_days.empty else 3
-    recommended_interval = max(1, recommended_interval)
+    recommended_interval = max(MIN_REMINDER_INTERVAL_DAYS, recommended_interval)
     next_study_at = last_study_at + timedelta(days=recommended_interval)
 
     unique_days = sorted({value.date() for value in python_dates})
@@ -770,6 +777,25 @@ def _compute_learning_stats(history_df: pd.DataFrame) -> Dict[str, Any]:
     recent_average = float(recent_scores.mean()) if not recent_scores.empty else None
     best_score = float(history_df["得点"].dropna().max()) if history_df["得点"].notna().any() else None
 
+    now = datetime.now()
+    week_start = now - timedelta(days=7)
+    weekly_sessions = int(history_df[history_df["日付"] >= week_start].shape[0])
+    weekly_target_sessions = max(1, int(round(7 / recommended_interval)))
+    weekly_progress_pct = min(100, int(round((weekly_sessions / weekly_target_sessions) * 100)))
+
+    mock_mask = history_df.get("モード") == "模試" if "モード" in history_df else None
+    last_mock_at: Optional[datetime]
+    if isinstance(mock_mask, pd.Series) and mock_mask.any():
+        mock_dates = history_df.loc[mock_mask, "日付"].dropna().sort_values()
+        last_mock_value = mock_dates.iloc[-1]
+        last_mock_at = (
+            last_mock_value.to_pydatetime()
+            if hasattr(last_mock_value, "to_pydatetime")
+            else last_mock_value
+        )
+    else:
+        last_mock_at = None
+
     stats.update(
         {
             "recent_average": recent_average,
@@ -779,6 +805,10 @@ def _compute_learning_stats(history_df: pd.DataFrame) -> Dict[str, Any]:
             "recommended_interval": recommended_interval,
             "next_study_at": next_study_at,
             "reference_datetime": last_study_at,
+            "weekly_sessions": weekly_sessions,
+            "weekly_target_sessions": weekly_target_sessions,
+            "weekly_progress_pct": weekly_progress_pct,
+            "last_mock_at": last_mock_at,
         }
     )
     return stats
@@ -843,6 +873,32 @@ def _build_schedule_preview(
         current += timedelta(days=interval_days)
 
     return pd.DataFrame(events)
+
+
+def _compose_motivational_message(stats: Dict[str, Any]) -> str:
+    progress_pct = stats.get("weekly_progress_pct")
+    weekly_sessions = stats.get("weekly_sessions", 0)
+    weekly_target = stats.get("weekly_target_sessions", 1)
+    if progress_pct is None:
+        progress_text = "今週の進捗を記録し始めましょう。"
+    else:
+        progress_text = (
+            f"今週の進捗は{progress_pct}%でした（{weekly_sessions}回 / 目標{weekly_target}回）。"
+        )
+
+    last_mock_at: Optional[datetime] = stats.get("last_mock_at")
+    if last_mock_at is None:
+        mock_text = "次の模試に挑戦してみましょう。"
+    else:
+        days_since_mock = (datetime.now() - last_mock_at).days
+        if days_since_mock >= 14:
+            mock_text = "次の模試に挑戦してみましょう。"
+        elif days_since_mock <= 0:
+            mock_text = "模試の結果を振り返り、復習を進めましょう。"
+        else:
+            mock_text = f"直近の模試から{days_since_mock}日。復習を継続しましょう。"
+
+    return f"{progress_text} {mock_text}"
 
 
 def practice_page(user: Dict) -> None:
@@ -1306,6 +1362,7 @@ def history_page(user: Dict) -> None:
     active_interval = (
         reminder_settings["interval_days"] if reminder_settings else stats["recommended_interval"]
     )
+    active_interval = max(MIN_REMINDER_INTERVAL_DAYS, active_interval)
     reminder_time_value = _safe_time_from_string(
         reminder_settings["reminder_time"] if reminder_settings else None
     )
@@ -1314,6 +1371,7 @@ def history_page(user: Dict) -> None:
         if reminder_settings
         else ["メール通知"]
     )
+    reminder_enabled = reminder_settings["is_enabled"] if reminder_settings else True
     next_trigger_dt = _parse_iso_datetime(
         reminder_settings["next_trigger_at"] if reminder_settings else None
     )
@@ -1353,6 +1411,11 @@ def history_page(user: Dict) -> None:
         )
 
         with st.form("reminder_form"):
+            enabled_toggle = st.toggle(
+                "モチベーション通知を受け取る",
+                value=reminder_enabled,
+                help="オフにすると通知送信を一時停止します。再びオンにすると、保存済みスケジュールで通知が再開されます。",
+            )
             cadence_choice = st.selectbox(
                 "通知頻度",
                 options=list(cadence_labels.keys()),
@@ -1376,12 +1439,15 @@ def history_page(user: Dict) -> None:
                 "通知チャネル",
                 options=channel_options,
                 default=[c for c in selected_channels if c in channel_options] or channel_options[:1],
+                disabled=not enabled_toggle,
             )
+            st.caption("※通知間隔は最短でも隔日になるよう自動調整されます。")
 
             submitted = st.form_submit_button("設定を保存")
 
             if submitted:
-                if not channels_selection:
+                channels_to_store = channels_selection or selected_channels
+                if enabled_toggle and not channels_to_store:
                     st.warning("通知チャネルを1つ以上選択してください。")
                 else:
                     if cadence_choice == "recommended":
@@ -1393,6 +1459,8 @@ def history_page(user: Dict) -> None:
                     else:
                         interval_days = int(custom_interval) if custom_interval else 1
 
+                    interval_days = max(MIN_REMINDER_INTERVAL_DAYS, interval_days)
+
                     next_trigger = _calculate_next_reminder(
                         stats["reference_datetime"], interval_days, reminder_time_input
                     )
@@ -1400,28 +1468,39 @@ def history_page(user: Dict) -> None:
                         user_id=user["id"],
                         cadence=cadence_choice,
                         interval_days=interval_days,
-                        preferred_channels=channels_selection,
+                        preferred_channels=channels_to_store,
                         reminder_time=reminder_time_input.strftime("%H:%M"),
                         next_trigger_at=next_trigger,
+                        is_enabled=enabled_toggle,
                     )
-                    st.success(
-                        f"リマインダーを保存しました。次回通知予定: {next_trigger.strftime('%Y-%m-%d %H:%M')}"
-                    )
+                    if enabled_toggle:
+                        st.success(
+                            "リマインダーを保存しました。通知が有効になっています。"
+                            f" 次回通知予定: {next_trigger.strftime('%Y-%m-%d %H:%M')}"
+                        )
+                    else:
+                        st.info("リマインダー設定を保存しました。現在は通知が停止されています。")
                     reminder_settings = database.get_reminder_settings(user["id"])
-                    active_interval = reminder_settings["interval_days"]
+                    active_interval = max(
+                        MIN_REMINDER_INTERVAL_DAYS, reminder_settings["interval_days"]
+                    )
                     reminder_time_value = _safe_time_from_string(reminder_settings["reminder_time"])
                     selected_channels = list(reminder_settings["preferred_channels"])
                     next_trigger_dt = _parse_iso_datetime(reminder_settings["next_trigger_at"])
                     last_notified_dt = _parse_iso_datetime(reminder_settings["last_notified_at"])
+                    reminder_enabled = reminder_settings["is_enabled"]
 
-    if reminder_settings and next_trigger_dt:
-        st.success(
-            f"次回の通知予定: {next_trigger_dt.strftime('%Y-%m-%d %H:%M')}"
-            f" / チャネル: {'、'.join(selected_channels)}"
-        )
+    if reminder_settings:
+        if reminder_enabled and next_trigger_dt:
+            st.success(
+                f"次回の通知予定: {next_trigger_dt.strftime('%Y-%m-%d %H:%M')}"
+                f" / チャネル: {'、'.join(selected_channels)}"
+            )
+        elif not reminder_enabled:
+            st.info("通知は現在オフになっています。設定から再度オンにできます。")
         if last_notified_dt:
             st.caption(f"前回記録された通知送信: {last_notified_dt.strftime('%Y-%m-%d %H:%M')}")
-        if st.button("テスト通知を送信（シミュレーション）"):
+        if reminder_enabled and next_trigger_dt and st.button("テスト通知を送信（シミュレーション）"):
             simulated_next = next_trigger_dt + timedelta(days=active_interval)
             database.mark_reminder_sent(
                 reminder_settings["id"], next_trigger_at=simulated_next
@@ -1430,11 +1509,14 @@ def history_page(user: Dict) -> None:
                 f"通知送信を記録しました（ダミー）。次回予定: {simulated_next.strftime('%Y-%m-%d %H:%M')}"
             )
             reminder_settings = database.get_reminder_settings(user["id"])
-            active_interval = reminder_settings["interval_days"]
+            active_interval = max(
+                MIN_REMINDER_INTERVAL_DAYS, reminder_settings["interval_days"]
+            )
             reminder_time_value = _safe_time_from_string(reminder_settings["reminder_time"])
             selected_channels = list(reminder_settings["preferred_channels"])
             next_trigger_dt = _parse_iso_datetime(reminder_settings["next_trigger_at"])
             last_notified_dt = _parse_iso_datetime(reminder_settings["last_notified_at"])
+            reminder_enabled = reminder_settings["is_enabled"]
     else:
         st.info("リマインダーを設定すると、メールやスマートフォン通知と連携した学習習慣づくりをサポートできます。")
 
@@ -1446,6 +1528,8 @@ def history_page(user: Dict) -> None:
         first_event=next_trigger_dt,
     )
     st.dataframe(schedule_preview, use_container_width=True)
+    motivational_message = _compose_motivational_message(stats)
+    st.markdown(f"**通知メッセージ例:** {motivational_message}")
     st.caption("今後の通知予定（サンプル）を確認し、リマインダー運用のイメージを掴めます。")
 
     st.caption(
