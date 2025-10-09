@@ -29,11 +29,56 @@ def _init_session_state() -> None:
 def main_view() -> None:
     user = st.session_state.user
 
+    navigation_items = {
+        "ホーム": dashboard_page,
+        "過去問演習": practice_page,
+        "模擬試験": mock_exam_page,
+        "学習履歴": history_page,
+        "設定": settings_page,
+    }
+
     st.sidebar.title("ナビゲーション")
+    st.sidebar.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] {
+            margin-bottom: 0.3rem;
+        }
+        section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:first-child {
+            display: none;
+        }
+        section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.6rem;
+            border: 1px solid transparent;
+            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+        section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child:hover {
+            border-color: rgba(49, 51, 63, 0.2);
+            background-color: rgba(49, 51, 63, 0.05);
+        }
+        section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > input:checked + div {
+            background-color: rgba(49, 51, 63, 0.06);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            box-shadow: 0 0 0 1px var(--primary-color) inset;
+            font-weight: 600;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    nav_labels = list(navigation_items.keys())
+    if st.session_state.page not in navigation_items:
+        st.session_state.page = nav_labels[0]
+
+    selected_index = nav_labels.index(st.session_state.page)
     st.session_state.page = st.sidebar.radio(
         "ページを選択",
-        ["ホーム", "過去問演習", "模擬試験", "学習履歴", "設定"],
-        index=["ホーム", "過去問演習", "模擬試験", "学習履歴", "設定"].index(st.session_state.page),
+        nav_labels,
+        index=selected_index,
     )
 
     st.sidebar.divider()
@@ -43,16 +88,7 @@ def main_view() -> None:
     )
 
     page = st.session_state.page
-    if page == "ホーム":
-        dashboard_page(user)
-    elif page == "過去問演習":
-        practice_page(user)
-    elif page == "模擬試験":
-        mock_exam_page(user)
-    elif page == "学習履歴":
-        history_page(user)
-    elif page == "設定":
-        settings_page(user)
+    navigation_items[page](user)
 
 
 def _inject_dashboard_styles() -> None:
