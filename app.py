@@ -608,38 +608,54 @@ def _draft_key(problem_id: int, question_id: int) -> str:
     return f"draft_{problem_id}_{question_id}"
 
 
-def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> str:
+def _question_input(
+    problem_id: int,
+    question: Dict,
+    disabled: bool = False,
+    *,
+    question_order: Optional[int] = None,
+) -> str:
     key = _draft_key(problem_id, question["id"])
     if key not in st.session_state.drafts:
         saved_default = st.session_state.saved_answers.get(key, "")
         st.session_state.drafts[key] = saved_default
     value = st.session_state.drafts.get(key, "")
-    help_text = f"文字数目安: {question['character_limit']}字" if question["character_limit"] else ""
+    guidance: List[str] = []
+    if question["character_limit"]:
+        guidance.append(f"文字数目安: {question['character_limit']}字")
+    guidance.append("入力内容は自動保存されます。必要に応じて保存オプションで固定できます。")
+    help_text = "\n".join(guidance)
+    placeholder = (
+        f"設問{question_order}の回答方針を整理してから文章化しましょう。"
+        if question_order is not None
+        else "回答の骨子から入力を開始してください。"
+    )
     text = st.text_area(
-        label=question["prompt"],
+        label="解答を入力",
         key=f"textarea_{key}",
         value=value,
         height=160,
         help=help_text,
+        placeholder=placeholder,
         disabled=disabled,
     )
     st.caption(f"現在の文字数: {len(text)}字")
-    st.caption("入力内容は自動的に保存され、ページ離脱後も保持されます。必要に応じて下書きを明示的に保存してください。")
     st.session_state.drafts[key] = text
-    status_placeholder = st.empty()
-    action_save, action_apply = st.columns([1, 1])
-    if action_save.button("回答を保存する", key=f"save_{key}"):
-        st.session_state.saved_answers[key] = text
-        st.session_state.drafts[key] = text
-        status_placeholder.success("回答を保存しました。")
-    if action_apply.button("保存内容を適用", key=f"apply_{key}"):
-        saved_text = st.session_state.saved_answers.get(key)
-        if saved_text is None:
-            status_placeholder.warning("保存済みの回答がありません。")
-        else:
-            st.session_state.drafts[key] = saved_text
-            st.session_state[f"textarea_{key}"] = saved_text
-            status_placeholder.info("保存した回答を入力欄に適用しました。")
+    with st.expander("保存オプション", expanded=False):
+        feedback_placeholder = st.empty()
+        action_save, action_apply = st.columns(2)
+        if action_save.button("回答を保存する", key=f"save_{key}"):
+            st.session_state.saved_answers[key] = text
+            st.session_state.drafts[key] = text
+            feedback_placeholder.success("回答を保存しました。")
+        if action_apply.button("保存内容を適用", key=f"apply_{key}"):
+            saved_text = st.session_state.saved_answers.get(key)
+            if saved_text is None:
+                feedback_placeholder.warning("保存済みの回答がありません。")
+            else:
+                st.session_state.drafts[key] = saved_text
+                st.session_state[f"textarea_{key}"] = saved_text
+                feedback_placeholder.info("保存した回答を入力欄に適用しました。")
     return text
 
 
@@ -769,10 +785,6 @@ def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。")
 
-    st.info(
-        "左側のセレクターで年度・事例を切り替え、下部の解答欄から回答を入力してください。"
-    )
-
     st.markdown(
         """
         <style>
@@ -797,7 +809,68 @@ def practice_page(user: Dict) -> None:
         .practice-quick-nav a button:hover {
             background-color: #0353e9;
         }
+        .practice-intro-card {
+            margin: 0.6rem 0 1.2rem;
+            padding: 1.1rem 1.2rem;
+            background: rgba(240, 244, 255, 0.85);
+            border: 1px solid rgba(37, 99, 235, 0.2);
+            border-radius: 1rem;
+        }
+        .practice-intro-card h3 {
+            margin-top: 0;
+            margin-bottom: 0.4rem;
+            font-size: 1.05rem;
+        }
+        .practice-intro-card ol {
+            margin: 0 0 0.6rem 1.1rem;
+            padding: 0;
+            color: #1f2937;
+        }
+        .practice-intro-note {
+            margin: 0;
+            font-size: 0.85rem;
+            color: #475569;
+        }
+        .question-card {
+            padding: 1.2rem 1.3rem 1rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+        }
+        .question-card + .question-card {
+            margin-top: 1.2rem;
+        }
+        .question-card h5 {
+            margin-top: 0;
+            margin-bottom: 0.4rem;
+            font-size: 1.05rem;
+        }
+        .question-meta {
+            font-size: 0.9rem;
+            color: #475569;
+            margin-bottom: 0.6rem;
+        }
+        .question-meta span {
+            display: inline-block;
+            margin-right: 0.8rem;
+        }
         </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
+        <div class="practice-intro-card">
+            <h3>演習の進め方</h3>
+            <ol>
+                <li>年度と事例を選択し、問題の概要を確認します。</li>
+                <li>各設問のねらいと配点を把握してから解答欄を開きます。</li>
+                <li>入力が整ったらAI採点を実行し、フィードバックを振り返ります。</li>
+            </ol>
+            <p class="practice-intro-note">ヒントや保存方法は各解答欄のツールチップと保存オプションから確認できます。</p>
+        </div>
         """,
         unsafe_allow_html=True,
     )
@@ -816,6 +889,9 @@ def practice_page(user: Dict) -> None:
         _practice_with_uploaded_data(past_data_df)
         return
 
+    st.markdown("#### 1. 出題データを選択")
+    st.caption("左側のセレクターで年度と事例を切り替え、練習したい問題を決めましょう。")
+
     years = database.list_problem_years()
     if not years:
         st.warning("問題データが登録されていません。seed_problems.jsonを確認してください。")
@@ -831,6 +907,8 @@ def practice_page(user: Dict) -> None:
 
     st.markdown('<div id="practice-top"></div>', unsafe_allow_html=True)
 
+    st.divider()
+    st.markdown("#### 2. 問題概要を確認")
     st.subheader(problem["title"])
     st.write(problem["overview"])
 
@@ -872,8 +950,45 @@ def practice_page(user: Dict) -> None:
     question_specs: List[QuestionSpec] = []
     st.markdown('<div id="practice-answers"></div>', unsafe_allow_html=True)
 
-    for question in problem["questions"]:
-        text = _question_input(problem["id"], question)
+    st.divider()
+    st.markdown("#### 3. 設問ごとに回答する")
+
+    for index, question in enumerate(problem["questions"], start=1):
+        question_container = st.container()
+        with question_container:
+            question_container.markdown(
+                f"<section class='question-card' id='question-{index}'>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(f"##### 設問{index}（{question['max_score']}点）")
+            meta_items = [f"配点: {question['max_score']}点"]
+            if question["character_limit"]:
+                meta_items.append(f"目安文字数: {question['character_limit']}字")
+            question_container.markdown(
+                "<div class='question-meta'>"
+                + "".join(f"<span>{item}</span>" for item in meta_items)
+                + "</div>",
+                unsafe_allow_html=True,
+            )
+            st.write(question["prompt"])
+            st.caption("設問の意図を掴んだら、下の解答欄に骨子から書き始めましょう。")
+            text = _question_input(
+                problem["id"],
+                question,
+                question_order=index,
+            )
+            with st.expander("採点ガイドライン", expanded=False):
+                if question["keywords"]:
+                    st.markdown(
+                        "**キーワード評価**:\n"
+                        + "、".join(question["keywords"]) + " を含めると加点対象です。"
+                    )
+                st.markdown("**模範解答の背景**")
+                st.write(question["model_answer"])
+                st.caption(
+                    "模範解答は構成や論理展開の参考例です。キーワードを押さえつつ自分の言葉で表現しましょう。"
+                )
+            question_container.markdown("</section>", unsafe_allow_html=True)
         question_specs.append(
             QuestionSpec(
                 id=question["id"],
@@ -883,16 +998,6 @@ def practice_page(user: Dict) -> None:
                 keywords=question["keywords"],
             )
         )
-        with st.expander("採点ガイドライン", expanded=False):
-            if question["keywords"]:
-                st.markdown(
-                    "**キーワード評価**:\n" + "、".join(question["keywords"]) + " を含めると加点対象です。"
-                )
-            st.markdown("**模範解答の背景**")
-            st.write(question["model_answer"])
-            st.caption(
-                "模範解答は構成や論理展開の参考例です。キーワードを押さえつつ自分の言葉で表現しましょう。"
-            )
 
     st.markdown('<div id="practice-actions"></div>', unsafe_allow_html=True)
 
