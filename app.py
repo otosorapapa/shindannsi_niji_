@@ -8,8 +8,6 @@ import logging
 
 import html
 
-import random
-
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -125,7 +123,6 @@ def _init_session_state() -> None:
     st.session_state.setdefault("practice_started", None)
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
-    st.session_state.setdefault("flashcard_states", {})
 
 
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
@@ -899,87 +896,36 @@ def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> 
     return text
 
 
-def _reset_flashcard_state(problem_id: int, size: int) -> Dict[str, Any]:
-    order = list(range(size))
-    random.shuffle(order)
-    state = {"order": order, "index": 0, "revealed": False, "size": size}
-    st.session_state.flashcard_states[str(problem_id)] = state
-    return state
+def _keyword_quiz_revealed_key(problem_id: int, question_id: int) -> str:
+    return f"keyword_quiz_revealed_{problem_id}_{question_id}"
 
 
-def _get_flashcard_state(problem_id: int, size: int) -> Dict[str, Any]:
-    key = str(problem_id)
-    state = st.session_state.flashcard_states.get(key)
-    if not state or state.get("size") != size:
-        state = _reset_flashcard_state(problem_id, size)
-    return state
-
-
-def _render_retrieval_flashcards(problem: Dict) -> None:
-    flashcards: List[Dict[str, Any]] = []
-    for index, question in enumerate(problem.get("questions", [])):
-        keywords = [kw for kw in question.get("keywords", []) if kw]
-        if not keywords:
-            continue
-        flashcards.append(
-            {
-                "title": f"設問{index + 1}: キーワード想起クイズ",
-                "prompt": question.get("prompt", ""),
-                "keywords": keywords,
-            }
-        )
-
-    if not flashcards:
-        st.info("この問題ではキーワードが登録されていないため、フラッシュカードを生成できません。")
+def _render_question_keyword_quiz(problem_id: int, question: Dict) -> None:
+    keywords = [kw for kw in question.get("keywords", []) if kw]
+    if not keywords:
+        st.info("この設問にはキーワードが登録されていません。")
         return
 
-    st.subheader("リトリーバル・プラクティス")
-    st.caption(
-        "回答作成の前に、設問の重要キーワードを記憶から呼び起こしましょう。"
-        " 思い出しの練習（retrieval practice）は再読よりも記憶定着を高めるとされています。"
+    state_key = _keyword_quiz_revealed_key(problem_id, question["id"])
+    if state_key not in st.session_state:
+        st.session_state[state_key] = False
+
+    st.write(
+        "思い出したキーワードを書き出してから、必要に応じて答え合わせをしましょう。"
     )
+    st.text_area(
+        "想起したキーワードをメモする", key=f"keyword_quiz_memo_{problem_id}_{question['id']}", height=100
+    )
+    col_show, col_hide = st.columns(2)
+    if col_show.button("キーワードを表示", key=f"keyword_quiz_show_{problem_id}_{question['id']}"):
+        st.session_state[state_key] = True
+    if col_hide.button("非表示にする", key=f"keyword_quiz_hide_{problem_id}_{question['id']}"):
+        st.session_state[state_key] = False
 
-    state = _get_flashcard_state(problem["id"], len(flashcards))
-
-    card_placeholder = st.container()
-    button_placeholder = st.container()
-
-    with button_placeholder:
-        col_reveal, col_next, col_shuffle = st.columns(3)
-        reveal_clicked = col_reveal.button("キーワードを表示", key=f"flashcard_reveal_{problem['id']}")
-        next_clicked = col_next.button("次のカードへ", key=f"flashcard_next_{problem['id']}")
-        shuffle_clicked = col_shuffle.button("カードを再シャッフル", key=f"flashcard_shuffle_{problem['id']}")
-
-    if shuffle_clicked:
-        state = _reset_flashcard_state(problem["id"], len(flashcards))
+    if st.session_state[state_key]:
+        st.success("\n".join(f"・{keyword}" for keyword in keywords))
     else:
-        if next_clicked:
-            state["index"] = (state["index"] + 1) % len(state["order"])
-            state["revealed"] = False
-        if reveal_clicked:
-            state["revealed"] = True
-
-    st.session_state.flashcard_states[str(problem["id"])] = state
-
-    order = state["order"]
-    current_position = state["index"]
-    card = flashcards[order[current_position]]
-
-    with card_placeholder:
-        st.markdown(f"**カード {current_position + 1} / {len(flashcards)}**")
-        st.write(card["title"])
-        card_html = f"""
-        <div style='padding:0.75rem 1rem;border:1px solid #CBD5E1;border-radius:0.75rem;background-color:#F8FAFC;'>
-            <p style='margin:0;color:#1E293B;font-weight:600;'>設問の概要</p>
-            <p style='margin:0.35rem 0 0;color:#334155;'>{card['prompt']}</p>
-            <p style='margin:0.75rem 0 0;color:#64748B;'>キーワードを声に出すか、メモに書き出してみてください。</p>
-        </div>
-        """
-        st.markdown(card_html, unsafe_allow_html=True)
-        if state["revealed"]:
-            st.success("\n".join(f"・{keyword}" for keyword in card["keywords"]))
-        else:
-            st.info("キーワードを思い出したら、上のボタンから答え合わせをしましょう。")
+        st.info("ヒントが必要になったら「キーワードを表示」を押してください。")
 
 
 
@@ -1366,7 +1312,7 @@ def practice_page(user: Dict) -> None:
     st.caption("年度と事例を選択して記述式演習を行います。")
 
     st.info(
-        "左側のセレクターで年度・事例を切り替え、下部の解答欄から回答を入力してください。"
+        "左側のセレクターで年度・事例を切り替え、設問タブから回答入力とキーワード想起クイズに取り組みましょう。"
     )
 
     due_reviews = database.list_due_reviews(user["id"], limit=3)
@@ -1478,62 +1424,73 @@ def practice_page(user: Dict) -> None:
     )
     st.caption("採点の観点を事前に確認してから回答に取り組みましょう。")
 
-    _render_retrieval_flashcards(problem)
-
     if not st.session_state.practice_started:
         st.session_state.practice_started = datetime.utcnow()
 
-    answers: List[RecordedAnswer] = []
     question_specs: List[QuestionSpec] = []
     st.markdown('<div id="practice-answers"></div>', unsafe_allow_html=True)
 
     _inject_guideline_styles()
 
-    for question in problem["questions"]:
-        text = _question_input(problem["id"], question)
-        question_specs.append(
-            QuestionSpec(
-                id=question["id"],
-                prompt=question["prompt"],
-                max_score=question["max_score"],
-                model_answer=question["model_answer"],
-                keywords=question["keywords"],
-            )
-        )
-        visibility_key = _guideline_visibility_key(problem["id"], question["id"])
-        if visibility_key not in st.session_state:
-            st.session_state[visibility_key] = True
-        show_guideline = st.checkbox(
-            "採点ガイドラインを表示",
-            key=visibility_key,
-            help="採点時に確認されるポイントを必要なときに開閉できます。",
-        )
-        if show_guideline:
-            keywords_html = ""
-            if question["keywords"]:
-                keywords_text = "、".join(question["keywords"])
-                keywords_html = (
-                    "<div class=\"guideline-section\">"
-                    "<p class=\"guideline-heading\">キーワード評価</p>"
-                    f"<p class=\"guideline-body\">{html.escape(keywords_text)} を含めると加点対象です。</p>"
-                    "</div>"
+    if not problem["questions"]:
+        st.warning("設問が登録されていません。seed_problems.jsonを確認してください。")
+        return
+
+    tabs = st.tabs([f"設問{index + 1}" for index in range(len(problem["questions"]))])
+
+    for tab, (index, question) in zip(tabs, enumerate(problem["questions"], start=1)):
+        with tab:
+            st.markdown(f"### 設問{index}")
+            limit_value = question.get("character_limit")
+            limit_label = f"{limit_value}字" if limit_value else "指定なし"
+            st.caption(f"配点: {question['max_score']}点 / 文字数目安: {limit_label}")
+            _question_input(problem["id"], question)
+            with st.expander("キーワード想起クイズ", expanded=False):
+                _render_question_keyword_quiz(problem["id"], question)
+
+            question_specs.append(
+                QuestionSpec(
+                    id=question["id"],
+                    prompt=question["prompt"],
+                    max_score=question["max_score"],
+                    model_answer=question["model_answer"],
+                    keywords=question["keywords"],
                 )
-            model_answer_html = html.escape(question["model_answer"]).replace("\n", "<br>")
-            st.markdown(
-                """
-                <div class="guideline-card">
-                    {keywords}
-                    <div class="guideline-section">
-                        <p class="guideline-heading">模範解答の背景</p>
-                        <p class="guideline-body">{model}</p>
+            )
+            visibility_key = _guideline_visibility_key(problem["id"], question["id"])
+            if visibility_key not in st.session_state:
+                st.session_state[visibility_key] = True
+            show_guideline = st.checkbox(
+                "採点ガイドラインを表示",
+                key=visibility_key,
+                help="採点時に確認されるポイントを必要なときに開閉できます。",
+            )
+            if show_guideline:
+                keywords_html = ""
+                if question["keywords"]:
+                    keywords_text = "、".join(question["keywords"])
+                    keywords_html = (
+                        "<div class=\"guideline-section\">"
+                        "<p class=\"guideline-heading\">キーワード評価</p>"
+                        f"<p class=\"guideline-body\">{html.escape(keywords_text)} を含めると加点対象です。</p>"
+                        "</div>"
+                    )
+                model_answer_html = html.escape(question["model_answer"]).replace("\n", "<br>")
+                st.markdown(
+                    """
+                    <div class="guideline-card">
+                        {keywords}
+                        <div class="guideline-section">
+                            <p class="guideline-heading">模範解答の背景</p>
+                            <p class="guideline-body">{model}</p>
+                        </div>
                     </div>
-                </div>
-                """.format(keywords=keywords_html, model=model_answer_html),
-                unsafe_allow_html=True,
-            )
-            st.caption(
-                "模範解答は構成や論理展開の参考例です。キーワードを押さえつつ自分の言葉で表現しましょう。"
-            )
+                    """.format(keywords=keywords_html, model=model_answer_html),
+                    unsafe_allow_html=True,
+                )
+                st.caption(
+                    "模範解答は構成や論理展開の参考例です。キーワードを押さえつつ自分の言葉で表現しましょう。"
+                )
 
     st.markdown('<div id="practice-actions"></div>', unsafe_allow_html=True)
 
