@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
 from textwrap import dedent
@@ -115,6 +115,126 @@ KEYWORD_RESOURCE_MAP = {
         {
             "label": "資本コストと投資判断入門",
             "url": "https://www.mof.go.jp/public_relations/finance/",
+        },
+    ],
+}
+
+
+CASE_DOMAIN_MAP = {
+    "事例I": "組織・人事",
+    "事例II": "マーケティング",
+    "事例III": "オペレーション",
+    "事例IV": "財務・会計",
+}
+
+
+DOMAIN_THEME_LIBRARY = {
+    "組織・人事": [
+        {
+            "theme": "人材育成と評価制度の連動",
+            "keywords": ["評価制度", "モチベーション", "技能伝承", "若手育成"],
+            "summary": "人材育成サイクルと評価制度を接続し、定着と動機づけを図るテーマです。評価基準の透明化や育成プログラムの体系化を整理しましょう。",
+            "past_questions": [
+                {
+                    "label": "令和3年 事例I 第2問",
+                    "url": "https://www.j-smeca.or.jp/contents/0105007000.html",
+                }
+            ],
+            "videos": [
+                {
+                    "label": "TAC中小企業診断士チャンネル: 事例I 人材戦略講義",
+                    "url": "https://www.youtube.com/@tacchusho",
+                }
+            ],
+        },
+        {
+            "theme": "組織文化とリーダーシップ強化",
+            "keywords": ["信頼関係", "製造技術", "高付加価値"],
+            "summary": "ベテランと若手の協働、技術伝承を軸にした組織活性化を扱います。強みの言語化と共有手段を検討しましょう。",
+            "past_questions": [
+                {
+                    "label": "令和2年 事例I 第1問",
+                    "url": "https://www.j-smeca.or.jp/contents/0105007000.html",
+                }
+            ],
+            "videos": [
+                {
+                    "label": "LEC診断士講座: 事例I 対策セミナー",
+                    "url": "https://www.youtube.com/@lecchusho",
+                }
+            ],
+        },
+    ],
+    "マーケティング": [
+        {
+            "theme": "セグメンテーションと提供価値の明確化",
+            "keywords": ["高齢", "地域住民", "見守り", "安心"],
+            "summary": "顧客像の深堀りと価値提案の言語化を整理し、ターゲティング・ポジショニングの観点を補強するテーマです。",
+            "past_questions": [
+                {
+                    "label": "令和3年 事例II 第1問",
+                    "url": "https://www.j-smeca.or.jp/contents/0105007000.html",
+                }
+            ],
+            "videos": [
+                {
+                    "label": "TBC中小企業診断士講座: 事例II マーケティング戦略",
+                    "url": "https://www.youtube.com/@tbcchusho",
+                }
+            ],
+        },
+        {
+            "theme": "販促チャネルと関係構築の強化",
+            "keywords": ["連携", "口コミ", "紹介", "継続利用"],
+            "summary": "パートナー連携や口コミ醸成など、施策の組み合わせとKPI設計を磨くテーマです。",
+            "past_questions": [
+                {
+                    "label": "令和2年 事例II 第2問",
+                    "url": "https://www.j-smeca.or.jp/contents/0105007000.html",
+                }
+            ],
+            "videos": [
+                {
+                    "label": "診断士ゼミナール: 事例II 解説ライブ",
+                    "url": "https://www.youtube.com/@shindanshizemi",
+                }
+            ],
+        },
+    ],
+    "財務・会計": [
+        {
+            "theme": "財務指標と投資判断の体系理解",
+            "keywords": ["ROA", "固定資産回転率", "資本コスト", "現在価値"],
+            "summary": "資本効率の評価指標と投資意思決定の流れを整理し、計算と解釈を往復するテーマです。",
+            "past_questions": [
+                {
+                    "label": "令和3年 事例IV 第1問",
+                    "url": "https://www.j-smeca.or.jp/contents/0105007000.html",
+                }
+            ],
+            "videos": [
+                {
+                    "label": "KEC中小企業診断士講座: 事例IV 財務攻略講義",
+                    "url": "https://www.youtube.com/@kecchusho",
+                }
+            ],
+        },
+        {
+            "theme": "キャッシュフローと資金繰り改善",
+            "keywords": ["キャッシュフロー", "投資判断"],
+            "summary": "資金収支の把握から意思決定までをストーリーで説明する力を伸ばします。",
+            "past_questions": [
+                {
+                    "label": "令和2年 事例IV 第2問",
+                    "url": "https://www.j-smeca.or.jp/contents/0105007000.html",
+                }
+            ],
+            "videos": [
+                {
+                    "label": "AAS中小企業診断士受験生支援: 財務・会計セミナー",
+                    "url": "https://www.youtube.com/@aaschusho",
+                }
+            ],
         },
     ],
 }
@@ -1816,6 +1936,189 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
     }
 
 
+def _domain_label(case_label: Optional[str]) -> str:
+    if not case_label:
+        return "横断"
+    return CASE_DOMAIN_MAP.get(case_label, case_label)
+
+
+def _select_theme_for_domain(domain: str, stat: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    library = DOMAIN_THEME_LIBRARY.get(domain, [])
+    if not library:
+        return None
+
+    missing_counter: Counter = stat.get("missing_keywords", Counter())
+    if not missing_counter:
+        return library[0]
+
+    scored_entries = []
+    for entry in library:
+        keywords = entry.get("keywords", [])
+        score = sum(missing_counter.get(keyword, 0) for keyword in keywords)
+        scored_entries.append((score, entry))
+
+    scored_entries.sort(key=lambda item: item[0], reverse=True)
+    best_score, best_entry = scored_entries[0]
+    if best_score == 0:
+        return library[0]
+    return best_entry
+
+
+def _generate_weakness_report(records: List[Dict]) -> Dict[str, Any]:
+    if not records:
+        return {
+            "domain_summary": pd.DataFrame(),
+            "low_questions": [],
+            "missing_keywords": pd.DataFrame(),
+            "recommendations": [],
+        }
+
+    domain_stats: Dict[str, Dict[str, Any]] = {}
+
+    for record in records:
+        domain = _domain_label(record.get("case_label"))
+        stat = domain_stats.setdefault(
+            domain,
+            {
+                "scores": [],
+                "low_questions": [],
+                "missing_keywords": Counter(),
+                "total": 0,
+            },
+        )
+
+        keyword_hits: Dict[str, bool] = record.get("keyword_hits") or {}
+        missing_keywords = [kw for kw, hit in keyword_hits.items() if not hit]
+        score_ratio = None
+        max_score = record.get("max_score") or 0
+        if max_score:
+            try:
+                score_ratio = (record.get("score") or 0) / max_score
+            except ZeroDivisionError:
+                score_ratio = None
+
+        stat["total"] += 1
+        for keyword in missing_keywords:
+            stat["missing_keywords"][keyword] += 1
+
+        if score_ratio is not None:
+            stat["scores"].append(score_ratio)
+            if score_ratio < 0.6:
+                stat["low_questions"].append(
+                    {
+                        "領域": domain,
+                        "年度": record.get("year"),
+                        "事例": record.get("case_label"),
+                        "タイトル": record.get("title"),
+                        "設問": record.get("prompt"),
+                        "得点率(%)": round(score_ratio * 100, 1),
+                        "不足キーワード": missing_keywords,
+                    }
+                )
+
+    domain_summary_rows: List[Dict[str, Any]] = []
+    missing_keyword_rows: List[Dict[str, Any]] = []
+
+    for domain, stat in domain_stats.items():
+        attempts = stat["total"]
+        scores = stat["scores"]
+        avg_score = sum(scores) / len(scores) if scores else None
+        low_count = len(stat["low_questions"])
+        top_keywords = stat["missing_keywords"].most_common(3)
+        top_keyword_display = (
+            "、".join(f"{kw} ({count})" for kw, count in top_keywords)
+            if top_keywords
+            else "-"
+        )
+
+        domain_summary_rows.append(
+            {
+                "領域": domain,
+                "平均得点率(%)": round(avg_score * 100, 1) if avg_score is not None else None,
+                "演習数": attempts,
+                "低得点(60%未満)": low_count,
+                "主要課題キーワード": top_keyword_display,
+            }
+        )
+
+        for keyword, count in stat["missing_keywords"].most_common(10):
+            missing_keyword_rows.append(
+                {
+                    "領域": domain,
+                    "キーワード": keyword,
+                    "不足回数": count,
+                    "演習数": attempts,
+                }
+            )
+
+    domain_summary_df = pd.DataFrame(domain_summary_rows)
+    if not domain_summary_df.empty:
+        domain_summary_df.sort_values(
+            by=["平均得点率(%)"], ascending=[True], inplace=True, na_position="last"
+        )
+
+    missing_keyword_df = pd.DataFrame(missing_keyword_rows)
+    if not missing_keyword_df.empty:
+        missing_keyword_df["不足割合(%)"] = (
+            missing_keyword_df["不足回数"] / missing_keyword_df["演習数"] * 100
+        )
+        missing_keyword_df.sort_values(
+            by=["不足回数", "不足割合(%)"], ascending=[False, False], inplace=True
+        )
+
+    low_question_entries: List[Dict[str, Any]] = []
+    for stat in domain_stats.values():
+        low_question_entries.extend(stat["low_questions"])
+    low_question_entries.sort(key=lambda item: item["得点率(%)"])
+    low_question_entries = low_question_entries[:5]
+    for item in low_question_entries:
+        item["不足キーワード表示"] = "、".join(item["不足キーワード"]) if item["不足キーワード"] else "-"
+
+    recommendations: List[Dict[str, Any]] = []
+    for row in domain_summary_rows:
+        avg = row["平均得点率(%)"]
+        domain = row["領域"]
+        stat = domain_stats[domain]
+        if avg is None:
+            continue
+        if avg >= 80 and not stat["missing_keywords"]:
+            continue
+
+        theme_entry = _select_theme_for_domain(domain, stat)
+        if not theme_entry:
+            continue
+
+        missing_summary = (
+            "、".join(
+                f"{kw}×{count}" for kw, count in stat["missing_keywords"].most_common(3)
+            )
+            or "キーワード達成率の更なる向上"
+        )
+
+        recommendations.append(
+            {
+                "domain": domain,
+                "average": avg,
+                "theme": theme_entry["theme"],
+                "summary": theme_entry.get("summary"),
+                "keywords": theme_entry.get("keywords", []),
+                "past_questions": theme_entry.get("past_questions", []),
+                "videos": theme_entry.get("videos", []),
+                "reason": missing_summary,
+            }
+        )
+
+    recommendations.sort(key=lambda item: item["average"])
+    recommendations = recommendations[:3]
+
+    return {
+        "domain_summary": domain_summary_df,
+        "low_questions": low_question_entries,
+        "missing_keywords": missing_keyword_df,
+        "recommendations": recommendations,
+    }
+
+
 def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。")
@@ -2603,9 +2906,10 @@ def history_page(user: Dict) -> None:
         ]
 
     keyword_analysis = _analyze_keyword_records(filtered_keyword_records)
+    weakness_report = _generate_weakness_report(filtered_keyword_records)
 
-    overview_tab, chart_tab, keyword_tab, detail_tab = st.tabs(
-        ["一覧", "グラフ", "キーワード分析", "詳細・エクスポート"]
+    overview_tab, chart_tab, weakness_tab, keyword_tab, detail_tab = st.tabs(
+        ["一覧", "グラフ", "弱点分析レポート", "キーワード分析", "詳細・エクスポート"]
     )
 
     with overview_tab:
@@ -2641,6 +2945,93 @@ def history_page(user: Dict) -> None:
             st.subheader("事例別平均点")
             bar_chart = alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="得点:Q")
             st.altair_chart(bar_chart, use_container_width=True)
+
+    with weakness_tab:
+        domain_summary = weakness_report["domain_summary"]
+        if domain_summary.empty:
+            st.info("AI採点の記録がまだ少なく、弱点分析レポートを作成できません。演習を重ねましょう。")
+        else:
+            st.markdown("#### 領域別の弱点傾向")
+            display_summary = domain_summary.copy()
+            st.data_editor(display_summary, hide_index=True, use_container_width=True, disabled=True)
+
+            chart_source = domain_summary.dropna(subset=["平均得点率(%)"]).copy()
+            if not chart_source.empty:
+                chart_source["平均得点率"] = chart_source["平均得点率(%)"]
+                domain_chart = (
+                    alt.Chart(chart_source)
+                    .mark_bar(color="#2563eb")
+                    .encode(
+                        x=alt.X(
+                            "平均得点率:Q",
+                            title="平均得点率 (%)",
+                            scale=alt.Scale(domain=[0, 100]),
+                        ),
+                        y=alt.Y("領域:N", sort="-x"),
+                        tooltip=[
+                            "領域",
+                            alt.Tooltip("平均得点率(%)", title="平均得点率", format=".1f"),
+                            "演習数",
+                            "低得点(60%未満)",
+                            "主要課題キーワード",
+                        ],
+                    )
+                    .properties(height=max(160, 60 * len(chart_source)))
+                )
+                st.altair_chart(domain_chart, use_container_width=True)
+                st.caption("棒が短い領域ほど得点率が低い傾向です。優先して復習しましょう。")
+
+            low_questions = weakness_report["low_questions"]
+            if low_questions:
+                st.markdown("#### 得点が伸び悩んだ設問 (60%未満)")
+                low_df = pd.DataFrame(low_questions)
+                low_display = low_df.drop(columns=["不足キーワード"], errors="ignore").copy()
+                low_display.rename(columns={"不足キーワード表示": "不足キーワード"}, inplace=True)
+                st.data_editor(low_display, hide_index=True, use_container_width=True, disabled=True)
+                st.caption("得点率が60%未満だった設問を抽出しました。不足キーワードを意識して復習しましょう。")
+
+            missing_keyword_df = weakness_report["missing_keywords"]
+            if not missing_keyword_df.empty:
+                st.markdown("#### 領域別の不足キーワード")
+                keyword_display = missing_keyword_df.copy()
+                keyword_display["不足割合(%)"] = keyword_display["不足割合(%)"].map(
+                    lambda v: f"{v:.0f}%" if pd.notna(v) else "-"
+                )
+                st.data_editor(
+                    keyword_display.drop(columns=["演習数"]),
+                    hide_index=True,
+                    use_container_width=True,
+                    disabled=True,
+                )
+                st.caption("不足回数が多いキーワードほど優先して答案に盛り込みましょう。")
+
+            recommendations = weakness_report["recommendations"]
+            if recommendations:
+                st.markdown("#### 次回の学習テーマ")
+                for recommendation in recommendations:
+                    st.markdown(
+                        f"**{recommendation['domain']}：{recommendation['theme']}** — 平均得点率 {recommendation['average']:.1f}%"
+                    )
+                    if recommendation.get("summary"):
+                        st.write(recommendation["summary"])
+                    st.caption(f"主な不足キーワード: {recommendation['reason']}")
+                    if recommendation.get("keywords"):
+                        st.write(
+                            "フォーカスキーワード: "
+                            + "、".join(recommendation["keywords"])
+                        )
+                    if recommendation.get("past_questions"):
+                        links = " ／ ".join(
+                            f"[{item['label']}]({item['url']})" for item in recommendation["past_questions"]
+                        )
+                        st.markdown(f"過去問: {links}")
+                    if recommendation.get("videos"):
+                        video_links = " ／ ".join(
+                            f"[{item['label']}]({item['url']})" for item in recommendation["videos"]
+                        )
+                        st.markdown(f"解説動画: {video_links}")
+            else:
+                st.caption("十分な記録が集まると、優先すべき学習テーマを提案します。")
 
     with keyword_tab:
         answers_df = keyword_analysis["answers"]
