@@ -610,6 +610,44 @@ def list_attempts(user_id: int) -> List[sqlite3.Row]:
     return rows
 
 
+def fetch_peer_attempts(*, exclude_user_id: Optional[int] = None) -> List[sqlite3.Row]:
+    """Return attempt rows for all users except the specified one.
+
+    The data is used to build anonymised peer benchmarks and leaderboards.
+    Users without completed attempts are still returned so that we can
+    gracefully handle scenarios where no comparison targets exist.
+    """
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    query = [
+        "SELECT",
+        "    u.id AS user_id,",
+        "    u.name AS user_name,",
+        "    a.id AS attempt_id,",
+        "    a.mode,",
+        "    a.submitted_at,",
+        "    a.total_score,",
+        "    a.total_max_score",
+        "FROM users u",
+        "LEFT JOIN attempts a ON a.user_id = u.id AND a.submitted_at IS NOT NULL",
+        "WHERE u.email != 'guest@example.com'",
+    ]
+
+    params: List[object] = []
+    if exclude_user_id is not None:
+        query.append("AND u.id != ?")
+        params.append(exclude_user_id)
+
+    query.append("ORDER BY u.id, a.submitted_at")
+
+    cur.execute("\n".join(query), params)
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
 def fetch_learning_history(user_id: int) -> List[Dict]:
     """Return simplified attempt records for analytics on the history page."""
 

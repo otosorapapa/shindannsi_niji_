@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from textwrap import dedent
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 import logging
 
 import html
@@ -425,6 +425,82 @@ def _format_duration_minutes(total_minutes: int) -> str:
     return f"{minutes}分"
 
 
+def _peer_alias(index: int) -> str:
+    base = "学習者"
+    return f"{base}{index}"
+
+
+def _prepare_peer_profiles(records: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    grouped: Dict[int, Dict[str, Any]] = {}
+    for row in records:
+        user_id = row["user_id"]
+        user_group = grouped.setdefault(
+            user_id,
+            {
+                "name": row["user_name"],
+                "attempts": [],
+            },
+        )
+        if row["attempt_id"] is None:
+            continue
+        user_group["attempts"].append(
+            {
+                "total_score": row["total_score"],
+                "total_max_score": row["total_max_score"],
+                "mode": row["mode"],
+                "submitted_at": row["submitted_at"],
+            }
+        )
+
+    profiles: List[Dict[str, Any]] = []
+    for index, (user_id, payload) in enumerate(grouped.items(), start=1):
+        attempts = payload["attempts"]
+        if not attempts:
+            continue
+        total_attempts = len(attempts)
+        total_score = sum((attempt.get("total_score") or 0) for attempt in attempts)
+        total_max = sum((attempt.get("total_max_score") or 0) for attempt in attempts)
+        average_score = round(total_score / total_attempts, 1) if total_attempts else 0.0
+        gamification = _calculate_gamification(attempts)
+        profiles.append(
+            {
+                "user_id": user_id,
+                "alias": _peer_alias(index),
+                "attempt_count": total_attempts,
+                "average_score": average_score,
+                "streak": gamification["current_streak"],
+                "badges_count": len(gamification["badges"]),
+            }
+        )
+
+    return profiles
+
+
+def _build_ranking_table(
+    entries: List[Dict[str, Any]],
+    *,
+    sort_keys: List[str],
+    top_n: int = 5,
+) -> pd.DataFrame:
+    sorted_all: List[Dict[str, Any]] = sorted(
+        entries,
+        key=lambda item: tuple(item[key] for key in sort_keys),
+        reverse=True,
+    )
+
+    ranked: List[Dict[str, Any]] = []
+    for position, item in enumerate(sorted_all, start=1):
+        ranked.append({**item, "順位": position})
+
+    display: List[Dict[str, Any]] = ranked[:top_n]
+    user_entry = next((row for row in ranked if row.get("ユーザー") == "👤 あなた"), None)
+    if user_entry and all(row.get("ユーザー") != "👤 あなた" for row in display):
+        display.append(user_entry)
+
+    display = sorted(display, key=lambda item: item["順位"])
+    return pd.DataFrame(display)
+
+
 def dashboard_page(user: Dict) -> None:
     _inject_dashboard_styles()
 
@@ -735,6 +811,73 @@ def dashboard_page(user: Dict) -> None:
         ).strip(),
         unsafe_allow_html=True,
     )
+
+    st.markdown("### 協働学習とランキング")
+    st.caption("匿名化された学習仲間のデータと比較し、客観的な位置付けを確認できます。")
+
+    peer_records = database.fetch_peer_attempts(exclude_user_id=user["id"])
+    peer_profiles = _prepare_peer_profiles(peer_records)
+
+    if peer_profiles:
+        peer_attempt_avg = sum(profile["attempt_count"] for profile in peer_profiles) / len(peer_profiles)
+        peer_score_avg = sum(profile["average_score"] for profile in peer_profiles) / len(peer_profiles)
+
+        comparison_cols = st.columns(2)
+        comparison_cols[0].metric(
+            "他ユーザー平均演習回数",
+            f"{peer_attempt_avg:.1f}回",
+            delta=f"{total_attempts - peer_attempt_avg:+.1f}回",
+        )
+        comparison_cols[1].metric(
+            "他ユーザー平均得点",
+            f"{peer_score_avg:.1f}点",
+            delta=f"{average_score - peer_score_avg:+.1f}点",
+        )
+
+        st.caption("自分の演習状況を学習仲間と共有し、励まし合いながら学習を継続しましょう。")
+
+        leaderboard_entries: List[Dict[str, Any]] = [
+            {
+                "ユーザー": "👤 あなた",
+                "連続学習日数": gamification["current_streak"],
+                "演習回数": total_attempts,
+                "バッジ数": len(gamification["badges"]),
+            }
+        ]
+        for profile in peer_profiles:
+            leaderboard_entries.append(
+                {
+                    "ユーザー": profile["alias"],
+                    "連続学習日数": profile["streak"],
+                    "演習回数": profile["attempt_count"],
+                    "バッジ数": profile["badges_count"],
+                }
+            )
+
+        streak_df = _build_ranking_table(
+            leaderboard_entries,
+            sort_keys=["連続学習日数", "演習回数", "バッジ数"],
+        )
+        badge_df = _build_ranking_table(
+            leaderboard_entries,
+            sort_keys=["バッジ数", "連続学習日数", "演習回数"],
+        )
+
+        streak_col, badge_col = st.columns(2)
+        with streak_col:
+            st.subheader("連続学習ランキング")
+            st.dataframe(
+                streak_df[["順位", "ユーザー", "連続学習日数", "演習回数"]],
+                width="stretch",
+            )
+        with badge_col:
+            st.subheader("バッジ獲得ランキング")
+            st.dataframe(
+                badge_df[["順位", "ユーザー", "バッジ数", "演習回数"]],
+                width="stretch",
+            )
+    else:
+        st.info("比較対象となる他ユーザーのデータがまだありません。学習仲間を招待してランキングを賑やかにしましょう。")
 
 
 def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
