@@ -59,6 +59,7 @@ def dashboard_page(user: Dict) -> None:
     st.caption("学習状況のサマリと機能へのショートカット")
 
     attempts = database.list_attempts(user_id=user["id"])
+    gamification = _calculate_gamification(attempts)
     total_attempts = len(attempts)
     total_score = sum(row["total_score"] or 0 for row in attempts)
     total_max = sum(row["total_max_score"] or 0 for row in attempts)
@@ -69,6 +70,25 @@ def dashboard_page(user: Dict) -> None:
     col2.metric("平均得点", f"{average_score}点")
     completion_rate = (total_score / total_max * 100) if total_max else 0
     col3.metric("得点達成率", f"{completion_rate:.0f}%")
+
+    streak_col, badge_col = st.columns([1, 2])
+    with streak_col:
+        st.metric("連続学習日数", f"{gamification['current_streak']}日")
+        if gamification["next_milestone"]:
+            progress = gamification["attempts"] / gamification["next_milestone"]
+            st.progress(min(progress, 1.0))
+            st.caption(
+                f"次の称号まであと {max(gamification['next_milestone'] - gamification['attempts'], 0)} 回の演習"
+            )
+        else:
+            st.caption("最高ランクに到達しました！継続おめでとうございます。")
+    with badge_col:
+        st.subheader("獲得バッジ")
+        if gamification["badges"]:
+            for badge in gamification["badges"]:
+                st.markdown(f"- 🏅 **{badge['title']}** — {badge['description']}")
+        else:
+            st.caption("バッジはまだありません。演習や模試で獲得を目指しましょう。")
 
     stats = database.aggregate_statistics(user["id"])
     overview_tab, chart_tab = st.tabs(["進捗サマリ", "事例別分析"])
@@ -131,6 +151,78 @@ def dashboard_page(user: Dict) -> None:
     - **学習履歴**: これまでの得点推移やエクスポートを確認
     """
     )
+
+
+def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
+    if not attempts:
+        return {
+            "attempts": 0,
+            "current_streak": 0,
+            "badges": [],
+            "next_milestone": 3,
+        }
+
+    parsed_attempts = []
+    for row in attempts:
+        submitted_at = row.get("submitted_at")
+        if isinstance(submitted_at, datetime):
+            parsed_attempts.append(submitted_at)
+        elif submitted_at:
+            try:
+                parsed_attempts.append(datetime.fromisoformat(submitted_at))
+            except ValueError:
+                continue
+
+    unique_dates = sorted({dt.date() for dt in parsed_attempts}, reverse=True)
+    streak = 0
+    previous_date = None
+    for current in unique_dates:
+        if previous_date is None:
+            streak = 1
+        else:
+            gap = (previous_date - current).days
+            if gap == 1:
+                streak += 1
+            elif gap > 1:
+                break
+        previous_date = current
+
+    best_ratio = 0.0
+    mock_clears = 0
+    badges: List[Dict[str, str]] = []
+    total_attempts = len(attempts)
+    for row in attempts:
+        total = row.get("total_score") or 0
+        maximum = row.get("total_max_score") or 0
+        ratio = (total / maximum) if maximum else 0
+        best_ratio = max(best_ratio, ratio)
+        if row.get("mode") == "mock" and ratio >= 0.7:
+            mock_clears += 1
+
+    if total_attempts >= 1:
+        badges.append({"title": "スタートダッシュ", "description": "初めての演習を完了しました"})
+    if streak >= 3:
+        badges.append({"title": "連続学習3日達成", "description": "継続学習のリズムが身についています"})
+    if streak >= 7:
+        badges.append({"title": "週間皆勤", "description": "7日連続で学習を継続しました"})
+    if mock_clears:
+        badges.append({"title": "模擬試験クリア", "description": "模擬試験で70%の得点を獲得しました"})
+    if best_ratio >= 0.85:
+        badges.append({"title": "ハイスコア達人", "description": "高得点を獲得し自信が高まりました"})
+
+    milestones = [3, 7, 15, 30]
+    next_milestone = None
+    for milestone in milestones:
+        if total_attempts < milestone:
+            next_milestone = milestone
+            break
+
+    return {
+        "attempts": total_attempts,
+        "current_streak": streak,
+        "badges": badges,
+        "next_milestone": next_milestone,
+    }
 
 
 def _draft_key(problem_id: int, question_id: int) -> str:
@@ -365,6 +457,11 @@ def render_attempt_results(attempt_id: int) -> None:
     total_score = attempt["total_score"] or 0
     total_max = attempt["total_max_score"] or 0
     st.metric("総合得点", f"{total_score:.1f} / {total_max:.1f}")
+    if attempt["mode"] == "mock" and total_max:
+        ratio = total_score / total_max
+        if ratio >= 0.7:
+            st.success("模擬試験クリア！称号『模試コンプリート』を獲得しました。")
+            st.balloons()
 
     summary_rows = []
     for idx, answer in enumerate(answers, start=1):
