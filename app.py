@@ -1253,8 +1253,6 @@ def _init_session_state() -> None:
     st.session_state.setdefault("uploaded_case_contexts", {})
     st.session_state.setdefault("uploaded_question_texts", {})
     st.session_state.setdefault("pending_past_data_upload", None)
-    st.session_state.setdefault("pending_case_context_upload", None)
-    st.session_state.setdefault("pending_question_text_upload", None)
     st.session_state.setdefault("uploaded_case_metadata", {})
     st.session_state.setdefault("uploaded_question_metadata", {})
     st.session_state.setdefault("pending_model_answer_slot_upload", None)
@@ -4694,10 +4692,26 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
                     prompt_override = metadata.get("prompt")
                     if prompt_override:
                         q["prompt"] = prompt_override
-                    if metadata.get("question_text"):
-                        q["設問文"] = metadata.get("question_text")
+                    metadata_question_text = _normalize_text_block(
+                        metadata.get("question_text")
+                    )
+                    if metadata_question_text:
+                        q["設問文"] = metadata_question_text
                     if metadata.get("character_limit") is not None:
                         q["character_limit"] = metadata.get("character_limit")
+                    metadata_aim = _normalize_text_block(metadata.get("question_aim"))
+                    if metadata_aim:
+                        q["uploaded_question_aim"] = metadata_aim
+                    metadata_output = _normalize_text_block(
+                        metadata.get("output_format")
+                    )
+                    if metadata_output:
+                        q["uploaded_output_format"] = metadata_output
+                    metadata_solution = _normalize_text_block(
+                        metadata.get("solution_prompt")
+                    )
+                    if metadata_solution:
+                        q["uploaded_solution_prompt"] = metadata_solution
                     if metadata.get("max_score") is not None:
                         q["max_score"] = metadata.get("max_score")
                     if metadata.get("model_answer"):
@@ -5761,6 +5775,36 @@ def _build_uploaded_exam_metadata(
             continue
 
         slot_key = _compose_slot_key(year_label, case_label, int(number))
+        aim_text = _normalize_text_block(
+            _select_first(
+                row,
+                (
+                    "設問の狙い",
+                    "question_aim",
+                    "aim",
+                ),
+            )
+        )
+        output_format_text = _normalize_text_block(
+            _select_first(
+                row,
+                (
+                    "必要アウトプット形式",
+                    "output_format",
+                    "required_output",
+                ),
+            )
+        )
+        solution_prompt_text = _normalize_text_block(
+            _select_first(
+                row,
+                (
+                    "定番解法プロンプト",
+                    "solution_prompt",
+                    "解法プロンプト",
+                ),
+            )
+        )
         keywords = _normalize_text_block(row.get("キーワード"))
         if keywords:
             keyword_list = [
@@ -5783,6 +5827,9 @@ def _build_uploaded_exam_metadata(
             "video_url": _normalize_text_block(row.get("動画URL")),
             "diagram_path": _normalize_text_block(row.get("図解パス")),
             "diagram_caption": _normalize_text_block(row.get("図解キャプション")),
+            "question_aim": aim_text,
+            "output_format": output_format_text,
+            "solution_prompt": solution_prompt_text,
         }
 
     return case_metadata, question_metadata
@@ -5806,102 +5853,29 @@ def _handle_past_data_upload(file_bytes: bytes, filename: str) -> bool:
     case_metadata, question_metadata = _build_uploaded_exam_metadata(df)
     st.session_state.uploaded_case_metadata = case_metadata
     st.session_state.uploaded_question_metadata = question_metadata
-    if df.empty:
-        st.warning("設問が抽出できませんでした。原紙テンプレートと照合できるPDF/CSVを指定してください。")
-        return False
-    message = f"過去問データを読み込みました（{len(df)}件）。『過去問演習』ページで利用できます。"
-    if tables:
-        message += f" 数表 {len(tables)}件をPandas DataFrameとして抽出しました。"
-    st.success(message)
-    return True
-
-
-def _handle_case_context_upload(file_bytes: bytes, filename: str) -> bool:
-    try:
-        df = _load_tabular_frame(file_bytes, filename)
-    except Exception as exc:  # pragma: no cover - Streamlit runtime feedback
-        st.error(f"与件文データの読み込みに失敗しました: {exc}")
-        return False
-
-    required_cols = {"年度", "事例"}
-    missing = required_cols.difference(set(df.columns))
-    if missing:
-        st.error(f"必要な列が不足しています: {', '.join(sorted(missing))}")
-        return False
-
-    context_col = None
-    for candidate in ("与件文", "与件", "context", "context_text"):
-        if candidate in df.columns:
-            context_col = candidate
-            break
-    if context_col is None:
-        st.error("『与件文』列が見つかりません。テンプレートを参考に列名を確認してください。")
-        return False
 
     contexts = dict(st.session_state.get("uploaded_case_contexts", {}))
-    added = 0
-    updated = 0
-
-    for _, row in df.iterrows():
-        year_value = _normalize_text_block(row.get("年度"))
-        case_raw = _normalize_text_block(row.get("事例"))
-        context_text = _normalize_text_block(row.get(context_col))
-        if not year_value or not case_raw or not context_text:
+    for case_key, meta in case_metadata.items():
+        if not isinstance(case_key, str):
             continue
-        year_label = _format_reiwa_label(str(year_value))
-        case_label = _normalize_case_label(case_raw)
-        if not case_label:
-            continue
-        key = _compose_case_key(year_label, case_label)
-        if key in contexts:
-            updated += 1
-        else:
-            added += 1
-        contexts[key] = context_text
-
-    if not (added or updated):
-        st.warning("有効な与件文レコードが見つかりませんでした。入力内容を確認してください。")
-        return False
-
+        context_text = _normalize_text_block((meta or {}).get("context")) if meta else None
+        if context_text:
+            contexts[case_key] = context_text
     st.session_state.uploaded_case_contexts = contexts
-    st.success(f"与件文データを登録しました。（新規 {added}件 / 上書き {updated}件）")
-    return True
 
-
-def _handle_question_text_upload(file_bytes: bytes, filename: str) -> bool:
-    try:
-        df = _load_tabular_frame(file_bytes, filename)
-    except Exception as exc:  # pragma: no cover - Streamlit runtime feedback
-        st.error(f"設問文データの読み込みに失敗しました: {exc}")
-        return False
-
-    required_cols = {"年度", "事例", "設問番号"}
-    missing = required_cols.difference(set(df.columns))
-    if missing:
-        st.error(f"必要な列が不足しています: {', '.join(sorted(missing))}")
-        return False
-
-    text_col = None
-    for candidate in ("設問文", "問題文", "question_text"):
-        if candidate in df.columns:
-            text_col = candidate
-            break
-    if text_col is None:
-        st.error("『設問文』列が見つかりません。テンプレートの列名をご確認ください。")
-        return False
-
-    question_texts = dict(st.session_state.get("uploaded_question_texts", {}))
+    existing_question_texts = dict(st.session_state.get("uploaded_question_texts", {}))
     normalized_question_texts: Dict[str, Dict[str, Any]] = {}
-    for key, value in question_texts.items():
+    for key, value in existing_question_texts.items():
         if isinstance(value, dict):
             normalized_question_texts[key] = dict(value)
         else:
             normalized_question_texts[key] = {"question_text": value}
 
     question_texts = normalized_question_texts
-    added = 0
-    updated = 0
-
+    text_col = next(
+        (col for col in ("設問文", "問題文", "question_text") if col in df.columns),
+        None,
+    )
     aim_col = next(
         (col for col in ("設問の狙い", "question_aim", "aim") if col in df.columns),
         None,
@@ -5923,48 +5897,63 @@ def _handle_question_text_upload(file_bytes: bytes, filename: str) -> bool:
         None,
     )
 
-    for _, row in df.iterrows():
-        year_value = _normalize_text_block(row.get("年度"))
-        case_raw = _normalize_text_block(row.get("事例"))
-        question_number = _normalize_question_number(row.get("設問番号"))
-        question_text = _normalize_text_block(row.get(text_col))
-        aim_text = _normalize_text_block(row.get(aim_col)) if aim_col else None
-        output_text = _normalize_text_block(row.get(output_col)) if output_col else None
-        solution_prompt = (
-            _normalize_text_block(row.get(solution_col)) if solution_col else None
-        )
-        if (
-            not year_value
-            or not case_raw
-            or question_number is None
-            or not (question_text or aim_text or output_text or solution_prompt)
-        ):
-            continue
-        year_label = _format_reiwa_label(str(year_value))
-        case_label = _normalize_case_label(case_raw)
-        if not case_label:
-            continue
-        key = _compose_slot_key(year_label, case_label, int(question_number))
-        if key in question_texts:
-            updated += 1
-        else:
-            added += 1
-        entry = question_texts.setdefault(key, {})
-        if question_text:
-            entry["question_text"] = question_text
-        if aim_text:
-            entry["question_aim"] = aim_text
-        if output_text:
-            entry["output_format"] = output_text
-        if solution_prompt:
-            entry["solution_prompt"] = solution_prompt
+    if text_col or aim_col or output_col or solution_col:
+        for _, row in df.iterrows():
+            year_value = _normalize_text_block(row.get("年度"))
+            case_raw = _normalize_text_block(row.get("事例"))
+            question_number = _normalize_question_number(row.get("設問番号"))
+            if not year_value or not case_raw or question_number is None:
+                continue
 
-    if not (added or updated):
-        st.warning("有効な設問文レコードが見つかりませんでした。入力内容を確認してください。")
-        return False
+            year_label = _format_reiwa_label(str(year_value))
+            case_label = _normalize_case_label(case_raw)
+            if not case_label:
+                continue
+
+            key = _compose_slot_key(year_label, case_label, int(question_number))
+            entry = question_texts.setdefault(key, {})
+
+            if text_col:
+                question_text = _normalize_text_block(row.get(text_col))
+                if question_text:
+                    entry["question_text"] = question_text
+            if aim_col:
+                aim_text = _normalize_text_block(row.get(aim_col))
+                if aim_text:
+                    entry["question_aim"] = aim_text
+            if output_col:
+                output_text = _normalize_text_block(row.get(output_col))
+                if output_text:
+                    entry["output_format"] = output_text
+            if solution_col:
+                solution_prompt = _normalize_text_block(row.get(solution_col))
+                if solution_prompt:
+                    entry["solution_prompt"] = solution_prompt
 
     st.session_state.uploaded_question_texts = question_texts
-    st.success(f"設問文データを登録しました。（新規 {added}件 / 上書き {updated}件）")
+    context_count = sum(
+        1 for meta in case_metadata.values() if (meta or {}).get("context")
+    )
+    question_body_count = sum(
+        1
+        for entry in question_texts.values()
+        if isinstance(entry, dict)
+        and _normalize_text_block(entry.get("question_text"))
+    )
+    if df.empty:
+        st.warning("設問が抽出できませんでした。原紙テンプレートと照合できるPDF/CSVを指定してください。")
+        return False
+    message = f"過去問データを読み込みました（{len(df)}件）。『過去問演習』ページで利用できます。"
+    metadata_summary = []
+    if context_count:
+        metadata_summary.append(f"与件文 {context_count}件")
+    if question_body_count:
+        metadata_summary.append(f"設問文 {question_body_count}件")
+    if metadata_summary:
+        message += " " + " / ".join(metadata_summary) + "を更新しました。"
+    if tables:
+        message += f" 数表 {len(tables)}件をPandas DataFrameとして抽出しました。"
+    st.success(message)
     return True
 
 
@@ -7008,349 +6997,242 @@ def settings_page(user: Dict) -> None:
     with learning_tab:
         st.subheader("データアップロード")
         st.caption(
-            "過去問データ・与件文・設問文をひとつの画面で管理できます。テンプレートを確認しながらまとめてアップロードしましょう。"
+            "過去問・与件文・設問文を1つのCSV/Excel/PDFで一括管理できます。テンプレートを確認しながらアップロードしてください。"
         )
 
-        past_tab, context_tab, question_tab = st.tabs(
-            ["過去問データ", "与件文", "設問文"]
+        st.markdown("#### 過去問データ（与件文・設問文を含む）")
+        uploaded_file = st.file_uploader(
+            "過去問データファイルをアップロード (CSV/Excel/PDF)",
+            type=["csv", "xlsx", "xls", "pdf"],
+            key="past_exam_uploader",
         )
-
-        with past_tab:
-            st.markdown("#### 過去問データ")
-            uploaded_file = st.file_uploader(
-                "過去問データファイルをアップロード (CSV/Excel/PDF)",
-                type=["csv", "xlsx", "xls", "pdf"],
-                key="past_exam_uploader",
+        st.caption(
+            "R6/R5 事例III原紙テンプレートを同梱し、自動分解の精度を高めています。PDFアップロードにも対応しています。"
+        )
+        try:
+            template_bytes = _load_past_exam_template_bytes()
+        except FileNotFoundError:
+            st.warning("テンプレートファイルを読み込めませんでした。リポジトリの data フォルダを確認してください。")
+        else:
+            st.download_button(
+                "テンプレートCSVをダウンロード",
+                data=template_bytes,
+                file_name="past_exam_template.csv",
+                mime="text/csv",
+                help="アップロード用のひな形です。必須列とサンプル設問を含みます。",
+                key="past_exam_template_download",
             )
-            st.caption("R6/R5 事例III原紙テンプレートを同梱し、自動分解の精度を高めています。PDFアップロードにも対応しています。")
-            try:
-                template_bytes = _load_past_exam_template_bytes()
-            except FileNotFoundError:
-                st.warning("テンプレートファイルを読み込めませんでした。リポジトリの data フォルダを確認してください。")
-            else:
-                st.download_button(
-                    "テンプレートCSVをダウンロード",
-                    data=template_bytes,
-                    file_name="past_exam_template.csv",
-                    mime="text/csv",
-                    help="アップロード用のひな形です。必須列とサンプル設問を含みます。",
-                    key="past_exam_template_download",
-                )
-                with st.expander("テンプレートのサンプルを見る", expanded=False):
-                    preview_df = _load_past_exam_template_preview()
-                    st.dataframe(preview_df, use_container_width=True, hide_index=True)
-            if uploaded_file is not None:
-                st.session_state.pending_past_data_upload = {
-                    "name": uploaded_file.name,
-                    "data": uploaded_file.getvalue(),
-                }
+            with st.expander("テンプレートのサンプルを見る", expanded=False):
+                preview_df = _load_past_exam_template_preview()
+                st.dataframe(preview_df, use_container_width=True, hide_index=True)
 
-            pending_past = st.session_state.get("pending_past_data_upload")
-            if pending_past:
-                st.caption(f"選択中のファイル: {pending_past['name']}")
-                exec_col, clear_col = st.columns([1, 1])
-                with exec_col:
-                    if st.button(
-                        "過去問データを取り込む",
-                        key="execute_past_data_upload",
-                        type="primary",
-                    ):
-                        success = _handle_past_data_upload(
-                            pending_past["data"], pending_past["name"]
-                        )
-                        if success:
-                            st.session_state.pending_past_data_upload = None
-                with clear_col:
-                    if st.button("選択中のファイルをクリア", key="reset_past_data_upload"):
+        if uploaded_file is not None:
+            st.session_state.pending_past_data_upload = {
+                "name": uploaded_file.name,
+                "data": uploaded_file.getvalue(),
+            }
+
+        pending_past = st.session_state.get("pending_past_data_upload")
+        if pending_past:
+            st.caption(f"選択中のファイル: {pending_past['name']}")
+            exec_col, clear_col = st.columns([1, 1])
+            with exec_col:
+                if st.button(
+                    "過去問データを取り込む",
+                    key="execute_past_data_upload",
+                    type="primary",
+                ):
+                    success = _handle_past_data_upload(
+                        pending_past["data"], pending_past["name"]
+                    )
+                    if success:
                         st.session_state.pending_past_data_upload = None
+            with clear_col:
+                if st.button("選択中のファイルをクリア", key="reset_past_data_upload"):
+                    st.session_state.pending_past_data_upload = None
 
-            if st.session_state.past_data is not None:
-                st.caption(
-                    f"読み込み済みのレコード数: {len(st.session_state.past_data)}件"
-                )
-                st.dataframe(st.session_state.past_data.head(), use_container_width=True)
-                case_meta = st.session_state.get("uploaded_case_metadata", {}) or {}
-                question_meta = st.session_state.get("uploaded_question_metadata", {}) or {}
-                if case_meta:
-                    summary_rows: List[Dict[str, Any]] = []
-                    for case_key, meta in case_meta.items():
-                        if not isinstance(case_key, str) or "::" not in case_key:
-                            continue
-                        year_label, case_label = case_key.split("::", 1)
-                        question_keys = [
-                            key
-                            for key in question_meta.keys()
-                            if isinstance(key, str)
-                            and key.startswith(f"{year_label}::{case_label}::")
-                        ]
-                        summary_rows.append(
-                            {
-                                "年度": year_label,
-                                "事例": case_label,
-                                "ケースタイトル": meta.get("title") or "-",
-                                "設問数": len(question_keys),
-                                "詳細解説数": sum(
-                                    1
-                                    for key in question_keys
-                                    if question_meta.get(key, {}).get("detailed_explanation")
-                                ),
-                                "動画リンク数": sum(
-                                    1
-                                    for key in question_keys
-                                    if question_meta.get(key, {}).get("video_url")
-                                ),
-                                "図解数": sum(
-                                    1
-                                    for key in question_keys
-                                    if question_meta.get(key, {}).get("diagram_path")
-                                ),
-                            }
-                        )
-                    if summary_rows:
-                        summary_df = pd.DataFrame(summary_rows)
-                        summary_df["_year_sort"] = summary_df["年度"].map(_year_sort_key)
-                        summary_df["_case_sort"] = summary_df["事例"].map(
-                            lambda x: CASE_ORDER.index(x)
-                            if x in CASE_ORDER
-                            else len(CASE_ORDER)
-                        )
-                        summary_df = summary_df.sort_values(
-                            ["_year_sort", "_case_sort"], ascending=[False, True]
-                        ).drop(columns=["_year_sort", "_case_sort"])
-                        st.dataframe(summary_df, use_container_width=True, hide_index=True)
-                        st.caption("年度・事例ごとの登録状況です。詳細解説や動画リンクの有無を確認できます。")
-                tables = st.session_state.get("past_data_tables") or []
-                if tables:
-                    with st.expander("抽出された数表", expanded=False):
-                        for idx, table in enumerate(tables, start=1):
-                            st.markdown(f"**数表 {idx}**")
-                            st.dataframe(table, use_container_width=True)
-                if st.button("アップロードデータをクリア", key="clear_past_data"):
-                    st.session_state.past_data = None
-                    st.session_state.past_data_tables = []
-                    st.session_state.uploaded_case_metadata = {}
-                    st.session_state.uploaded_question_metadata = {}
-                    st.info("アップロードデータを削除しました。")
-
-        with context_tab:
-            st.markdown("#### 与件文")
-            st.caption(
-                "年度・事例ごとの与件文を登録すると、『過去問演習』ページで全文が表示されます。CSV/Excel形式に対応しています。"
-            )
-            try:
-                context_template_bytes = _load_case_context_template_bytes()
-            except FileNotFoundError:
-                st.warning("与件文テンプレートを読み込めませんでした。data フォルダを確認してください。")
-            else:
-                st.download_button(
-                    "与件文テンプレートCSVをダウンロード",
-                    data=context_template_bytes,
-                    file_name="case_context_template.csv",
-                    mime="text/csv",
-                    help="年度・事例・与件文列を含むアップロード用のひな形です。",
-                    key="case_context_template_download",
-                )
-                with st.expander("テンプレートのサンプルを見る", expanded=False):
-                    context_template_preview = _load_case_context_template_preview()
-                    st.dataframe(
-                        context_template_preview, use_container_width=True, hide_index=True
-                    )
-            context_upload = st.file_uploader(
-                "与件文リストをアップロード",
-                type=["csv", "xlsx", "xls"],
-                key="case_context_uploader",
-            )
-            if context_upload is not None:
-                st.session_state.pending_case_context_upload = {
-                    "name": context_upload.name,
-                    "data": context_upload.getvalue(),
-                }
-
-            pending_context = st.session_state.get("pending_case_context_upload")
-            if pending_context:
-                st.caption(f"選択中のファイル: {pending_context['name']}")
-                exec_col, clear_col = st.columns([1, 1])
-                with exec_col:
-                    if st.button(
-                        "与件文データを登録",
-                        key="execute_case_context_upload",
-                        type="primary",
-                    ):
-                        success = _handle_case_context_upload(
-                            pending_context["data"], pending_context["name"]
-                        )
-                        if success:
-                            st.session_state.pending_case_context_upload = None
-                with clear_col:
-                    if st.button("選択中のファイルをクリア", key="reset_case_context_upload"):
-                        st.session_state.pending_case_context_upload = None
-
-            contexts = st.session_state.get("uploaded_case_contexts", {}) or {}
-            if contexts:
-                context_rows = []
-                for case_key, text in contexts.items():
-                    if not isinstance(case_key, str):
+        past_df = st.session_state.past_data
+        if past_df is not None:
+            st.caption(f"読み込み済みのレコード数: {len(past_df)}件")
+            st.dataframe(past_df.head(), use_container_width=True)
+            case_meta = st.session_state.get("uploaded_case_metadata", {}) or {}
+            question_meta = st.session_state.get("uploaded_question_metadata", {}) or {}
+            if case_meta:
+                summary_rows: List[Dict[str, Any]] = []
+                for case_key, meta in case_meta.items():
+                    if not isinstance(case_key, str) or "::" not in case_key:
                         continue
-                    parts = case_key.split("::", 1)
-                    year_label = parts[0]
-                    case_label = parts[1] if len(parts) > 1 else ""
-                    normalized_text = str(text or "").strip()
-                    lines = normalized_text.splitlines()
-                    first_line = lines[0] if lines else normalized_text
-                    preview = first_line[:40]
-                    if normalized_text and len(normalized_text) > 40:
-                        preview = preview.rstrip() + "…"
-                    context_rows.append(
+                    year_label, case_label = case_key.split("::", 1)
+                    question_keys = [
+                        key
+                        for key in question_meta.keys()
+                        if isinstance(key, str)
+                        and key.startswith(f"{year_label}::{case_label}::")
+                    ]
+                    summary_rows.append(
                         {
                             "年度": year_label,
                             "事例": case_label,
-                            "文字数": len(str(text)),
-                            "冒頭プレビュー": preview,
+                            "ケースタイトル": meta.get("title") or "-",
+                            "設問数": len(question_keys),
+                            "詳細解説数": sum(
+                                1
+                                for key in question_keys
+                                if question_meta.get(key, {}).get("detailed_explanation")
+                            ),
+                            "動画リンク数": sum(
+                                1
+                                for key in question_keys
+                                if question_meta.get(key, {}).get("video_url")
+                            ),
+                            "図解数": sum(
+                                1
+                                for key in question_keys
+                                if question_meta.get(key, {}).get("diagram_path")
+                            ),
                         }
                     )
-                if context_rows:
-                    context_df = pd.DataFrame(context_rows)
-                    context_df["_year_sort"] = context_df["年度"].map(
-                        lambda x: _year_sort_key(str(x))
-                    )
-                    context_df["_case_sort"] = context_df["事例"].map(
+                if summary_rows:
+                    summary_df = pd.DataFrame(summary_rows)
+                    summary_df["_year_sort"] = summary_df["年度"].map(_year_sort_key)
+                    summary_df["_case_sort"] = summary_df["事例"].map(
                         lambda x: CASE_ORDER.index(x)
                         if x in CASE_ORDER
                         else len(CASE_ORDER)
                     )
-                    context_df = context_df.sort_values(
-                        ["_year_sort", "_case_sort", "事例"],
-                        ascending=[False, True, True],
-                    )
-                    context_df = context_df.drop(columns=["_year_sort", "_case_sort"])
-                    st.dataframe(context_df, use_container_width=True, hide_index=True)
-                    st.caption("年度・事例ごとに最新の与件文が登録されています。再アップロードすると同じキーの内容は上書きされます。")
-                if st.button("与件文データをクリア", key="clear_case_contexts"):
-                    st.session_state.uploaded_case_contexts = {}
-                    st.info("登録済みの与件文データを削除しました。")
-            else:
-                st.info("登録済みの与件文データはありません。テンプレートに沿ってアップロードしてください。")
+                    summary_df = summary_df.sort_values(
+                        ["_year_sort", "_case_sort"], ascending=[False, True]
+                    ).drop(columns=["_year_sort", "_case_sort"])
+                    st.dataframe(summary_df, use_container_width=True, hide_index=True)
+                    st.caption("年度・事例ごとの登録状況です。詳細解説や動画リンクの有無を確認できます。")
+            tables = st.session_state.get("past_data_tables") or []
+            if tables:
+                with st.expander("抽出された数表", expanded=False):
+                    for idx, table in enumerate(tables, start=1):
+                        st.markdown(f"**数表 {idx}**")
+                        st.dataframe(table, use_container_width=True)
+            if st.button("アップロードデータをクリア", key="clear_past_data"):
+                st.session_state.past_data = None
+                st.session_state.past_data_tables = []
+                st.session_state.uploaded_case_metadata = {}
+                st.session_state.uploaded_question_metadata = {}
+                st.session_state.uploaded_case_contexts = {}
+                st.session_state.uploaded_question_texts = {}
+                st.info("アップロードデータを削除しました。")
+        else:
+            st.info("過去問データは未登録です。テンプレートを利用してアップロードしてください。")
 
-        with question_tab:
-            st.markdown("#### 設問文")
-            st.caption(
-                "設問本文をCSV/Excelで登録すると、演習ページや模試モードの設問表示に反映されます。"
-            )
-            try:
-                question_template_bytes = _load_question_text_template_bytes()
-            except FileNotFoundError:
-                st.warning(
-                    "設問文テンプレートを読み込めませんでした。data フォルダを確認してください。"
+        st.markdown("##### 与件文プレビュー")
+        contexts = st.session_state.get("uploaded_case_contexts", {}) or {}
+        if contexts:
+            context_rows = []
+            for case_key, text in contexts.items():
+                if not isinstance(case_key, str):
+                    continue
+                parts = case_key.split("::", 1)
+                year_label = parts[0]
+                case_label = parts[1] if len(parts) > 1 else ""
+                normalized_text = str(text or "").strip()
+                lines = normalized_text.splitlines()
+                first_line = lines[0] if lines else normalized_text
+                preview = first_line[:40]
+                if normalized_text and len(normalized_text) > 40:
+                    preview = preview.rstrip() + "…"
+                context_rows.append(
+                    {
+                        "年度": year_label,
+                        "事例": case_label,
+                        "文字数": len(str(text)),
+                        "冒頭プレビュー": preview,
+                    }
                 )
-            else:
-                st.download_button(
-                    "設問文テンプレートCSVをダウンロード",
-                    data=question_template_bytes,
-                    file_name="question_text_template.csv",
-                    mime="text/csv",
-                    help="年度・事例・設問番号・設問文に加え、設問の狙い・アウトプット形式・定番解法プロンプトを登録できます。",
-                    key="question_text_template_download",
+            if context_rows:
+                context_df = pd.DataFrame(context_rows)
+                context_df["_year_sort"] = context_df["年度"].map(
+                    lambda x: _year_sort_key(str(x))
                 )
-                with st.expander("テンプレートのサンプルを見る", expanded=False):
-                    question_template_preview = _load_question_text_template_preview()
-                    st.dataframe(
-                        question_template_preview,
-                        use_container_width=True,
-                        hide_index=True,
-                    )
-            question_upload = st.file_uploader(
-                "設問文リストをアップロード",
-                type=["csv", "xlsx", "xls"],
-                key="question_text_uploader",
-            )
-            if question_upload is not None:
-                st.session_state.pending_question_text_upload = {
-                    "name": question_upload.name,
-                    "data": question_upload.getvalue(),
-                }
+                context_df["_case_sort"] = context_df["事例"].map(
+                    lambda x: CASE_ORDER.index(x)
+                    if x in CASE_ORDER
+                    else len(CASE_ORDER)
+                )
+                context_df = context_df.sort_values(
+                    ["_year_sort", "_case_sort", "事例"],
+                    ascending=[False, True, True],
+                )
+                context_df = context_df.drop(columns=["_year_sort", "_case_sort"])
+                st.dataframe(context_df, use_container_width=True, hide_index=True)
+                st.caption("年度・事例ごとに最新の与件文が登録されています。再アップロードすると同じキーの内容は上書きされます。")
+            if st.button("与件文データをクリア", key="clear_case_contexts"):
+                st.session_state.uploaded_case_contexts = {}
+                st.info("登録済みの与件文データを削除しました。")
+        else:
+            st.info("登録済みの与件文データはありません。テンプレートの『与件文』列を入力すると自動で取り込まれます。")
 
-            pending_question = st.session_state.get("pending_question_text_upload")
-            if pending_question:
-                st.caption(f"選択中のファイル: {pending_question['name']}")
-                exec_col, clear_col = st.columns([1, 1])
-                with exec_col:
-                    if st.button(
-                        "設問文データを登録",
-                        key="execute_question_text_upload",
-                        type="primary",
-                    ):
-                        success = _handle_question_text_upload(
-                            pending_question["data"], pending_question["name"]
-                        )
-                        if success:
-                            st.session_state.pending_question_text_upload = None
-                with clear_col:
-                    if st.button("選択中のファイルをクリア", key="reset_question_text_upload"):
-                        st.session_state.pending_question_text_upload = None
-
-            question_texts = st.session_state.get("uploaded_question_texts", {}) or {}
-            if question_texts:
-                question_rows = []
-                for slot_key, text in question_texts.items():
-                    if not isinstance(slot_key, str):
-                        continue
-                    parts = slot_key.split("::")
-                    if len(parts) < 3:
-                        continue
-                    year_label, case_label, question_no = parts[0], parts[1], parts[2]
-                    if isinstance(text, dict):
-                        body_text = text.get("question_text") or text.get("設問文") or ""
-                        aim_text = text.get("question_aim") or text.get("設問の狙い") or ""
-                        output_text = text.get("output_format") or text.get("必要アウトプット形式") or ""
-                        solution_text = text.get("solution_prompt") or text.get("定番解法プロンプト") or ""
-                    else:
-                        body_text = text or ""
-                        aim_text = ""
-                        output_text = ""
-                        solution_text = ""
-                    normalized_text = str(body_text or "").strip()
-                    lines = normalized_text.splitlines()
-                    first_line = lines[0] if lines else normalized_text
-                    preview = first_line[:40]
-                    if normalized_text and len(normalized_text) > 40:
-                        preview = preview.rstrip() + "…"
-                    question_rows.append(
-                        {
-                            "年度": year_label,
-                            "事例": case_label,
-                            "設問": question_no,
-                            "文字数": len(normalized_text),
-                            "冒頭プレビュー": preview,
-                            "設問の狙い": aim_text or "-",
-                            "アウトプット形式": output_text or "-",
-                            "解法プロンプト": solution_text or "-",
-                        }
-                    )
-                if question_rows:
-                    question_df = pd.DataFrame(question_rows)
-                    question_df["_year_sort"] = question_df["年度"].map(
-                        lambda x: _year_sort_key(str(x))
-                    )
-                    question_df["_case_sort"] = question_df["事例"].map(
-                        lambda x: CASE_ORDER.index(x)
-                        if x in CASE_ORDER
-                        else len(CASE_ORDER)
-                    )
-                    question_df["_question_sort"] = question_df["設問"].map(
-                        lambda x: _normalize_question_number(x) or 0
-                    )
-                    question_df = question_df.sort_values(
-                        ["_year_sort", "_case_sort", "_question_sort"],
-                        ascending=[False, True, True],
-                    )
-                    question_df = question_df.drop(columns=["_year_sort", "_case_sort", "_question_sort"])
-                    st.dataframe(question_df, use_container_width=True, hide_index=True)
-                    st.caption("登録済みの設問文です。年度・事例・設問番号ごとに最新の内容が適用されます。")
-                if st.button("設問文データをクリア", key="clear_question_texts"):
-                    st.session_state.uploaded_question_texts = {}
-                    st.info("登録済みの設問文データを削除しました。")
-            else:
-                st.info("登録済みの設問文データはありません。テンプレートを使ってアップロードしてください。")
+        st.markdown("##### 設問文プレビュー")
+        question_texts = st.session_state.get("uploaded_question_texts", {}) or {}
+        if question_texts:
+            question_rows = []
+            for slot_key, text in question_texts.items():
+                if not isinstance(slot_key, str):
+                    continue
+                parts = slot_key.split("::")
+                if len(parts) < 3:
+                    continue
+                year_label, case_label, question_no = parts[0], parts[1], parts[2]
+                if isinstance(text, dict):
+                    body_text = text.get("question_text") or text.get("設問文") or ""
+                    aim_text = text.get("question_aim") or text.get("設問の狙い") or ""
+                    output_text = text.get("output_format") or text.get("必要アウトプット形式") or ""
+                    solution_text = text.get("solution_prompt") or text.get("定番解法プロンプト") or ""
+                else:
+                    body_text = text or ""
+                    aim_text = ""
+                    output_text = ""
+                    solution_text = ""
+                normalized_text = str(body_text or "").strip()
+                lines = normalized_text.splitlines()
+                first_line = lines[0] if lines else normalized_text
+                preview = first_line[:40]
+                if normalized_text and len(normalized_text) > 40:
+                    preview = preview.rstrip() + "…"
+                question_rows.append(
+                    {
+                        "年度": year_label,
+                        "事例": case_label,
+                        "設問": question_no,
+                        "文字数": len(normalized_text),
+                        "冒頭プレビュー": preview,
+                        "設問の狙い": aim_text or "-",
+                        "アウトプット形式": output_text or "-",
+                        "解法プロンプト": solution_text or "-",
+                    }
+                )
+            if question_rows:
+                question_df = pd.DataFrame(question_rows)
+                question_df["_year_sort"] = question_df["年度"].map(
+                    lambda x: _year_sort_key(str(x))
+                )
+                question_df["_case_sort"] = question_df["事例"].map(
+                    lambda x: CASE_ORDER.index(x)
+                    if x in CASE_ORDER
+                    else len(CASE_ORDER)
+                )
+                question_df["_question_sort"] = question_df["設問"].map(
+                    lambda x: _normalize_question_number(x) or 0
+                )
+                question_df = question_df.sort_values(
+                    ["_year_sort", "_case_sort", "_question_sort"],
+                    ascending=[False, True, True],
+                )
+                question_df = question_df.drop(columns=["_year_sort", "_case_sort", "_question_sort"])
+                st.dataframe(question_df, use_container_width=True, hide_index=True)
+                st.caption("登録済みの設問文です。年度・事例・設問番号ごとに最新の内容が適用されます。")
+            if st.button("設問文データをクリア", key="clear_question_texts"):
+                st.session_state.uploaded_question_texts = {}
+                st.info("登録済みの設問文データを削除しました。")
+        else:
+            st.info("登録済みの設問文データはありません。テンプレートの『問題文』『設問の狙い』列などを入力すると自動で反映されます。")
 
         st.subheader("ワンクリック模範解答スロット")
         st.caption("講師別の模範解答・講評セットを JSON でまとめて登録し、設問ごとにワンクリックで参照できます。")
