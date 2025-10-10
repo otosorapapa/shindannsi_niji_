@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from copy import deepcopy
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 import logging
 
@@ -18,6 +19,8 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+
+from math import isclose
 
 import database
 import mock_exam
@@ -117,6 +120,46 @@ KEYWORD_RESOURCE_MAP = {
             "url": "https://www.mof.go.jp/public_relations/finance/",
         },
     ],
+}
+
+
+CASE_IV_BRIDGE_PRESETS: Dict[Tuple[str, str], Dict[str, Any]] = {
+    (
+        "令和6年",
+        "事例IV",
+    ): {
+        "title": "令和6年 事例IV 第1問 参考値",
+        "unit": "千円",
+        "net_sales": 520_000.0,
+        "variable_cost_ratio": 0.60,
+        "fixed_cost": 150_000.0,
+        "break_even_sales": 375_000.0,
+        "margin_of_safety": 1 - 375_000.0 / 520_000.0,
+        "focus_points": [
+            "限界利益率の改善（値上げ・原価低減）",
+            "固定費吸収と稼働率管理",
+            "損益分岐点を意識した売上維持策",
+        ],
+        "notes": "令和6年事例IVのレイアウトを模した練習用サンプル値（単位: 千円）。",
+    },
+    (
+        "令和5年",
+        "事例IV",
+    ): {
+        "title": "令和5年 事例IV 第1問 参考値",
+        "unit": "千円",
+        "net_sales": 480_000.0,
+        "variable_cost_ratio": 0.58,
+        "fixed_cost": 140_000.0,
+        "break_even_sales": 333_333.0,
+        "margin_of_safety": 1 - 333_333.0 / 480_000.0,
+        "focus_points": [
+            "限界利益率を高める価格・原価戦略",
+            "固定費の抑制と投資判断の慎重さ",
+            "安全余裕率を踏まえた損益モニタリング",
+        ],
+        "notes": "令和5年事例IVの出題レイアウトを意識した練習用サンプル値（単位: 千円）。",
+    },
 }
 
 
@@ -1462,6 +1505,393 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
             st.info("キーワードを思い出したら、上のボタンから答え合わせをしましょう。")
 
 
+def _case_iv_bridge_state_key(problem_id: int) -> str:
+    return f"case_iv_bridge::{problem_id}"
+
+
+def _get_case_iv_bridge_targets(problem: Dict, preset: Dict[str, Any]) -> Dict[str, Any]:
+    state_key = _case_iv_bridge_state_key(problem["id"])
+    if state_key not in st.session_state:
+        st.session_state[state_key] = deepcopy(preset)
+    else:
+        current = st.session_state[state_key]
+        for key, value in preset.items():
+            if key not in current:
+                current[key] = deepcopy(value) if isinstance(value, (dict, list)) else value
+    return st.session_state[state_key]
+
+
+def _parse_numeric_input(value: str, *, treat_as_percentage: bool = False) -> Optional[float]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    normalized = (
+        text.replace(",", "")
+        .replace("▲", "-")
+        .replace("△", "-")
+        .replace("＋", "+")
+        .strip()
+    )
+    if not normalized:
+        return None
+    percent = False
+    if normalized.endswith("%"):
+        percent = True
+        normalized = normalized[:-1].strip()
+    try:
+        number = float(normalized)
+    except ValueError:
+        return None
+    if treat_as_percentage:
+        if percent or abs(number) > 1:
+            number /= 100
+    return number
+
+
+def _format_amount(value: Optional[float], unit: str) -> str:
+    if value is None:
+        return "-"
+    try:
+        return f"{value:,.0f}{unit}"
+    except (TypeError, ValueError):
+        return "-"
+
+
+def _format_percentage(value: Optional[float]) -> str:
+    if value is None:
+        return "-"
+    return f"{value * 100:.1f}%"
+
+
+def _format_difference(diff: float, *, is_percentage: bool, unit: str) -> str:
+    if is_percentage:
+        return f"{diff * 100:+.1f}pt"
+    suffix = unit or ""
+    return f"{diff:+,.0f}{suffix}"
+
+
+def _value_matches(user_value: float, expected_value: float, *, rel_tol: float, abs_tol: float) -> bool:
+    if expected_value == 0:
+        return abs(user_value) <= abs_tol
+    return isclose(user_value, expected_value, rel_tol=rel_tol, abs_tol=abs_tol)
+
+
+def _show_validation(
+    container,
+    *,
+    label: str,
+    user_value: Optional[float],
+    expected_value: Optional[float],
+    is_percentage: bool = False,
+    unit: str = "",
+    rel_tol: float = 0.01,
+    abs_tol: float = 1.0,
+) -> bool:
+    if expected_value is None:
+        container.info(f"{label}: 基準値が設定されていません。")
+        return False
+    formatted_expected = (
+        _format_percentage(expected_value)
+        if is_percentage
+        else _format_amount(expected_value, unit)
+    )
+    if user_value is None:
+        container.info(f"{label}: 入力待ちです（目安 {formatted_expected}）。")
+        return False
+    if _value_matches(user_value, expected_value, rel_tol=rel_tol, abs_tol=abs_tol):
+        container.success(f"{label}: OK（{formatted_expected}）")
+        return True
+    diff = user_value - expected_value
+    diff_label = _format_difference(diff, is_percentage=is_percentage, unit=unit)
+    container.warning(f"{label}: 想定 {formatted_expected}（差 {diff_label}）")
+    return False
+
+
+def _render_case_iv_bridge(problem: Dict) -> None:
+    preset = CASE_IV_BRIDGE_PRESETS.get((problem.get("year"), problem.get("case_label")))
+    if not preset:
+        return
+
+    state_key = _case_iv_bridge_state_key(problem["id"])
+    targets = _get_case_iv_bridge_targets(problem, preset)
+
+    st.markdown("### 事例IV “計算→記述”ブリッジ")
+    st.caption(
+        "計算ステップを①変動費率・固定費→②損益分岐点→③安全余裕率→④示唆の順で整理します。"
+        " 入力した数値は自動で判定され、下部の記述ドラフトが即時更新されます。"
+    )
+    if preset.get("title"):
+        st.markdown(f"**想定ケース:** {preset['title']}")
+    if preset.get("notes"):
+        st.caption(preset["notes"])
+
+    with st.expander("前提値を調整する", expanded=False):
+        unit_default = targets.get("unit", preset.get("unit", "千円"))
+        col_left, col_right = st.columns(2)
+        with col_left:
+            net_sales_input = st.number_input(
+                "売上高（母数）",
+                min_value=0.0,
+                value=float(targets.get("net_sales") or 0.0),
+                step=10_000.0,
+                key=f"{state_key}_setting_net_sales",
+                help="単位に合わせて問題文の売上高を入力してください。",
+            )
+            fixed_cost_input = st.number_input(
+                f"固定費（正解値）[{unit_default}]",
+                min_value=0.0,
+                value=float(targets.get("fixed_cost") or 0.0),
+                step=10_000.0,
+                key=f"{state_key}_setting_fixed_cost",
+            )
+            unit_input = st.text_input(
+                "表示単位",
+                value=str(unit_default),
+                key=f"{state_key}_setting_unit",
+            )
+        with col_right:
+            var_ratio_input = st.number_input(
+                "変動費率（小数）",
+                min_value=0.0,
+                max_value=0.9999,
+                value=float(targets.get("variable_cost_ratio") or 0.0),
+                step=0.001,
+                format="%.4f",
+                key=f"{state_key}_setting_var_ratio",
+            )
+            break_even_input = st.number_input(
+                f"損益分岐点売上高（正解値）[{unit_default}]",
+                min_value=0.0,
+                value=float(targets.get("break_even_sales") or 0.0),
+                step=10_000.0,
+                key=f"{state_key}_setting_break_even",
+            )
+            manual_margin_input = st.number_input(
+                "安全余裕率（小数）",
+                min_value=-1.0,
+                max_value=1.0,
+                value=float(targets.get("margin_of_safety") or 0.0),
+                step=0.001,
+                format="%.4f",
+                key=f"{state_key}_setting_margin",
+                help="売上高と損益分岐点から算出した値に合わせて微調整します。",
+            )
+        if st.button("プリセット値にリセット", key=f"{state_key}_reset_button"):
+            st.session_state[state_key] = deepcopy(preset)
+            st.rerun()
+
+        targets["net_sales"] = net_sales_input
+        targets["fixed_cost"] = fixed_cost_input
+        targets["unit"] = unit_input or unit_default
+        targets["variable_cost_ratio"] = var_ratio_input
+        targets["break_even_sales"] = break_even_input
+        targets["margin_of_safety"] = manual_margin_input
+
+        if net_sales_input > 0:
+            derived_margin = 1 - (break_even_input / net_sales_input) if break_even_input else 1.0
+            st.caption(
+                f"売上高と損益分岐点から算出した安全余裕率: {derived_margin * 100:.1f}%"
+            )
+        else:
+            st.caption("売上高を入力すると安全余裕率の自動計算が表示されます。")
+
+    unit = str(targets.get("unit") or preset.get("unit") or "千円")
+    net_sales = targets.get("net_sales")
+    variable_cost_ratio = targets.get("variable_cost_ratio")
+    fixed_cost = targets.get("fixed_cost")
+    break_even_sales = targets.get("break_even_sales")
+    margin_of_safety = targets.get("margin_of_safety")
+
+    derived_margin = None
+    if isinstance(net_sales, (int, float)) and net_sales:
+        if isinstance(break_even_sales, (int, float)):
+            derived_margin = 1 - (break_even_sales / net_sales)
+
+    metric_row = st.columns(3)
+    metric_row[0].metric("売上高（基準）", _format_amount(net_sales, unit))
+    metric_row[1].metric("変動費率", _format_percentage(variable_cost_ratio))
+    metric_row[2].metric("固定費", _format_amount(fixed_cost, unit))
+
+    metric_row2 = st.columns(3)
+    metric_row2[0].metric("損益分岐点売上高", _format_amount(break_even_sales, unit))
+    margin_display = margin_of_safety if margin_of_safety is not None else derived_margin
+    metric_row2[1].metric("安全余裕率", _format_percentage(margin_display))
+    safety_gap = None
+    if isinstance(net_sales, (int, float)) and isinstance(break_even_sales, (int, float)):
+        safety_gap = net_sales - break_even_sales
+    metric_row2[2].metric("安全余裕額", _format_amount(safety_gap, unit))
+
+    st.markdown("#### ① 変動費率・固定費")
+    st.caption("限界利益率の土台を押さえましょう。")
+    ratio_col, fixed_col = st.columns(2)
+    ratio_placeholder = "例: 60"
+    if isinstance(variable_cost_ratio, (int, float)) and variable_cost_ratio:
+        ratio_placeholder = f"例: {variable_cost_ratio * 100:.1f}"
+    ratio_input_text = ratio_col.text_input(
+        "変動費率 (％)",
+        key=f"{state_key}_input_ratio",
+        placeholder=ratio_placeholder,
+    )
+    ratio_answer = _parse_numeric_input(ratio_input_text, treat_as_percentage=True)
+    ratio_ok = _show_validation(
+        ratio_col,
+        label="変動費率",
+        user_value=ratio_answer,
+        expected_value=variable_cost_ratio,
+        is_percentage=True,
+        rel_tol=0.003,
+        abs_tol=0.001,
+    )
+
+    fixed_placeholder = "例: 150000"
+    if isinstance(fixed_cost, (int, float)) and fixed_cost:
+        fixed_placeholder = f"例: {fixed_cost:,.0f}".replace(",", "")
+    fixed_input_text = fixed_col.text_input(
+        f"固定費 ({unit})",
+        key=f"{state_key}_input_fixed",
+        placeholder=fixed_placeholder,
+    )
+    fixed_answer = _parse_numeric_input(fixed_input_text)
+    fixed_abs_tol = 1.0
+    if isinstance(fixed_cost, (int, float)) and fixed_cost:
+        fixed_abs_tol = max(1.0, abs(fixed_cost) * 0.005)
+    fixed_ok = _show_validation(
+        fixed_col,
+        label=f"固定費（{unit}）",
+        user_value=fixed_answer,
+        expected_value=fixed_cost,
+        unit=unit,
+        rel_tol=0.005,
+        abs_tol=fixed_abs_tol,
+    )
+
+    st.markdown("#### ② 損益分岐点 (BEP)")
+    bep_container = st.container()
+    bep_placeholder = "例: 375000"
+    if isinstance(break_even_sales, (int, float)) and break_even_sales:
+        bep_placeholder = f"例: {break_even_sales:,.0f}".replace(",", "")
+    bep_input_text = bep_container.text_input(
+        f"損益分岐点売上高 ({unit})",
+        key=f"{state_key}_input_bep",
+        placeholder=bep_placeholder,
+    )
+    bep_answer = _parse_numeric_input(bep_input_text)
+    bep_abs_tol = 1.0
+    if isinstance(break_even_sales, (int, float)) and break_even_sales:
+        bep_abs_tol = max(1.0, abs(break_even_sales) * 0.005)
+    bep_ok = _show_validation(
+        bep_container,
+        label=f"損益分岐点売上高（{unit}）",
+        user_value=bep_answer,
+        expected_value=break_even_sales,
+        unit=unit,
+        rel_tol=0.005,
+        abs_tol=bep_abs_tol,
+    )
+    if isinstance(variable_cost_ratio, (int, float)) and isinstance(fixed_cost, (int, float)):
+        contribution_pct = (1 - variable_cost_ratio) * 100
+        bep_container.caption(
+            f"限界利益率 {contribution_pct:.1f}% と固定費 {_format_amount(fixed_cost, unit)} から損益分岐点を導きます。"
+        )
+
+    st.markdown("#### ③ 安全余裕率")
+    margin_container = st.container()
+    margin_placeholder = "例: 27.9"
+    margin_reference = margin_of_safety if margin_of_safety is not None else derived_margin
+    if isinstance(margin_reference, (int, float)):
+        margin_placeholder = f"例: {margin_reference * 100:.1f}"
+    margin_input_text = margin_container.text_input(
+        "安全余裕率 (％)",
+        key=f"{state_key}_input_margin",
+        placeholder=margin_placeholder,
+    )
+    margin_answer = _parse_numeric_input(margin_input_text, treat_as_percentage=True)
+    margin_expected = margin_of_safety if margin_of_safety is not None else derived_margin
+    margin_ok = _show_validation(
+        margin_container,
+        label="安全余裕率",
+        user_value=margin_answer,
+        expected_value=margin_expected,
+        is_percentage=True,
+        rel_tol=0.01,
+        abs_tol=0.003,
+    )
+    if isinstance(derived_margin, (int, float)) and isinstance(net_sales, (int, float)) and isinstance(break_even_sales, (int, float)):
+        margin_container.caption(
+            f"売上高 {_format_amount(net_sales, unit)} と損益分岐点 {_format_amount(break_even_sales, unit)} から {derived_margin * 100:.1f}% を確認できます。"
+        )
+
+    st.markdown("#### ④ 記述ドラフト")
+    ratio_effective = ratio_answer if ratio_answer is not None else variable_cost_ratio
+    fixed_effective = fixed_answer if fixed_answer is not None else fixed_cost
+    bep_effective = bep_answer if bep_answer is not None else break_even_sales
+    margin_effective = margin_answer if margin_answer is not None else margin_expected
+
+    calc_lines: List[str] = []
+    insight_lines: List[str] = []
+
+    if isinstance(ratio_effective, (int, float)):
+        var_pct = ratio_effective * 100
+        contrib_pct = (1 - ratio_effective) * 100
+        calc_lines.append(f"変動費率は{var_pct:.1f}%で限界利益率は{contrib_pct:.1f}%")
+
+    if isinstance(fixed_effective, (int, float)) and isinstance(bep_effective, (int, float)):
+        calc_lines.append(
+            f"固定費{_format_amount(fixed_effective, unit)}に対して損益分岐点売上高は{_format_amount(bep_effective, unit)}"
+        )
+
+    gap_amount = None
+    if isinstance(net_sales, (int, float)) and isinstance(bep_effective, (int, float)):
+        gap_amount = net_sales - bep_effective
+
+    if isinstance(margin_effective, (int, float)):
+        margin_pct = margin_effective * 100
+        if gap_amount is not None:
+            if margin_effective >= 0:
+                calc_lines.append(
+                    f"安全余裕率は{margin_pct:.1f}%で、売上が{_format_amount(gap_amount, unit)}減少しても損益分岐点を上回る"
+                )
+            else:
+                calc_lines.append(
+                    f"安全余裕率は{margin_pct:.1f}%で損益分岐点を下回り赤字となっている"
+                )
+        else:
+            calc_lines.append(f"安全余裕率は{margin_pct:.1f}%")
+
+        if margin_effective < 0:
+            insight_lines.append("赤字解消に向けた緊急の固定費削減や値上げが必要。")
+        elif margin_effective < 0.1:
+            insight_lines.append("安全余裕率が一桁台と薄く、売上変動への耐性が低い。販路拡大とコスト管理の強化が急務。")
+        elif margin_effective < 0.25:
+            insight_lines.append("安全余裕率は一定水準だが、固定費投資は慎重に判断しつつ収益源の多角化を進めたい。")
+        else:
+            insight_lines.append("安全余裕率に余力があり、成長投資や高付加価値化に資源を回す余地がある。")
+
+    focus_points = targets.get("focus_points") or []
+    if focus_points:
+        joined_points = "、".join(focus_points)
+        insight_lines.append(f"提案の方向性: {joined_points}。")
+
+    if calc_lines:
+        st.markdown("**計算ハイライト**")
+        st.markdown("\n".join(f"- {line}" for line in calc_lines))
+    if insight_lines:
+        st.markdown("**示唆メモ**")
+        st.markdown("\n".join(f"- {line}" for line in insight_lines))
+
+    draft_sentences = calc_lines + insight_lines
+    if draft_sentences:
+        draft_paragraph = "。".join(draft_sentences)
+        if not draft_paragraph.endswith("。"):
+            draft_paragraph += "。"
+        st.markdown("**記述ドラフト例**")
+        st.write(draft_paragraph)
+    else:
+        st.info("計算欄を埋めると記述ドラフトが自動生成されます。")
+
+
 
 
 def _compute_learning_stats(history_df: pd.DataFrame) -> Dict[str, Any]:
@@ -1962,6 +2392,9 @@ def practice_page(user: Dict) -> None:
     st.caption("採点の観点を事前に確認してから回答に取り組みましょう。")
 
     _render_retrieval_flashcards(problem)
+
+    if problem.get("case_label") == "事例IV":
+        _render_case_iv_bridge(problem)
 
     if not st.session_state.practice_started:
         st.session_state.practice_started = datetime.utcnow()
