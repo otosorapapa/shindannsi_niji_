@@ -21,6 +21,7 @@ import streamlit.components.v1 as components
 
 import database
 import mock_exam
+import past_exam_parser
 import scoring
 from database import RecordedAnswer
 from scoring import QuestionSpec
@@ -155,6 +156,7 @@ def _init_session_state() -> None:
     st.session_state.setdefault("practice_started", None)
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
+    st.session_state.setdefault("past_tables", {})
     st.session_state.setdefault("flashcard_states", {})
     st.session_state.setdefault("ui_theme", "システム設定に合わせる")
 
@@ -2113,13 +2115,39 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         elif key in {"図解キャプション", "diagram_caption"}:
             diagram_caption_col = col
 
+    has_char_limit_col = "文字数指定" in subset.columns
+    has_table_col = "数表" in subset.columns
+
     for _, row in subset.iterrows():
         st.subheader(f"第{row['設問番号']}問 ({row['配点']}点)")
         st.write(row["問題文"])
-        max_chars = 60 if pd.notna(row["配点"]) and row["配点"] <= 25 else 80
+        max_chars: Optional[int] = None
+        if has_char_limit_col and pd.notna(row.get("文字数指定")):
+            try:
+                max_chars = int(row.get("文字数指定"))
+            except (TypeError, ValueError):
+                max_chars = None
+        if max_chars is None:
+            max_chars = 60 if pd.notna(row["配点"]) and row["配点"] <= 25 else 80
         answer_key = f"uploaded_answer_{selected_year}_{selected_case}_{row['設問番号']}"
         user_answer = st.text_area("回答を入力", key=answer_key)
         _render_character_counter(len(user_answer), max_chars)
+
+        if has_table_col:
+            table_payloads = row.get("数表")
+            if isinstance(table_payloads, float) and pd.isna(table_payloads):
+                table_payloads = []
+            if not isinstance(table_payloads, list):
+                table_payloads = [table_payloads] if table_payloads else []
+            if table_payloads:
+                with st.expander("関連数表を表示"):
+                    for idx, payload in enumerate(table_payloads, start=1):
+                        table_df = _payload_to_dataframe(payload)
+                        if table_df is not None and not table_df.empty:
+                            st.dataframe(table_df, use_container_width=True)
+                        else:
+                            st.write(payload)
+
         with st.expander("模範解答／解説を見る"):
             video_url = None
             diagram_path = None
@@ -2140,28 +2168,39 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             )
 
 
+def _payload_to_dataframe(payload) -> Optional[pd.DataFrame]:
+    if isinstance(payload, pd.DataFrame):
+        return payload
+    if isinstance(payload, dict):
+        return past_exam_parser.table_payload_to_dataframe(payload)
+    if isinstance(payload, list):
+        if payload and all(isinstance(row, list) for row in payload):
+            normalized_payload = {"header": payload[0], "rows": payload[1:]}
+            return past_exam_parser.table_payload_to_dataframe(normalized_payload)
+    return None
+
+
 def _handle_past_data_upload(uploaded_file) -> None:
     try:
-        filename = uploaded_file.name.lower()
-        if filename.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        elif filename.endswith(".xlsx") or filename.endswith(".xls"):
-            df = pd.read_excel(uploaded_file)
-        else:
-            st.error("対応していないファイル形式です。CSVまたはExcelファイルを選択してください。")
-            return
+        parsed = past_exam_parser.parse_uploaded_exam(uploaded_file)
+    except ValueError as exc:
+        st.error(str(exc))
+        return
     except Exception as exc:  # pragma: no cover - Streamlit runtime feedback
-        st.error(f"ファイルの読み込み中にエラーが発生しました: {exc}")
+        st.error(f"ファイルの解析中にエラーが発生しました: {exc}")
         return
 
-    required_cols = {"年度", "事例", "設問番号", "問題文", "配点", "模範解答", "解説"}
-    if not required_cols.issubset(df.columns):
-        missing = required_cols.difference(set(df.columns))
-        st.error(f"必要な列が含まれていません。不足列: {', '.join(sorted(missing))}")
-        return
-
-    st.session_state.past_data = df
-    st.success("過去問データを読み込みました。『過去問演習』ページで利用できます。")
+    st.session_state.past_data = parsed.dataframe
+    st.session_state.past_tables = parsed.tables
+    metadata_summary = ", ".join(
+        f"{key}:{value}" for key, value in parsed.metadata.items()
+    )
+    if metadata_summary:
+        st.success(
+            f"過去問データを読み込みました ({metadata_summary})。『過去問演習』ページで利用できます。"
+        )
+    else:
+        st.success("過去問データを読み込みました。『過去問演習』ページで利用できます。")
 
 
 def render_attempt_results(attempt_id: int) -> None:
@@ -2898,8 +2937,9 @@ def settings_page(user: Dict) -> None:
     with learning_tab:
         st.subheader("データ管理")
         uploaded_file = st.file_uploader(
-            "過去問データファイルをアップロード (CSV/Excel)",
-            type=["csv", "xlsx"],
+            "過去問データファイルをアップロード (CSV/Excel/PDF)",
+            type=["csv", "xlsx", "xls", "pdf"],
+            help="R6/R5の原紙テンプレートに準じたPDFをアップロードすると自動で年度・事例・設問に分割されます。",
         )
         if uploaded_file is not None:
             _handle_past_data_upload(uploaded_file)
@@ -2908,9 +2948,20 @@ def settings_page(user: Dict) -> None:
             st.caption(
                 f"読み込み済みのレコード数: {len(st.session_state.past_data)}件"
             )
-            st.dataframe(st.session_state.past_data.head(), use_container_width=True)
+            preview_df = st.session_state.past_data.copy()
+            if "数表" in preview_df.columns:
+                preview_df = preview_df.drop(columns=["数表"])
+            st.dataframe(preview_df.head(), use_container_width=True)
+            if st.session_state.past_tables:
+                st.caption(
+                    "抽出された数表: "
+                    + ", ".join(
+                        f"第{key}問 {len(value)}件" for key, value in st.session_state.past_tables.items()
+                    )
+                )
             if st.button("アップロードデータをクリア", key="clear_past_data"):
                 st.session_state.past_data = None
+                st.session_state.past_tables = {}
                 st.info("アップロードデータを削除しました。")
 
         st.subheader("表示テーマ")
