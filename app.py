@@ -6881,5 +6881,5 @@ if __name__ == "__main__":
         main_view()
     except Exception:  # pragma: no cover - defensive UI fallback
         logger.exception("Unhandled exception in main_view")
-        st.error("現在システムに不具合が発生しています。時間を置いて再度アクセスしてください。")
+        st.error("現在、システムに不具合が発生しています。時間を置いて再度アクセスしてください。")
         st.caption("お問い合わせ: support@example.com")
