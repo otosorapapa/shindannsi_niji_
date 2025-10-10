@@ -1190,6 +1190,10 @@ def _init_session_state() -> None:
     st.session_state.setdefault("past_data_tables", [])
     st.session_state.setdefault("uploaded_case_contexts", {})
     st.session_state.setdefault("uploaded_question_texts", {})
+    st.session_state.setdefault("pending_past_data_upload", None)
+    st.session_state.setdefault("pending_case_context_upload", None)
+    st.session_state.setdefault("pending_question_text_upload", None)
+    st.session_state.setdefault("pending_model_answer_slot_upload", None)
     st.session_state.setdefault("flashcard_states", {})
     st.session_state.setdefault("ui_theme", "システム設定に合わせる")
     st.session_state.setdefault("_intent_card_styles_injected", False)
@@ -4756,44 +4760,43 @@ def _load_tabular_frame(file_bytes: bytes, filename: str) -> pd.DataFrame:
     raise ValueError("サポートされていないファイル形式です")
 
 
-def _handle_past_data_upload(uploaded_file) -> None:
+def _handle_past_data_upload(file_bytes: bytes, filename: str) -> bool:
     try:
-        file_bytes = uploaded_file.read()
-        df, tables = _auto_parse_exam_document(file_bytes, uploaded_file.name)
+        df, tables = _auto_parse_exam_document(file_bytes, filename)
     except Exception as exc:  # pragma: no cover - Streamlit runtime feedback
         st.error(f"ファイルの読み込み中にエラーが発生しました: {exc}")
-        return
+        return False
 
     required_cols = {"年度", "事例", "設問番号", "問題文", "配点", "模範解答", "解説"}
     missing = required_cols.difference(set(df.columns))
     if missing:
         st.error(f"必要な列が含まれていません。不足列: {', '.join(sorted(missing))}")
-        return
+        return False
 
     st.session_state.past_data = df
     st.session_state.past_data_tables = tables
     if df.empty:
         st.warning("設問が抽出できませんでした。原紙テンプレートと照合できるPDF/CSVを指定してください。")
-        return
+        return False
     message = f"過去問データを読み込みました（{len(df)}件）。『過去問演習』ページで利用できます。"
     if tables:
         message += f" 数表 {len(tables)}件をPandas DataFrameとして抽出しました。"
     st.success(message)
+    return True
 
 
-def _handle_case_context_upload(uploaded_file) -> None:
+def _handle_case_context_upload(file_bytes: bytes, filename: str) -> bool:
     try:
-        file_bytes = uploaded_file.read()
-        df = _load_tabular_frame(file_bytes, uploaded_file.name)
+        df = _load_tabular_frame(file_bytes, filename)
     except Exception as exc:  # pragma: no cover - Streamlit runtime feedback
         st.error(f"与件文データの読み込みに失敗しました: {exc}")
-        return
+        return False
 
     required_cols = {"年度", "事例"}
     missing = required_cols.difference(set(df.columns))
     if missing:
         st.error(f"必要な列が不足しています: {', '.join(sorted(missing))}")
-        return
+        return False
 
     context_col = None
     for candidate in ("与件文", "与件", "context", "context_text"):
@@ -4802,7 +4805,7 @@ def _handle_case_context_upload(uploaded_file) -> None:
             break
     if context_col is None:
         st.error("『与件文』列が見つかりません。テンプレートを参考に列名を確認してください。")
-        return
+        return False
 
     contexts = dict(st.session_state.get("uploaded_case_contexts", {}))
     added = 0
@@ -4827,25 +4830,25 @@ def _handle_case_context_upload(uploaded_file) -> None:
 
     if not (added or updated):
         st.warning("有効な与件文レコードが見つかりませんでした。入力内容を確認してください。")
-        return
+        return False
 
     st.session_state.uploaded_case_contexts = contexts
     st.success(f"与件文データを登録しました。（新規 {added}件 / 上書き {updated}件）")
+    return True
 
 
-def _handle_question_text_upload(uploaded_file) -> None:
+def _handle_question_text_upload(file_bytes: bytes, filename: str) -> bool:
     try:
-        file_bytes = uploaded_file.read()
-        df = _load_tabular_frame(file_bytes, uploaded_file.name)
+        df = _load_tabular_frame(file_bytes, filename)
     except Exception as exc:  # pragma: no cover - Streamlit runtime feedback
         st.error(f"設問文データの読み込みに失敗しました: {exc}")
-        return
+        return False
 
     required_cols = {"年度", "事例", "設問番号"}
     missing = required_cols.difference(set(df.columns))
     if missing:
         st.error(f"必要な列が不足しています: {', '.join(sorted(missing))}")
-        return
+        return False
 
     text_col = None
     for candidate in ("設問文", "問題文", "question_text"):
@@ -4854,7 +4857,7 @@ def _handle_question_text_upload(uploaded_file) -> None:
             break
     if text_col is None:
         st.error("『設問文』列が見つかりません。テンプレートの列名をご確認ください。")
-        return
+        return False
 
     question_texts = dict(st.session_state.get("uploaded_question_texts", {}))
     added = 0
@@ -4880,10 +4883,43 @@ def _handle_question_text_upload(uploaded_file) -> None:
 
     if not (added or updated):
         st.warning("有効な設問文レコードが見つかりませんでした。入力内容を確認してください。")
-        return
+        return False
 
     st.session_state.uploaded_question_texts = question_texts
     st.success(f"設問文データを登録しました。（新規 {added}件 / 上書き {updated}件）")
+    return True
+
+
+def _handle_model_answer_slot_upload(file_bytes: bytes, filename: str) -> bool:
+    try:
+        payload = json.loads(file_bytes.decode("utf-8"))
+    except UnicodeDecodeError as exc:  # pragma: no cover - Streamlit runtime feedback
+        st.error(f"JSONの読み込みに失敗しました（エンコーディングエラー）: {exc}")
+        return False
+    except json.JSONDecodeError as exc:  # pragma: no cover - Streamlit runtime feedback
+        st.error(f"JSONの読み込みに失敗しました: {exc}")
+        return False
+
+    try:
+        parsed_slots = _parse_model_answer_slots(payload)
+    except ValueError as exc:  # pragma: no cover - Streamlit runtime feedback
+        st.error(str(exc))
+        return False
+
+    existing = dict(st.session_state.get("model_answer_slots", {}))
+    added = 0
+    updated = 0
+
+    for key, slot in parsed_slots.items():
+        if key in existing:
+            updated += 1
+        else:
+            added += 1
+        existing[key] = slot
+
+    st.session_state.model_answer_slots = existing
+    st.success(f"模範解答スロットを登録しました。（新規 {added}件 / 上書き {updated}件）")
+    return True
 
 
 def render_attempt_results(attempt_id: int) -> None:
@@ -5887,6 +5923,7 @@ def settings_page(user: Dict) -> None:
         uploaded_file = st.file_uploader(
             "過去問データファイルをアップロード (CSV/Excel/PDF)",
             type=["csv", "xlsx", "xls", "pdf"],
+            key="past_exam_uploader",
         )
         st.caption("R6/R5 事例III原紙テンプレートを同梱し、自動分解の精度を高めています。PDFアップロードにも対応しています。")
         try:
@@ -5905,7 +5942,29 @@ def settings_page(user: Dict) -> None:
                 preview_df = _load_past_exam_template_preview()
                 st.dataframe(preview_df, use_container_width=True, hide_index=True)
         if uploaded_file is not None:
-            _handle_past_data_upload(uploaded_file)
+            st.session_state.pending_past_data_upload = {
+                "name": uploaded_file.name,
+                "data": uploaded_file.getvalue(),
+            }
+
+        pending_past = st.session_state.get("pending_past_data_upload")
+        if pending_past:
+            st.caption(f"選択中のファイル: {pending_past['name']}")
+            exec_col, clear_col = st.columns([1, 1])
+            with exec_col:
+                if st.button(
+                    "過去問データを取り込む",
+                    key="execute_past_data_upload",
+                    type="primary",
+                ):
+                    success = _handle_past_data_upload(
+                        pending_past["data"], pending_past["name"]
+                    )
+                    if success:
+                        st.session_state.pending_past_data_upload = None
+            with clear_col:
+                if st.button("選択中のファイルをクリア", key="reset_past_data_upload"):
+                    st.session_state.pending_past_data_upload = None
 
         if st.session_state.past_data is not None:
             st.caption(
@@ -5944,10 +6003,34 @@ def settings_page(user: Dict) -> None:
                 context_template_preview = _load_case_context_template_preview()
                 st.dataframe(context_template_preview, use_container_width=True, hide_index=True)
         context_upload = st.file_uploader(
-            "与件文リストをアップロード", type=["csv", "xlsx", "xls"], key="case_context_uploader"
+            "与件文リストをアップロード",
+            type=["csv", "xlsx", "xls"],
+            key="case_context_uploader",
         )
         if context_upload is not None:
-            _handle_case_context_upload(context_upload)
+            st.session_state.pending_case_context_upload = {
+                "name": context_upload.name,
+                "data": context_upload.getvalue(),
+            }
+
+        pending_context = st.session_state.get("pending_case_context_upload")
+        if pending_context:
+            st.caption(f"選択中のファイル: {pending_context['name']}")
+            exec_col, clear_col = st.columns([1, 1])
+            with exec_col:
+                if st.button(
+                    "与件文データを登録",
+                    key="execute_case_context_upload",
+                    type="primary",
+                ):
+                    success = _handle_case_context_upload(
+                        pending_context["data"], pending_context["name"]
+                    )
+                    if success:
+                        st.session_state.pending_case_context_upload = None
+            with clear_col:
+                if st.button("選択中のファイルをクリア", key="reset_case_context_upload"):
+                    st.session_state.pending_case_context_upload = None
 
         contexts = st.session_state.get("uploaded_case_contexts", {}) or {}
         if contexts:
@@ -5995,10 +6078,34 @@ def settings_page(user: Dict) -> None:
             "設問本文をCSV/Excelで登録すると、演習ページや模試モードの設問表示に反映されます。"
         )
         question_upload = st.file_uploader(
-            "設問文リストをアップロード", type=["csv", "xlsx", "xls"], key="question_text_uploader"
+            "設問文リストをアップロード",
+            type=["csv", "xlsx", "xls"],
+            key="question_text_uploader",
         )
         if question_upload is not None:
-            _handle_question_text_upload(question_upload)
+            st.session_state.pending_question_text_upload = {
+                "name": question_upload.name,
+                "data": question_upload.getvalue(),
+            }
+
+        pending_question = st.session_state.get("pending_question_text_upload")
+        if pending_question:
+            st.caption(f"選択中のファイル: {pending_question['name']}")
+            exec_col, clear_col = st.columns([1, 1])
+            with exec_col:
+                if st.button(
+                    "設問文データを登録",
+                    key="execute_question_text_upload",
+                    type="primary",
+                ):
+                    success = _handle_question_text_upload(
+                        pending_question["data"], pending_question["name"]
+                    )
+                    if success:
+                        st.session_state.pending_question_text_upload = None
+            with clear_col:
+                if st.button("選択中のファイルをクリア", key="reset_question_text_upload"):
+                    st.session_state.pending_question_text_upload = None
 
         question_texts = st.session_state.get("uploaded_question_texts", {}) or {}
         if question_texts:
@@ -6056,29 +6163,31 @@ def settings_page(user: Dict) -> None:
             help="年度・事例・設問番号をキーに、講師A/Bと採点観点を登録します。",
         )
         if slot_file is not None:
-            try:
-                payload = json.loads(slot_file.getvalue().decode("utf-8"))
-            except json.JSONDecodeError as exc:
-                st.error(f"JSONの読み込みに失敗しました: {exc}")
-            else:
-                try:
-                    parsed_slots = _parse_model_answer_slots(payload)
-                except ValueError as exc:
-                    st.error(str(exc))
-                else:
-                    existing = dict(st.session_state.get("model_answer_slots", {}))
-                    added = 0
-                    updated = 0
-                    for key, slot in parsed_slots.items():
-                        if key in existing:
-                            updated += 1
-                        else:
-                            added += 1
-                        existing[key] = slot
-                    st.session_state.model_answer_slots = existing
-                    st.success(
-                        f"模範解答スロットを登録しました。（新規 {added}件 / 上書き {updated}件）"
+            st.session_state.pending_model_answer_slot_upload = {
+                "name": slot_file.name,
+                "data": slot_file.getvalue(),
+            }
+
+        pending_slots = st.session_state.get("pending_model_answer_slot_upload")
+        if pending_slots:
+            st.caption(f"選択中のファイル: {pending_slots['name']}")
+            exec_col, clear_col = st.columns([1, 1])
+            with exec_col:
+                if st.button(
+                    "模範解答スロットを登録",
+                    key="execute_model_answer_slot_upload",
+                    type="primary",
+                ):
+                    success = _handle_model_answer_slot_upload(
+                        pending_slots["data"], pending_slots["name"]
                     )
+                    if success:
+                        st.session_state.pending_model_answer_slot_upload = None
+            with clear_col:
+                if st.button(
+                    "選択中のファイルをクリア", key="reset_model_answer_slot_upload"
+                ):
+                    st.session_state.pending_model_answer_slot_upload = None
 
         slots = st.session_state.get("model_answer_slots", {})
         if slots:
