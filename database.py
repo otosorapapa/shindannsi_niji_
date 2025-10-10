@@ -1180,9 +1180,10 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
         """
         SELECT aa.*, q.prompt, q.max_score, q.model_answer, q.explanation,
                q.keywords_json, q.intent_cards_json, q.video_url, q.diagram_path,
-               q.diagram_caption
+               q.diagram_caption, q.question_order, p.year, p.case_label
         FROM attempt_answers aa
         JOIN questions q ON q.id = aa.question_id
+        JOIN problems p ON p.id = q.problem_id
         WHERE aa.attempt_id = ?
         ORDER BY q.question_order
         """,
@@ -1207,6 +1208,9 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
                 "video_url": row["video_url"],
                 "diagram_path": row["diagram_path"],
                 "diagram_caption": row["diagram_caption"],
+                "question_order": row["question_order"],
+                "year": row["year"],
+                "case_label": row["case_label"],
             }
         )
 

@@ -481,6 +481,174 @@ def _auto_parse_exam_document(file_bytes: bytes, filename: str) -> Tuple[pd.Data
     return pd.DataFrame(questions), []
 
 
+def _compose_slot_key(year: str, case_label: str, question_number: int) -> str:
+    return f"{year}::{case_label}::{question_number}"
+
+
+def _normalize_question_number(value: Any) -> Optional[int]:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        if isinstance(value, float) and math.isnan(value):
+            return None
+        return int(value)
+    if isinstance(value, str):
+        token = value.strip()
+        if not token:
+            return None
+        match = re.search(r"([0-9一二三四五六七八九十]+)", token)
+        if match:
+            token = match.group(1)
+        token = token.translate(str.maketrans("０１２３４５６７８９", "0123456789"))
+        if token.isdigit():
+            return int(token)
+        numeral = _japanese_numeral_to_int(token)
+        if numeral:
+            return numeral
+    return None
+
+
+def _select_first(data: Dict[str, Any], keys: Iterable[str]) -> Any:
+    for key in keys:
+        if key in data and data[key] not in (None, ""):
+            return data[key]
+    return None
+
+
+def _ensure_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple, set)):
+        return "\n".join(str(item).strip() for item in value if str(item).strip())
+    return str(value).strip()
+
+
+def _coerce_points(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = _ensure_text(value)
+    if not text:
+        return []
+    candidates = re.split(r"[\n,、]", text)
+    return [candidate.strip() for candidate in candidates if candidate.strip()]
+
+
+def _coerce_lecturer_payload(value: Any) -> Dict[str, str]:
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        answer_raw = _select_first(
+            value,
+            ["answer", "model_answer", "text", "模範解答", "content"],
+        )
+        commentary_raw = _select_first(
+            value,
+            ["commentary", "review", "comment", "講評", "解説", "note"],
+        )
+        payload = {}
+        answer_text = _ensure_text(answer_raw)
+        commentary_text = _ensure_text(commentary_raw)
+        if answer_text:
+            payload["answer"] = answer_text
+        if commentary_text:
+            payload["commentary"] = commentary_text
+        return payload
+    text = _ensure_text(value)
+    if not text:
+        return {}
+    return {"answer": text}
+
+
+def _coerce_scoring_payload(value: Any) -> Dict[str, Any]:
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        points_raw = _select_first(
+            value,
+            ["points", "items", "list", "観点", "チェック", "criteria"],
+        )
+        note_raw = _select_first(
+            value,
+            ["note", "commentary", "summary", "memo", "コメント", "解説"],
+        )
+        payload: Dict[str, Any] = {}
+        points = _coerce_points(points_raw)
+        note = _ensure_text(note_raw)
+        if points:
+            payload["points"] = points
+        if note:
+            payload["note"] = note
+        return payload
+    if isinstance(value, (list, tuple, set)):
+        points = _coerce_points(value)
+        return {"points": points} if points else {}
+    text = _ensure_text(value)
+    if text:
+        return {"note": text}
+    return {}
+
+
+def _parse_model_answer_slots(payload: Any) -> Dict[str, Dict[str, Any]]:
+    if isinstance(payload, dict):
+        for key in ("entries", "questions", "items", "data", "slots"):
+            nested = payload.get(key)
+            if isinstance(nested, list):
+                entries = nested
+                break
+        else:
+            entries = [payload]
+    elif isinstance(payload, list):
+        entries = payload
+    else:
+        raise ValueError("JSONは配列または entries/items キーを持つオブジェクトで指定してください。")
+
+    results: Dict[str, Dict[str, Any]] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise ValueError("各エントリはオブジェクト形式で指定してください。")
+        year_raw = _select_first(entry, ["year", "年度"])
+        case_raw = _select_first(entry, ["case", "case_label", "事例"])
+        question_raw = _select_first(entry, ["question", "question_number", "設問", "設問番号"])
+
+        year = _ensure_text(year_raw)
+        case_label = _normalize_case_label(_ensure_text(case_raw)) if case_raw else None
+        question_number = _normalize_question_number(question_raw)
+
+        if not year or not case_label or not question_number:
+            raise ValueError("年度・事例・設問番号は必須です。値を確認してください。")
+
+        lecturer_a_value = _select_first(entry, ["lecturer_a", "teacher_a", "講師A"])
+        lecturer_b_value = _select_first(entry, ["lecturer_b", "teacher_b", "講師B"])
+        scoring_value = _select_first(entry, ["scoring", "criteria", "score_points", "採点観点"])
+
+        slot_entry = {
+            "year": year,
+            "case_label": case_label,
+            "question_number": question_number,
+            "lecturer_a": _coerce_lecturer_payload(lecturer_a_value),
+            "lecturer_b": _coerce_lecturer_payload(lecturer_b_value),
+            "scoring": _coerce_scoring_payload(scoring_value),
+        }
+        key = _compose_slot_key(year, case_label, question_number)
+        results[key] = slot_entry
+
+    if not results:
+        raise ValueError("登録可能な設問データが見つかりませんでした。")
+    return results
+
+
+def _lookup_custom_model_slot(
+    year: Optional[str], case_label: Optional[str], question_number: Optional[int]
+) -> Optional[Dict[str, Any]]:
+    if not year or not case_label or not question_number:
+        return None
+    slots: Dict[str, Dict[str, Any]] = st.session_state.get("model_answer_slots", {})
+    key = _compose_slot_key(str(year), _normalize_case_label(case_label), int(question_number))
+    return slots.get(key)
+
+
 def _render_caseiii_timeline() -> None:
     if not CASEIII_TIMELINE:
         return
@@ -901,6 +1069,7 @@ def _init_session_state() -> None:
     st.session_state.setdefault("_intent_card_styles_injected", False)
     st.session_state.setdefault("_question_card_styles_injected", False)
     st.session_state.setdefault("_timeline_styles_injected", False)
+    st.session_state.setdefault("model_answer_slots", {})
 
 
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
@@ -1583,6 +1752,38 @@ def _render_diagram_resource(diagram_path: Optional[str], caption: Optional[str]
         st.warning(f"図解の表示中に問題が発生しました: {exc}", icon="⚠️")
 
 
+def _render_slot_lecturer_tab(tab: "st._DeltaGenerator", payload: Dict[str, str], empty_message: str) -> None:
+    with tab:
+        if not payload or not any(value for value in payload.values()):
+            st.caption(empty_message)
+            return
+        answer_text = payload.get("answer")
+        commentary_text = payload.get("commentary")
+        if answer_text:
+            st.markdown("**模範解答**")
+            st.write(answer_text)
+        if commentary_text:
+            st.markdown("**講評**")
+            st.write(commentary_text)
+
+
+def _render_slot_scoring_tab(tab: "st._DeltaGenerator", payload: Dict[str, Any]) -> None:
+    with tab:
+        if not payload:
+            st.caption("採点観点は登録されていません。JSONの 'scoring' または '採点観点' キーを確認してください。")
+            return
+        points = payload.get("points") or []
+        note = payload.get("note")
+        if points:
+            st.markdown("**チェックポイント**")
+            st.markdown("\n".join(f"- {point}" for point in points))
+        if note:
+            st.markdown("**講評メモ**")
+            st.write(note)
+        if not points and not note:
+            st.caption("採点観点の内容が空です。JSONの配列やコメントを設定してください。")
+
+
 def _render_model_answer_section(
     *,
     model_answer: str,
@@ -1591,7 +1792,29 @@ def _render_model_answer_section(
     diagram_path: Optional[str],
     diagram_caption: Optional[str],
     context_id: str,
+    year: Optional[str] = None,
+    case_label: Optional[str] = None,
+    question_number: Optional[int] = None,
 ) -> None:
+    custom_slot = _lookup_custom_model_slot(year, case_label, question_number)
+    if custom_slot:
+        st.markdown("**ワンクリック模範解答スロット**")
+        tab_a, tab_b, tab_scoring = st.tabs(["講師A", "講師B", "採点観点"])
+        _render_slot_lecturer_tab(
+            tab_a,
+            custom_slot.get("lecturer_a", {}),
+            "講師Aのスロットが未設定です。JSONの 'lecturer_a' / '講師A' を確認してください。",
+        )
+        _render_slot_lecturer_tab(
+            tab_b,
+            custom_slot.get("lecturer_b", {}),
+            "講師Bのスロットが未設定です。JSONの 'lecturer_b' / '講師B' を確認してください。",
+        )
+        _render_slot_scoring_tab(tab_scoring, custom_slot.get("scoring", {}))
+        st.caption(
+            f"年度: {custom_slot['year']} / {custom_slot['case_label']} 第{custom_slot['question_number']}問"
+        )
+
     st.write("**模範解答**")
     st.write(model_answer)
     st.write("**解説**")
@@ -3994,6 +4217,9 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                 diagram_path=diagram_path,
                 diagram_caption=diagram_caption,
                 context_id=f"uploaded-{selected_year}-{selected_case}-{row['設問番号']}",
+                year=selected_year,
+                case_label=selected_case,
+                question_number=_normalize_question_number(row.get("設問番号")),
             )
 
 
@@ -4092,6 +4318,9 @@ def render_attempt_results(attempt_id: int) -> None:
                     diagram_path=answer.get("diagram_path"),
                     diagram_caption=answer.get("diagram_caption"),
                     context_id=f"attempt-{attempt_id}-q{idx}",
+                    year=answer.get("year"),
+                    case_label=answer.get("case_label"),
+                    question_number=_normalize_question_number(answer.get("question_order")),
                 )
                 st.caption("採点基準: 模範解答の論点とキーワードが盛り込まれているかを中心に評価しています。")
 
@@ -4996,6 +5225,98 @@ def settings_page(user: Dict) -> None:
                 st.session_state.past_data = None
                 st.session_state.past_data_tables = []
                 st.info("アップロードデータを削除しました。")
+
+        st.subheader("ワンクリック模範解答スロット")
+        st.caption("講師別の模範解答・講評セットを JSON でまとめて登録し、設問ごとにワンクリックで参照できます。")
+        slot_file = st.file_uploader(
+            "模範解答スロットJSONをアップロード",
+            type=["json"],
+            key="model_answer_slot_uploader",
+            help="年度・事例・設問番号をキーに、講師A/Bと採点観点を登録します。",
+        )
+        if slot_file is not None:
+            try:
+                payload = json.loads(slot_file.getvalue().decode("utf-8"))
+            except json.JSONDecodeError as exc:
+                st.error(f"JSONの読み込みに失敗しました: {exc}")
+            else:
+                try:
+                    parsed_slots = _parse_model_answer_slots(payload)
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    existing = dict(st.session_state.get("model_answer_slots", {}))
+                    added = 0
+                    updated = 0
+                    for key, slot in parsed_slots.items():
+                        if key in existing:
+                            updated += 1
+                        else:
+                            added += 1
+                        existing[key] = slot
+                    st.session_state.model_answer_slots = existing
+                    st.success(
+                        f"模範解答スロットを登録しました。（新規 {added}件 / 上書き {updated}件）"
+                    )
+
+        slots = st.session_state.get("model_answer_slots", {})
+        if slots:
+            summary_rows = []
+            for slot in sorted(
+                slots.values(), key=lambda x: (x["year"], x["case_label"], x["question_number"])
+            ):
+                scoring = slot.get("scoring", {}) or {}
+                points = scoring.get("points") or []
+                note = scoring.get("note")
+                if points and note:
+                    scoring_summary = f"{len(points)}項目 / コメントあり"
+                elif points:
+                    scoring_summary = f"{len(points)}項目"
+                elif note:
+                    scoring_summary = "コメントあり"
+                else:
+                    scoring_summary = "-"
+                summary_rows.append(
+                    {
+                        "年度": slot["year"],
+                        "事例": slot["case_label"],
+                        "設問": slot["question_number"],
+                        "講師A": "○" if slot.get("lecturer_a") else "-",
+                        "講師B": "○" if slot.get("lecturer_b") else "-",
+                        "採点観点": scoring_summary,
+                    }
+                )
+            st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=True)
+            st.caption("登録済みスロットの一覧です。再アップロードすると同じキーのデータは上書きされます。")
+            if st.button("模範解答スロットをクリア", key="clear_model_answer_slots"):
+                st.session_state.model_answer_slots = {}
+                st.info("模範解答スロットを削除しました。")
+        else:
+            st.info("登録済みの模範解答スロットはありません。JSONをアップロードして利用を開始してください。")
+
+        with st.expander("JSONフォーマットのサンプル", expanded=False):
+            sample_payload = {
+                "entries": [
+                    {
+                        "year": "令和5年",
+                        "case": "事例I",
+                        "question": 1,
+                        "lecturer_a": {
+                            "answer": "模範解答の骨子を入力",
+                            "commentary": "講師Aによる講評や書き方のポイントを記載",
+                        },
+                        "lecturer_b": {
+                            "answer": "別の視点の模範解答を入力",
+                            "commentary": "講師Bのフィードバックを記載",
+                        },
+                        "scoring": {
+                            "points": ["与件からの課題抽出", "効果・因果の明示"],
+                            "note": "評価基準や減点要素をメモできます。",
+                        },
+                    }
+                ]
+            }
+            st.code(json.dumps(sample_payload, ensure_ascii=False, indent=2), language="json")
 
         st.subheader("表示テーマ")
         theme_options = [
