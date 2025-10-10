@@ -987,6 +987,7 @@ def _infer_question_aim(question: Dict[str, Any]) -> str:
     custom_aim = (
         question.get("uploaded_question_aim")
         or question.get("question_aim")
+        or question.get("設問の狙い")
         or question.get("aim")
     )
     if custom_aim:
@@ -1004,6 +1005,7 @@ def _describe_output_requirements(question: Dict[str, Any]) -> str:
     custom_description = (
         question.get("uploaded_output_format")
         or question.get("output_format")
+        or question.get("必要アウトプット形式")
         or question.get("required_output")
     )
     if custom_description:
@@ -1030,6 +1032,7 @@ def _suggest_solution_prompt(question: Dict[str, Any]) -> str:
     custom_prompt = (
         question.get("uploaded_solution_prompt")
         or question.get("solution_prompt")
+        or question.get("定番解法プロンプト")
         or question.get("解法プロンプト")
     )
     if custom_prompt:
@@ -5552,18 +5555,28 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             insight_override = _resolve_question_insight(selected_question)
             if insight_override:
                 insight_question["uploaded_question_insight"] = insight_override
-            if selected_question.get("uploaded_question_aim"):
-                insight_question["uploaded_question_aim"] = selected_question.get(
-                    "uploaded_question_aim"
-                )
-            if selected_question.get("uploaded_output_format"):
-                insight_question["uploaded_output_format"] = selected_question.get(
-                    "uploaded_output_format"
-                )
-            if selected_question.get("uploaded_solution_prompt"):
-                insight_question["uploaded_solution_prompt"] = selected_question.get(
-                    "uploaded_solution_prompt"
-                )
+            aim_override = _normalize_text_block(
+                selected_question.get("uploaded_question_aim")
+                or selected_question.get("question_aim")
+                or selected_question.get("設問の狙い")
+            )
+            if aim_override:
+                insight_question["uploaded_question_aim"] = aim_override
+            output_override = _normalize_text_block(
+                selected_question.get("uploaded_output_format")
+                or selected_question.get("output_format")
+                or selected_question.get("必要アウトプット形式")
+            )
+            if output_override:
+                insight_question["uploaded_output_format"] = output_override
+            solution_override = _normalize_text_block(
+                selected_question.get("uploaded_solution_prompt")
+                or selected_question.get("solution_prompt")
+                or selected_question.get("定番解法プロンプト")
+                or selected_question.get("解法プロンプト")
+            )
+            if solution_override:
+                insight_question["uploaded_solution_prompt"] = solution_override
             question_label = _format_question_option(selected_question_key) if selected_question_key else "設問"
             st.markdown(f"**{question_label}：{prompt_line}**")
             insight_text = _resolve_question_insight(insight_question)
