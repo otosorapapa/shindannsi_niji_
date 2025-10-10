@@ -1,0 +1,92 @@
+[
+  {
+    "fiscal_year": "令和7年度",
+    "name": "佐藤 理香",
+    "role": "基本委員",
+    "affiliation": "東都経営大学 准教授",
+    "expertise": ["マーケティング", "サービス開発"],
+    "assigned_cases": ["事例II"],
+    "bio": "中小製造業のマーケティング革新を専門とし、顧客価値の再設計支援が得意。"
+  },
+  {
+    "fiscal_year": "令和7年度",
+    "name": "鈴木 大和",
+    "role": "出題委員",
+    "affiliation": "株式会社プロダクション・シフト 代表",
+    "expertise": ["生産性向上", "オペレーション改革"],
+    "assigned_cases": ["事例III"],
+    "bio": "現場改善とIoT導入を組み合わせた生産性向上プロジェクトを多数推進。"
+  },
+  {
+    "fiscal_year": "令和7年度",
+    "name": "高橋 真衣",
+    "role": "出題委員",
+    "affiliation": "人材開発総合研究所 シニアフェロー",
+    "expertise": ["組織開発", "人的資源"],
+    "assigned_cases": ["事例I"],
+    "bio": "人的資源マネジメントと働き方改革を軸に企業変革を支援。"
+  },
+  {
+    "fiscal_year": "令和7年度",
+    "name": "田中 悠斗",
+    "role": "基本委員",
+    "affiliation": "ConnectX コンサルティング パートナー",
+    "expertise": ["DX推進", "サービス開発"],
+    "assigned_cases": ["事例II", "事例III"],
+    "bio": "地方企業のDXとサービスイノベーションの融合支援を手がける。"
+  },
+  {
+    "fiscal_year": "令和7年度",
+    "name": "中村 誠",
+    "role": "出題委員",
+    "affiliation": "公認会計士／財務戦略アドバイザー",
+    "expertise": ["財務会計", "管理会計"],
+    "assigned_cases": ["事例IV"],
+    "bio": "資本コストを意識した経営改善と管理会計制度設計が専門。"
+  },
+  {
+    "fiscal_year": "令和7年度",
+    "name": "山本 葵",
+    "role": "基本委員",
+    "affiliation": "ブランド・エクスペリエンス研究所 代表",
+    "expertise": ["マーケティング", "ブランド戦略"],
+    "assigned_cases": ["事例I", "事例II"],
+    "bio": "ブランド体験設計と顧客ロイヤルティ向上の実務支援に従事。"
+  },
+  {
+    "fiscal_year": "令和7年度",
+    "name": "岡本 亮介",
+    "role": "出題委員",
+    "affiliation": "製造業プロセス革新ラボ 主任研究員",
+    "expertise": ["生産性向上", "品質管理"],
+    "assigned_cases": ["事例III"],
+    "bio": "生産ラインの見える化と品質保証プロセス改革の専門家。"
+  },
+  {
+    "fiscal_year": "令和7年度",
+    "name": "伊藤 航",
+    "role": "基本委員",
+    "affiliation": "イノベーション共創機構 ディレクター",
+    "expertise": ["イノベーション", "新規事業"],
+    "assigned_cases": ["事例II", "事例III"],
+    "bio": "中堅企業の新規事業開発とアライアンス設計を支援。"
+  },
+  {
+    "fiscal_year": "令和7年度",
+    "name": "林 彩乃",
+    "role": "出題委員",
+    "affiliation": "デジタルマーケティングラボ 所長",
+    "expertise": ["マーケティング", "デジタル戦略"],
+    "assigned_cases": ["事例II"],
+    "bio": "データ活用による需要創造とオンライン施策の評価設計が強み。"
+  },
+  {
+    "fiscal_year": "令和7年度",
+    "name": "小川 直樹",
+    "role": "出題委員",
+    "affiliation": "SCM設計パートナーズ 代表コンサルタント",
+    "expertise": ["サプライチェーン", "生産性向上"],
+    "assigned_cases": ["事例III", "事例IV"],
+    "bio": "サプライチェーン再構築と在庫最適化プロジェクトで多数の実績。"
+  }
+]
