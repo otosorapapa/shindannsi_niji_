@@ -235,6 +235,9 @@ CASE_FRAME_SHORTCUTS = {
 
 PAST_EXAM_TEMPLATE_PATH = Path(__file__).resolve().parent / "data" / "past_exam_template.csv"
 CASE_CONTEXT_TEMPLATE_PATH = Path(__file__).resolve().parent / "data" / "case_context_template.csv"
+QUESTION_TEXT_TEMPLATE_PATH = (
+    Path(__file__).resolve().parent / "data" / "question_text_template.csv"
+)
 
 
 @st.cache_data(show_spinner=False)
@@ -274,6 +277,20 @@ def _load_case_context_template_preview() -> pd.DataFrame:
     if not CASE_CONTEXT_TEMPLATE_PATH.exists():
         raise FileNotFoundError("case_context_template.csv not found")
     return pd.read_csv(CASE_CONTEXT_TEMPLATE_PATH)
+
+
+@st.cache_data(show_spinner=False)
+def _load_question_text_template_bytes() -> bytes:
+    if not QUESTION_TEXT_TEMPLATE_PATH.exists():
+        raise FileNotFoundError("question_text_template.csv not found")
+    return QUESTION_TEXT_TEMPLATE_PATH.read_bytes()
+
+
+@st.cache_data(show_spinner=False)
+def _load_question_text_template_preview() -> pd.DataFrame:
+    if not QUESTION_TEXT_TEMPLATE_PATH.exists():
+        raise FileNotFoundError("question_text_template.csv not found")
+    return pd.read_csv(QUESTION_TEXT_TEMPLATE_PATH)
 
 
 def _normalize_case_label(raw: Optional[str]) -> Optional[str]:
@@ -7077,6 +7094,28 @@ def settings_page(user: Dict) -> None:
             st.caption(
                 "設問本文をCSV/Excelで登録すると、演習ページや模試モードの設問表示に反映されます。"
             )
+            try:
+                question_template_bytes = _load_question_text_template_bytes()
+            except FileNotFoundError:
+                st.warning(
+                    "設問文テンプレートを読み込めませんでした。data フォルダを確認してください。"
+                )
+            else:
+                st.download_button(
+                    "設問文テンプレートCSVをダウンロード",
+                    data=question_template_bytes,
+                    file_name="question_text_template.csv",
+                    mime="text/csv",
+                    help="年度・事例・設問番号・設問文列を含むアップロード用のひな形です。",
+                    key="question_text_template_download",
+                )
+                with st.expander("テンプレートのサンプルを見る", expanded=False):
+                    question_template_preview = _load_question_text_template_preview()
+                    st.dataframe(
+                        question_template_preview,
+                        use_container_width=True,
+                        hide_index=True,
+                    )
             question_upload = st.file_uploader(
                 "設問文リストをアップロード",
                 type=["csv", "xlsx", "xls"],
