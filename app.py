@@ -13,6 +13,7 @@ import html
 import random
 
 import uuid
+import unicodedata
 
 import altair as alt
 import pandas as pd
@@ -1327,21 +1328,134 @@ def _draft_key(problem_id: int, question_id: int) -> str:
     return f"draft_{problem_id}_{question_id}"
 
 
-def _render_character_counter(current_length: int, limit: Optional[int]) -> None:
-    remaining_text: str
+def _calculate_fullwidth_length(text: str) -> int:
+    units = 0
+    for char in text:
+        if char in {"\n", "\r"}:
+            continue
+        if unicodedata.east_asian_width(char) in {"F", "W", "A"}:
+            units += 2
+        else:
+            units += 1
+    return (units + 1) // 2
+
+
+def _inject_character_meter_styles() -> None:
+    if st.session_state.get("_character_meter_styles_injected"):
+        return
+    st.markdown(
+        """
+        <style>
+        .char-meter-wrapper {
+            margin-top: 0.35rem;
+        }
+        .char-meter {
+            position: relative;
+            height: 12px;
+            background: #e2e8f0;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .char-meter-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #38bdf8 0%, #3b82f6 45%, #6366f1 100%);
+            transition: width 200ms ease-out;
+        }
+        .char-meter-marker {
+            position: absolute;
+            top: -4px;
+            width: 2px;
+            height: 20px;
+            background: rgba(148, 163, 184, 0.8);
+        }
+        .char-meter-label {
+            position: absolute;
+            top: 14px;
+            transform: translateX(-50%);
+            font-size: 0.65rem;
+            color: #94a3b8;
+        }
+        .char-meter-text {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 0.4rem;
+            font-size: 0.8rem;
+            color: #475569;
+        }
+        .char-meter-remaining.over-limit {
+            color: #b91c1c;
+            font-weight: 600;
+        }
+        .char-meter-warning {
+            margin-top: 0.2rem;
+            color: #b91c1c;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state["_character_meter_styles_injected"] = True
+
+
+def _render_character_counter(text: str, limit: Optional[int]) -> None:
+    current_length = _calculate_fullwidth_length(text)
     if limit is None:
-        st.caption(f"現在の文字数: {current_length}字")
+        st.caption(f"全角換算: {current_length}字")
         return
 
-    remaining = limit - current_length
-    if remaining >= 0:
-        remaining_text = f"残り {remaining}字"
-    else:
-        remaining_text = f"{abs(remaining)}字オーバー"
+    _inject_character_meter_styles()
 
-    st.caption(f"文字数: {current_length} / {limit}字（{remaining_text}）")
+    limit_value = max(limit, 1)
+    remaining = limit_value - current_length
+    fill_percentage = min(current_length / limit_value * 100, 100)
+
+    thresholds = []
+    for threshold in (80, 100, 120):
+        if limit_value >= threshold:
+            thresholds.append(threshold)
+    if limit_value not in thresholds:
+        thresholds.append(limit_value)
+
+    marker_parts = []
+    for threshold in thresholds:
+        position = max(0.0, min(threshold / limit_value * 100, 100.0))
+        marker_parts.append(
+            f'<div class="char-meter-marker" style="left: {position}%"></div>'
+        )
+        marker_parts.append(
+            f'<div class="char-meter-label" style="left: {position}%">{threshold}字</div>'
+        )
+    markers_html = "".join(marker_parts)
+
+    remaining_text = (
+        f"残り {remaining}字" if remaining >= 0 else f"{abs(remaining)}字オーバー"
+    )
+    remaining_class = "char-meter-remaining over-limit" if remaining < 0 else "char-meter-remaining"
+
+    meter_html = f"""
+    <div class="char-meter-wrapper" title="100字=2〜3文が目安です">
+        <div class="char-meter">
+            <div class="char-meter-fill" style="width: {fill_percentage:.2f}%"></div>
+            {markers_html}
+        </div>
+        <div class="char-meter-text">
+            <span>全角換算 {current_length} / {limit_value}字</span>
+            <span class="{remaining_class}">{remaining_text}</span>
+        </div>
+    </div>
+    """
+
+    st.markdown(meter_html, unsafe_allow_html=True)
+
     if remaining < 0:
-        st.warning("文字数が上限を超えています。")
+        st.markdown(
+            "<div class=\"char-meter-warning\">⚠️ 文字数が上限を超えています（全角換算）。</div>",
+            unsafe_allow_html=True,
+        )
 
 
 def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> str:
@@ -1360,7 +1474,7 @@ def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> 
         help=help_text,
         disabled=disabled,
     )
-    _render_character_counter(len(text), question.get("character_limit"))
+    _render_character_counter(text, question.get("character_limit"))
     st.session_state.drafts[key] = text
     st.session_state.saved_answers.setdefault(key, value)
     status_placeholder = st.empty()
@@ -2119,7 +2233,7 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         max_chars = 60 if pd.notna(row["配点"]) and row["配点"] <= 25 else 80
         answer_key = f"uploaded_answer_{selected_year}_{selected_case}_{row['設問番号']}"
         user_answer = st.text_area("回答を入力", key=answer_key)
-        _render_character_counter(len(user_answer), max_chars)
+        _render_character_counter(user_answer, max_chars)
         with st.expander("模範解答／解説を見る"):
             video_url = None
             diagram_path = None
@@ -2314,7 +2428,7 @@ def mock_exam_page(user: Dict) -> None:
                 text = st.text_area(
                     question["prompt"], key=f"mock_{key}", value=default, height=160
                 )
-                _render_character_counter(len(text), question.get("character_limit"))
+                _render_character_counter(text, question.get("character_limit"))
                 st.session_state.drafts[key] = text
 
     if st.button("模試を提出", type="primary"):
