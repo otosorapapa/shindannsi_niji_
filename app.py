@@ -1344,12 +1344,201 @@ def _render_character_counter(current_length: int, limit: Optional[int]) -> None
         st.warning("文字数が上限を超えています。")
 
 
-def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> str:
+def _normalize_case_label(case_label: Optional[str]) -> Optional[str]:
+    if not case_label:
+        return None
+    normalized = case_label.replace(" ", "")
+    normalized = (
+        normalized.replace("Ⅰ", "I")
+        .replace("Ⅱ", "II")
+        .replace("Ⅲ", "III")
+        .replace("Ⅳ", "IV")
+    )
+    return normalized
+
+
+_QUICK_FRAME_TEMPLATES: Dict[str, List[Dict[str, str]]] = {
+    "事例I": [
+        {
+            "label": "さちのひほ",
+            "template": dedent(
+                """
+                【さちのひほ（人材マネジメント）】
+                ・さ：採用 ― 人材要件の明確化、多様な採用チャネルの活用
+                ・ち：配置 ― 適材適所、ジョブローテーション、権限の明確化
+                ・の：能力開発 ― OJT／Off-JT、キャリアパス設計、学習文化醸成
+                ・ひ：評価 ― 目標管理と定期フィードバック、公正な評価制度
+                ・ほ：報酬 ― 処遇・インセンティブ設計、貢献と連動した報酬
+                """
+            ).strip(),
+        },
+        {
+            "label": "けぶかいねこ",
+            "template": dedent(
+                """
+                【けぶかいねこ（組織デザイン）】
+                ・け：権限委譲 ― 意思決定の迅速化と責任の明確化
+                ・ぶ：部門編成 ― 分業・専門化と連携の最適化
+                ・か：階層短縮 ― スパン・オブ・コントロールの適正化
+                ・い：意思疎通 ― 会議体・情報共有・フィードバックの整備
+                ・ね：ネットワーク ― 横断的プロジェクト、コミュニティづくり
+                ・こ：コミュニケーション文化 ― 心理的安全性、エンゲージメント
+                """
+            ).strip(),
+        },
+    ],
+    "事例II": [
+        {
+            "label": "売上分解（客数×客単価）",
+            "template": dedent(
+                """
+                【売上分解（客数×客単価）】
+                ・客数：既存顧客維持、新規獲得、再来店促進、離反防止
+                ・客単価：商品ミックス、アップセル／クロスセル、価格政策
+                ・指標連動：KPI設定と効果測定、施策の優先順位付け
+                """
+            ).strip(),
+        },
+        {
+            "label": "新規/既存×施策",
+            "template": dedent(
+                """
+                【新規/既存×施策マトリクス】
+                ・既存×深耕：リピート施策、ロイヤルティ向上、CRM活用
+                ・既存×拡大：関連商品の提案、バンドル、客単価向上
+                ・新規×獲得：ターゲティング、プロモーション、口コミ誘発
+                ・新規×協業：外部パートナー連携、販路拡大、共創企画
+                """
+            ).strip(),
+        },
+        {
+            "label": "チャネル・協業",
+            "template": dedent(
+                """
+                【チャネル・協業戦略】
+                ・直販：店舗／EC体験向上、顧客データ活用
+                ・間接：卸・代理店・プラットフォームとの連携管理
+                ・協業：地域・異業種連携、共同プロモーション、OEM／ODM
+                ・支援体制：物流・在庫・CSを含むオペレーション設計
+                """
+            ).strip(),
+        },
+    ],
+    "事例III": [
+        {
+            "label": "QCD",
+            "template": dedent(
+                """
+                【QCD視点】
+                ・Quality：品質標準化、検査強化、現場教育
+                ・Cost：原価低減、歩留まり改善、設備稼働率向上
+                ・Delivery：リードタイム短縮、段取り改善、生産計画の平準化
+                """
+            ).strip(),
+        },
+        {
+            "label": "4M",
+            "template": dedent(
+                """
+                【4M観点】
+                ・Man：人員配置、技能マップ、教育訓練
+                ・Machine：設備保全、更新計画、IoT活用
+                ・Material：調達・在庫・品質管理
+                ・Method：作業標準化、マニュアル整備、改善提案制度
+                """
+            ).strip(),
+        },
+        {
+            "label": "段取り短縮",
+            "template": dedent(
+                """
+                【段取り短縮アプローチ】
+                1. 内段取りの外段取り化（事前準備、治工具共通化）
+                2. 手順の標準化と見える化（動画・チェックリスト）
+                3. 多能工化とチーム編成（交替制・支援体制）
+                4. 設備改善（自動化、セット時間の短縮）
+                """
+            ).strip(),
+        },
+        {
+            "label": "ECRS",
+            "template": dedent(
+                """
+                【ECRSの視点】
+                ・Eliminate：ムダな工程・待ち時間の排除
+                ・Combine：工程統合、並行作業、セル生産化
+                ・Rearrange：レイアウト見直し、ラインバランシング
+                ・Simplify：治工具改善、操作簡素化、IT活用
+                """
+            ).strip(),
+        },
+    ],
+    "事例IV": [
+        {
+            "label": "財務分析→CVP→投資判定",
+            "template": dedent(
+                """
+                【財務分析→CVP→投資判定の連鎖】
+                1. 財務分析：収益性・安全性・効率性指標で課題抽出
+                2. CVP分析：損益分岐点、限界利益率、感度分析で改善余地を特定
+                3. 投資判定：NPV／IRR／回収期間と資金繰りで意思決定
+                → 設問間の整合性を意識し、一貫したシナリオで提案する
+                """
+            ).strip(),
+        }
+    ],
+}
+
+
+def _get_quick_frame_templates(case_label: Optional[str]) -> List[Dict[str, str]]:
+    normalized = _normalize_case_label(case_label)
+    if not normalized:
+        return []
+    return _QUICK_FRAME_TEMPLATES.get(normalized, [])
+
+
+def _merge_template(current_text: str, template: str) -> str:
+    if not current_text:
+        return template
+    separator = "\n" if not current_text.endswith("\n") else ""
+    return f"{current_text}{separator}{template}"
+
+
+def _question_input(
+    problem_id: int,
+    question: Dict,
+    disabled: bool = False,
+    *,
+    case_label: Optional[str] = None,
+) -> str:
     key = _draft_key(problem_id, question["id"])
     if key not in st.session_state.drafts:
         saved_default = st.session_state.saved_answers.get(key, "")
         st.session_state.drafts[key] = saved_default
     value = st.session_state.drafts.get(key, "")
+    quick_frames = _get_quick_frame_templates(case_label)
+    feedback_key = f"quickframe_feedback_{key}"
+    if quick_frames and not disabled:
+        st.caption("頻出フレームをワンクリックで挿入できます。用途に合わせて活用してください。")
+        columns_per_row = 3
+        for start in range(0, len(quick_frames), columns_per_row):
+            cols = st.columns(min(columns_per_row, len(quick_frames) - start))
+            for col, frame in zip(cols, quick_frames[start : start + columns_per_row]):
+                button_label = f"『{frame['label']}』を挿入"
+                button_key = f"quickframe_btn_{key}_{frame['label']}"
+                with col:
+                    if st.button(button_label, key=button_key):
+                        new_text = _merge_template(st.session_state.drafts.get(key, ""), frame["template"])
+                        st.session_state.drafts[key] = new_text
+                        st.session_state[f"textarea_{key}"] = new_text
+                        value = new_text
+                        st.session_state[feedback_key] = f"{frame['label']}のフレームを挿入しました。"
+        with st.expander("テンプレート内容を確認", expanded=False):
+            for frame in quick_frames:
+                st.markdown(f"**{frame['label']}**\n\n{frame['template']}")
+    message = st.session_state.pop(feedback_key, None)
+    if message:
+        st.success(message)
     help_text = f"文字数目安: {question['character_limit']}字" if question["character_limit"] else ""
     st.caption("入力内容は自動保存されます。")
     text = st.text_area(
@@ -1973,7 +2162,11 @@ def practice_page(user: Dict) -> None:
     _inject_guideline_styles()
 
     for question in problem["questions"]:
-        text = _question_input(problem["id"], question)
+        text = _question_input(
+            problem["id"],
+            question,
+            case_label=problem.get("case_label"),
+        )
         question_specs.append(
             QuestionSpec(
                 id=question["id"],
