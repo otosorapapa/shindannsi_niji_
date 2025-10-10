@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from uuid import uuid4
 import logging
 
@@ -542,6 +542,89 @@ def _normalize_text_block(value: Any) -> Optional[str]:
     if lowered in {"nan", "none"}:
         return None
     return text
+
+
+def _iter_question_context_candidates(question: Dict[str, Any]) -> Iterable[Any]:
+    if not question:
+        return []
+
+    candidates: List[Any] = [
+        question.get("context"),
+        question.get("context_text"),
+        question.get("context_snippet"),
+        question.get("与件文"),
+        question.get("与件"),
+        question.get("context_body"),
+    ]
+
+    passages = question.get("context_passages")
+    if isinstance(passages, (list, tuple, set)):
+        for passage in passages:
+            if isinstance(passage, dict):
+                candidates.extend(
+                    [
+                        passage.get("text"),
+                        passage.get("content"),
+                        passage.get("body"),
+                    ]
+                )
+            else:
+                candidates.append(passage)
+    elif passages is not None:
+        candidates.append(passages)
+
+    return candidates
+
+
+def _collect_problem_context_text(problem: Dict[str, Any]) -> Optional[str]:
+    if not problem:
+        return None
+
+    direct_keys = (
+        "context",
+        "context_text",
+        "context_body",
+        "context_passages",
+        "与件文",
+        "与件",
+    )
+    for key in direct_keys:
+        value = problem.get(key)
+        if key == "context_passages" and value:
+            collected: List[str] = []
+            items = value if isinstance(value, (list, tuple, set)) else [value]
+            for item in items:
+                if isinstance(item, dict):
+                    for sub_key in ("text", "content", "body"):
+                        normalized = _normalize_text_block(item.get(sub_key))
+                        if normalized:
+                            collected.append(normalized)
+                else:
+                    normalized = _normalize_text_block(item)
+                    if normalized:
+                        collected.append(normalized)
+            if collected:
+                return "\n\n".join(collected)
+        else:
+            normalized = _normalize_text_block(value)
+            if normalized:
+                return normalized
+
+    fragments: List[str] = []
+    seen: Set[str] = set()
+
+    for question in problem.get("questions", []):
+        for candidate in _iter_question_context_candidates(question):
+            normalized = _normalize_text_block(candidate)
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            fragments.append(normalized)
+
+    if not fragments:
+        return None
+
+    return "\n\n".join(fragments)
 
 
 def _coerce_points(value: Any) -> List[str]:
@@ -1406,6 +1489,61 @@ def _render_question_context_block(context_value: Any) -> None:
 
     with st.expander("与件文を全文表示", expanded=False):
         st.write("\n\n".join(lines))
+
+
+def _inject_problem_context_styles() -> None:
+    if st.session_state.get("_problem_context_styles_injected"):
+        return
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .problem-context-block {
+                border-left: 4px solid rgba(37, 99, 235, 0.8);
+                background: rgba(37, 99, 235, 0.06);
+                padding: 1.1rem 1.35rem;
+                border-radius: 14px;
+                margin: 1.2rem 0 1.6rem;
+                line-height: 1.75;
+            }
+            .problem-context-block p {
+                margin: 0 0 0.9rem;
+                font-size: 0.96rem;
+            }
+            .problem-context-block p:last-child {
+                margin-bottom: 0;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_problem_context_styles_injected"] = True
+
+
+def _render_problem_context_block(context_text: str) -> None:
+    normalized = _normalize_text_block(context_text)
+    if not normalized:
+        return
+
+    blocks: List[str] = []
+    for raw_block in normalized.replace("\r\n", "\n").replace("\r", "\n").split("\n\n"):
+        paragraph = raw_block.strip()
+        if not paragraph:
+            continue
+        lines = [html.escape(line.strip()) for line in paragraph.split("\n") if line.strip()]
+        if not lines:
+            continue
+        blocks.append(f"<p>{'<br/>'.join(lines)}</p>")
+
+    if not blocks:
+        return
+
+    _inject_problem_context_styles()
+    st.markdown(
+        "<div class=\"problem-context-block\">" + "".join(blocks) + "</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def _render_question_overview_card(
@@ -4184,6 +4322,11 @@ def practice_page(user: Dict) -> None:
     else:
         st.subheader(problem["title"])
     st.write(problem["overview"])
+
+    problem_context = _collect_problem_context_text(problem)
+    if problem_context:
+        st.markdown("### 与件文")
+        _render_problem_context_block(problem_context)
 
     st.markdown(
         dedent(
