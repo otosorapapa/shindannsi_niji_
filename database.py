@@ -82,7 +82,8 @@ def initialize_database(*, force: bool = False) -> None:
             year TEXT NOT NULL,
             case_label TEXT NOT NULL,
             title TEXT NOT NULL,
-            overview TEXT NOT NULL
+            overview TEXT NOT NULL,
+            context_text TEXT
         );
 
         CREATE TABLE IF NOT EXISTS questions (
@@ -187,6 +188,7 @@ def initialize_database(*, force: bool = False) -> None:
             seed_payload = _normalise_seed_payload(seed_payload)
 
             _ensure_question_multimedia_columns(conn)
+            _ensure_problem_context_columns(conn)
 
             _seed_problems(conn, seed_payload)
         finally:
@@ -205,20 +207,23 @@ def _seed_problems(conn: sqlite3.Connection, payload: Dict) -> None:
             (problem["year"], problem["case"]),
         )
         row = cursor.fetchone()
+        context_text = problem.get("context")
+
         if row:
             problem_id = row["id"]
             cursor.execute(
-                "UPDATE problems SET title = ?, overview = ? WHERE id = ?",
-                (problem["title"], problem["overview"], problem_id),
+                "UPDATE problems SET title = ?, overview = ?, context_text = ? WHERE id = ?",
+                (problem["title"], problem["overview"], context_text, problem_id),
             )
         else:
             cursor.execute(
-                "INSERT INTO problems (year, case_label, title, overview) VALUES (?, ?, ?, ?)",
+                "INSERT INTO problems (year, case_label, title, overview, context_text) VALUES (?, ?, ?, ?, ?)",
                 (
                     problem["year"],
                     problem["case"],
                     problem["title"],
                     problem["overview"],
+                    context_text,
                 ),
             )
             problem_id = cursor.lastrowid
@@ -344,6 +349,12 @@ def _normalise_seed_payload(payload: Any) -> Dict[str, Any]:
             },
         )
 
+        for context_key in ("context", "context_text", "与件文全体", "与件文", "context_body"):
+            context_value = entry.get(context_key)
+            if isinstance(context_value, str) and context_value.strip():
+                problem.setdefault("context", context_value.strip())
+                break
+
         question = {
             "prompt": entry.get("prompt", ""),
             "character_limit": entry.get("character_limit"),
@@ -372,6 +383,7 @@ def _normalise_seed_payload(payload: Any) -> Dict[str, Any]:
                 "case": problem["case"],
                 "title": problem["title"],
                 "overview": problem["overview"],
+                "context": problem.get("context"),
                 "questions": questions,
             }
         )
@@ -402,6 +414,18 @@ def _ensure_question_multimedia_columns(conn: sqlite3.Connection) -> None:
         cursor.execute(statement)
 
     if alterations:
+        conn.commit()
+
+
+def _ensure_problem_context_columns(conn: sqlite3.Connection) -> None:
+    """Ensure problems table has columns required for storing context text."""
+
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(problems)")
+    columns = {row[1] for row in cursor.fetchall()}
+
+    if "context_text" not in columns:
+        cursor.execute("ALTER TABLE problems ADD COLUMN context_text TEXT")
         conn.commit()
 
 
@@ -528,7 +552,9 @@ def fetch_problem(problem_id: int) -> Optional[Dict]:
             }
         )
 
-    return {
+    context_text = problem_row["context_text"]
+
+    problem_dict = {
         "id": problem_row["id"],
         "year": problem_row["year"],
         "case_label": problem_row["case_label"],
@@ -536,6 +562,19 @@ def fetch_problem(problem_id: int) -> Optional[Dict]:
         "overview": problem_row["overview"],
         "questions": questions,
     }
+
+    if context_text:
+        problem_dict.update(
+            {
+                "context": context_text,
+                "context_text": context_text,
+                "context_body": context_text,
+                "与件文": context_text,
+                "与件文全体": context_text,
+            }
+        )
+
+    return problem_dict
 
 
 @lru_cache(maxsize=None)
@@ -1366,6 +1405,12 @@ def _default_seed_payload() -> Dict:
                 "overview": (
                     "老舗和菓子メーカーA社の中期経営計画と人材活用に関するケースです。"
                     "現状の組織課題を分析し、成長戦略に向けた施策を検討します。"
+                ),
+                "context": (
+                    "創業70年のA社は地方都市で和菓子を製造・卸売している。"
+                    "熟練職人が味と意匠を守る一方、若手はEC販促と新商品企画を兼務し忙殺されている。"
+                    "\n\n主要百貨店との取引は継続しているが、営業情報の共有不足で提案が属人的になっている。"
+                    "人事制度や教育体系の整備が遅れ、部署横断プロジェクトもリーダー不足に陥っている。"
                 ),
                 "questions": [
                     {
