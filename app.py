@@ -1090,10 +1090,20 @@ def _suggest_solution_prompt(question: Dict[str, Any]) -> str:
 def _problem_data_signature() -> float:
     """Return a signature that changes whenever the problem dataset is updated."""
 
+    db_mtime = 0.0
+    seed_mtime = 0.0
+
     try:
-        return database.DB_PATH.stat().st_mtime
+        db_mtime = database.DB_PATH.stat().st_mtime
     except FileNotFoundError:
-        return 0.0
+        db_mtime = 0.0
+
+    try:
+        seed_mtime = SEED_PROBLEMS_JSON_PATH.stat().st_mtime
+    except FileNotFoundError:
+        seed_mtime = 0.0
+
+    return db_mtime + seed_mtime
 
 
 @st.cache_data(show_spinner=False)

@@ -15,7 +15,7 @@ from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
 from threading import Lock
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 DB_PATH = Path("data/app.db")
 SEED_PATH = Path("data/seed_problems.json")
@@ -37,6 +37,94 @@ def _clear_problem_caches() -> None:
         func = globals().get(func_name)
         if func is not None and hasattr(func, "cache_clear"):
             func.cache_clear()  # type: ignore[call-arg]
+
+    for helper in (
+        _list_problems_impl,
+        _fetch_problem_impl,
+        _fetch_problem_by_year_case_impl,
+        _load_seed_problem_lookup_cached,
+    ):
+        if hasattr(helper, "cache_clear"):
+            helper.cache_clear()  # type: ignore[call-arg]
+
+
+def _seed_file_signature() -> float:
+    """Return a timestamp signature for the seed problem file."""
+
+    try:
+        return SEED_PATH.stat().st_mtime
+    except FileNotFoundError:
+        return 0.0
+
+
+@lru_cache(maxsize=1)
+def _load_seed_problem_lookup_cached(signature: float) -> Dict[Tuple[str, str], Dict[str, Any]]:
+    """Return seed problem data keyed by ``(year, case_label)``."""
+
+    if not SEED_PATH.exists():
+        return {}
+
+    raw_text = SEED_PATH.read_text(encoding="utf-8")
+    cleaned_lines: List[str] = []
+    for line in raw_text.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith("//"):
+            continue
+        cleaned_lines.append(line)
+
+    cleaned_text = "\n".join(cleaned_lines).strip()
+    if not cleaned_text:
+        return {}
+
+    try:
+        payload = json.loads(cleaned_text)
+    except json.JSONDecodeError:
+        return {}
+
+    normalised = _normalise_seed_payload(payload)
+    lookup: Dict[Tuple[str, str], Dict[str, Any]] = {}
+
+    for problem in normalised.get("problems", []):
+        year = problem.get("year")
+        case_label = problem.get("case") or problem.get("case_label")
+        if not (isinstance(year, str) and isinstance(case_label, str)):
+            continue
+
+        questions: List[Dict[str, Any]] = []
+        for order, question in enumerate(problem.get("questions", []), start=1):
+            normalised_question = dict(question)
+            normalised_question.setdefault("prompt", "")
+            normalised_question.setdefault("character_limit", None)
+            normalised_question.setdefault("max_score", 0)
+            normalised_question.setdefault("model_answer", "")
+            normalised_question.setdefault("explanation", "")
+            normalised_question.setdefault("keywords", [])
+            normalised_question.setdefault("intent_cards", [])
+            normalised_question.setdefault("video_url", None)
+            normalised_question.setdefault("diagram_path", None)
+            normalised_question.setdefault("diagram_caption", None)
+            normalised_question["order"] = order
+            normalised_question["question_order"] = order
+            questions.append(normalised_question)
+
+        lookup[(year, case_label)] = {
+            "year": year,
+            "case_label": case_label,
+            "title": problem.get("title", ""),
+            "overview": problem.get("overview", ""),
+            "context": problem.get("context") or problem.get("context_text"),
+            "questions": questions,
+        }
+
+    return lookup
+
+
+def _load_seed_problem_lookup(signature: Optional[float] = None) -> Dict[Tuple[str, str], Dict[str, Any]]:
+    """Convenience wrapper that injects the current seed file signature."""
+
+    if signature is None:
+        signature = _seed_file_signature()
+    return _load_seed_problem_lookup_cached(signature)
 
 
 def get_connection() -> sqlite3.Connection:
@@ -481,13 +569,31 @@ def update_user_plan(user_id: int, plan: str) -> None:
     conn.close()
 
 
-@lru_cache(maxsize=1)
 def list_problems() -> List[Dict[str, Any]]:
+    return _list_problems_impl(_seed_file_signature())
+
+
+@lru_cache(maxsize=1)
+def _list_problems_impl(seed_signature: float) -> List[Dict[str, Any]]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM problems ORDER BY year DESC, case_label ASC")
     rows = [dict(row) for row in cur.fetchall()]
     conn.close()
+
+    seed_lookup = _load_seed_problem_lookup_cached(seed_signature)
+    for row in rows:
+        seed_problem = seed_lookup.get((row["year"], row["case_label"]))
+        if not seed_problem:
+            continue
+        if seed_problem.get("title"):
+            row["title"] = seed_problem["title"]
+        if seed_problem.get("overview"):
+            row["overview"] = seed_problem["overview"]
+        context_text = seed_problem.get("context")
+        if context_text:
+            row["context_text"] = context_text
+
     return rows
 
 
@@ -514,8 +620,12 @@ def list_problem_cases(year: str) -> List[str]:
     return cases
 
 
-@lru_cache(maxsize=None)
 def fetch_problem(problem_id: int) -> Optional[Dict]:
+    return _fetch_problem_impl(problem_id, _seed_file_signature())
+
+
+@lru_cache(maxsize=None)
+def _fetch_problem_impl(problem_id: int, seed_signature: float) -> Optional[Dict]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM problems WHERE id = ?", (problem_id,))
@@ -531,26 +641,81 @@ def fetch_problem(problem_id: int) -> Optional[Dict]:
     question_rows = cur.fetchall()
     conn.close()
 
-    questions = []
+    seed_lookup = _load_seed_problem_lookup_cached(seed_signature)
+    seed_problem = seed_lookup.get((problem_row["year"], problem_row["case_label"]))
+    seed_questions: Dict[int, Dict[str, Any]] = {}
+    if seed_problem:
+        for idx, question in enumerate(seed_problem.get("questions", []), start=1):
+            seed_questions[idx] = question
+
+    questions: List[Dict[str, Any]] = []
     for question in question_rows:
-        questions.append(
-            {
-                "id": question["id"],
-                "prompt": question["prompt"],
-                "character_limit": question["character_limit"],
-                "max_score": question["max_score"],
-                "model_answer": question["model_answer"],
-                "explanation": question["explanation"],
-                "keywords": json.loads(question["keywords_json"]),
-                "order": question["question_order"],
-                "intent_cards": json.loads(question["intent_cards_json"])
-                if question["intent_cards_json"]
-                else [],
-                "video_url": question["video_url"],
-                "diagram_path": question["diagram_path"],
-                "diagram_caption": question["diagram_caption"],
-            }
+        order = question["question_order"]
+        seed_question = seed_questions.get(order)
+        keywords = json.loads(question["keywords_json"])
+        intent_cards = (
+            json.loads(question["intent_cards_json"])
+            if question["intent_cards_json"]
+            else []
         )
+
+        merged_question = {
+            "id": question["id"],
+            "prompt": question["prompt"],
+            "character_limit": question["character_limit"],
+            "max_score": question["max_score"],
+            "model_answer": question["model_answer"],
+            "explanation": question["explanation"],
+            "keywords": keywords,
+            "order": order,
+            "intent_cards": intent_cards,
+            "video_url": question["video_url"],
+            "diagram_path": question["diagram_path"],
+            "diagram_caption": question["diagram_caption"],
+        }
+
+        if seed_question:
+            merged_question["prompt"] = seed_question.get("prompt", merged_question["prompt"])
+            if seed_question.get("character_limit") is not None:
+                merged_question["character_limit"] = seed_question.get("character_limit")
+            if seed_question.get("max_score") is not None:
+                merged_question["max_score"] = seed_question.get("max_score")
+            merged_question["model_answer"] = seed_question.get(
+                "model_answer", merged_question["model_answer"]
+            )
+            merged_question["explanation"] = seed_question.get(
+                "explanation", merged_question["explanation"]
+            )
+            keywords_override = seed_question.get("keywords")
+            if isinstance(keywords_override, list):
+                merged_question["keywords"] = [str(item) for item in keywords_override]
+            intent_override = seed_question.get("intent_cards")
+            if isinstance(intent_override, list):
+                normalized_cards: List[Dict[str, Any]] = []
+                for card in intent_override:
+                    if isinstance(card, dict):
+                        normalized_cards.append(dict(card))
+                    elif card is not None:
+                        normalized_cards.append({"label": str(card)})
+                merged_question["intent_cards"] = normalized_cards
+            if seed_question.get("video_url"):
+                merged_question["video_url"] = seed_question.get("video_url")
+            if seed_question.get("diagram_path"):
+                merged_question["diagram_path"] = seed_question.get("diagram_path")
+            if seed_question.get("diagram_caption"):
+                merged_question["diagram_caption"] = seed_question.get("diagram_caption")
+            for extra_key in (
+                "question_text",
+                "body",
+                "detailed_explanation",
+                "question_intent",
+                "問題文",
+                "設問文",
+            ):
+                if extra_key in seed_question and seed_question[extra_key]:
+                    merged_question[extra_key] = seed_question[extra_key]
+
+        questions.append(merged_question)
 
     context_text = problem_row["context_text"]
 
@@ -562,6 +727,14 @@ def fetch_problem(problem_id: int) -> Optional[Dict]:
         "overview": problem_row["overview"],
         "questions": questions,
     }
+
+    if seed_problem:
+        if seed_problem.get("title"):
+            problem_dict["title"] = seed_problem["title"]
+        if seed_problem.get("overview"):
+            problem_dict["overview"] = seed_problem["overview"]
+        if seed_problem.get("context"):
+            context_text = seed_problem.get("context")
 
     if context_text:
         problem_dict.update(
@@ -577,8 +750,14 @@ def fetch_problem(problem_id: int) -> Optional[Dict]:
     return problem_dict
 
 
-@lru_cache(maxsize=None)
 def fetch_problem_by_year_case(year: str, case_label: str) -> Optional[Dict]:
+    return _fetch_problem_by_year_case_impl(year, case_label, _seed_file_signature())
+
+
+@lru_cache(maxsize=None)
+def _fetch_problem_by_year_case_impl(
+    year: str, case_label: str, seed_signature: float
+) -> Optional[Dict]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -589,7 +768,7 @@ def fetch_problem_by_year_case(year: str, case_label: str) -> Optional[Dict]:
     conn.close()
     if not row:
         return None
-    return fetch_problem(row["id"])
+    return _fetch_problem_impl(row["id"], seed_signature)
 
 
 @dataclass
