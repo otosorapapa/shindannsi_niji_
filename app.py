@@ -224,6 +224,9 @@ CASE_FRAME_SHORTCUTS = {
 }
 
 
+PAST_EXAM_TEMPLATE_PATH = Path(__file__).resolve().parent / "data" / "past_exam_template.csv"
+
+
 @st.cache_data(show_spinner=False)
 def _load_exam_templates() -> List[Dict[str, Any]]:
     template_path = Path("data/exam_templates.json")
@@ -233,6 +236,20 @@ def _load_exam_templates() -> List[Dict[str, Any]]:
         return json.loads(template_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return []
+
+
+@st.cache_data(show_spinner=False)
+def _load_past_exam_template_bytes() -> bytes:
+    if not PAST_EXAM_TEMPLATE_PATH.exists():
+        raise FileNotFoundError("past_exam_template.csv not found")
+    return PAST_EXAM_TEMPLATE_PATH.read_bytes()
+
+
+@st.cache_data(show_spinner=False)
+def _load_past_exam_template_preview() -> pd.DataFrame:
+    if not PAST_EXAM_TEMPLATE_PATH.exists():
+        raise FileNotFoundError("past_exam_template.csv not found")
+    return pd.read_csv(PAST_EXAM_TEMPLATE_PATH)
 
 
 def _normalize_case_label(raw: Optional[str]) -> Optional[str]:
@@ -4946,6 +4963,21 @@ def settings_page(user: Dict) -> None:
             type=["csv", "xlsx", "xls", "pdf"],
         )
         st.caption("R6/R5 事例III原紙テンプレートを同梱し、自動分解の精度を高めています。PDFアップロードにも対応しています。")
+        try:
+            template_bytes = _load_past_exam_template_bytes()
+        except FileNotFoundError:
+            st.warning("テンプレートファイルを読み込めませんでした。リポジトリの data フォルダを確認してください。")
+        else:
+            st.download_button(
+                "テンプレートCSVをダウンロード",
+                data=template_bytes,
+                file_name="past_exam_template.csv",
+                mime="text/csv",
+                help="アップロード用のひな形です。必須列とサンプル設問を含みます。",
+            )
+            with st.expander("テンプレートのサンプルを見る", expanded=False):
+                preview_df = _load_past_exam_template_preview()
+                st.dataframe(preview_df, use_container_width=True, hide_index=True)
         if uploaded_file is not None:
             _handle_past_data_upload(uploaded_file)
 
