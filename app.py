@@ -5179,6 +5179,10 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             diagram_path = str(selected_question.get(diagram_col))
         if diagram_caption_col and pd.notna(selected_question.get(diagram_caption_col)):
             diagram_caption = str(selected_question.get(diagram_caption_col))
+        original_year_value = _normalize_text_block(
+            selected_question.get("_year_display")
+        ) or selected_year
+
         _render_model_answer_section(
             model_answer=selected_question.get("模範解答"),
             explanation=selected_question.get("解説"),
@@ -5186,7 +5190,7 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             diagram_path=diagram_path,
             diagram_caption=diagram_caption,
             context_id=f"uploaded-{selected_year}-{selected_case}-{answer_fragment}",
-            year=selected_year,
+            year=original_year_value,
             case_label=selected_case,
             question_number=_normalize_question_number(selected_question.get("設問番号")),
             detailed_explanation=detailed_explanation,
