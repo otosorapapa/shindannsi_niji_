@@ -1563,6 +1563,9 @@ def _render_problem_context_block(context_text: str) -> None:
                         <button type="button" class="marker-color" data-action="set-color" data-color="sky" aria-label="ブルーマーカー"></button>
                         <button type="button" class="marker-color" data-action="set-color" data-color="lime" aria-label="グリーンマーカー"></button>
                     </div>
+                    <button type="button" class="toolbar-button undo" data-action="undo" aria-disabled="true" disabled>
+                        直前の操作を取り消す
+                    </button>
                     <button type="button" class="toolbar-button clear" data-action="clear-all" data-target="{element_id}">
                         マーカーを全て解除
                     </button>
@@ -1594,6 +1597,18 @@ def _render_problem_context_block(context_text: str) -> None:
                 gap: 0.35rem;
                 font-size: 0.82rem;
                 color: #475569;
+                position: sticky;
+                top: 0;
+                z-index: 12;
+                padding: 0.6rem 0.75rem;
+                border-radius: 14px;
+                background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.95));
+                border: 1px solid rgba(148, 163, 184, 0.18);
+                box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+                backdrop-filter: blur(6px);
+            }}
+            .context-toolbar.is-floating {{
+                box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16);
             }}
             .toolbar-actions {{
                 display: flex;
@@ -1623,6 +1638,23 @@ def _render_problem_context_block(context_text: str) -> None:
             }}
             .toolbar-button:active {{
                 transform: translateY(0);
+            }}
+            .toolbar-button.undo {{
+                background: linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(29, 78, 216, 0.12));
+                color: #1d4ed8;
+                box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.28);
+            }}
+            .toolbar-button.undo:hover {{
+                box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.35), 0 6px 12px rgba(37, 99, 235, 0.28);
+            }}
+            .toolbar-button.undo:disabled {{
+                background: rgba(226, 232, 240, 0.85);
+                color: rgba(71, 85, 105, 0.9);
+                box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.3);
+                cursor: not-allowed;
+                opacity: 0.88;
+                transform: none;
+                pointer-events: none;
             }}
             .toolbar-button.clear {{
                 background: rgba(15, 23, 42, 0.08);
@@ -1738,11 +1770,36 @@ def _render_problem_context_block(context_text: str) -> None:
                 }}
 
                 const highlightButton = toolbar.querySelector('[data-action="highlight"]');
+                const undoButton = toolbar.querySelector('[data-action="undo"]');
                 const clearButton = toolbar.querySelector('[data-action="clear-all"]');
                 const colorButtons = Array.from(toolbar.querySelectorAll('[data-action="set-color"]'));
 
                 let highlightMode = false;
                 let activeColor = (highlightButton && highlightButton.dataset.defaultColor) || (colorButtons[0] && colorButtons[0].dataset.color) || "amber";
+                const history = [];
+                const maxHistory = 30;
+
+                const updateUndoState = () => {{
+                    if (!undoButton) {{
+                        return;
+                    }}
+                    const disabled = history.length === 0;
+                    undoButton.disabled = disabled;
+                    undoButton.setAttribute("aria-disabled", disabled ? "true" : "false");
+                }};
+
+                const pushHistory = (snapshot) => {{
+                    if (!undoButton || !snapshot || history[history.length - 1] === snapshot) {{
+                        return;
+                    }}
+                    history.push(snapshot);
+                    if (history.length > maxHistory) {{
+                        history.shift();
+                    }}
+                    updateUndoState();
+                }};
+
+                updateUndoState();
 
                 const setHighlightMode = (value) => {{
                     highlightMode = Boolean(value);
@@ -1765,17 +1822,24 @@ def _render_problem_context_block(context_text: str) -> None:
                         return false;
                     }}
 
+                    const snapshot = container.innerHTML;
                     const mark = document.createElement("mark");
                     mark.className = "fluorescent-marker color-" + activeColor;
                     mark.appendChild(range.extractContents());
                     range.insertNode(mark);
                     container.normalize();
                     selection.removeAllRanges();
+                    pushHistory(snapshot);
                     return true;
                 }};
 
                 const clearAll = () => {{
-                    container.querySelectorAll("mark.fluorescent-marker").forEach((mark) => {{
+                    const marks = Array.from(container.querySelectorAll("mark.fluorescent-marker"));
+                    if (!marks.length) {{
+                        return false;
+                    }}
+                    const snapshot = container.innerHTML;
+                    marks.forEach((mark) => {{
                         const parent = mark.parentNode;
                         if (!parent) {{
                             return;
@@ -1786,6 +1850,8 @@ def _render_problem_context_block(context_text: str) -> None:
                         parent.removeChild(mark);
                         parent.normalize();
                     }});
+                    pushHistory(snapshot);
+                    return true;
                 }};
 
                 const scheduleAutoHighlight = () => {{
@@ -1816,7 +1882,26 @@ def _render_problem_context_block(context_text: str) -> None:
 
                 if (clearButton) {{
                     clearButton.addEventListener("click", () => {{
-                        clearAll();
+                        const changed = clearAll();
+                        if (!changed) {{
+                            return;
+                        }}
+                        const selection = window.getSelection();
+                        if (selection) {{
+                            selection.removeAllRanges();
+                        }}
+                    }});
+                }}
+
+                if (undoButton) {{
+                    undoButton.addEventListener("click", () => {{
+                        if (!history.length) {{
+                            return;
+                        }}
+                        const previous = history.pop();
+                        container.innerHTML = previous;
+                        container.normalize();
+                        updateUndoState();
                         const selection = window.getSelection();
                         if (selection) {{
                             selection.removeAllRanges();
@@ -1886,6 +1971,15 @@ def _render_problem_context_block(context_text: str) -> None:
                         scheduleAutoHighlight();
                     }});
                 }});
+
+                const handleScroll = () => {{
+                    if (!toolbar) {{
+                        return;
+                    }}
+                    toolbar.classList.toggle("is-floating", container.scrollTop > 4);
+                }};
+                container.addEventListener("scroll", handleScroll);
+                handleScroll();
 
             }})();
         </script>
