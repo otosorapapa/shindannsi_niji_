@@ -2242,7 +2242,7 @@ def render_attempt_results(attempt_id: int) -> None:
 
 def mock_exam_page(user: Dict) -> None:
     st.title("模擬試験モード")
-    st.caption("事例I～IVをまとめて演習し、時間管理と一括採点を体験します。")
+    st.caption("事例I～IVをまとめて演習し、時間管理と自動採点（観点別）を体験します。")
 
     session = st.session_state.mock_session
 
