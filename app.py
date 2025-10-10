@@ -28,6 +28,7 @@ import pdfplumber
 import streamlit as st
 import streamlit.components.v1 as components
 
+import committee_analysis
 import database
 import mock_exam
 import scoring
@@ -2181,6 +2182,99 @@ def _build_calendar_export(
     return "\r\n".join(lines).encode("utf-8")
 
 
+def _render_committee_heatmap_section(default_year: str = "令和7年度") -> None:
+    dataset = committee_analysis.load_committee_dataset()
+    if not dataset:
+        return
+
+    df = committee_analysis.flatten_profiles(dataset)
+    if df.empty:
+        return
+
+    summary_df = committee_analysis.aggregate_heatmap(df)
+    if summary_df.empty:
+        return
+
+    year_label = dataset.get("year", default_year)
+
+    st.subheader("試験委員“専門×事例”ヒートマップ")
+    st.caption(f"{year_label}の基本/出題委員の専門領域と担当事例をマッピングしました。")
+
+    primary_focus = committee_analysis.identify_primary_focus(dataset, summary_df)
+    if primary_focus:
+        info_lines = [f"今年の“重心”は「{primary_focus['label']}」。"]
+        rationale = primary_focus.get("rationale")
+        if rationale:
+            info_lines.append(str(rationale))
+        study_list = primary_focus.get("study_list") or []
+        if study_list:
+            info_lines.append("推奨テーマ: " + " / ".join(study_list[:3]))
+        st.info("\n".join(info_lines), icon="🎯")
+
+    domain_order = committee_analysis.domain_order(summary_df)
+    chart_data = summary_df.copy()
+    chart = (
+        alt.Chart(chart_data)
+        .mark_rect()
+        .encode(
+            x=alt.X("事例:N", sort=CASE_ORDER, title="事例"),
+            y=alt.Y("専門カテゴリ:N", sort=domain_order, title="専門領域"),
+            color=alt.Color(
+                "重み:Q",
+                scale=alt.Scale(scheme="blues", domainMin=0),
+                title="影響度",
+            ),
+            tooltip=[
+                alt.Tooltip("専門カテゴリ:N", title="専門領域"),
+                alt.Tooltip("事例:N", title="事例"),
+                alt.Tooltip("重み:Q", title="重み", format=".2f"),
+                alt.Tooltip("委員数:Q", title="担当委員数"),
+                alt.Tooltip("重点テーマ:N", title="重点テーマ"),
+            ],
+        )
+        .properties(height=320)
+    )
+    text_layer = (
+        alt.Chart(chart_data)
+        .mark_text(color="#0f172a", fontSize=12)
+        .encode(
+            x="事例:N",
+            y="専門カテゴリ:N",
+            text=alt.Text("重み:Q", format=".1f"),
+        )
+    )
+    st.altair_chart(chart + text_layer, use_container_width=True)
+
+    recommendations = committee_analysis.focus_recommendations(summary_df, limit=5)
+    if recommendations:
+        st.markdown("**狙い撃ち予習リスト**")
+        for item in recommendations:
+            themes = item.get("themes", [])
+            comment = item.get("comment")
+            bullet = f"- **{item.get('case', '')} × {item.get('domain', '')}**"
+            if comment:
+                bullet += f" — {comment}"
+            st.markdown(bullet)
+            if themes:
+                st.caption("推奨演習: " + " / ".join(themes[:3]))
+
+    cross_focuses = committee_analysis.cross_focus_highlights(dataset, limit=2)
+    if cross_focuses:
+        st.markdown("**横断テーマ候補**")
+        for entry in cross_focuses:
+            cases = "・".join(entry.get("cases", []))
+            headline = f"- 🔗 **{entry.get('label', '')}**"
+            if cases:
+                headline += f" ({cases})"
+            rationale = entry.get("rationale")
+            if rationale:
+                headline += f" — {rationale}"
+            st.markdown(headline)
+            study_list = entry.get("study_list") or []
+            if study_list:
+                st.caption("推奨演習: " + " / ".join(study_list[:3]))
+
+
 def _render_study_planner(user: Dict) -> None:
     today = dt_date.today()
     st.subheader("スタディプランナー")
@@ -2462,6 +2556,7 @@ def dashboard_page(user: Dict) -> None:
         unsafe_allow_html=True,
     )
 
+    _render_committee_heatmap_section()
     _render_study_planner(user)
 
     upcoming_reviews = database.list_upcoming_reviews(user_id=user["id"], limit=6)
@@ -4299,6 +4394,11 @@ def render_attempt_results(attempt_id: int) -> None:
         )
         st.caption("各設問の得点とキーワード達成状況を整理しました。弱点分析に活用してください。")
 
+    case_label = answers[0].get("case_label") if answers else None
+    bundle_evaluation = scoring.evaluate_case_bundle(case_label=case_label, answers=answers)
+    if bundle_evaluation:
+        _render_case_bundle_feedback(bundle_evaluation)
+
     for idx, answer in enumerate(answers, start=1):
         with st.expander(f"設問{idx}の結果", expanded=True):
             st.write(f"**得点:** {answer['score']} / {answer['max_score']}")
@@ -4325,6 +4425,59 @@ def render_attempt_results(attempt_id: int) -> None:
                 st.caption("採点基準: 模範解答の論点とキーワードが盛り込まれているかを中心に評価しています。")
 
     st.info("学習履歴ページから過去の答案をいつでも振り返ることができます。")
+
+
+def _render_case_bundle_feedback(evaluation: scoring.BundleEvaluation) -> None:
+    st.markdown("### 観点別フィードバック")
+    score_col, chart_col = st.columns([0.9, 1.1])
+    with score_col:
+        st.metric("提言力スコア", f"{evaluation.overall_score:.0f} / 100")
+        st.caption(evaluation.summary)
+
+    criteria_df = pd.DataFrame(
+        [
+            {
+                "観点": crit.label,
+                "スコア": crit.score,
+                "配点比重": crit.weight,
+                "コメント": crit.commentary,
+            }
+            for crit in evaluation.criteria
+        ]
+    )
+
+    with chart_col:
+        if not criteria_df.empty:
+            chart = (
+                alt.Chart(criteria_df)
+                .mark_bar(cornerRadius=6)
+                .encode(
+                    x=alt.X("スコア:Q", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
+                    y=alt.Y("観点:N", sort="-x"),
+                    color=alt.Color("観点:N", legend=None, scale=alt.Scale(scheme="tealblues")),
+                    tooltip=[
+                        alt.Tooltip("観点:N", title="観点"),
+                        alt.Tooltip("スコア:Q", title="スコア", format=".0%"),
+                        alt.Tooltip("配点比重:Q", title="比重", format=".0%"),
+                        alt.Tooltip("コメント:N", title="コメント"),
+                    ],
+                )
+                .properties(height=180)
+            )
+            st.altair_chart(chart, use_container_width=True)
+
+    st.markdown("**観点別コメント**")
+    for row in criteria_df.itertuples():
+        score_pct = row.スコア * 100
+        weight_pct = row.配点比重 * 100
+        st.markdown(
+            f"- **{row.観点}** （{score_pct:.0f}点 / 比重{weight_pct:.0f}%）: {row.コメント}"
+        )
+
+    if evaluation.recommendations:
+        st.markdown("**次のアクション**")
+        for recommendation in evaluation.recommendations:
+            st.markdown(f"- {recommendation}")
 
 
 def _render_mock_exam_overview(
