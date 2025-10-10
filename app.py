@@ -1200,6 +1200,8 @@ def _init_session_state() -> None:
     st.session_state.setdefault("pending_past_data_upload", None)
     st.session_state.setdefault("pending_case_context_upload", None)
     st.session_state.setdefault("pending_question_text_upload", None)
+    st.session_state.setdefault("uploaded_case_metadata", {})
+    st.session_state.setdefault("uploaded_question_metadata", {})
     st.session_state.setdefault("pending_model_answer_slot_upload", None)
     st.session_state.setdefault("flashcard_states", {})
     st.session_state.setdefault("ui_theme", "システム設定に合わせる")
@@ -4456,8 +4458,13 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
 
     contexts = st.session_state.get("uploaded_case_contexts", {}) or {}
     question_texts = st.session_state.get("uploaded_question_texts", {}) or {}
+    uploaded_case_metadata = st.session_state.get("uploaded_case_metadata", {}) or {}
+    uploaded_question_metadata = (
+        st.session_state.get("uploaded_question_metadata", {}) or {}
+    )
     if not contexts and not question_texts:
-        return problem
+        if not uploaded_case_metadata and not uploaded_question_metadata:
+            return problem
 
     cloned = copy.deepcopy(problem)
     raw_year_label = _normalize_text_block(cloned.get("year") or cloned.get("年度")) or ""
@@ -4467,12 +4474,21 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
     if case_label:
         cloned["case_label"] = case_label
 
+    case_key = _compose_case_key(year_label, case_label) if year_label and case_label else None
     if year_label and case_label:
-        context_text = contexts.get(_compose_case_key(year_label, case_label))
+        context_text = contexts.get(case_key) if case_key else None
+        if not context_text:
+            context_text = (uploaded_case_metadata.get(case_key, {}) or {}).get("context")
         normalized_context = _normalize_text_block(context_text)
         if normalized_context:
             cloned["context"] = normalized_context
             cloned["与件文"] = normalized_context
+    if case_key:
+        case_meta = uploaded_case_metadata.get(case_key, {})
+        if case_meta.get("title"):
+            cloned["title"] = case_meta["title"]
+        if case_meta.get("overview"):
+            cloned["overview"] = case_meta["overview"]
 
     questions: List[Dict[str, Any]] = []
     for question in cloned.get("questions", []):
@@ -4495,6 +4511,31 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
                     lines = [line.strip() for line in normalized_text.splitlines() if line.strip()]
                     first_line = lines[0] if lines else normalized_text.strip()
                     q["prompt"] = first_line or normalized_text
+                metadata = uploaded_question_metadata.get(key)
+                if metadata:
+                    prompt_override = metadata.get("prompt")
+                    if prompt_override:
+                        q["prompt"] = prompt_override
+                    if metadata.get("question_text"):
+                        q["設問文"] = metadata.get("question_text")
+                    if metadata.get("character_limit") is not None:
+                        q["character_limit"] = metadata.get("character_limit")
+                    if metadata.get("max_score") is not None:
+                        q["max_score"] = metadata.get("max_score")
+                    if metadata.get("model_answer"):
+                        q["model_answer"] = metadata.get("model_answer")
+                    if metadata.get("explanation"):
+                        q["explanation"] = metadata.get("explanation")
+                    if metadata.get("detailed_explanation"):
+                        q["detailed_explanation"] = metadata.get("detailed_explanation")
+                    if metadata.get("keywords"):
+                        q["keywords"] = metadata.get("keywords")
+                    if metadata.get("video_url"):
+                        q["video_url"] = metadata.get("video_url")
+                    if metadata.get("diagram_path"):
+                        q["diagram_path"] = metadata.get("diagram_path")
+                    if metadata.get("diagram_caption"):
+                        q["diagram_caption"] = metadata.get("diagram_caption")
         questions.append(q)
 
     if questions:
@@ -4945,6 +4986,8 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
 
     contexts = dict(st.session_state.get("uploaded_case_contexts", {}))
     question_texts = dict(st.session_state.get("uploaded_question_texts", {}))
+    case_metadata = dict(st.session_state.get("uploaded_case_metadata", {}))
+    question_metadata = dict(st.session_state.get("uploaded_question_metadata", {}))
 
     normalized_columns = {str(col).lower(): col for col in df.columns}
     video_col = None
@@ -5003,27 +5046,75 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             continue
         year_label = _format_reiwa_label(str(year_value))
         case_label = _normalize_case_label(case_raw) or str(case_raw)
+        case_key = _compose_case_key(year_label, case_label)
         record = dict(row)
         record["_option_key"] = f"{case_label}::{year_label}::{row_index}"
         record["_row_order"] = row_order
         record["_year_label"] = year_label
         record["_year_display"] = year_value
         record["_case_label"] = case_label
+        record["_case_metadata_key"] = case_key
+        meta_case = case_metadata.get(case_key, {})
+        record["_case_title"] = meta_case.get("title") or _normalize_text_block(
+            _select_first(
+                row,
+                ("ケースタイトル", "問題タイトル", "タイトル", "ケース名", "問題名"),
+            )
+        )
+        record["_case_overview"] = meta_case.get("overview") or _normalize_text_block(
+            _select_first(
+                row,
+                ("ケース概要", "概要", "問題概要", "背景"),
+            )
+        )
         normalized_number = _normalize_question_number(row.get("設問番号"))
         record["_normalized_question_number"] = normalized_number
         if normalized_number is not None:
             slot_key = _compose_slot_key(year_label, case_label, int(normalized_number))
+            record["_slot_key"] = slot_key
             override_text = question_texts.get(slot_key)
             normalized_override = _normalize_text_block(override_text)
             if normalized_override:
                 record["問題文"] = normalized_override
+            meta_question = question_metadata.get(slot_key, {})
+            if meta_question.get("prompt"):
+                record["設問見出し"] = meta_question.get("prompt")
+            if meta_question.get("question_text") and not normalized_override:
+                record["問題文"] = meta_question.get("question_text")
+            if meta_question.get("character_limit") is not None:
+                record["制限字数"] = meta_question.get("character_limit")
+            if meta_question.get("max_score") is not None:
+                record["配点"] = meta_question.get("max_score")
+            if meta_question.get("model_answer"):
+                record["模範解答"] = meta_question.get("model_answer")
+            if meta_question.get("explanation"):
+                record["解説"] = meta_question.get("explanation")
+            if meta_question.get("detailed_explanation"):
+                record["詳細解説"] = meta_question.get("detailed_explanation")
+            if meta_question.get("keywords"):
+                record["キーワード"] = "、".join(meta_question.get("keywords") or [])
+            if meta_question.get("video_url"):
+                if not video_col:
+                    video_col = "動画URL"
+                record[video_col] = meta_question.get("video_url")
+            if meta_question.get("diagram_path"):
+                if not diagram_col:
+                    diagram_col = "図解パス"
+                record[diagram_col] = meta_question.get("diagram_path")
+            if meta_question.get("diagram_caption"):
+                if not diagram_caption_col:
+                    diagram_caption_col = "図解キャプション"
+                record[diagram_caption_col] = meta_question.get("diagram_caption")
         if contexts:
-            context_key = _compose_case_key(year_label, case_label)
-            context_override = _normalize_text_block(contexts.get(context_key))
+            context_override = _normalize_text_block(contexts.get(case_key))
             if context_override and not any(
                 _normalize_text_block(record.get(col)) for col in optional_context_cols
             ):
                 record["与件文"] = context_override
+        elif meta_case.get("context") and not any(
+            _normalize_text_block(record.get(col)) for col in optional_context_cols
+        ):
+            record["与件文"] = meta_case.get("context")
         records.append(record)
 
     if not records:
@@ -5131,8 +5222,16 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                 )
                 selected_question = question_lookup.get(selected_question_key)
                 if selected_question:
+                    slot_key = selected_question.get("_slot_key")
+                    meta_question = (
+                        question_metadata.get(slot_key)
+                        if slot_key in question_metadata
+                        else {}
+                    )
                     raw_question_text = selected_question.get("問題文")
                     normalized_text = _normalize_text_block(raw_question_text)
+                    if meta_question.get("question_text"):
+                        normalized_text = meta_question.get("question_text")
                     if normalized_text:
                         question_body_text = normalized_text
                     else:
@@ -5150,9 +5249,24 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
 
     with insight_col:
         st.markdown("#### 設問インサイト")
+        case_meta = {}
         if selected_case and selected_year:
             st.markdown(f"**{selected_case} / {_format_reiwa_label(selected_year)}**")
+            case_meta = case_metadata.get(
+                _compose_case_key(selected_year, selected_case), {}
+            )
         if selected_question:
+            if case_meta:
+                case_title = case_meta.get("title")
+                if case_title:
+                    st.markdown(f"### {case_title}")
+                case_overview = case_meta.get("overview")
+                if case_overview:
+                    st.write(case_overview)
+            elif selected_question.get("_case_title"):
+                st.markdown(f"### {selected_question['_case_title']}")
+                if selected_question.get("_case_overview"):
+                    st.write(selected_question.get("_case_overview"))
             prompt_line = _normalize_text_block(
                 selected_question.get("設問見出し")
             ) or (question_body_text.splitlines()[0] if question_body_text else "")
@@ -5364,6 +5478,97 @@ def _load_tabular_frame(file_bytes: bytes, filename: str) -> pd.DataFrame:
     raise ValueError("サポートされていないファイル形式です")
 
 
+def _build_uploaded_exam_metadata(
+    df: pd.DataFrame,
+) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    case_metadata: Dict[str, Dict[str, Any]] = {}
+    question_metadata: Dict[str, Dict[str, Any]] = {}
+
+    for _, row in df.iterrows():
+        year_value = _normalize_text_block(row.get("年度"))
+        case_raw = _normalize_text_block(row.get("事例"))
+        if not year_value or not case_raw:
+            continue
+
+        year_label = _format_reiwa_label(str(year_value))
+        case_label = _normalize_case_label(case_raw) or str(case_raw)
+        case_key = _compose_case_key(year_label, case_label)
+
+        title = _normalize_text_block(
+            _select_first(
+                row,
+                (
+                    "ケースタイトル",
+                    "問題タイトル",
+                    "タイトル",
+                    "ケース名",
+                    "問題名",
+                ),
+            )
+        )
+        overview = _normalize_text_block(
+            _select_first(
+                row,
+                (
+                    "ケース概要",
+                    "概要",
+                    "問題概要",
+                    "背景",
+                ),
+            )
+        )
+        context_text = _normalize_text_block(
+            _select_first(
+                row,
+                (
+                    "与件文",
+                    "与件",
+                    "context",
+                    "context_text",
+                ),
+            )
+        )
+
+        case_entry = case_metadata.setdefault(case_key, {})
+        if title:
+            case_entry["title"] = title
+        if overview:
+            case_entry["overview"] = overview
+        if context_text:
+            case_entry.setdefault("context", context_text)
+
+        number = _normalize_question_number(row.get("設問番号"))
+        if number is None:
+            continue
+
+        slot_key = _compose_slot_key(year_label, case_label, int(number))
+        keywords = _normalize_text_block(row.get("キーワード"))
+        if keywords:
+            keyword_list = [
+                token.strip()
+                for token in re.split(r"[、,;\n]", keywords)
+                if token.strip()
+            ]
+        else:
+            keyword_list = []
+
+        question_metadata[slot_key] = {
+            "prompt": _normalize_text_block(row.get("設問見出し")),
+            "question_text": _normalize_text_block(row.get("問題文")),
+            "character_limit": _normalize_question_number(row.get("制限字数")),
+            "max_score": row.get("配点"),
+            "model_answer": _normalize_text_block(row.get("模範解答")),
+            "explanation": _normalize_text_block(row.get("解説")),
+            "detailed_explanation": _normalize_text_block(row.get("詳細解説")),
+            "keywords": keyword_list,
+            "video_url": _normalize_text_block(row.get("動画URL")),
+            "diagram_path": _normalize_text_block(row.get("図解パス")),
+            "diagram_caption": _normalize_text_block(row.get("図解キャプション")),
+        }
+
+    return case_metadata, question_metadata
+
+
 def _handle_past_data_upload(file_bytes: bytes, filename: str) -> bool:
     try:
         df, tables = _auto_parse_exam_document(file_bytes, filename)
@@ -5379,6 +5584,9 @@ def _handle_past_data_upload(file_bytes: bytes, filename: str) -> bool:
 
     st.session_state.past_data = df
     st.session_state.past_data_tables = tables
+    case_metadata, question_metadata = _build_uploaded_exam_metadata(df)
+    st.session_state.uploaded_case_metadata = case_metadata
+    st.session_state.uploaded_question_metadata = question_metadata
     if df.empty:
         st.warning("設問が抽出できませんでした。原紙テンプレートと照合できるPDF/CSVを指定してください。")
         return False
@@ -6575,6 +6783,54 @@ def settings_page(user: Dict) -> None:
                 f"読み込み済みのレコード数: {len(st.session_state.past_data)}件"
             )
             st.dataframe(st.session_state.past_data.head(), use_container_width=True)
+            case_meta = st.session_state.get("uploaded_case_metadata", {}) or {}
+            question_meta = st.session_state.get("uploaded_question_metadata", {}) or {}
+            if case_meta:
+                summary_rows: List[Dict[str, Any]] = []
+                for case_key, meta in case_meta.items():
+                    if not isinstance(case_key, str) or "::" not in case_key:
+                        continue
+                    year_label, case_label = case_key.split("::", 1)
+                    question_keys = [
+                        key
+                        for key in question_meta.keys()
+                        if isinstance(key, str)
+                        and key.startswith(f"{year_label}::{case_label}::")
+                    ]
+                    summary_rows.append(
+                        {
+                            "年度": year_label,
+                            "事例": case_label,
+                            "ケースタイトル": meta.get("title") or "-",
+                            "設問数": len(question_keys),
+                            "詳細解説数": sum(
+                                1
+                                for key in question_keys
+                                if question_meta.get(key, {}).get("detailed_explanation")
+                            ),
+                            "動画リンク数": sum(
+                                1
+                                for key in question_keys
+                                if question_meta.get(key, {}).get("video_url")
+                            ),
+                            "図解数": sum(
+                                1
+                                for key in question_keys
+                                if question_meta.get(key, {}).get("diagram_path")
+                            ),
+                        }
+                    )
+                if summary_rows:
+                    summary_df = pd.DataFrame(summary_rows)
+                    summary_df["_year_sort"] = summary_df["年度"].map(_year_sort_key)
+                    summary_df["_case_sort"] = summary_df["事例"].map(
+                        lambda x: CASE_ORDER.index(x) if x in CASE_ORDER else len(CASE_ORDER)
+                    )
+                    summary_df = summary_df.sort_values(
+                        ["_year_sort", "_case_sort"], ascending=[False, True]
+                    ).drop(columns=["_year_sort", "_case_sort"])
+                    st.dataframe(summary_df, use_container_width=True, hide_index=True)
+                    st.caption("年度・事例ごとの登録状況です。詳細解説や動画リンクの有無を確認できます。")
             tables = st.session_state.get("past_data_tables") or []
             if tables:
                 with st.expander("抽出された数表", expanded=False):
@@ -6584,6 +6840,8 @@ def settings_page(user: Dict) -> None:
             if st.button("アップロードデータをクリア", key="clear_past_data"):
                 st.session_state.past_data = None
                 st.session_state.past_data_tables = []
+                st.session_state.uploaded_case_metadata = {}
+                st.session_state.uploaded_question_metadata = {}
                 st.info("アップロードデータを削除しました。")
 
         st.subheader("与件文ライブラリ")
