@@ -18,6 +18,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+import re
 
 import database
 import mock_exam
@@ -118,6 +119,87 @@ KEYWORD_RESOURCE_MAP = {
         },
     ],
 }
+
+
+CASE_ORDER = ["事例I", "事例II", "事例III", "事例IV"]
+
+
+EXAM_YEAR_NOTICE = {
+    "R6": {
+        "time": "80分 / 4設問構成",
+        "notes": [
+            "問題冊子と解答用紙は切り離し不可。解答は所定欄に黒または青のボールペンで記入。",
+            "冒頭で受験番号と氏名を記載し、余白での下書きは最小限に。配点と制限字数を意識して時間配分。",
+            "試験監督の指示があるまで問題冊子を開かない。開始合図後にページを確認し、60分経過時点を意識して見直し時間を確保。",
+        ],
+    },
+    "R5": {
+        "time": "80分 / 4設問構成",
+        "notes": [
+            "設問ごとに制限字数が異なるため、最初に全体を俯瞰して記述分量の見当を付ける。",
+            "下線部や番号付き指示など原紙特有の表記に注意し、設問要求語をそのまま拾って構成する。",
+            "解答欄外への書き込みは採点対象外。改行は不要で、文末は句点で統一すると読みやすい。",
+        ],
+    },
+}
+
+
+def _format_reiwa_label(year_label: str) -> str:
+    if not year_label:
+        return ""
+    match = re.search(r"令和(\d+)年", year_label)
+    if match:
+        return f"R{int(match.group(1))}"
+    return year_label
+
+
+def _year_sort_key(year_label: str) -> int:
+    match = re.search(r"令和(\d+)年", year_label)
+    if match:
+        return int(match.group(1))
+    digits = re.findall(r"\d+", year_label)
+    if digits:
+        return int(digits[0])
+    return 0
+
+
+def _infer_question_aim(question: Dict[str, Any]) -> str:
+    explanation = (question or {}).get("explanation")
+    if explanation:
+        return explanation
+    prompt = (question or {}).get("prompt", "")
+    return f"{prompt} の背景意図を整理し、与件の根拠に基づいて答えましょう。"
+
+
+def _describe_output_requirements(question: Dict[str, Any]) -> str:
+    limit = (question or {}).get("character_limit")
+    if not limit:
+        return "明確な文字数指定なし。設問要求語に沿って簡潔に記述します。"
+    template = {
+        "limit": f"{limit}字以内",
+        "score": f"配点 {question.get('max_score', '-')}点",
+    }
+    if limit <= 80:
+        guidance = "結論→理由の2文構成で端的に。重要キーワードを確実に盛り込みましょう。"
+    elif limit <= 100:
+        guidance = "結論→理由→効果の3要素を1〜2文で整理し、因果と具体性を両立させます。"
+    else:
+        guidance = "課題→原因→施策の3段構成で、文頭に結論を置きながら補足説明を充実させます。"
+    return f"{template['limit']}・{template['score']}。{guidance}"
+
+
+def _suggest_solution_prompt(question: Dict[str, Any]) -> str:
+    prompt_text = (question or {}).get("prompt", "")
+    limit = (question or {}).get("character_limit") or 0
+    if "課題" in prompt_text and "改善" in prompt_text:
+        return "課題→原因→改善策の3段構成。与件根拠を箇条書きで洗い出し、重要語を結論に盛り込む。"
+    if "理由" in prompt_text or "効果" in prompt_text:
+        return "因→果の2文構成。1文目で結論、2文目で理由・効果を与件の具体表現で裏付ける。"
+    if "強み" in prompt_text or "特徴" in prompt_text:
+        return "強み抽出テンプレ：①結論（強み）→②根拠（事実）→③活用方向。ブランド・資源・関係性を確認。"
+    if limit >= 120:
+        return "MECEで論点分解し、P(課題)→A(原因)→S(施策)→E(効果) の流れで80秒以内に骨子化。"
+    return "結論先出し→根拠→効果の黄金パターン。設問要求語を冒頭に置き、与件引用で説得力を高める。"
 
 
 @st.cache_data(show_spinner=False)
@@ -1907,25 +1989,167 @@ def practice_page(user: Dict) -> None:
         _practice_with_uploaded_data(past_data_df)
         return
 
-    years = _load_problem_years()
-    if not years:
+    index = _load_problem_index()
+    if not index:
         st.warning("問題データが登録されていません。seed_problems.jsonを確認してください。")
         return
-    selected_year = st.selectbox("年度", years)
-    cases = _load_problem_cases(selected_year)
-    if not cases:
-        st.warning("選択した年度の事例が登録されていません。")
-        return
-    selected_case = st.selectbox("事例", cases)
 
-    problem = _load_problem_by_year_case(selected_year, selected_case)
+    case_map: Dict[str, Dict[str, int]] = defaultdict(dict)
+    for entry in index:
+        case_map[entry["case_label"]][entry["year"]] = entry["id"]
+
+    case_options = sorted(
+        case_map.keys(),
+        key=lambda label: (
+            CASE_ORDER.index(label) if label in CASE_ORDER else len(CASE_ORDER),
+            label,
+        ),
+    )
+
+    if not case_options:
+        st.warning("事例が登録されていません。データを追加してください。")
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .practice-tree .stRadio > div[role="radiogroup"] {
+                gap: 0.35rem;
+            }
+            .practice-tree .tree-level-title {
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: #1f2937;
+                margin-bottom: 0.15rem;
+            }
+            .practice-tree .tree-level-year .stRadio > div[role="radiogroup"] label {
+                padding-left: 0.75rem;
+            }
+            .practice-tree .tree-level-question .stRadio > div[role="radiogroup"] label {
+                padding-left: 1.5rem;
+            }
+            </style>
+            """
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+
+    problem: Optional[Dict[str, Any]] = None
+    selected_case: Optional[str] = None
+    selected_year: Optional[str] = None
+    selected_question: Optional[Dict[str, Any]] = None
+
+    tree_col, insight_col = st.columns([0.42, 0.58], gap="large")
+
+    with tree_col:
+        st.markdown('<div class="practice-tree">', unsafe_allow_html=True)
+        st.markdown("#### 出題ナビゲーション")
+        st.caption("事例→年度→設問の順にクリックすると、右側に要点が即時表示されます。")
+
+        case_key = "practice_tree_case"
+        if case_key not in st.session_state or st.session_state[case_key] not in case_options:
+            st.session_state[case_key] = case_options[0]
+        selected_case = st.radio(
+            "事例I〜IV",
+            case_options,
+            key=case_key,
+            label_visibility="collapsed",
+        )
+
+        year_options = sorted(
+            case_map[selected_case].keys(),
+            key=_year_sort_key,
+            reverse=True,
+        )
+        year_key = "practice_tree_year"
+        problem_id: Optional[int] = None
+        question_lookup: Dict[int, Dict[str, Any]] = {}
+        question_options: List[int] = []
+
+        if not year_options:
+            st.warning("選択した事例の年度が登録されていません。", icon="⚠️")
+        else:
+            if year_key not in st.session_state or st.session_state[year_key] not in year_options:
+                st.session_state[year_key] = year_options[0]
+            selected_year = st.radio(
+                "↳ 年度 (R6/R5/R4…)",
+                year_options,
+                key=year_key,
+                format_func=_format_reiwa_label,
+                label_visibility="collapsed",
+            )
+
+            problem_id = case_map[selected_case][selected_year]
+            problem = _load_problem_detail(problem_id)
+
+            if problem and problem["questions"]:
+                question_lookup = {q["id"]: q for q in problem["questions"]}
+                question_options = list(question_lookup.keys())
+
+        question_key = f"practice_tree_question_{problem_id}" if problem_id else "practice_tree_question"
+        if question_options:
+            if question_key not in st.session_state or st.session_state[question_key] not in question_options:
+                st.session_state[question_key] = question_options[0]
+
+            def _format_question_option(question_id: int) -> str:
+                question = question_lookup.get(question_id)
+                if not question:
+                    return "設問"
+                return f"設問{question['order']}"
+
+            selected_question_id = st.radio(
+                "↳ 設問1〜",
+                question_options,
+                key=question_key,
+                format_func=_format_question_option,
+                label_visibility="collapsed",
+            )
+            selected_question = question_lookup.get(selected_question_id)
+        elif selected_year:
+            st.info("この事例の設問データが見つかりません。設定ページから追加してください。", icon="ℹ️")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with insight_col:
+        st.markdown("#### 設問インサイト")
+        if selected_case and selected_year:
+            st.markdown(f"**{selected_case} / {_format_reiwa_label(selected_year)}**")
+        if problem:
+            st.caption(problem["title"])
+
+        short_year = _format_reiwa_label(selected_year or "")
+        notice = EXAM_YEAR_NOTICE.get(short_year)
+        if notice:
+            notes_text = "\n".join(f"・{item}" for item in notice["notes"])
+            st.info(
+                f"試験時間: {notice['time']}\n{notes_text}",
+                icon="📝",
+            )
+
+        if selected_question:
+            st.markdown(
+                f"**設問{selected_question['order']}：{selected_question['prompt']}**"
+            )
+            st.markdown("##### 設問の狙い")
+            st.write(_infer_question_aim(selected_question))
+            st.markdown("##### 必要アウトプット形式")
+            st.write(_describe_output_requirements(selected_question))
+            st.markdown("##### 定番解法プロンプト")
+            st.write(_suggest_solution_prompt(selected_question))
+        else:
+            st.caption("設問を選択すると狙いや解法テンプレートを表示します。")
+
     if not problem:
         st.error("問題を取得できませんでした。")
         return
 
     st.markdown('<div id="practice-top"></div>', unsafe_allow_html=True)
 
-    st.subheader(problem["title"])
+    if selected_year and selected_case:
+        st.subheader(f"{selected_year} {selected_case}『{problem['title']}』")
+    else:
+        st.subheader(problem["title"])
     st.write(problem["overview"])
 
     st.markdown(
