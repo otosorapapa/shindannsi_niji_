@@ -29,6 +29,13 @@ import pdfplumber
 import streamlit as st
 import streamlit.components.v1 as components
 
+
+st.set_page_config(
+    page_title="中小企業診断士二次試験ナビゲーション",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 import committee_analysis
 import database
 import mock_exam
@@ -2516,9 +2523,8 @@ def _inject_dashboard_styles() -> None:
                 background: linear-gradient(180deg, #f3f6fb 0%, #ffffff 45%);
             }
             .block-container {
-                padding-top: 1.2rem;
-                padding-bottom: 3rem;
-                max-width: 1100px;
+                padding: 1.2rem 1.8rem 3rem;
+                max-width: min(1500px, 96vw);
             }
             .metric-row {
                 display: grid;
