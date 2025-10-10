@@ -11,6 +11,8 @@ import logging
 import html
 import json
 
+import math
+
 import random
 
 import re
@@ -679,6 +681,160 @@ def _render_case_frame_shortcuts(
                     "draft_key": draft_key,
                     "label": frame["label"],
                 }
+
+
+def _format_amount(value: Optional[float]) -> str:
+    if value is None:
+        return "-"
+    if isinstance(value, float) and not math.isfinite(value):
+        return "-"
+    return f"{value:,.1f}"
+
+
+def _format_percent(value: Optional[float]) -> str:
+    if value is None:
+        return "-"
+    if isinstance(value, float) and not math.isfinite(value):
+        return "-"
+    return f"{value * 100:.1f}%"
+
+
+def _render_case_iv_bridge(draft_key: str) -> None:
+    prefix = f"cvp_bridge_{draft_key}"
+    st.markdown("##### 事例IV『計算→記述』ブリッジ")
+    st.caption(
+        "令和5・6年のCVP分析レイアウトに合わせ、損益分岐点の計算結果から記述ドラフトまでをワンストップで整理します。"
+    )
+
+    input_col1, input_col2, input_col3 = st.columns(3)
+    with input_col1:
+        sales = st.number_input(
+            "実績売上高（万円）",
+            min_value=0.0,
+            value=st.session_state.get(f"{prefix}_sales", 0.0),
+            step=10.0,
+            key=f"{prefix}_sales",
+        )
+    with input_col2:
+        variable_percent = st.number_input(
+            "変動費率（%）",
+            min_value=0.0,
+            max_value=99.9,
+            value=st.session_state.get(f"{prefix}_variable", 60.0),
+            step=0.1,
+            key=f"{prefix}_variable",
+        )
+    with input_col3:
+        fixed_cost = st.number_input(
+            "固定費（万円）",
+            min_value=0.0,
+            value=st.session_state.get(f"{prefix}_fixed", 0.0),
+            step=10.0,
+            key=f"{prefix}_fixed",
+        )
+
+    variable_ratio = variable_percent / 100.0
+    contribution_margin_ratio = 1.0 - variable_ratio
+    cm_ratio_valid = contribution_margin_ratio > 0
+
+    st.markdown("**① 変動費率・固定費**")
+    contribution_margin_text = (
+        _format_percent(contribution_margin_ratio) if cm_ratio_valid else "-"
+    )
+    st.markdown(
+        f"{'✅' if cm_ratio_valid else '⚠️'} 貢献利益率 {_format_percent(contribution_margin_ratio) if cm_ratio_valid else '算出不可'}"
+        f" / 固定費 {_format_amount(fixed_cost)}万円"
+    )
+
+    break_even_sales = None
+    if cm_ratio_valid:
+        break_even_sales = fixed_cost / contribution_margin_ratio if contribution_margin_ratio else None
+
+    st.markdown("**② 損益分岐点 (BEP)**")
+    if break_even_sales is None:
+        st.markdown("⚠️ 貢献利益率が0%以下のため損益分岐点を計算できません。変動費率の前提を見直しましょう。")
+    else:
+        gap_amount = sales - break_even_sales
+        gap_direction = "上回る" if gap_amount >= 0 else "下回る"
+        st.markdown(
+            f"{'✅' if sales > 0 else '⚠️'} 損益分岐点売上高 {_format_amount(break_even_sales)}万円"
+            f"（実績との差 {_format_amount(abs(gap_amount))}万円{gap_direction}）"
+        )
+
+    st.markdown("**③ 安全余裕率**")
+    safety_margin_ratio = None
+    safety_margin_amount = None
+    if break_even_sales is not None and sales > 0:
+        safety_margin_amount = sales - break_even_sales
+        safety_margin_ratio = safety_margin_amount / sales
+
+    if safety_margin_ratio is None:
+        st.markdown("⚠️ 売上高を入力すると安全余裕率が自動計算されます。")
+    else:
+        if safety_margin_ratio < 0:
+            status_icon = "❌"
+            evaluation = "損益分岐点を下回っており赤字圏です。固定費削減や売上拡大が急務です。"
+        elif safety_margin_ratio < 0.05:
+            status_icon = "⚠️"
+            evaluation = "安全余裕率が5%未満と極小です。単価向上や固定費圧縮で余裕を確保しましょう。"
+        elif safety_margin_ratio < 0.15:
+            status_icon = "⚠️"
+            evaluation = "安全余裕率が1桁台と小さいため、コスト管理と高付加価値施策で厚みを持たせましょう。"
+        else:
+            status_icon = "✅"
+            evaluation = "安全余裕率に一定の余裕があり、貢献利益率向上や固定費回収後の利益拡大策が検討できます。"
+
+        st.markdown(
+            f"{status_icon} 安全余裕率 {_format_percent(safety_margin_ratio)}"
+            f"（余裕 {_format_amount(abs(safety_margin_amount or 0.0))}万円）"
+        )
+        st.caption(evaluation)
+
+    analysis_lines: List[str] = []
+    analysis_lines.append(
+        f"売上高{_format_amount(sales)}万円、変動費率{variable_percent:.1f}%"
+        f"（貢献利益率 {contribution_margin_text}）で固定費{_format_amount(fixed_cost)}万円と整理。"
+    )
+
+    if break_even_sales is None:
+        analysis_lines.append(
+            "貢献利益率が確保できず損益分岐点を計算できないため、コスト構造の把握と前提の再確認を優先します。"
+        )
+    else:
+        gap_amount = sales - break_even_sales
+        gap_phrase = "上回" if gap_amount >= 0 else "下回"
+        analysis_lines.append(
+            f"損益分岐点売上高は{_format_amount(break_even_sales)}万円で、実績との差は"
+            f"{_format_amount(abs(gap_amount))}万円{gap_phrase}っている。"
+        )
+        if safety_margin_ratio is None:
+            analysis_lines.append("安全余裕率の算定には売上高入力が必要です。値を確定させて余裕度を評価しましょう。")
+        else:
+            if safety_margin_ratio < 0:
+                action_text = "赤字脱却に向けた固定費削減と売上テコ入れを記述で強調する。"
+            elif safety_margin_ratio < 0.05:
+                action_text = "安全余裕が薄いため、短期施策での単価・数量増と固定費圧縮を提案する。"
+            elif safety_margin_ratio < 0.15:
+                action_text = "余裕が限定的なため、貢献利益率向上策と費用対効果の高い投資選別を述べる。"
+            else:
+                action_text = "余裕を活かし、固定費回収後の利益拡大策や投資判断へ接続する。"
+            analysis_lines.append(
+                f"安全余裕率は{_format_percent(safety_margin_ratio)}で、{action_text}"
+            )
+
+    analysis_text = "".join(analysis_lines)
+    draft_state_key = f"{prefix}_draft"
+    st.session_state[draft_state_key] = analysis_text
+
+    st.markdown("**④ 示唆ドラフト**")
+    st.caption("計算結果を要約した文章をコピーして答案骨子に活用できます。")
+    st.text_area(
+        "ドラフト (自動生成)",
+        value=st.session_state[draft_state_key],
+        height=140,
+        key=draft_state_key,
+        disabled=True,
+    )
 
 
 def _ensure_media_styles() -> None:
@@ -1840,6 +1996,9 @@ def _question_input(
 
     _render_intent_cards(question, key, textarea_state_key)
     _render_case_frame_shortcuts(case_label, key, textarea_state_key)
+
+    if case_label == "事例IV":
+        _render_case_iv_bridge(key)
 
     notice = st.session_state.get("_intent_card_notice")
     if notice and notice.get("draft_key") == key:
