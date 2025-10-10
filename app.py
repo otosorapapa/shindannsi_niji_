@@ -523,6 +523,26 @@ def _ensure_text(value: Any) -> str:
     return str(value).strip()
 
 
+def _normalize_text_block(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, float):
+        if pd.isna(value):
+            return None
+        text = str(value).strip()
+        return text or None
+    if isinstance(value, (list, tuple, set)):
+        text = _ensure_text(value)
+    else:
+        text = str(value).strip()
+    if not text:
+        return None
+    lowered = text.lower()
+    if lowered in {"nan", "none"}:
+        return None
+    return text
+
+
 def _coerce_points(value: Any) -> List[str]:
     if value is None:
         return []
@@ -1304,6 +1324,89 @@ def _inject_question_card_styles() -> None:
     st.session_state["_question_card_styles_injected"] = True
 
 
+def _inject_context_highlight_styles() -> None:
+    if st.session_state.get("_context_highlight_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .context-highlight {
+                border-radius: 0.85rem;
+                border: 1px solid rgba(148, 163, 184, 0.45);
+                padding: 0.9rem 1rem;
+                margin: 0.4rem 0 0.8rem;
+                background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(59, 130, 246, 0.05));
+                color: inherit;
+            }
+            .context-highlight[data-theme="light"] {
+                background: linear-gradient(135deg, rgba(219, 234, 254, 0.9), rgba(191, 219, 254, 0.35));
+                border-color: rgba(59, 130, 246, 0.35);
+            }
+            .context-highlight .context-eyebrow {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+                font-size: 0.72rem;
+                letter-spacing: 0.08em;
+                font-weight: 600;
+                text-transform: uppercase;
+                background: rgba(30, 64, 175, 0.28);
+                color: inherit;
+                padding: 0.15rem 0.6rem;
+                border-radius: 999px;
+                border: 1px solid rgba(59, 130, 246, 0.25);
+            }
+            .context-highlight[data-theme="light"] .context-eyebrow {
+                background: rgba(30, 64, 175, 0.12);
+                color: #1e3a8a;
+            }
+            .context-highlight p {
+                margin: 0.4rem 0 0;
+                line-height: 1.7;
+                font-size: 0.95rem;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_context_highlight_styles_injected"] = True
+
+
+def _render_question_context_block(context_value: Any) -> None:
+    context_text = _normalize_text_block(context_value)
+    if not context_text:
+        return
+
+    normalized = context_text.replace("\r\n", "\n").replace("\r", "\n")
+    lines = [line.strip() for line in normalized.split("\n") if line.strip()]
+    if not lines:
+        return
+
+    summary = " / ".join(lines[:2])
+    if len(summary) > 160:
+        summary = summary[:157].rstrip() + "…"
+
+    _inject_context_highlight_styles()
+    theme = _resolve_question_card_theme()
+    st.markdown(
+        dedent(
+            f"""
+            <div class="context-highlight" data-theme="{theme}">
+                <span class="context-eyebrow">与件ハイライト</span>
+                <p>{html.escape(summary)}</p>
+            </div>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+
+    with st.expander("与件文を全文表示", expanded=False):
+        st.write("\n\n".join(lines))
+
+
 def _render_question_overview_card(
     question: Dict[str, Any],
     *,
@@ -1786,8 +1889,8 @@ def _render_slot_scoring_tab(tab: "st._DeltaGenerator", payload: Dict[str, Any])
 
 def _render_model_answer_section(
     *,
-    model_answer: str,
-    explanation: str,
+    model_answer: Any,
+    explanation: Any,
     video_url: Optional[str],
     diagram_path: Optional[str],
     diagram_caption: Optional[str],
@@ -1795,6 +1898,7 @@ def _render_model_answer_section(
     year: Optional[str] = None,
     case_label: Optional[str] = None,
     question_number: Optional[int] = None,
+    detailed_explanation: Optional[str] = None,
 ) -> None:
     custom_slot = _lookup_custom_model_slot(year, case_label, question_number)
     if custom_slot:
@@ -1815,10 +1919,26 @@ def _render_model_answer_section(
             f"年度: {custom_slot['year']} / {custom_slot['case_label']} 第{custom_slot['question_number']}問"
         )
 
+    model_answer_text = _normalize_text_block(model_answer)
+    explanation_text = _normalize_text_block(explanation)
+    detailed_text = _normalize_text_block(detailed_explanation)
+
     st.write("**模範解答**")
-    st.write(model_answer)
-    st.write("**解説**")
-    st.write(explanation)
+    if model_answer_text:
+        st.write(model_answer_text)
+    else:
+        st.caption("模範解答が登録されていません。")
+
+    st.write("**解説サマリ**")
+    if explanation_text:
+        st.write(explanation_text)
+    else:
+        st.caption("解説が登録されていません。")
+
+    if detailed_text:
+        with st.expander("詳細解説をじっくり読む", expanded=False):
+            st.write(detailed_text)
+            st.caption("採点者視点の根拠や書き方のポイントを深掘りできます。")
 
     if video_url:
         st.markdown("**動画解説**")
@@ -3220,6 +3340,20 @@ def _question_input(
     _render_intent_cards(question, key, textarea_state_key)
     _render_case_frame_shortcuts(case_label, key, textarea_state_key)
 
+    context_candidates = [
+        question.get("context"),
+        question.get("context_text"),
+        question.get("context_snippet"),
+        question.get("与件文"),
+        question.get("与件"),
+        question.get("context_passages"),
+    ]
+    for candidate in context_candidates:
+        normalized_context = _normalize_text_block(candidate)
+        if normalized_context:
+            _render_question_context_block(normalized_context)
+            break
+
     if case_label == "事例IV":
         _render_case_iv_bridge(key)
 
@@ -3729,10 +3863,10 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
 
 def practice_page(user: Dict) -> None:
     st.title("過去問演習")
-    st.caption("年度と事例を選択して記述式演習を行います。")
+    st.caption("年度と事例を選択して記述式演習を行います。与件ハイライトと詳細解説で復習効果を高めましょう。")
 
     st.info(
-        "左側のセレクターで年度・事例を切り替え、下部の解答欄から回答を入力してください。"
+        "左側のセレクターで年度・事例を切り替え、下部の解答欄から回答を入力してください。与件ハイライトを読み込みながら構成を練りましょう。"
     )
 
     due_reviews = database.list_due_reviews(user["id"], limit=3)
@@ -4113,6 +4247,13 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         st.error(f"必要な列が不足しています: {', '.join(sorted(missing))}")
         return
 
+    optional_context_cols = {"与件文", "詳細解説"}
+    if not optional_context_cols.issubset(df.columns):
+        st.info(
+            "テンプレートに『与件文』『詳細解説』列を追加すると、演習画面にハイライトと深掘り解説が表示されます。",
+            icon="💡",
+        )
+
     year_options = sorted(df["年度"].dropna().unique(), key=lambda x: str(x))
     if not year_options:
         st.warning("年度の値が見つかりませんでした。")
@@ -4173,6 +4314,18 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             case_label=selected_case,
             source_label=f"{selected_year} {selected_case}",
         )
+        context_candidates = [
+            row.get("与件文"),
+            row.get("与件"),
+            row.get("context"),
+            row.get("context_text"),
+        ]
+        for candidate in context_candidates:
+            normalized_context = _normalize_text_block(candidate)
+            if normalized_context:
+                _render_question_context_block(normalized_context)
+                break
+        st.markdown("**問題文**")
         st.write(row["問題文"])
         limit_value = row.get("制限字数")
         if pd.notna(limit_value):
@@ -4200,7 +4353,11 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                 st.code(excerpt, language="markdown")
         with st.expander("MECE/因果スキャナ", expanded=bool(user_answer.strip())):
             _render_mece_causal_scanner(user_answer)
-        with st.expander("模範解答／解説を見る"):
+        detailed_explanation = _normalize_text_block(row.get("詳細解説"))
+        expander_label = "模範解答／解説を見る"
+        if detailed_explanation:
+            expander_label += "（詳細あり）"
+        with st.expander(expander_label):
             video_url = None
             diagram_path = None
             diagram_caption = None
@@ -4220,6 +4377,7 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                 year=selected_year,
                 case_label=selected_case,
                 question_number=_normalize_question_number(row.get("設問番号")),
+                detailed_explanation=detailed_explanation,
             )
 
 
@@ -4321,6 +4479,7 @@ def render_attempt_results(attempt_id: int) -> None:
                     year=answer.get("year"),
                     case_label=answer.get("case_label"),
                     question_number=_normalize_question_number(answer.get("question_order")),
+                    detailed_explanation=answer.get("detailed_explanation"),
                 )
                 st.caption("採点基準: 模範解答の論点とキーワードが盛り込まれているかを中心に評価しています。")
 
