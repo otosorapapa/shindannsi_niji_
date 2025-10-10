@@ -967,15 +967,33 @@ def _year_sort_key(year_label: str) -> int:
 
 
 def _infer_question_aim(question: Dict[str, Any]) -> str:
-    explanation = (question or {}).get("explanation")
+    question = question or {}
+    custom_aim = (
+        question.get("uploaded_question_aim")
+        or question.get("question_aim")
+        or question.get("aim")
+    )
+    if custom_aim:
+        return str(custom_aim)
+
+    explanation = question.get("explanation")
     if explanation:
         return explanation
-    prompt = (question or {}).get("prompt", "")
+    prompt = question.get("prompt", "")
     return f"{prompt} の背景意図を整理し、与件の根拠に基づいて答えましょう。"
 
 
 def _describe_output_requirements(question: Dict[str, Any]) -> str:
-    limit = (question or {}).get("character_limit")
+    question = question or {}
+    custom_description = (
+        question.get("uploaded_output_format")
+        or question.get("output_format")
+        or question.get("required_output")
+    )
+    if custom_description:
+        return str(custom_description)
+
+    limit = question.get("character_limit")
     if not limit:
         return "明確な文字数指定なし。設問要求語に沿って簡潔に記述します。"
     template = {
@@ -992,8 +1010,17 @@ def _describe_output_requirements(question: Dict[str, Any]) -> str:
 
 
 def _suggest_solution_prompt(question: Dict[str, Any]) -> str:
-    prompt_text = (question or {}).get("prompt", "")
-    limit = (question or {}).get("character_limit") or 0
+    question = question or {}
+    custom_prompt = (
+        question.get("uploaded_solution_prompt")
+        or question.get("solution_prompt")
+        or question.get("解法プロンプト")
+    )
+    if custom_prompt:
+        return str(custom_prompt)
+
+    prompt_text = question.get("prompt", "")
+    limit = question.get("character_limit") or 0
     if "課題" in prompt_text and "改善" in prompt_text:
         return "課題→原因→改善策の3段構成。与件根拠を箇条書きで洗い出し、重要語を結論に盛り込む。"
     if "理由" in prompt_text or "効果" in prompt_text:
@@ -4627,13 +4654,41 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
                     normalized_number = None
             if normalized_number is not None:
                 key = _compose_slot_key(year_label, case_label, int(normalized_number))
-                question_text = question_texts.get(key)
+                question_entry = question_texts.get(key)
+                if isinstance(question_entry, dict):
+                    question_text = question_entry.get("question_text") or question_entry.get(
+                        "設問文"
+                    )
+                    aim_override = _normalize_text_block(
+                        question_entry.get("question_aim")
+                        or question_entry.get("設問の狙い")
+                    )
+                    output_override = _normalize_text_block(
+                        question_entry.get("output_format")
+                        or question_entry.get("必要アウトプット形式")
+                    )
+                    solution_override = _normalize_text_block(
+                        question_entry.get("solution_prompt")
+                        or question_entry.get("定番解法プロンプト")
+                    )
+                else:
+                    question_text = question_entry
+                    aim_override = None
+                    output_override = None
+                    solution_override = None
+
                 normalized_text = _normalize_text_block(question_text)
                 if normalized_text:
                     q["設問文"] = normalized_text
                     lines = [line.strip() for line in normalized_text.splitlines() if line.strip()]
                     first_line = lines[0] if lines else normalized_text.strip()
                     q["prompt"] = first_line or normalized_text
+                if aim_override:
+                    q["uploaded_question_aim"] = aim_override
+                if output_override:
+                    q["uploaded_output_format"] = output_override
+                if solution_override:
+                    q["uploaded_solution_prompt"] = solution_override
                 metadata = uploaded_question_metadata.get(key)
                 if metadata:
                     prompt_override = metadata.get("prompt")
@@ -5197,9 +5252,37 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             slot_key = _compose_slot_key(year_label, case_label, int(normalized_number))
             record["_slot_key"] = slot_key
             override_text = question_texts.get(slot_key)
-            normalized_override = _normalize_text_block(override_text)
+            if isinstance(override_text, dict):
+                override_body = override_text.get("question_text") or override_text.get(
+                    "設問文"
+                )
+                aim_override = _normalize_text_block(
+                    override_text.get("question_aim")
+                    or override_text.get("設問の狙い")
+                )
+                output_override = _normalize_text_block(
+                    override_text.get("output_format")
+                    or override_text.get("必要アウトプット形式")
+                )
+                solution_override = _normalize_text_block(
+                    override_text.get("solution_prompt")
+                    or override_text.get("定番解法プロンプト")
+                )
+            else:
+                override_body = override_text
+                aim_override = None
+                output_override = None
+                solution_override = None
+
+            normalized_override = _normalize_text_block(override_body)
             if normalized_override:
                 record["問題文"] = normalized_override
+            if aim_override:
+                record["uploaded_question_aim"] = aim_override
+            if output_override:
+                record["uploaded_output_format"] = output_override
+            if solution_override:
+                record["uploaded_solution_prompt"] = solution_override
             meta_question = question_metadata.get(slot_key, {})
             if meta_question.get("prompt"):
                 record["設問見出し"] = meta_question.get("prompt")
@@ -5405,6 +5488,18 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                     selected_question.get("キーワード") or selected_question.get("keywords")
                 ),
             }
+            if selected_question.get("uploaded_question_aim"):
+                insight_question["uploaded_question_aim"] = selected_question.get(
+                    "uploaded_question_aim"
+                )
+            if selected_question.get("uploaded_output_format"):
+                insight_question["uploaded_output_format"] = selected_question.get(
+                    "uploaded_output_format"
+                )
+            if selected_question.get("uploaded_solution_prompt"):
+                insight_question["uploaded_solution_prompt"] = selected_question.get(
+                    "uploaded_solution_prompt"
+                )
             question_label = _format_question_option(selected_question_key) if selected_question_key else "設問"
             st.markdown(f"**{question_label}：{prompt_line}**")
             full_question_text = question_body_text
@@ -5796,15 +5891,54 @@ def _handle_question_text_upload(file_bytes: bytes, filename: str) -> bool:
         return False
 
     question_texts = dict(st.session_state.get("uploaded_question_texts", {}))
+    normalized_question_texts: Dict[str, Dict[str, Any]] = {}
+    for key, value in question_texts.items():
+        if isinstance(value, dict):
+            normalized_question_texts[key] = dict(value)
+        else:
+            normalized_question_texts[key] = {"question_text": value}
+
+    question_texts = normalized_question_texts
     added = 0
     updated = 0
+
+    aim_col = next(
+        (col for col in ("設問の狙い", "question_aim", "aim") if col in df.columns),
+        None,
+    )
+    output_col = next(
+        (
+            col
+            for col in ("必要アウトプット形式", "output_format", "required_output")
+            if col in df.columns
+        ),
+        None,
+    )
+    solution_col = next(
+        (
+            col
+            for col in ("定番解法プロンプト", "solution_prompt", "解法プロンプト")
+            if col in df.columns
+        ),
+        None,
+    )
 
     for _, row in df.iterrows():
         year_value = _normalize_text_block(row.get("年度"))
         case_raw = _normalize_text_block(row.get("事例"))
         question_number = _normalize_question_number(row.get("設問番号"))
         question_text = _normalize_text_block(row.get(text_col))
-        if not year_value or not case_raw or question_number is None or not question_text:
+        aim_text = _normalize_text_block(row.get(aim_col)) if aim_col else None
+        output_text = _normalize_text_block(row.get(output_col)) if output_col else None
+        solution_prompt = (
+            _normalize_text_block(row.get(solution_col)) if solution_col else None
+        )
+        if (
+            not year_value
+            or not case_raw
+            or question_number is None
+            or not (question_text or aim_text or output_text or solution_prompt)
+        ):
             continue
         year_label = _format_reiwa_label(str(year_value))
         case_label = _normalize_case_label(case_raw)
@@ -5815,7 +5949,15 @@ def _handle_question_text_upload(file_bytes: bytes, filename: str) -> bool:
             updated += 1
         else:
             added += 1
-        question_texts[key] = question_text
+        entry = question_texts.setdefault(key, {})
+        if question_text:
+            entry["question_text"] = question_text
+        if aim_text:
+            entry["question_aim"] = aim_text
+        if output_text:
+            entry["output_format"] = output_text
+        if solution_prompt:
+            entry["solution_prompt"] = solution_prompt
 
     if not (added or updated):
         st.warning("有効な設問文レコードが見つかりませんでした。入力内容を確認してください。")
@@ -7106,7 +7248,7 @@ def settings_page(user: Dict) -> None:
                     data=question_template_bytes,
                     file_name="question_text_template.csv",
                     mime="text/csv",
-                    help="年度・事例・設問番号・設問文列を含むアップロード用のひな形です。",
+                    help="年度・事例・設問番号・設問文に加え、設問の狙い・アウトプット形式・定番解法プロンプトを登録できます。",
                     key="question_text_template_download",
                 )
                 with st.expander("テンプレートのサンプルを見る", expanded=False):
@@ -7156,7 +7298,17 @@ def settings_page(user: Dict) -> None:
                     if len(parts) < 3:
                         continue
                     year_label, case_label, question_no = parts[0], parts[1], parts[2]
-                    normalized_text = str(text or "").strip()
+                    if isinstance(text, dict):
+                        body_text = text.get("question_text") or text.get("設問文") or ""
+                        aim_text = text.get("question_aim") or text.get("設問の狙い") or ""
+                        output_text = text.get("output_format") or text.get("必要アウトプット形式") or ""
+                        solution_text = text.get("solution_prompt") or text.get("定番解法プロンプト") or ""
+                    else:
+                        body_text = text or ""
+                        aim_text = ""
+                        output_text = ""
+                        solution_text = ""
+                    normalized_text = str(body_text or "").strip()
                     lines = normalized_text.splitlines()
                     first_line = lines[0] if lines else normalized_text
                     preview = first_line[:40]
@@ -7167,8 +7319,11 @@ def settings_page(user: Dict) -> None:
                             "年度": year_label,
                             "事例": case_label,
                             "設問": question_no,
-                            "文字数": len(str(text)),
+                            "文字数": len(normalized_text),
                             "冒頭プレビュー": preview,
+                            "設問の狙い": aim_text or "-",
+                            "アウトプット形式": output_text or "-",
+                            "解法プロンプト": solution_text or "-",
                         }
                     )
                 if question_rows:
