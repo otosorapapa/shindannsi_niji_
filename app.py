@@ -9,6 +9,7 @@ from uuid import uuid4
 import logging
 
 import html
+import json
 
 import random
 
@@ -24,6 +25,14 @@ import mock_exam
 import scoring
 from database import RecordedAnswer
 from scoring import QuestionSpec
+
+
+MOCK_NOTICE_ITEMS = [
+    "試験時間は80分です。開始と同時に計測し、終了合図とともに筆記を止めてください。",
+    "机上に置けるのは HB〜2B 鉛筆・シャープペンシル、消しゴム、時計のみです。電子機器は使用禁止です。",
+    "解答用紙の氏名・受験番号を最初に記入し、問題冊子・答案の持ち出しは禁止されています。",
+    "途中退室は認められません。監督員の指示に従い、終了後は静かに退室してください。",
+]
 
 
 DEFAULT_KEYWORD_RESOURCES = [
@@ -143,6 +152,177 @@ def _load_problem_detail(problem_id: int) -> Optional[Dict[str, Any]]:
 @st.cache_data(show_spinner=False)
 def _load_problem_by_year_case(year: str, case_label: str) -> Optional[Dict[str, Any]]:
     return database.fetch_problem_by_year_case(year, case_label)
+
+
+def _render_mock_notice_overlay(start_time: datetime, total_minutes: int = 80) -> None:
+    if not start_time:
+        return
+
+    start_iso = start_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+    notice_items = "".join(f"<li>{html.escape(item)}</li>" for item in MOCK_NOTICE_ITEMS)
+    total_seconds = total_minutes * 60
+
+    style_css = dedent(
+        """
+        .mock-overlay {
+            position: fixed;
+            top: 1.2rem;
+            right: 1.2rem;
+            width: 320px;
+            background: rgba(15, 23, 42, 0.88);
+            color: #f8fafc;
+            padding: 1.1rem 1.3rem;
+            border-radius: 16px;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.35);
+            z-index: 9999;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            backdrop-filter: blur(6px);
+        }
+        .mock-overlay h4 {
+            margin: 0 0 0.5rem;
+            font-size: 1.1rem;
+            letter-spacing: 0.05em;
+        }
+        .mock-overlay-timer {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.2rem;
+            font-variant-numeric: tabular-nums;
+            transition: color 0.3s ease;
+        }
+        .mock-overlay[data-state="warn"] .mock-overlay-timer {
+            color: #fbbf24;
+        }
+        .mock-overlay[data-state="critical"] .mock-overlay-timer {
+            color: #f87171;
+        }
+        .mock-overlay[data-state="end"] {
+            background: rgba(153, 27, 27, 0.92);
+        }
+        .mock-overlay hr {
+            border: none;
+            border-top: 1px solid rgba(148, 163, 184, 0.35);
+            margin: 0.8rem 0 0.7rem;
+        }
+        .mock-overlay ul {
+            padding-left: 1.1rem;
+            margin: 0 0 0.4rem;
+        }
+        .mock-overlay li {
+            margin-bottom: 0.35rem;
+        }
+        .mock-overlay small {
+            color: rgba(226, 232, 240, 0.75);
+            display: block;
+            margin-top: 0.6rem;
+        }
+        @media (max-width: 720px) {
+            .mock-overlay {
+                left: 1rem;
+                right: 1rem;
+                width: auto;
+            }
+        }
+        """
+    ).strip()
+
+    overlay_body = dedent(
+        f"""
+        <h4>本番モード</h4>
+        <div class=\"mock-overlay-timer\" data-timer>--:--</div>
+        <div>残り時間 (80分)</div>
+        <hr />
+        <p style=\"margin: 0 0 0.3rem; font-weight: 600;\">試験注意事項</p>
+        <ul>{notice_items}</ul>
+        <small>注意書きはページ上部の切替で隠すことができます。</small>
+        """
+    ).strip()
+
+    overlay_html = dedent(
+        f"""
+        <script>
+            (function () {{
+                const parentWin = window.parent;
+                const parentDoc = parentWin.document;
+                if (!parentDoc.getElementById('mock-overlay-style')) {{
+                    const style = parentDoc.createElement('style');
+                    style.id = 'mock-overlay-style';
+                    style.textContent = {json.dumps(style_css)};
+                    parentDoc.head.appendChild(style);
+                }}
+
+                let overlay = parentDoc.getElementById('mock-overlay');
+                if (!overlay) {{
+                    overlay = parentDoc.createElement('div');
+                    overlay.id = 'mock-overlay';
+                    overlay.className = 'mock-overlay';
+                    overlay.setAttribute('role', 'status');
+                    overlay.setAttribute('aria-live', 'polite');
+                    parentDoc.body.appendChild(overlay);
+                }}
+
+                overlay.innerHTML = {json.dumps(overlay_body)};
+
+                const timerEl = overlay.querySelector('[data-timer]');
+                const totalSeconds = {total_seconds};
+                const start = new Date('{start_iso}Z');
+
+                function updateTimer() {{
+                    const now = new Date();
+                    const elapsed = Math.floor((now.getTime() - start.getTime()) / 1000);
+                    const remaining = Math.max(totalSeconds - elapsed, 0);
+                    const minutes = String(Math.floor(remaining / 60)).padStart(2, '0');
+                    const seconds = String(remaining % 60).padStart(2, '0');
+                    timerEl.textContent = minutes + ':' + seconds;
+
+                    let state = 'normal';
+                    if (remaining === 0) {{
+                        state = 'end';
+                    }} else if (remaining <= 60) {{
+                        state = 'critical';
+                    }} else if (remaining <= 300) {{
+                        state = 'warn';
+                    }}
+                    overlay.dataset.state = state;
+                }}
+
+                updateTimer();
+                parentWin.clearInterval(parentWin.__mockOverlayTimer);
+                parentWin.__mockOverlayTimer = parentWin.setInterval(updateTimer, 1000);
+            }})();
+        </script>
+        """
+    ).strip()
+
+    components.html(overlay_html, height=0, width=0)
+
+
+def _remove_mock_notice_overlay() -> None:
+    cleanup_script = dedent(
+        """
+        <script>
+            (function () {
+                const parentWin = window.parent;
+                const parentDoc = parentWin.document;
+                const overlay = parentDoc.getElementById('mock-overlay');
+                if (overlay) {
+                    parentDoc.body.removeChild(overlay);
+                }
+                const style = parentDoc.getElementById('mock-overlay-style');
+                if (style) {
+                    parentDoc.head.removeChild(style);
+                }
+                if (parentWin.__mockOverlayTimer) {
+                    parentWin.clearInterval(parentWin.__mockOverlayTimer);
+                    delete parentWin.__mockOverlayTimer;
+                }
+            })();
+        </script>
+        """
+    ).strip()
+
+    components.html(cleanup_script, height=0, width=0)
 
 
 def _init_session_state() -> None:
@@ -2247,6 +2427,7 @@ def mock_exam_page(user: Dict) -> None:
     session = st.session_state.mock_session
 
     if not session:
+        _remove_mock_notice_overlay()
         st.subheader("模試セットを選択")
         st.caption("説明を確認し、解きたい模試セットを選んでください。開始ボタンは右側に配置しています。")
 
@@ -2284,13 +2465,31 @@ def mock_exam_page(user: Dict) -> None:
                 "start": datetime.utcnow(),
                 "answers": {},
             }
+            st.session_state["mock_notice_toggle"] = True
             st.rerun()
         return
 
     exam = session["exam"]
     start_time = session["start"]
     elapsed = datetime.utcnow() - start_time
-    st.info(f"模試開始からの経過時間: {elapsed}")
+    elapsed_total_seconds = max(int(elapsed.total_seconds()), 0)
+    elapsed_minutes = elapsed_total_seconds // 60
+    elapsed_seconds = elapsed_total_seconds % 60
+    st.info(
+        f"模試開始からの経過時間: {elapsed_minutes:02d}分{elapsed_seconds:02d}秒"
+    )
+
+    if "mock_notice_toggle" not in st.session_state:
+        st.session_state["mock_notice_toggle"] = True
+
+    show_notice = st.checkbox(
+        "本番モードの注意書きを表示する",
+        key="mock_notice_toggle",
+    )
+    if show_notice:
+        _render_mock_notice_overlay(start_time=start_time)
+    else:
+        _remove_mock_notice_overlay()
 
     tab_labels: List[str] = []
     for idx, problem_id in enumerate(exam.problem_ids):
@@ -2368,6 +2567,8 @@ def mock_exam_page(user: Dict) -> None:
             overall_results.append((problem, attempt_id))
 
         st.session_state.mock_session = None
+        st.session_state.pop("mock_notice_toggle", None)
+        _remove_mock_notice_overlay()
         st.success("模擬試験の採点が完了しました。結果を確認してください。")
         for problem, attempt_id in overall_results:
             st.markdown(f"### {problem['year']} {problem['case_label']} {problem['title']}")
