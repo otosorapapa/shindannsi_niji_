@@ -227,6 +227,7 @@ CASE_FRAME_SHORTCUTS = {
 
 
 PAST_EXAM_TEMPLATE_PATH = Path(__file__).resolve().parent / "data" / "past_exam_template.csv"
+CASE_CONTEXT_TEMPLATE_PATH = Path(__file__).resolve().parent / "data" / "case_context_template.csv"
 
 
 @st.cache_data(show_spinner=False)
@@ -252,6 +253,20 @@ def _load_past_exam_template_preview() -> pd.DataFrame:
     if not PAST_EXAM_TEMPLATE_PATH.exists():
         raise FileNotFoundError("past_exam_template.csv not found")
     return pd.read_csv(PAST_EXAM_TEMPLATE_PATH)
+
+
+@st.cache_data(show_spinner=False)
+def _load_case_context_template_bytes() -> bytes:
+    if not CASE_CONTEXT_TEMPLATE_PATH.exists():
+        raise FileNotFoundError("case_context_template.csv not found")
+    return CASE_CONTEXT_TEMPLATE_PATH.read_bytes()
+
+
+@st.cache_data(show_spinner=False)
+def _load_case_context_template_preview() -> pd.DataFrame:
+    if not CASE_CONTEXT_TEMPLATE_PATH.exists():
+        raise FileNotFoundError("case_context_template.csv not found")
+    return pd.read_csv(CASE_CONTEXT_TEMPLATE_PATH)
 
 
 def _normalize_case_label(raw: Optional[str]) -> Optional[str]:
@@ -5880,6 +5895,22 @@ def settings_page(user: Dict) -> None:
         st.caption(
             "年度・事例ごとの与件文を登録すると、『過去問演習』ページで全文が表示されます。CSV/Excel形式に対応しています。"
         )
+        try:
+            context_template_bytes = _load_case_context_template_bytes()
+        except FileNotFoundError:
+            st.warning("与件文テンプレートを読み込めませんでした。data フォルダを確認してください。")
+        else:
+            st.download_button(
+                "与件文テンプレートCSVをダウンロード",
+                data=context_template_bytes,
+                file_name="case_context_template.csv",
+                mime="text/csv",
+                help="年度・事例・与件文列を含むアップロード用のひな形です。",
+                key="case_context_template_download",
+            )
+            with st.expander("テンプレートのサンプルを見る", expanded=False):
+                context_template_preview = _load_case_context_template_preview()
+                st.dataframe(context_template_preview, use_container_width=True, hide_index=True)
         context_upload = st.file_uploader(
             "与件文リストをアップロード", type=["csv", "xlsx", "xls"], key="case_context_uploader"
         )
