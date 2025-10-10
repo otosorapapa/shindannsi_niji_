@@ -20,6 +20,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 import database
+import mece_scanner
 import mock_exam
 import scoring
 from database import RecordedAnswer
@@ -257,6 +258,64 @@ def _ensure_media_styles() -> None:
     st.session_state["_media_styles_injected"] = True
 
 
+def _ensure_mece_scanner_styles() -> None:
+    if st.session_state.get("_mece_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .highlight-duplicate {
+                background: rgba(250, 204, 21, 0.35);
+                padding: 0.1rem 0.2rem;
+                border-radius: 0.35rem;
+            }
+            .highlight-synonym {
+                background: rgba(134, 239, 172, 0.35);
+                padding: 0.1rem 0.2rem;
+                border-radius: 0.35rem;
+                border-bottom: 2px dashed rgba(21, 128, 61, 0.7);
+            }
+            .highlight-enumeration {
+                background: rgba(251, 207, 232, 0.4);
+                padding: 0.1rem 0.2rem;
+                border-radius: 0.35rem;
+            }
+            .scanner-panel {
+                background: rgba(248, 250, 252, 0.95);
+                padding: 1.5rem;
+                border-radius: 1rem;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                box-shadow: 0 20px 35px rgba(15, 23, 42, 0.08);
+            }
+            .scanner-panel h4 {
+                margin-top: 1.2rem;
+            }
+            .scanner-summary {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                gap: 1rem;
+                margin: 1.2rem 0;
+            }
+            .scanner-summary .summary-card {
+                background: #ffffff;
+                border-radius: 0.9rem;
+                padding: 1rem;
+                border: 1px solid rgba(226, 232, 240, 0.7);
+            }
+            .scanner-summary .summary-card strong {
+                font-size: 1.6rem;
+                display: block;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_mece_styles_injected"] = True
+
+
 def _render_video_player(url: str, *, key_prefix: str) -> None:
     if not url:
         return
@@ -389,6 +448,7 @@ def main_view() -> None:
         "過去問演習": practice_page,
         "模擬試験": mock_exam_page,
         "学習履歴": history_page,
+        "MECE/因果スキャナ": mece_scanner_page,
         "設定": settings_page,
     }
 
@@ -2806,6 +2866,97 @@ def history_page(user: Dict) -> None:
         )
         attempt_id = int(recent_history.loc[selected_idx, "attempt_id"])
         render_attempt_results(attempt_id)
+
+
+def mece_scanner_page(user: Dict) -> None:
+    st.title("MECE/因果スキャナ")
+    st.caption("文章の重複・同義反復・単純列挙を洗い出し、因果接続の候補を提案します。")
+
+    _ensure_mece_scanner_styles()
+
+    default_text = st.session_state.get(
+        "mece_scanner_draft",
+        "課題が複数存在する。改善策を検討する。結果として売上の改善が期待される。",
+    )
+    text = st.text_area(
+        "分析したい文章",
+        value=default_text,
+        height=260,
+        key="mece_scanner_input",
+    )
+
+    st.session_state["mece_scanner_draft"] = text
+
+    if not text.strip():
+        st.info("文章を入力するとハイライトと提案が表示されます。")
+        return
+
+    result = mece_scanner.analyze_text(text)
+
+    st.markdown("### ハイライト結果")
+    st.markdown(
+        f'<div class="scanner-panel">{result.highlighted_html}</div>',
+        unsafe_allow_html=True,
+    )
+
+    summary_cards = [
+        {"label": "重複語", "value": len(result.duplicates), "desc": "繰り返し出現した語句"},
+        {"label": "同義反復", "value": len(result.synonym_groups), "desc": "類義語の重複"},
+        {"label": "単純列挙", "value": len(result.enumerations), "desc": "列挙のみの文"},
+        {"label": "因果提案", "value": len(result.connector_suggestions), "desc": "接続詞候補"},
+    ]
+
+    card_html = "".join(
+        dedent(
+            f"""
+            <div class=\"summary-card\">
+              <span>{card['label']}</span>
+              <strong>{card['value']}</strong>
+              <small>{card['desc']}</small>
+            </div>
+            """
+        )
+        for card in summary_cards
+    )
+
+    st.markdown(
+        f'<div class="scanner-summary">{card_html}</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("#### 重複語の詳細")
+    if result.duplicates:
+        for item in result.duplicates:
+            st.markdown(f"- **{item['word']}** — {item['count']}回出現")
+    else:
+        st.caption("重複している語句は見つかりませんでした。")
+
+    st.markdown("#### 同義反復の候補")
+    if result.synonym_groups:
+        for group in result.synonym_groups:
+            synonyms = "、".join(group["words"])
+            st.markdown(f"- {synonyms} — 同じ意味の語が近接して使われています。")
+    else:
+        st.caption("同義反復は検出されませんでした。")
+
+    st.markdown("#### 単純列挙の可能性")
+    if result.enumerations:
+        for item in result.enumerations:
+            bullet = " / ".join(item["items"])
+            st.markdown(
+                f"- 「{item['sentence']}」 — {len(item['items'])}項目の列挙。分類や因果で整理できないか検討しましょう。（{bullet}）"
+            )
+    else:
+        st.caption("単純な列挙表現は検出されませんでした。")
+
+    st.markdown("#### 因果接続の提案")
+    if result.connector_suggestions:
+        for suggestion in result.connector_suggestions:
+            st.markdown(
+                f"- 接続詞「{suggestion['connector']}」を追加: {suggestion['proposal']}"
+            )
+    else:
+        st.caption("因果を明示する接続詞の不足は検出されませんでした。")
 
 
 def settings_page(user: Dict) -> None:
