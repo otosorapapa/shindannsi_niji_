@@ -4232,21 +4232,53 @@ def practice_page(user: Dict) -> None:
     )
 
     past_data_df = st.session_state.get("past_data")
-    data_source = "database"
-    if past_data_df is not None and not past_data_df.empty:
-        source_labels = {"database": "データベース登録問題", "uploaded": "アップロードデータ"}
+    index = _load_problem_index()
+
+    has_uploaded_data = past_data_df is not None and hasattr(past_data_df, "empty") and not past_data_df.empty
+    has_database_data = bool(index)
+
+    source_labels = {
+        "database": "データベース登録問題",
+        "uploaded": "アップロードデータ",
+    }
+    available_sources: List[str] = []
+    if has_database_data:
+        available_sources.append("database")
+    if has_uploaded_data:
+        available_sources.append("uploaded")
+
+    if not available_sources:
+        st.warning(
+            "問題データが登録されていません。seed_problems.jsonを確認するか、設定ページから過去問データをアップロードしてください。"
+        )
+        return
+
+    data_source_key = "practice_data_source"
+    default_source = st.session_state.get(data_source_key)
+    if default_source not in available_sources:
+        if has_uploaded_data and not has_database_data:
+            default_source = "uploaded"
+        else:
+            default_source = available_sources[0]
+        st.session_state[data_source_key] = default_source
+
+    if len(available_sources) > 1:
         data_source = st.radio(
             "利用する出題データ",
-            options=list(source_labels.keys()),
+            options=available_sources,
             format_func=lambda key: source_labels[key],
+            key=data_source_key,
         )
+    else:
+        data_source = available_sources[0]
+        st.session_state[data_source_key] = data_source
+        st.caption(f"出題データ: {source_labels[data_source]}")
 
     if data_source == "uploaded":
         _practice_with_uploaded_data(past_data_df)
         return
 
-    index = _load_problem_index()
-    if not index:
+    if not has_database_data:
         st.warning("問題データが登録されていません。seed_problems.jsonを確認してください。")
         return
 
