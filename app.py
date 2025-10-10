@@ -9,6 +9,7 @@ from uuid import uuid4
 import logging
 
 import html
+import json
 
 import random
 
@@ -19,6 +20,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
+import custom_slots
 import database
 import mock_exam
 import scoring
@@ -157,6 +159,10 @@ def _init_session_state() -> None:
     st.session_state.setdefault("past_data", None)
     st.session_state.setdefault("flashcard_states", {})
     st.session_state.setdefault("ui_theme", "システム設定に合わせる")
+    st.session_state.setdefault(
+        "custom_model_slots", custom_slots.load_custom_slots()
+    )
+    st.session_state.setdefault("_custom_slot_last_token", None)
 
 
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
@@ -358,6 +364,62 @@ def _render_diagram_resource(diagram_path: Optional[str], caption: Optional[str]
         st.warning(f"図解の表示中に問題が発生しました: {exc}", icon="⚠️")
 
 
+def _render_custom_slot_tabs(custom_tabs: Optional[Dict[str, Any]]) -> None:
+    if not custom_slots.slot_has_content(custom_tabs):
+        return
+
+    st.markdown("**ワンクリック模範解答スロット**")
+    tab_objects = st.tabs(list(custom_slots.TAB_LABELS))
+    for label, tab in zip(custom_slots.TAB_LABELS, tab_objects):
+        with tab:
+            content = None if not custom_tabs else custom_tabs.get(label)
+            if not custom_slots.content_has_value(content):
+                st.info("このスロットにはコンテンツが登録されていません。")
+                continue
+
+            if not isinstance(content, dict):
+                st.write(content)
+                continue
+
+            model_answer_text = content.get("model_answer")
+            if model_answer_text:
+                st.markdown("**模範解答**")
+                st.write(model_answer_text)
+
+            commentary = content.get("commentary")
+            if commentary:
+                st.markdown("**講評**")
+                st.write(commentary)
+
+            viewpoints = content.get("viewpoints")
+            if viewpoints:
+                st.markdown("**採点観点**")
+                if isinstance(viewpoints, list):
+                    for point in viewpoints:
+                        st.markdown(f"- {point}")
+                else:
+                    st.write(viewpoints)
+
+            notes = content.get("notes")
+            if notes:
+                st.markdown("**補足**")
+                if isinstance(notes, list):
+                    for item in notes:
+                        st.markdown(f"- {item}")
+                else:
+                    st.write(notes)
+
+            extras = content.get("extras")
+            if isinstance(extras, dict):
+                for extra_title, extra_value in extras.items():
+                    st.markdown(f"**{extra_title}**")
+                    if isinstance(extra_value, list):
+                        for item in extra_value:
+                            st.markdown(f"- {item}")
+                    else:
+                        st.write(extra_value)
+
+
 def _render_model_answer_section(
     *,
     model_answer: str,
@@ -366,11 +428,14 @@ def _render_model_answer_section(
     diagram_path: Optional[str],
     diagram_caption: Optional[str],
     context_id: str,
+    custom_tabs: Optional[Dict[str, Any]] = None,
 ) -> None:
     st.write("**模範解答**")
     st.write(model_answer)
     st.write("**解説**")
     st.write(explanation)
+
+    _render_custom_slot_tabs(custom_tabs)
 
     if video_url:
         st.markdown("**動画解説**")
@@ -2130,6 +2195,12 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                 diagram_path = str(row[diagram_col])
             if diagram_caption_col and pd.notna(row.get(diagram_caption_col)):
                 diagram_caption = str(row[diagram_caption_col])
+            custom_tabs = custom_slots.lookup(
+                st.session_state.get("custom_model_slots"),
+                selected_year,
+                selected_case,
+                row["設問番号"],
+            )
             _render_model_answer_section(
                 model_answer=row["模範解答"],
                 explanation=row["解説"],
@@ -2137,6 +2208,7 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                 diagram_path=diagram_path,
                 diagram_caption=diagram_caption,
                 context_id=f"uploaded-{selected_year}-{selected_case}-{row['設問番号']}",
+                custom_tabs=custom_tabs,
             )
 
 
@@ -2227,6 +2299,12 @@ def render_attempt_results(attempt_id: int) -> None:
                 )
                 st.table(keyword_df)
             with st.expander("模範解答と解説", expanded=False):
+                custom_tabs = custom_slots.lookup(
+                    st.session_state.get("custom_model_slots"),
+                    answer.get("year"),
+                    answer.get("case_label"),
+                    answer.get("question_order"),
+                )
                 _render_model_answer_section(
                     model_answer=answer["model_answer"],
                     explanation=answer["explanation"],
@@ -2234,6 +2312,7 @@ def render_attempt_results(attempt_id: int) -> None:
                     diagram_path=answer.get("diagram_path"),
                     diagram_caption=answer.get("diagram_caption"),
                     context_id=f"attempt-{attempt_id}-q{idx}",
+                    custom_tabs=custom_tabs,
                 )
                 st.caption("採点基準: 模範解答の論点とキーワードが盛り込まれているかを中心に評価しています。")
 
@@ -2912,6 +2991,90 @@ def settings_page(user: Dict) -> None:
             if st.button("アップロードデータをクリア", key="clear_past_data"):
                 st.session_state.past_data = None
                 st.info("アップロードデータを削除しました。")
+
+        st.subheader("ワンクリック模範解答スロット")
+        st.caption(
+            "自作の模範解答・講評JSONを登録すると、演習画面で講師タブをワンクリック表示できます。"
+        )
+        slot_state = st.session_state.get(
+            "custom_model_slots", custom_slots.empty_state()
+        )
+        slot_file = st.file_uploader(
+            "スロットJSONファイルを登録", type=["json"], key="custom_slot_file"
+        )
+        if slot_file is not None:
+            slot_token = (slot_file.name, getattr(slot_file, "size", None))
+            if st.session_state.get("_custom_slot_last_token") == slot_token:
+                st.caption("このファイルは既に登録済みです。必要に応じて別ファイルを選択してください。")
+            else:
+                try:
+                    parsed_state = custom_slots.parse_json_bytes(slot_file.getvalue())
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    custom_slots.save_slots(parsed_state["entries"])
+                    st.session_state.custom_model_slots = parsed_state
+                    st.session_state._custom_slot_last_token = slot_token
+                    slot_state = parsed_state
+                    st.success(
+                        f"模範解答スロットを{len(parsed_state['entries'])}件登録しました。"
+                    )
+                    if parsed_state.get("errors"):
+                        for message in parsed_state["errors"]:
+                            st.warning(message)
+                        parsed_state["errors"] = []
+
+        if slot_state.get("errors"):
+            for message in slot_state["errors"]:
+                st.warning(message)
+            slot_state["errors"] = []
+
+        entries = slot_state.get("entries", [])
+        if entries:
+            summary_df = pd.DataFrame(custom_slots.summarize_entries(entries))
+            st.data_editor(
+                summary_df,
+                hide_index=True,
+                use_container_width=True,
+                disabled=True,
+            )
+            st.caption("講師タブごとの登録状況を確認できます。○は内容ありを示します。")
+        else:
+            st.info("登録済みの模範解答スロットはまだありません。")
+
+        if st.button("登録済みスロットをクリア", key="clear_custom_slots"):
+            custom_slots.clear_slots()
+            st.session_state.custom_model_slots = custom_slots.empty_state()
+            st.session_state._custom_slot_last_token = None
+            slot_state = st.session_state.custom_model_slots
+            st.info("模範解答スロットを削除しました。")
+
+        with st.expander("JSONフォーマット例", expanded=False):
+            sample_payload = {
+                "entries": [
+                    {
+                        "year": "令和3年",
+                        "case": "事例I",
+                        "question": 1,
+                        "tabs": {
+                            "講師A": {
+                                "model_answer": "模範解答のサンプル",
+                                "commentary": "講師Aによる講評サマリー。",
+                            },
+                            "講師B": {
+                                "model_answer": "別視点の解答サンプル",
+                            },
+                            "採点観点": {
+                                "viewpoints": [
+                                    "重要キーワードを網羅しているか",
+                                    "因果の流れが明確か",
+                                ]
+                            },
+                        },
+                    }
+                ]
+            }
+            st.code(json.dumps(sample_payload, ensure_ascii=False, indent=2), language="json")
 
         st.subheader("表示テーマ")
         theme_options = [
