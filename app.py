@@ -9,6 +9,7 @@ from uuid import uuid4
 import logging
 
 import html
+import re
 
 import random
 
@@ -1395,6 +1396,81 @@ def _get_flashcard_state(problem_id: int, size: int) -> Dict[str, Any]:
     return state
 
 
+_FRAME_RULES = [
+    (("強み", "弱み", "機会", "脅威", "競合"), "SWOT分析"),
+    (("課題", "改善", "施策", "原因"), "課題→原因→施策"),
+    (("ターゲット", "顧客", "セグメント", "市場"), "STP分析"),
+    (("提供価値", "価値提案", "ベネフィット"), "バリュープロポジション"),
+    (("販促", "プロモーション", "口コミ", "チャネル", "連携"), "4P: Promotion"),
+    (("投資", "NPV", "ROA", "財務", "キャッシュフロー", "資本"), "財務分析"),
+    (("人材", "育成", "評価", "モチベーション", "技能伝承"), "人材マネジメント"),
+    (("開発", "イノベーション", "企画"), "商品・サービス開発"),
+]
+
+
+def _extract_question_title(prompt: str) -> str:
+    if not prompt:
+        return ""
+    text = prompt.strip()
+    text = re.sub(r"^第\d+問\([^\)]*\)\s*", "", text)
+    text = re.sub(r"^[\d\.\-]+\s*", "", text)
+    text = text.rstrip("。")
+    return text or "設問"
+
+
+def _estimate_required_points(keywords: List[str]) -> str:
+    keyword_count = len([kw for kw in keywords if kw])
+    return "3点構成" if keyword_count >= 4 else "2点構成"
+
+
+def _infer_common_frames(prompt: str, keywords: List[str]) -> List[str]:
+    text = f"{prompt} {' '.join(keywords)}"
+    frames: List[str] = []
+    for tokens, label in _FRAME_RULES:
+        if any(token in text for token in tokens):
+            frames.append(label)
+    if not frames:
+        frames.append("基本整理")
+    return frames[:4]
+
+
+def _get_card_palette() -> Dict[str, str]:
+    base = (st.get_option("theme.base") or "light").lower()
+    if base == "dark":
+        return {
+            "background": "#0F172A",
+            "border": "#1E293B",
+            "heading": "#E2E8F0",
+            "text": "#CBD5F5",
+            "muted": "#94A3B8",
+            "chip_bg": "#1E293B",
+            "chip_text": "#E2E8F0",
+            "accent": "#60A5FA",
+            "accent_border": "#1D4ED8",
+        }
+    return {
+        "background": "#F8FAFC",
+        "border": "#CBD5E1",
+        "heading": "#0F172A",
+        "text": "#334155",
+        "muted": "#64748B",
+        "chip_bg": "#E2E8F0",
+        "chip_text": "#0F172A",
+        "accent": "#1D4ED8",
+        "accent_border": "#93C5FD",
+    }
+
+
+def _render_chip(label: str, palette: Dict[str, str]) -> str:
+    style = (
+        "display:inline-flex;align-items:center;padding:0.25rem 0.65rem;"
+        "border-radius:999px;font-size:0.75rem;font-weight:600;"
+        f"background:{palette['chip_bg']};color:{palette['chip_text']};"
+        "border:1px solid rgba(148, 163, 184, 0.35);"
+    )
+    return f"<span style=\"{style}\">{html.escape(label)}</span>"
+
+
 def _render_retrieval_flashcards(problem: Dict) -> None:
     flashcards: List[Dict[str, Any]] = []
     for index, question in enumerate(problem.get("questions", [])):
@@ -1448,16 +1524,66 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
     with card_placeholder:
         st.markdown(f"**カード {current_position + 1} / {len(flashcards)}**")
         st.write(card["title"])
+        palette = _get_card_palette()
+        heading = _extract_question_title(card["prompt"])
+        point_label = _estimate_required_points(card["keywords"])
+        frames = _infer_common_frames(card["prompt"], card["keywords"])
+        chip_html = "".join(_render_chip(frame, palette) for frame in frames)
         card_html = f"""
-        <div style='padding:0.75rem 1rem;border:1px solid #CBD5E1;border-radius:0.75rem;background-color:#F8FAFC;'>
-            <p style='margin:0;color:#1E293B;font-weight:600;'>設問の概要</p>
-            <p style='margin:0.35rem 0 0;color:#334155;'>{card['prompt']}</p>
-            <p style='margin:0.75rem 0 0;color:#64748B;'>キーワードを声に出すか、メモに書き出してみてください。</p>
+        <div style='
+            padding:1.1rem 1.35rem;
+            border:1px solid {palette['border']};
+            border-radius:1rem;
+            background:{palette['background']};
+            box-shadow:0 18px 32px rgba(15, 23, 42, 0.12);
+        '>
+            <div style='display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;'>
+                <div>
+                    <p style='margin:0;font-size:0.75rem;letter-spacing:0.08em;color:{palette['muted']};font-weight:600;'>設問のテーマ</p>
+                    <h4 style='margin:0.35rem 0 0;font-size:1.05rem;line-height:1.55;color:{palette['heading']};'>{html.escape(heading)}</h4>
+                </div>
+                <div style='
+                    background:rgba(37, 99, 235, 0.08);
+                    color:{palette['accent']};
+                    padding:0.35rem 0.75rem;
+                    border-radius:999px;
+                    font-size:0.78rem;
+                    font-weight:700;
+                    border:1px solid {palette['accent_border']};
+                    white-space:nowrap;
+                '>要素数 {point_label}</div>
+            </div>
+            <p style='margin:0.85rem 0 0;color:{palette['text']};font-size:0.92rem;line-height:1.7;'>{html.escape(card['prompt'])}</p>
+            <div style='display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:1rem;'>
+                {chip_html}
+            </div>
+            <p style='margin:1.05rem 0 0;font-size:0.8rem;color:{palette['muted']};'>キーワードを声に出すか、メモに書き出してみてください。</p>
         </div>
         """
         st.markdown(card_html, unsafe_allow_html=True)
         if state["revealed"]:
-            st.success("\n".join(f"・{keyword}" for keyword in card["keywords"]))
+            keywords_html = "".join(
+                f"<li style='margin:0.1rem 0 0.1rem 1rem;'>{html.escape(keyword)}</li>"
+                for keyword in card["keywords"]
+            )
+            st.markdown(
+                f"""
+                <div style='
+                    margin-top:0.85rem;
+                    padding:0.9rem 1rem;
+                    border-radius:0.85rem;
+                    border:1px solid {palette['accent_border']};
+                    background:rgba(37, 99, 235, 0.12);
+                    color:{palette['heading']};
+                '>
+                    <p style='margin:0 0 0.5rem;font-weight:700;'>想起すべきキーワード</p>
+                    <ul style='margin:0;padding:0 0 0 0.8rem;color:{palette['heading']};'>
+                        {keywords_html}
+                    </ul>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
         else:
             st.info("キーワードを思い出したら、上のボタンから答え合わせをしましょう。")
 
