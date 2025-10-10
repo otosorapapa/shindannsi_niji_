@@ -1,10 +1,11 @@
 """試験委員プロフィールを分析し、可視化用データを生成するユーティリティ。"""
 from __future__ import annotations
 
-import json
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
+
+import json
 
 import pandas as pd
 
