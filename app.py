@@ -135,6 +135,68 @@ KEYWORD_RESOURCE_MAP = {
 CASE_ORDER = ["事例I", "事例II", "事例III", "事例IV"]
 
 
+CASE_FRAME_SHORTCUTS = {
+    "事例I": [
+        {
+            "label": "さちのひほ",
+            "snippet": "【さちのひほ】採用で人材を確保し、配置で適材適所を図り、能力開発と評価で成長を促し、報酬・処遇で定着とモチベーションを高める。",
+            "description": "人事施策を採用・配置・育成・評価・報酬の流れで整理。",
+        },
+        {
+            "label": "けぶかいねこ",
+            "snippet": "【けぶかいねこ】権限委譲で現場裁量を高め、部門編成と階層を見直し、情報共有とコミュニケーションを活性化し、ネットワーク・コラボで連携を強化する。",
+            "description": "組織構造とコミュニケーションの課題整理に活用。",
+        },
+    ],
+    "事例II": [
+        {
+            "label": "売上分解",
+            "snippet": "【売上分解】売上＝客数×客単価で捉え、客数は新規獲得・来店頻度、客単価は関連購買・高付加価値提案で向上させる。",
+            "description": "売上向上策を客数と客単価の両面から検討。",
+        },
+        {
+            "label": "新規/既存×施策",
+            "snippet": "【新規/既存×施策】新規顧客には認知拡大と体験機会、既存顧客にはリピート促進とLTV向上策を組み合わせる。",
+            "description": "顧客区分別にマーケティング施策を整理。",
+        },
+        {
+            "label": "チャネル・協業",
+            "snippet": "【チャネル・協業】直販強化とEC・外部販路を組み合わせ、地域・異業種との協業で接点と提供価値を拡張する。",
+            "description": "販路開拓と連携施策の方向性を提示。",
+        },
+    ],
+    "事例III": [
+        {
+            "label": "QCD",
+            "snippet": "【QCD】品質(Q)の安定化、コスト(C)の低減、納期(D)の短縮・遵守を同時に意識した改善策を提示する。",
+            "description": "生産性向上策を品質・コスト・納期でバランス確認。",
+        },
+        {
+            "label": "4M",
+            "snippet": "【4M】Man・Machine・Method・Materialの視点で要因を洗い出し、標準化と教育で再発防止を図る。",
+            "description": "工程の課題原因を人・設備・方法・材料で整理。",
+        },
+        {
+            "label": "段取り短縮",
+            "snippet": "【段取り短縮】内段取りの外段取り化、前準備の標準化、段取り時間の短縮でリードタイムを圧縮する。",
+            "description": "段取り替えと準備の効率化視点。",
+        },
+        {
+            "label": "ECRS",
+            "snippet": "【ECRS】排除(Eliminate)→結合(Combine)→交換(Rearrange)→簡素化(Simplify)の順で工程改善案を検討する。",
+            "description": "改善アイデアを体系的に展開。",
+        },
+    ],
+    "事例IV": [
+        {
+            "label": "財務→CVP→投資判定",
+            "snippet": "【財務分析→CVP→投資判定】財務指標で現状を把握し、CVP分析で損益分岐を確認し、投資回収・NPV等で施策の妥当性を検証する連鎖を意識する。",
+            "description": "設問間の依存を踏まえて分析から投資判断へ展開。",
+        }
+    ],
+}
+
+
 EXAM_YEAR_NOTICE = {
     "R6": {
         "time": "80分 / 4設問構成",
@@ -583,6 +645,41 @@ def _render_intent_cards(
                     "label": card["label"],
                 }
         st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_case_frame_shortcuts(
+    case_label: Optional[str], draft_key: str, textarea_state_key: str
+) -> None:
+    if not case_label:
+        return
+
+    frames = CASE_FRAME_SHORTCUTS.get(case_label)
+    if not frames:
+        return
+
+    st.markdown("<p class=\"intent-card-header\">頻出フレーム</p>", unsafe_allow_html=True)
+    st.caption("直近の事例傾向に合わせたフレームをワンクリックで挿入できます。")
+
+    columns = st.columns(min(len(frames), 3))
+    for index, frame in enumerate(frames):
+        column = columns[index % len(columns)]
+        with column:
+            clicked = st.button(
+                frame["label"],
+                key=f"case-frame-{draft_key}-{index}",
+                use_container_width=True,
+                help=frame.get("description"),
+            )
+            description = frame.get("description")
+            if description:
+                st.caption(description)
+            if clicked:
+                _insert_template_snippet(draft_key, textarea_state_key, frame["snippet"])
+                st.session_state["_case_frame_notice"] = {
+                    "draft_key": draft_key,
+                    "label": frame["label"],
+                }
+
 
 def _ensure_media_styles() -> None:
     if st.session_state.get("_media_styles_injected"):
@@ -1732,6 +1829,7 @@ def _question_input(
     *,
     disabled: bool = False,
     widget_prefix: str = "textarea_",
+    case_label: Optional[str] = None,
 ) -> str:
     key = _draft_key(problem_id, question["id"])
     if key not in st.session_state.drafts:
@@ -1741,11 +1839,17 @@ def _question_input(
     textarea_state_key = f"{widget_prefix}{key}"
 
     _render_intent_cards(question, key, textarea_state_key)
+    _render_case_frame_shortcuts(case_label, key, textarea_state_key)
 
     notice = st.session_state.get("_intent_card_notice")
     if notice and notice.get("draft_key") == key:
         st.success(f"「{notice['label']}」の例示表現を挿入しました。", icon="✍️")
         st.session_state.pop("_intent_card_notice", None)
+
+    frame_notice = st.session_state.get("_case_frame_notice")
+    if frame_notice and frame_notice.get("draft_key") == key:
+        st.success(f"「{frame_notice['label']}」フレームを挿入しました。", icon="🧩")
+        st.session_state.pop("_case_frame_notice", None)
 
     value = st.session_state.drafts.get(key, "")
     help_text = f"文字数目安: {question['character_limit']}字" if question["character_limit"] else ""
@@ -2518,7 +2622,11 @@ def practice_page(user: Dict) -> None:
     _inject_guideline_styles()
 
     for question in problem["questions"]:
-        text = _question_input(problem["id"], question)
+        text = _question_input(
+            problem["id"],
+            question,
+            case_label=problem.get("case_label") or problem.get("case"),
+        )
         question_specs.append(
             QuestionSpec(
                 id=question["id"],
@@ -3051,6 +3159,7 @@ def mock_exam_page(user: Dict) -> None:
                     problem_id,
                     question,
                     widget_prefix="mock_textarea_",
+                    case_label=problem.get("case_label") or problem.get("case"),
                 )
 
     if st.button("模試を提出", type="primary"):
