@@ -8,6 +8,7 @@ scores.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
@@ -183,6 +184,8 @@ def initialize_database(*, force: bool = False) -> None:
             else:
                 seed_payload = json.loads(SEED_PATH.read_text(encoding="utf-8"))
 
+            seed_payload = _normalise_seed_payload(seed_payload)
+
             _ensure_question_multimedia_columns(conn)
 
             _seed_problems(conn, seed_payload)
@@ -267,6 +270,113 @@ def _seed_problems(conn: sqlite3.Connection, payload: Dict) -> None:
                 )
 
     conn.commit()
+
+
+def _normalise_seed_payload(payload: Any) -> Dict[str, Any]:
+    """Return seed data in the canonical structure used by the seeder.
+
+    Historically the project stored the problem seeds as a flat list of
+    question records. Modern versions expect a dictionary with a top-level
+    ``"problems"`` key containing problem dictionaries, each with a nested
+    ``"questions"`` list. When the legacy shape is detected we convert it into
+    the new representation so that migrations remain backward compatible.
+    """
+
+    if isinstance(payload, dict) and "problems" in payload:
+        return payload
+
+    if not isinstance(payload, list):
+        raise TypeError("Seed payload must be a dict or list of question records")
+
+    problems: Dict[tuple[str, str], Dict[str, Any]] = {}
+
+    def _normalise_keywords(raw: Any) -> List[str]:
+        if isinstance(raw, list):
+            return [str(keyword).strip() for keyword in raw if str(keyword).strip()]
+        if isinstance(raw, str):
+            return [
+                keyword.strip()
+                for keyword in re.split(r"[|,]", raw)
+                if keyword.strip()
+            ]
+        return []
+
+    def _normalise_intent_cards(raw: Any) -> List[Dict[str, Any]]:
+        if isinstance(raw, list):
+            return [card for card in raw if isinstance(card, dict)]
+        if isinstance(raw, str) and raw.strip():
+            cards: List[Dict[str, Any]] = []
+            for chunk in raw.split("|"):
+                chunk = chunk.strip()
+                if not chunk:
+                    continue
+                try:
+                    cards.append(json.loads(chunk))
+                except json.JSONDecodeError:
+                    # Fallback: attempt to interpret ``label:example`` patterns.
+                    if ":" in chunk:
+                        label, example = chunk.split(":", 1)
+                        cards.append({"label": label.strip(), "example": example.strip()})
+            return cards
+        return []
+
+    for entry in payload:
+        if not isinstance(entry, dict):
+            continue
+
+        year = entry.get("year")
+        case_label = entry.get("case")
+        title = entry.get("title")
+        overview = entry.get("overview")
+
+        if not (year and case_label and title and overview):
+            continue
+
+        problem_key = (year, case_label)
+        problem = problems.setdefault(
+            problem_key,
+            {
+                "year": year,
+                "case": case_label,
+                "title": title,
+                "overview": overview,
+                "questions": [],
+            },
+        )
+
+        question = {
+            "prompt": entry.get("prompt", ""),
+            "character_limit": entry.get("character_limit"),
+            "max_score": entry.get("max_score", 0),
+            "model_answer": entry.get("model_answer", ""),
+            "explanation": entry.get("explanation", ""),
+            "keywords": _normalise_keywords(entry.get("keywords")),
+            "intent_cards": _normalise_intent_cards(entry.get("intent_cards")),
+            "video_url": entry.get("video_url"),
+            "diagram_path": entry.get("diagram_path"),
+            "diagram_caption": entry.get("diagram_caption"),
+            "_order_hint": entry.get("question_index"),
+        }
+
+        problem["questions"].append(question)
+
+    normalised_problems: List[Dict[str, Any]] = []
+    for problem in problems.values():
+        questions = problem["questions"]
+        questions.sort(key=lambda q: (q.get("_order_hint") is None, q.get("_order_hint")))
+        for question in questions:
+            question.pop("_order_hint", None)
+        normalised_problems.append(
+            {
+                "year": problem["year"],
+                "case": problem["case"],
+                "title": problem["title"],
+                "overview": problem["overview"],
+                "questions": questions,
+            }
+        )
+
+    return {"problems": normalised_problems}
 
 
 def _ensure_question_multimedia_columns(conn: sqlite3.Connection) -> None:
