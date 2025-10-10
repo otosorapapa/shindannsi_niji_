@@ -18,6 +18,16 @@
             "高付加価値",
             "企画開発"
           ],
+          "intent_cards": [
+            {
+              "label": "強み要約力",
+              "example": "長年培った製造技術と地域顧客との信頼関係を強みとして示す。"
+            },
+            {
+              "label": "価値訴求力",
+              "example": "高付加価値商品の企画・開発力で提供価値を高めると述べる。"
+            }
+          ],
           "video_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
           "diagram_path": "data/diagrams/case1_q1.svg",
           "diagram_caption": "A社の強みを構造的に整理した関係図。"
@@ -34,6 +44,16 @@
             "技能伝承",
             "評価制度",
             "モチベーション"
+          ],
+          "intent_cards": [
+            {
+              "label": "課題抽出力",
+              "example": "熟練職人への依存と若手育成の遅れを課題として指摘する。"
+            },
+            {
+              "label": "育成設計力",
+              "example": "技能伝承と評価制度を連動させモチベーション向上策を提示する。"
+            }
           ],
           "video_url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
           "diagram_path": "data/diagrams/case1_q2.svg",
@@ -60,6 +80,16 @@
             "生活支援",
             "安心"
           ],
+          "intent_cards": [
+            {
+              "label": "ターゲット提言力",
+              "example": "高齢化が進む地域住民を主要顧客として定義する。"
+            },
+            {
+              "label": "提供価値言語化力",
+              "example": "見守りと生活支援を組み合わせ安心を提供する価値を述べる。"
+            }
+          ],
           "video_url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
           "diagram_path": "data/diagrams/case2_q1.svg",
           "diagram_caption": "主要顧客ペルソナと提供価値の対応関係を示すマップ。"
@@ -75,6 +105,16 @@
             "口コミ",
             "紹介",
             "継続利用"
+          ],
+          "intent_cards": [
+            {
+              "label": "協業先の提案力",
+              "example": "地域包括支援センターと連携し紹介導線を築く提案を示す。"
+            },
+            {
+              "label": "販促導線構築力",
+              "example": "イベント出展と紹介キャンペーンで口コミから継続利用につなげる。"
+            }
           ],
           "video_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
           "diagram_path": "data/diagrams/case2_q2.svg",
@@ -100,6 +140,16 @@
             "設備投資",
             "改善"
           ],
+          "intent_cards": [
+            {
+              "label": "指標分析力",
+              "example": "過大な設備投資でROAが低下している点を示す。"
+            },
+            {
+              "label": "改善提案力",
+              "example": "固定資産回転率の改善を課題として提示する。"
+            }
+          ],
           "video_url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
           "diagram_path": "data/diagrams/case4_q1.svg",
           "diagram_caption": "ROAと固定資産回転率の推移を比較したダッシュボードイメージ。"
@@ -115,6 +165,16 @@
             "現在価値",
             "資本コスト",
             "投資判断"
+          ],
+          "intent_cards": [
+            {
+              "label": "投資根拠説明力",
+              "example": "将来キャッシュフローを現在価値に割り引き投資可否を判断すると述べる。"
+            },
+            {
+              "label": "資本コスト理解力",
+              "example": "資本コストを考慮できる指標としてNPVを採用する理由を示す。"
+            }
           ],
           "video_url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
           "diagram_path": "data/diagrams/case4_q2.svg",
