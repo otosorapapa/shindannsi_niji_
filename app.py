@@ -157,6 +157,7 @@ def _init_session_state() -> None:
     st.session_state.setdefault("past_data", None)
     st.session_state.setdefault("flashcard_states", {})
     st.session_state.setdefault("ui_theme", "システム設定に合わせる")
+    st.session_state.setdefault("_intent_card_styles_injected", False)
 
 
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
@@ -201,6 +202,123 @@ def _inject_guideline_styles() -> None:
     )
     st.session_state["_guideline_styles_injected"] = True
 
+
+def _inject_intent_card_styles() -> None:
+    if st.session_state.get("_intent_card_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .intent-card-header {
+                font-weight: 700;
+                color: #1f2937;
+                margin-bottom: 0.15rem;
+                font-size: 0.9rem;
+            }
+            .intent-card-wrapper {
+                background: rgba(248, 250, 252, 0.9);
+                border: 1px solid rgba(99, 102, 241, 0.22);
+                border-radius: 14px;
+                padding: 0.75rem 0.85rem 0.6rem;
+                box-shadow: 0 12px 22px rgba(15, 23, 42, 0.08);
+            }
+            .intent-card-wrapper button {
+                width: 100%;
+                border-radius: 10px;
+                border: none;
+                background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(129, 140, 248, 0.24));
+                color: #1e293b;
+                font-weight: 600;
+                padding: 0.5rem 0.6rem;
+                cursor: pointer;
+                transition: transform 0.15s ease, box-shadow 0.15s ease;
+            }
+            .intent-card-wrapper button:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 8px 20px rgba(99, 102, 241, 0.25);
+            }
+            .intent-card-example {
+                margin-top: 0.55rem;
+                font-size: 0.78rem;
+                line-height: 1.5;
+                color: #1e293b;
+                background: rgba(255, 255, 255, 0.75);
+                border-radius: 8px;
+                padding: 0.35rem 0.6rem;
+            }
+            .intent-card-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 0.9rem;
+                margin-top: 0.4rem;
+                margin-bottom: 0.6rem;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_intent_card_styles_injected"] = True
+
+
+def _insert_template_snippet(
+    draft_key: str, textarea_state_key: str, snippet: str
+) -> None:
+    snippet = snippet.strip()
+    if not snippet:
+        return
+
+    current_text = st.session_state.drafts.get(draft_key, "").rstrip()
+    if current_text:
+        if not current_text.endswith(("。", "！", "？", "\n")):
+            current_text += "。"
+        new_text = f"{current_text}\n{snippet}"
+    else:
+        new_text = snippet
+
+    st.session_state.drafts[draft_key] = new_text
+    st.session_state[textarea_state_key] = new_text
+
+
+def _render_intent_cards(
+    question: Dict[str, Any], draft_key: str, textarea_state_key: str
+) -> None:
+    cards: List[Dict[str, str]] = [
+        card
+        for card in question.get("intent_cards", [])
+        if card and card.get("label") and card.get("example")
+    ]
+    if not cards:
+        return
+
+    _inject_intent_card_styles()
+    st.markdown("<p class=\"intent-card-header\">設問趣旨カード</p>", unsafe_allow_html=True)
+    st.caption("カードをクリックすると例示表現が解答欄に挿入されます。提言型答案づくりのヒントに活用してください。")
+
+    grid_container = st.container()
+    with grid_container:
+        st.markdown("<div class=\"intent-card-grid\">", unsafe_allow_html=True)
+        for index, card in enumerate(cards):
+            st.markdown("<div class=\"intent-card-wrapper\">", unsafe_allow_html=True)
+            clicked = st.button(
+                card["label"],
+                key=f"intent-card-{draft_key}-{index}",
+                use_container_width=True,
+            )
+            st.markdown(
+                f"<div class=\"intent-card-example\">例: {html.escape(card['example'])}</div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+            if clicked:
+                _insert_template_snippet(draft_key, textarea_state_key, card["example"])
+                st.session_state["_intent_card_notice"] = {
+                    "draft_key": draft_key,
+                    "label": card["label"],
+                }
+        st.markdown("</div>", unsafe_allow_html=True)
 
 def _ensure_media_styles() -> None:
     if st.session_state.get("_media_styles_injected"):
@@ -1344,17 +1462,33 @@ def _render_character_counter(current_length: int, limit: Optional[int]) -> None
         st.warning("文字数が上限を超えています。")
 
 
-def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> str:
+def _question_input(
+    problem_id: int,
+    question: Dict,
+    *,
+    disabled: bool = False,
+    widget_prefix: str = "textarea_",
+) -> str:
     key = _draft_key(problem_id, question["id"])
     if key not in st.session_state.drafts:
         saved_default = st.session_state.saved_answers.get(key, "")
         st.session_state.drafts[key] = saved_default
+
+    textarea_state_key = f"{widget_prefix}{key}"
+
+    _render_intent_cards(question, key, textarea_state_key)
+
+    notice = st.session_state.get("_intent_card_notice")
+    if notice and notice.get("draft_key") == key:
+        st.success(f"「{notice['label']}」の例示表現を挿入しました。", icon="✍️")
+        st.session_state.pop("_intent_card_notice", None)
+
     value = st.session_state.drafts.get(key, "")
     help_text = f"文字数目安: {question['character_limit']}字" if question["character_limit"] else ""
     st.caption("入力内容は自動保存されます。")
     text = st.text_area(
         label=question["prompt"],
-        key=f"textarea_{key}",
+        key=textarea_state_key,
         value=value,
         height=160,
         help=help_text,
@@ -1374,7 +1508,7 @@ def _question_input(problem_id: int, question: Dict, disabled: bool = False) -> 
         disabled=restore_disabled,
     ):
         st.session_state.drafts[key] = saved_text
-        st.session_state[f"textarea_{key}"] = saved_text
+        st.session_state[textarea_state_key] = saved_text
         status_placeholder.info("保存済みの下書きを復元しました。")
     return text
 
@@ -1946,6 +2080,10 @@ def practice_page(user: Dict) -> None:
                 "設問": idx + 1,
                 "配点": q["max_score"],
                 "キーワード": "、".join(q["keywords"]) if q["keywords"] else "-",
+                "評価したい力": "・".join(
+                    card.get("label", "") for card in q.get("intent_cards", []) if card.get("label")
+                )
+                or "-",
             }
             for idx, q in enumerate(problem["questions"])
         ]
@@ -1957,6 +2095,7 @@ def practice_page(user: Dict) -> None:
         disabled=True,
         column_config={
             "キーワード": st.column_config.TextColumn(help="採点で評価される重要ポイント"),
+            "評価したい力": st.column_config.TextColumn(help="設問趣旨から読み取れる評価観点"),
         },
     )
     st.caption("採点の観点を事前に確認してから回答に取り組みましょう。")
@@ -2308,14 +2447,11 @@ def mock_exam_page(user: Dict) -> None:
             st.subheader(problem["title"])
             st.write(problem["overview"])
             for question in problem["questions"]:
-                key = _draft_key(problem_id, question["id"])
-                st.session_state.drafts.setdefault(key, "")
-                default = st.session_state.drafts[key]
-                text = st.text_area(
-                    question["prompt"], key=f"mock_{key}", value=default, height=160
+                _question_input(
+                    problem_id,
+                    question,
+                    widget_prefix="mock_textarea_",
                 )
-                _render_character_counter(len(text), question.get("character_limit"))
-                st.session_state.drafts[key] = text
 
     if st.button("模試を提出", type="primary"):
         overall_results = []

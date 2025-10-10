@@ -233,6 +233,7 @@ def _seed_problems(conn: sqlite3.Connection, payload: Dict) -> None:
                 question["model_answer"],
                 question["explanation"],
                 json.dumps(question.get("keywords", []), ensure_ascii=False),
+                json.dumps(question.get("intent_cards", []), ensure_ascii=False),
                 question.get("video_url"),
                 question.get("diagram_path"),
                 question.get("diagram_caption"),
@@ -243,8 +244,8 @@ def _seed_problems(conn: sqlite3.Connection, payload: Dict) -> None:
                     """
                     UPDATE questions
                     SET prompt = ?, character_limit = ?, max_score = ?, model_answer = ?,
-                        explanation = ?, keywords_json = ?, video_url = ?, diagram_path = ?,
-                        diagram_caption = ?
+                        explanation = ?, keywords_json = ?, intent_cards_json = ?, video_url = ?,
+                        diagram_path = ?, diagram_caption = ?
                     WHERE id = ?
                     """,
                     (*payload_values, existing_question["id"]),
@@ -254,9 +255,9 @@ def _seed_problems(conn: sqlite3.Connection, payload: Dict) -> None:
                     """
                     INSERT INTO questions (
                         problem_id, question_order, prompt, character_limit, max_score,
-                        model_answer, explanation, keywords_json, video_url, diagram_path,
-                        diagram_caption
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        model_answer, explanation, keywords_json, intent_cards_json, video_url,
+                        diagram_path, diagram_caption
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         problem_id,
@@ -282,6 +283,10 @@ def _ensure_question_multimedia_columns(conn: sqlite3.Connection) -> None:
         alterations.append("ALTER TABLE questions ADD COLUMN diagram_path TEXT")
     if "diagram_caption" not in columns:
         alterations.append("ALTER TABLE questions ADD COLUMN diagram_caption TEXT")
+    if "intent_cards_json" not in columns:
+        alterations.append(
+            "ALTER TABLE questions ADD COLUMN intent_cards_json TEXT DEFAULT '[]'"
+        )
 
     for statement in alterations:
         cursor.execute(statement)
@@ -404,6 +409,9 @@ def fetch_problem(problem_id: int) -> Optional[Dict]:
                 "explanation": question["explanation"],
                 "keywords": json.loads(question["keywords_json"]),
                 "order": question["question_order"],
+                "intent_cards": json.loads(question["intent_cards_json"])
+                if question["intent_cards_json"]
+                else [],
                 "video_url": question["video_url"],
                 "diagram_path": question["diagram_path"],
                 "diagram_caption": question["diagram_caption"],
@@ -1171,7 +1179,8 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
     cur.execute(
         """
         SELECT aa.*, q.prompt, q.max_score, q.model_answer, q.explanation,
-               q.keywords_json, q.video_url, q.diagram_path, q.diagram_caption
+               q.keywords_json, q.intent_cards_json, q.video_url, q.diagram_path,
+               q.diagram_caption
         FROM attempt_answers aa
         JOIN questions q ON q.id = aa.question_id
         WHERE aa.attempt_id = ?
@@ -1194,6 +1203,7 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
                 "model_answer": row["model_answer"],
                 "explanation": row["explanation"],
                 "keyword_hits": json.loads(row["keyword_hits_json"]) if row["keyword_hits_json"] else {},
+                "intent_cards": json.loads(row["intent_cards_json"]) if row["intent_cards_json"] else [],
                 "video_url": row["video_url"],
                 "diagram_path": row["diagram_path"],
                 "diagram_caption": row["diagram_caption"],
@@ -1262,6 +1272,16 @@ def _default_seed_payload() -> Dict:
                             "高付加価値",
                             "企画開発",
                         ],
+                        "intent_cards": [
+                            {
+                                "label": "強み要約力",
+                                "example": "長年培った製造技術と地域顧客との信頼関係を強みとして示す。",
+                            },
+                            {
+                                "label": "価値訴求力",
+                                "example": "高付加価値商品の企画・開発力で提供価値を高めると述べる。",
+                            },
+                        ],
                         "video_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
                         "diagram_path": "data/diagrams/case1_q1.svg",
                         "diagram_caption": "A社の強みを構造的に整理した関係図。",
@@ -1283,6 +1303,16 @@ def _default_seed_payload() -> Dict:
                             "技能伝承",
                             "評価制度",
                             "モチベーション",
+                        ],
+                        "intent_cards": [
+                            {
+                                "label": "課題抽出力",
+                                "example": "熟練職人への依存と若手育成の遅れを課題として指摘する。",
+                            },
+                            {
+                                "label": "育成設計力",
+                                "example": "技能伝承と評価制度を連動させモチベーション向上策を提示する。",
+                            },
                         ],
                         "video_url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
                         "diagram_path": "data/diagrams/case1_q2.svg",
@@ -1316,6 +1346,16 @@ def _default_seed_payload() -> Dict:
                             "生活支援",
                             "安心",
                         ],
+                        "intent_cards": [
+                            {
+                                "label": "ターゲット提言力",
+                                "example": "高齢化が進む地域住民を主要顧客として定義する。",
+                            },
+                            {
+                                "label": "提供価値言語化力",
+                                "example": "見守りと生活支援を組み合わせ安心を提供する価値を述べる。",
+                            },
+                        ],
                         "video_url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
                         "diagram_path": "data/diagrams/case2_q1.svg",
                         "diagram_caption": "主要顧客ペルソナと提供価値の対応関係を示すマップ。",
@@ -1336,6 +1376,16 @@ def _default_seed_payload() -> Dict:
                             "口コミ",
                             "紹介",
                             "継続利用",
+                        ],
+                        "intent_cards": [
+                            {
+                                "label": "協業先の提案力",
+                                "example": "地域包括支援センターと連携し紹介導線を築く提案を示す。",
+                            },
+                            {
+                                "label": "販促導線構築力",
+                                "example": "イベント出展と紹介キャンペーンで口コミから継続利用につなげる。",
+                            },
                         ],
                         "video_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
                         "diagram_path": "data/diagrams/case2_q2.svg",
@@ -1368,6 +1418,16 @@ def _default_seed_payload() -> Dict:
                             "設備投資",
                             "改善",
                         ],
+                        "intent_cards": [
+                            {
+                                "label": "指標分析力",
+                                "example": "過大な設備投資でROAが低下している点を示す。",
+                            },
+                            {
+                                "label": "改善提案力",
+                                "example": "固定資産回転率の改善を課題として提示する。",
+                            },
+                        ],
                         "video_url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
                         "diagram_path": "data/diagrams/case4_q1.svg",
                         "diagram_caption": "ROAと固定資産回転率の推移を比較したダッシュボードイメージ。",
@@ -1388,6 +1448,16 @@ def _default_seed_payload() -> Dict:
                             "現在価値",
                             "資本コスト",
                             "投資判断",
+                        ],
+                        "intent_cards": [
+                            {
+                                "label": "投資根拠説明力",
+                                "example": "将来キャッシュフローを現在価値に割り引き投資可否を判断すると述べる。",
+                            },
+                            {
+                                "label": "資本コスト理解力",
+                                "example": "資本コストを考慮できる指標としてNPVを採用する理由を示す。",
+                            },
                         ],
                         "video_url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
                         "diagram_path": "data/diagrams/case4_q2.svg",
