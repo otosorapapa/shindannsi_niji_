@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 import logging
 
@@ -19,11 +19,12 @@ import re
 
 import uuid
 
+import unicodedata
+
 import altair as alt
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
-import re
 
 import database
 import mock_exam
@@ -1962,21 +1963,423 @@ def _draft_key(problem_id: int, question_id: int) -> str:
     return f"draft_{problem_id}_{question_id}"
 
 
-def _render_character_counter(current_length: int, limit: Optional[int]) -> None:
-    remaining_text: str
+def _compute_fullwidth_length(text: str) -> float:
+    total = 0.0
+    for char in text:
+        width = unicodedata.east_asian_width(char)
+        if width in {"F", "W", "A"}:
+            total += 1.0
+        elif width in {"Na", "H"}:
+            total += 0.5
+        else:
+            total += 1.0
+    return total
+
+
+def _format_fullwidth_length(value: float) -> str:
+    rounded = round(value, 1)
+    if abs(rounded - round(rounded)) < 1e-6:
+        return f"{int(round(rounded))}"
+    return f"{rounded:.1f}"
+
+
+def _ensure_character_meter_styles() -> None:
+    if st.session_state.get("_char_meter_styles_injected"):
+        return
+    st.markdown(
+        """
+        <style>
+        .char-meter-wrapper {
+            margin: 0.35rem 0 0.6rem;
+        }
+        .char-meter-bar {
+            position: relative;
+            height: 10px;
+            background: #e2e8f0;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .char-meter-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #22d3ee 0%, #6366f1 100%);
+            transition: width 0.25s ease;
+        }
+        .char-meter-marker {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 0;
+            height: 14px;
+        }
+        .char-meter-marker span {
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            color: #475569;
+            white-space: nowrap;
+        }
+        .char-meter-marker::after {
+            content: "";
+            display: block;
+            width: 2px;
+            height: 14px;
+            background: #94a3b8;
+            border-radius: 2px;
+        }
+        .char-meter-wrapper[data-state="over"] .char-meter-fill {
+            background: linear-gradient(90deg, #f97316 0%, #ef4444 100%);
+        }
+        .char-meter-wrapper[data-state="warn"] .char-meter-fill {
+            background: linear-gradient(90deg, #facc15 0%, #fb923c 100%);
+        }
+        .char-meter-caption {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            margin-top: 0.25rem;
+            color: #475569;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state["_char_meter_styles_injected"] = True
+
+
+def _render_character_meter(current: float, limit: Optional[int]) -> None:
+    _ensure_character_meter_styles()
+    checkpoints = [80, 100, 120]
+    gauge_max = max([limit or 0, *checkpoints, current, 1])
+    fill_ratio = min(current / gauge_max, 1.0)
+    if limit:
+        gauge_max = max(gauge_max, limit)
+    fill_width = fill_ratio * 100
+    state = ""
+    if limit and current > limit:
+        state = "over"
+    elif current >= 120:
+        state = "over"
+    elif current >= 100:
+        state = "warn"
+    meter_html = [f'<div class="char-meter-wrapper" data-state="{state}">']
+    meter_html.append(
+        f'<div class="char-meter-bar"><div class="char-meter-fill" style="width: {fill_width:.2f}%;"></div>'
+    )
+    for checkpoint in checkpoints:
+        if checkpoint > gauge_max:
+            continue
+        position = min(max(checkpoint / gauge_max * 100, 0), 100)
+        meter_html.append(
+            f'<div class="char-meter-marker" style="left: {position:.2f}%;"><span>{checkpoint}字</span></div>'
+        )
+    if limit and limit not in checkpoints:
+        position = min(max(limit / gauge_max * 100, 0), 100)
+        meter_html.append(
+            f'<div class="char-meter-marker" style="left: {position:.2f}%;"><span>{limit}字</span></div>'
+        )
+    meter_html.append("</div></div>")
+    st.markdown("".join(meter_html), unsafe_allow_html=True)
+
+    formatted_current = _format_fullwidth_length(current)
+    if limit:
+        caption_left = f"全角換算 {formatted_current}字"
+        remaining = limit - current
+        if remaining >= 0:
+            caption_right = f"残り {_format_fullwidth_length(remaining)}字"
+        else:
+            caption_right = f"{_format_fullwidth_length(abs(remaining))}字オーバー"
+    else:
+        caption_left = f"全角換算 {formatted_current}字"
+        caption_right = "100字=2〜3文が目安"
+    st.markdown(
+        f'<div class="char-meter-caption"><span>{caption_left}</span><span title="100字は2〜3文が目安です。">{caption_right}</span></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_character_counter(text: str, limit: Optional[int]) -> None:
+    fullwidth_length = _compute_fullwidth_length(text)
     if limit is None:
-        st.caption(f"現在の文字数: {current_length}字")
+        st.caption(
+            f"現在の文字数: {len(text)}字 ／ 全角換算: {_format_fullwidth_length(fullwidth_length)}字"
+        )
+        _render_character_meter(fullwidth_length, limit)
+        if fullwidth_length >= 120:
+            st.error("120字を超えています。要素を整理して因果の主軸を絞りましょう。")
         return
 
-    remaining = limit - current_length
+    remaining = limit - fullwidth_length
     if remaining >= 0:
-        remaining_text = f"残り {remaining}字"
+        remaining_text = f"残り {_format_fullwidth_length(remaining)}字"
     else:
-        remaining_text = f"{abs(remaining)}字オーバー"
-
-    st.caption(f"文字数: {current_length} / {limit}字（{remaining_text}）")
+        remaining_text = f"{_format_fullwidth_length(abs(remaining))}字オーバー"
+    st.caption(
+        f"文字数: {_format_fullwidth_length(fullwidth_length)} / {limit}字（{remaining_text}）"
+    )
     if remaining < 0:
-        st.warning("文字数が上限を超えています。")
+        st.error("文字数が上限を超えています。赤字の警告に従い削減しましょう。")
+    elif fullwidth_length >= 120 and limit > 120:
+        st.error("120字を超えると冗長になりやすいです。重要語に絞りましょう。")
+
+    _render_character_meter(fullwidth_length, limit)
+
+
+TOKEN_PATTERN = re.compile(r"[ぁ-んァ-ヶ一-龥ａ-ｚＡ-Ｚa-zA-Z0-9]+")
+SYNONYM_GROUPS = [
+    {"label": "改善・向上", "words": ["改善", "改良", "向上", "高め", "高める", "強化", "底上げ"]},
+    {"label": "課題・問題", "words": ["課題", "問題", "懸念", "ボトルネック", "弱み"]},
+    {"label": "顧客関連", "words": ["顧客", "客層", "利用者", "来店客", "ユーザー"]},
+    {"label": "売上・拡大", "words": ["売上", "収益", "増加", "拡大", "伸長"]},
+]
+ENUMERATION_CONNECTORS = ["ため", "ので", "こと", "結果", "よって", "そのため", "さらに", "一方"]
+CAUSAL_STARTERS = ["そのため", "その結果", "結果として", "よって", "したがって", "だから", "ゆえに"]
+
+
+def _inject_mece_scanner_styles() -> None:
+    if st.session_state.get("_mece_scanner_styles_injected"):
+        return
+    st.markdown(
+        """
+        <style>
+        .mece-scan-block {
+            padding: 0.75rem 0.9rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            white-space: pre-wrap;
+        }
+        .mece-highlight {
+            padding: 0 2px;
+            border-radius: 4px;
+            transition: background 0.2s ease;
+        }
+        .mece-highlight.duplicate {
+            background: rgba(250, 204, 21, 0.35);
+        }
+        .mece-highlight.synonym {
+            background: rgba(248, 113, 113, 0.3);
+            border-bottom: 2px solid rgba(248, 113, 113, 0.65);
+        }
+        .mece-highlight.enumeration {
+            background: rgba(96, 165, 250, 0.25);
+            box-shadow: inset 0 -2px 0 rgba(59, 130, 246, 0.55);
+        }
+        .mece-scan-summary {
+            font-size: 0.85rem;
+            color: #1e293b;
+            margin-top: 0.6rem;
+        }
+        .mece-scan-summary ul {
+            padding-left: 1.2rem;
+            margin: 0.2rem 0 0.4rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state["_mece_scanner_styles_injected"] = True
+
+
+def _build_highlight_html(text: str, spans: List[Dict[str, Any]]) -> str:
+    if not text:
+        return "<p class='mece-scan-block'>入力された文章がここに表示されます。</p>"
+    if not spans:
+        escaped = html.escape(text).replace("\n", "<br />")
+        return f"<div class='mece-scan-block'>{escaped}</div>"
+
+    boundaries = sorted({0, len(text), *[span["start"] for span in spans], *[span["end"] for span in spans]})
+    pieces: List[str] = []
+    for index in range(len(boundaries) - 1):
+        start = boundaries[index]
+        end = boundaries[index + 1]
+        if start == end:
+            continue
+        segment = text[start:end]
+        active = [span for span in spans if span["start"] <= start and span["end"] >= end]
+        escaped = html.escape(segment).replace("\n", "<br />")
+        if not active:
+            pieces.append(escaped)
+            continue
+        classes = " ".join(sorted({span["class"] for span in active}))
+        tooltip = " / ".join(sorted({span["label"] for span in active}))
+        pieces.append(
+            f"<span class='mece-highlight {classes}' title='{html.escape(tooltip)}'>{escaped}</span>"
+        )
+    return f"<div class='mece-scan-block'>{''.join(pieces)}</div>"
+
+
+def _find_duplicate_tokens(text: str) -> Tuple[List[Dict[str, Any]], List[str]]:
+    occurrences: Dict[str, List[Tuple[int, int]]] = defaultdict(list)
+    for match in TOKEN_PATTERN.finditer(text):
+        token = match.group()
+        if len(token.strip()) < 2:
+            continue
+        occurrences[token].append((match.start(), match.end()))
+
+    spans: List[Dict[str, Any]] = []
+    summary: List[str] = []
+    for token, positions in occurrences.items():
+        if len(positions) < 2:
+            continue
+        summary.append(f"「{token}」×{len(positions)}")
+        for start, end in positions:
+            spans.append(
+                {"start": start, "end": end, "class": "duplicate", "label": f"重複語: {token}"}
+            )
+    return spans, summary
+
+
+def _find_synonym_redundancies(text: str) -> Tuple[List[Dict[str, Any]], List[str]]:
+    spans: List[Dict[str, Any]] = []
+    summary: List[str] = []
+    for group in SYNONYM_GROUPS:
+        present: Dict[str, List[Tuple[int, int]]] = {}
+        for word in group["words"]:
+            matches = list(re.finditer(re.escape(word), text))
+            if matches:
+                present[word] = [(match.start(), match.end()) for match in matches]
+        if len(present) < 2:
+            continue
+        words_used = "／".join(sorted(present.keys()))
+        summary.append(f"{group['label']}（{words_used}）")
+        for word, positions in present.items():
+            for start, end in positions:
+                spans.append(
+                    {"start": start, "end": end, "class": "synonym", "label": f"同義反復: {group['label']}"}
+                )
+    return spans, summary
+
+
+def _detect_simple_enumerations(text: str) -> Tuple[List[Dict[str, Any]], List[str]]:
+    spans: List[Dict[str, Any]] = []
+    summary: List[str] = []
+    length = len(text)
+    index = 0
+    while index < length:
+        end = index
+        while end < length and text[end] not in "。！？":
+            end += 1
+        if end < length:
+            end += 1
+        sentence = text[index:end]
+        index = end
+        stripped = sentence.strip()
+        if not stripped:
+            continue
+        segments = [seg for seg in re.split(r"[、,]", stripped) if seg.strip()]
+        if len(segments) < 3:
+            continue
+        if any(connector in stripped for connector in ENUMERATION_CONNECTORS):
+            continue
+        spans.append(
+            {
+                "start": index - len(sentence),
+                "end": index,
+                "class": "enumeration",
+                "label": "単純列挙",
+            }
+        )
+        summary.append(stripped[:30] + ("…" if len(stripped) > 30 else ""))
+    return spans, summary
+
+
+def _suggest_causal_bridges(text: str) -> List[str]:
+    sentences: List[str] = []
+    length = len(text)
+    index = 0
+    while index < length:
+        end = index
+        while end < length and text[end] not in "。！？":
+            end += 1
+        if end < length:
+            end += 1
+        sentence = text[index:end].strip()
+        index = end
+        if sentence:
+            sentences.append(sentence)
+
+    suggestions: List[str] = []
+    if len(sentences) < 2:
+        return suggestions
+
+    for i in range(len(sentences) - 1):
+        current_sentence = sentences[i]
+        next_sentence = sentences[i + 1]
+        if any(starter in next_sentence for starter in CAUSAL_STARTERS):
+            continue
+        if any(connector in current_sentence for connector in ENUMERATION_CONNECTORS):
+            continue
+        head_current = current_sentence[:12] + ("…" if len(current_sentence) > 12 else "")
+        head_next = next_sentence[:12] + ("…" if len(next_sentence) > 12 else "")
+        suggestions.append(
+            f"「{head_current}」→「{head_next}」の間に『その結果』『だから』などの接続詞で因果を明示しましょう。"
+        )
+    if not suggestions and not any(starter in sentence for sentence in sentences for starter in CAUSAL_STARTERS):
+        suggestions.append("因→果の接続詞（その結果／だから等）を入れると論理の流れが明確になります。")
+    return suggestions
+
+
+def _analyze_mece_causal(text: str) -> Dict[str, Any]:
+    duplicate_spans, duplicate_summary = _find_duplicate_tokens(text)
+    synonym_spans, synonym_summary = _find_synonym_redundancies(text)
+    enumeration_spans, enumeration_summary = _detect_simple_enumerations(text)
+
+    all_spans = duplicate_spans + synonym_spans + enumeration_spans
+    combined_spans: List[Dict[str, Any]] = []
+    seen = set()
+    for span in all_spans:
+        key = (span["start"], span["end"], span["class"], span["label"])
+        if key in seen:
+            continue
+        seen.add(key)
+        combined_spans.append(span)
+
+    return {
+        "spans": combined_spans,
+        "duplicates": duplicate_summary,
+        "synonyms": synonym_summary,
+        "enumerations": enumeration_summary,
+        "suggestions": _suggest_causal_bridges(text),
+    }
+
+
+def _render_mece_causal_scanner(text: str) -> None:
+    _inject_mece_scanner_styles()
+    st.caption("MECE/因果スキャナ：重複語・列挙・接続詞不足を自動チェックします。")
+    if not text.strip():
+        st.info("文章を入力するとハイライト結果と因果接続の提案が表示されます。")
+        return
+
+    analysis = _analyze_mece_causal(text)
+    st.markdown(_build_highlight_html(text, analysis["spans"]), unsafe_allow_html=True)
+
+    summary_blocks: List[str] = []
+    if analysis["duplicates"]:
+        summary_blocks.append(
+            f"<p><strong>重複語</strong>: {'、'.join(html.escape(item) for item in analysis['duplicates'])}</p>"
+        )
+    if analysis["synonyms"]:
+        summary_blocks.append(
+            f"<p><strong>同義反復</strong>: {'、'.join(html.escape(item) for item in analysis['synonyms'])}</p>"
+        )
+    if analysis["enumerations"]:
+        items = "".join(f"<li>{html.escape(item)}</li>" for item in analysis["enumerations"])
+        summary_blocks.append(
+            f"<div><strong>単純列挙の疑い</strong><ul>{items}</ul></div>"
+        )
+
+    if summary_blocks:
+        st.markdown(
+            "<div class='mece-scan-summary'>" + "".join(summary_blocks) + "</div>",
+            unsafe_allow_html=True,
+        )
+
+    for suggestion in analysis["suggestions"]:
+        st.warning(suggestion)
 
 
 def _question_input(
@@ -2021,7 +2424,9 @@ def _question_input(
         help=help_text,
         disabled=disabled,
     )
-    _render_character_counter(len(text), question.get("character_limit"))
+    _render_character_counter(text, question.get("character_limit"))
+    with st.expander("MECE/因果スキャナ", expanded=bool(text.strip())):
+        _render_mece_causal_scanner(text)
     st.session_state.drafts[key] = text
     st.session_state.saved_answers.setdefault(key, value)
     status_placeholder = st.empty()
@@ -2931,7 +3336,9 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         max_chars = 60 if pd.notna(row["配点"]) and row["配点"] <= 25 else 80
         answer_key = f"uploaded_answer_{selected_year}_{selected_case}_{row['設問番号']}"
         user_answer = st.text_area("回答を入力", key=answer_key)
-        _render_character_counter(len(user_answer), max_chars)
+        _render_character_counter(user_answer, max_chars)
+        with st.expander("MECE/因果スキャナ", expanded=bool(user_answer.strip())):
+            _render_mece_causal_scanner(user_answer)
         with st.expander("模範解答／解説を見る"):
             video_url = None
             diagram_path = None
