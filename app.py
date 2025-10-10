@@ -23,6 +23,8 @@ import uuid
 
 import unicodedata
 
+import zipfile
+
 import altair as alt
 import pandas as pd
 import pdfplumber
@@ -238,6 +240,22 @@ CASE_CONTEXT_TEMPLATE_PATH = Path(__file__).resolve().parent / "data" / "case_co
 QUESTION_TEXT_TEMPLATE_PATH = (
     Path(__file__).resolve().parent / "data" / "question_text_template.csv"
 )
+QUESTION_TYPE_HISTORY_PATH = Path(__file__).resolve().parent / "data" / "question_type_history.csv"
+EXAM_TEMPLATES_JSON_PATH = Path(__file__).resolve().parent / "data" / "exam_templates.json"
+EXAM_COMMITTEE_PROFILES_JSON_PATH = (
+    Path(__file__).resolve().parent / "data" / "exam_committee_profiles.json"
+)
+SEED_PROBLEMS_JSON_PATH = Path(__file__).resolve().parent / "data" / "seed_problems.json"
+
+TEMPLATE_BUNDLE_FILES = [
+    ("past_exam_template.csv", PAST_EXAM_TEMPLATE_PATH),
+    ("case_context_template.csv", CASE_CONTEXT_TEMPLATE_PATH),
+    ("question_text_template.csv", QUESTION_TEXT_TEMPLATE_PATH),
+    ("question_type_history.csv", QUESTION_TYPE_HISTORY_PATH),
+    ("exam_templates.json", EXAM_TEMPLATES_JSON_PATH),
+    ("exam_committee_profiles.json", EXAM_COMMITTEE_PROFILES_JSON_PATH),
+    ("seed_problems.json", SEED_PROBLEMS_JSON_PATH),
+]
 
 
 @st.cache_data(show_spinner=False)
@@ -291,6 +309,24 @@ def _load_question_text_template_preview() -> pd.DataFrame:
     if not QUESTION_TEXT_TEMPLATE_PATH.exists():
         raise FileNotFoundError("question_text_template.csv not found")
     return pd.read_csv(QUESTION_TEXT_TEMPLATE_PATH)
+
+
+@st.cache_data(show_spinner=False)
+def _load_template_bundle_bytes() -> bytes:
+    missing_files = [
+        name for name, path in TEMPLATE_BUNDLE_FILES if not path.exists()
+    ]
+    if missing_files:
+        joined = ", ".join(missing_files)
+        raise FileNotFoundError(f"Missing template files: {joined}")
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
+        for archive_name, source_path in TEMPLATE_BUNDLE_FILES:
+            zip_file.writestr(archive_name, source_path.read_bytes())
+
+    buffer.seek(0)
+    return buffer.getvalue()
 
 
 def _normalize_case_label(raw: Optional[str]) -> Optional[str]:
@@ -7091,6 +7127,25 @@ def settings_page(user: Dict) -> None:
         st.caption(
             "過去問・与件文・設問文を1つのCSV/Excel/PDFで一括管理できます。テンプレートを確認しながらアップロードしてください。"
         )
+
+        st.markdown("#### テンプレートダウンロード")
+        try:
+            bundle_bytes = _load_template_bundle_bytes()
+        except FileNotFoundError:
+            st.warning(
+                "テンプレートファイルの一部を読み込めませんでした。リポジトリの data フォルダを確認してください。"
+            )
+        else:
+            st.download_button(
+                "テンプレートを一括ダウンロード (ZIP)",
+                data=bundle_bytes,
+                file_name="templates_bundle.zip",
+                mime="application/zip",
+                help="CSVとJSONのテンプレートをまとめて取得できます。",
+                key="template_bundle_download",
+            )
+            included = " / ".join(name for name, _ in TEMPLATE_BUNDLE_FILES)
+            st.caption(f"含まれるファイル: {included}")
 
         st.markdown("#### 過去問データ（与件文・設問文を含む）")
         uploaded_file = st.file_uploader(
