@@ -13,6 +13,8 @@ import json
 
 import random
 
+import re
+
 import uuid
 
 import altair as alt
@@ -2783,6 +2785,174 @@ def render_attempt_results(attempt_id: int) -> None:
     st.info("学習履歴ページから過去の答案をいつでも振り返ることができます。")
 
 
+def _render_mock_exam_overview(
+    exam: mock_exam.MockExam, *, container: Optional[Any] = None
+) -> None:
+    target = container or st
+    if not (exam.notices or exam.timetable or exam.case_guides):
+        return
+
+    if exam.notices:
+        target.markdown("#### 受験上の注意")
+        target.markdown("\n".join(f"- {note}" for note in exam.notices))
+
+    if exam.timetable:
+        target.markdown("#### 本番時間割")
+        rows = ["| 区分 | 時刻 | 補足 |", "| --- | --- | --- |"]
+        for slot in exam.timetable:
+            detail = slot.get("detail", "")
+            rows.append(
+                f"| {slot.get('slot', '')} | {slot.get('time', '')} | {detail} |"
+            )
+        target.markdown("\n".join(rows))
+
+    if exam.case_guides:
+        target.markdown("#### 事例別の体裁・確認ポイント")
+        for guide in exam.case_guides:
+            case_label = guide.get("case_label", "")
+            focus = guide.get("focus")
+            heading = case_label
+            if focus:
+                heading = f"{case_label}（{focus}）"
+            target.markdown(f"**{heading}**")
+            format_notes = guide.get("format") or []
+            if format_notes:
+                target.caption("体裁")
+                target.markdown("\n".join(f"- {note}" for note in format_notes))
+            specific_notes = guide.get("notes") or []
+            if specific_notes:
+                target.caption("注意")
+                target.markdown("\n".join(f"- {note}" for note in specific_notes))
+
+
+def _render_mock_exam_sidebar(exam: mock_exam.MockExam) -> None:
+    if not (exam.timetable or exam.notices):
+        return
+
+    sidebar = st.sidebar.container()
+    sidebar.divider()
+    if exam.timetable:
+        sidebar.markdown("#### 本番時間割")
+        for slot in exam.timetable:
+            detail = slot.get("detail")
+            detail_text = f"（{detail}）" if detail else ""
+            sidebar.markdown(
+                f"- **{slot.get('slot', '')}**: {slot.get('time', '')}{detail_text}"
+            )
+    if exam.notices:
+        sidebar.markdown("#### 注意事項")
+        for note in exam.notices:
+            sidebar.markdown(f"- {note}")
+
+
+def _infer_case_weakness_tags(
+    problem: Dict[str, Any], question_results: List[Dict[str, Any]]
+) -> List[str]:
+    tags: set[str] = set()
+    if not question_results:
+        return []
+
+    keyword_ratios: List[float] = []
+    lacking_causality = 0
+    action_without_effect = 0
+    missing_financial = False
+    blank_answers = 0
+
+    for item in question_results:
+        answer_text = item.get("answer", "") or ""
+        result = item.get("result")
+
+        if not answer_text.strip():
+            blank_answers += 1
+
+        if result is not None:
+            keyword_hits = result.keyword_hits or {}
+            if keyword_hits:
+                ratio = sum(1 for hit in keyword_hits.values() if hit) / len(keyword_hits)
+                keyword_ratios.append(ratio)
+                for keyword, hit in keyword_hits.items():
+                    if not hit and _looks_financial_keyword(keyword):
+                        missing_financial = True
+            elif answer_text.strip():
+                keyword_ratios.append(1.0)
+
+        if answer_text.strip():
+            if not _has_causal_connector(answer_text):
+                lacking_causality += 1
+            if _mentions_action_without_effect(answer_text):
+                action_without_effect += 1
+
+    total_questions = len(question_results)
+    if keyword_ratios and sum(ratio < 0.5 for ratio in keyword_ratios) >= max(1, total_questions // 2):
+        tags.add("キーワード網羅不足")
+    if lacking_causality >= max(1, total_questions // 2):
+        tags.add("因果の明示不足")
+    if action_without_effect:
+        tags.add("施策→効果が薄い")
+    if missing_financial and problem.get("case_label") == "事例IV":
+        tags.add("財務指標の選定ミス")
+    if blank_answers:
+        tags.add("未回答あり")
+
+    return sorted(tags)
+
+
+def _has_causal_connector(text: str) -> bool:
+    normalized = text.replace(" ", "").replace("　", "")
+    connectors = [
+        "ため",
+        "ので",
+        "から",
+        "結果",
+        "につなが",
+        "ことにより",
+        "によって",
+        "結果として",
+        "ことで",
+        "ゆえ",
+    ]
+    return any(connector in normalized for connector in connectors)
+
+
+def _mentions_action_without_effect(text: str) -> bool:
+    normalized = text.replace(" ", "").replace("　", "")
+    action_keywords = [
+        "施策",
+        "実施",
+        "導入",
+        "提案",
+        "取り組",
+        "構築",
+        "展開",
+        "活用",
+        "する",
+    ]
+    effect_keywords = [
+        "効果",
+        "成果",
+        "結果",
+        "向上",
+        "改善",
+        "高め",
+        "促進",
+        "波及",
+        "貢献",
+        "定着",
+        "拡大",
+        "増加",
+        "維持",
+    ]
+    has_action = any(keyword in normalized for keyword in action_keywords)
+    has_effect = any(keyword in normalized for keyword in effect_keywords)
+    return has_action and not has_effect
+
+
+def _looks_financial_keyword(keyword: str) -> bool:
+    return bool(re.search(r"[A-Z]{2,}", keyword)) or any(
+        token in keyword for token in ["率", "利益", "回転", "負債", "CF", "キャッシュ", "NPV", "ROA", "ROE", "ROI", "原価", "損益", "資本"]
+    )
+
+
 def mock_exam_page(user: Dict) -> None:
     st.title("模擬試験モード")
     st.caption("事例I～IVをまとめて演習し、時間管理と一括採点を体験します。")
@@ -2822,6 +2992,8 @@ def mock_exam_page(user: Dict) -> None:
             st.markdown("**セット内容の概要**")
             st.markdown("\n".join(case_summaries))
 
+        _render_mock_exam_overview(selected_exam)
+
         if start_clicked:
             st.session_state.mock_session = {
                 "exam": selected_exam,
@@ -2854,6 +3026,11 @@ def mock_exam_page(user: Dict) -> None:
     else:
         _remove_mock_notice_overlay()
 
+    _render_mock_exam_sidebar(exam)
+    if exam.notices or exam.timetable or exam.case_guides:
+        with st.expander("本番セット（R6）の注意事項・体裁を確認する", expanded=False) as exp:
+            _render_mock_exam_overview(exam, container=exp)
+
     tab_labels: List[str] = []
     for idx, problem_id in enumerate(exam.problem_ids):
         problem = _load_problem_detail(problem_id)
@@ -2884,6 +3061,7 @@ def mock_exam_page(user: Dict) -> None:
                 st.warning("一部の問題データが取得できなかったため採点をスキップしました。")
                 continue
             answers: List[RecordedAnswer] = []
+            case_question_results: List[Dict[str, Any]] = []
             for question in problem["questions"]:
                 text = st.session_state.drafts.get(_draft_key(problem_id, question["id"]), "")
                 result = scoring.score_answer(
@@ -2905,6 +3083,7 @@ def mock_exam_page(user: Dict) -> None:
                         keyword_hits=result.keyword_hits,
                     )
                 )
+                case_question_results.append({"question": question, "answer": text, "result": result})
             submitted_at = datetime.utcnow()
             attempt_id = database.record_attempt(
                 user_id=user["id"],
@@ -2924,15 +3103,22 @@ def mock_exam_page(user: Dict) -> None:
                 score_ratio=score_ratio,
                 reviewed_at=submitted_at,
             )
-            overall_results.append((problem, attempt_id))
+            weakness_tags = _infer_case_weakness_tags(problem, case_question_results)
+            overall_results.append((problem, attempt_id, weakness_tags))
 
         st.session_state.mock_session = None
         st.session_state.pop("mock_notice_toggle", None)
         _remove_mock_notice_overlay()
         st.success("模擬試験の採点が完了しました。結果を確認してください。")
-        for problem, attempt_id in overall_results:
+        for problem, attempt_id, weakness_tags in overall_results:
             st.markdown(f"### {problem['year']} {problem['case_label']} {problem['title']}")
             render_attempt_results(attempt_id)
+            st.markdown("**弱点タグ**")
+            if weakness_tags:
+                chips = "  ".join(f"`{tag}`" for tag in weakness_tags)
+                st.markdown(chips)
+            else:
+                st.caption("特筆すべき弱点は検出されませんでした。")
 
 
 def history_page(user: Dict) -> None:

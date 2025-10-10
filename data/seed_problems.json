@@ -181,6 +181,299 @@
           "diagram_caption": "NPV計算のステップを示す意思決定フロー。"
         }
       ]
+    },
+    {
+      "year": "令和6年",
+      "case": "事例I",
+      "title": "D社: 地域クラフトメーカーの組織再編",
+      "overview": "地域工芸品を製造・直営店で販売するD社は、後継経営者の下で多店舗展開と法人向け提案営業を同時に推進する段階にある。熟練職人の知見を活かしながら、若手デザイナーと営業チームを束ねる組織体制の再構築が課題である。",
+      "questions": [
+        {
+          "prompt": "第1問(20点) D社の強みを80字以内で述べよ。",
+          "character_limit": 80,
+          "max_score": 20,
+          "model_answer": "地域ブランドとして培った信頼と熟練職人のオーダーメイド対応力、提案型営業による法人案件開拓力が強みである。",
+          "explanation": "強みは顧客価値と社内資源を結び付け、因果で整理する。",
+          "keywords": [
+            "地域ブランド",
+            "熟練職人",
+            "オーダーメイド",
+            "提案営業"
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+          "diagram_path": null,
+          "diagram_caption": "D社の価値提供の連関図。"
+        },
+        {
+          "prompt": "第2問(20点) D社が抱える組織課題と原因を100字以内で述べよ。",
+          "character_limit": 100,
+          "max_score": 20,
+          "model_answer": "開発と営業が部門横断で連携できず案件情報が属人化している点が課題であり、機能別組織のまま店舗拡大に合わせた調整役が不在であることが原因である。",
+          "explanation": "課題→原因の順で具体的に示し、影響範囲を言及する。",
+          "keywords": [
+            "情報共有",
+            "属人化",
+            "調整役",
+            "機能別組織"
+          ],
+          "video_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+          "diagram_path": null,
+          "diagram_caption": "現行組織の情報フロー。"
+        },
+        {
+          "prompt": "第3問(30点) 新設する商品開発室の役割と人員配置を120字以内で述べよ。",
+          "character_limit": 120,
+          "max_score": 30,
+          "model_answer": "商品開発室を企画・デザイン・職人連携のハブとし、熟練職人を技術顧問として配置しつつ、若手デザイナーと法人営業担当を兼務配置して市場ニーズを速やかに反映させる体制を築く。",
+          "explanation": "役割と配置をセットで記載し、既存部門との連携を盛り込む。",
+          "keywords": [
+            "ハブ機能",
+            "技術顧問",
+            "兼務配置",
+            "市場ニーズ反映"
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+          "diagram_path": null,
+          "diagram_caption": "新組織案のマトリクス図。"
+        },
+        {
+          "prompt": "第4問(30点) 若手人材の定着と育成策を120字以内で述べよ。",
+          "character_limit": 120,
+          "max_score": 30,
+          "model_answer": "熟練職人によるOJTとプロジェクト型研修を組み合わせ、成果連動型評価とキャリアパスを明示することで挑戦機会と処遇を両立させ、地域外採用者の定着を図る。",
+          "explanation": "育成手段と評価・処遇を因果で結び、定着効果まで述べる。",
+          "keywords": [
+            "OJT",
+            "プロジェクト研修",
+            "成果評価",
+            "キャリアパス",
+            "定着"
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+          "diagram_path": null,
+          "diagram_caption": "育成と評価の連動イメージ。"
+        }
+      ]
+    },
+    {
+      "year": "令和6年",
+      "case": "事例II",
+      "title": "E社: 里山ワーケーション施設のマーケティング",
+      "overview": "里山の古民家をリノベーションして滞在型ワーケーションサービスを提供するE社は、平日稼働率の向上とリピート客の獲得を目指している。都市部企業との連携を模索しつつ、地域資源を活かした体験価値の磨き上げが課題である。",
+      "questions": [
+        {
+          "prompt": "第1問(25点) 主たるターゲット像と提供価値を100字以内で述べよ。",
+          "character_limit": 100,
+          "max_score": 25,
+          "model_answer": "二拠点生活を志向する30〜40代の都市部ビジネスパーソンをターゲットとし、地域住民との協働体験と高速回線を備えた集中環境を提供し、心身のリセットとチームビルディングを実現する価値を訴求する。",
+          "explanation": "ターゲット特性・提供価値・ベネフィットを一貫させる。",
+          "keywords": [
+            "二拠点生活",
+            "地域協働体験",
+            "高速回線",
+            "チームビルディング",
+            "リセット"
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+          "diagram_path": null,
+          "diagram_caption": "ターゲット像と提供価値マップ。"
+        },
+        {
+          "prompt": "第2問(25点) 稼働率向上に向けたプロモーション施策を100字以内で述べよ。",
+          "character_limit": 100,
+          "max_score": 25,
+          "model_answer": "首都圏コワーキングとの提携で平日利用の法人プランを設定し、体験モニターツアーをSNSライブ配信することで口コミを拡散し、紹介インセンティブで継続利用につなげる。",
+          "explanation": "連携先と施策内容、効果のつながりを明示する。",
+          "keywords": [
+            "提携",
+            "法人プラン",
+            "SNSライブ",
+            "口コミ",
+            "紹介インセンティブ"
+          ],
+          "video_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+          "diagram_path": null,
+          "diagram_caption": "プロモーション導線の概念図。"
+        },
+        {
+          "prompt": "第3問(25点) デジタルチャネル活用による顧客体験強化策を80字以内で述べよ。",
+          "character_limit": 80,
+          "max_score": 25,
+          "model_answer": "予約アプリで滞在前にプログラム選択と地域ガイドとのチャット相談を提供し、到着前から期待値調整と個別提案を行う。",
+          "explanation": "デジタル施策と体験価値の結び付きを示す。",
+          "keywords": [
+            "予約アプリ",
+            "チャット相談",
+            "期待値調整",
+            "個別提案"
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+          "diagram_path": null,
+          "diagram_caption": "デジタル体験設計のワイヤー。"
+        },
+        {
+          "prompt": "第4問(25点) リピーター化に向けた中期的な関係構築施策を80字以内で述べよ。",
+          "character_limit": 80,
+          "max_score": 25,
+          "model_answer": "オンラインコミュニティで地域イベント情報を継続配信し、季節ごとに共同プロジェクトへ招待することで帰属意識を高め再訪を促す。",
+          "explanation": "接点維持と効果の因果を明示する。",
+          "keywords": [
+            "オンラインコミュニティ",
+            "共同プロジェクト",
+            "帰属意識",
+            "再訪"
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+          "diagram_path": null,
+          "diagram_caption": "コミュニティ施策のフロー。"
+        }
+      ]
+    },
+    {
+      "year": "令和6年",
+      "case": "事例III",
+      "title": "F社: 特注家具工房の生産性向上",
+      "overview": "特注家具を小ロットで製造するF社は、受注増に伴い工程間仕掛品の滞留と納期遅延が頻発している。熟練木工職人に依存した工程設計と、設計データの属人化が課題である。",
+      "questions": [
+        {
+          "prompt": "第1問(20点) 現状の生産上の問題点を80字以内で述べよ。",
+          "character_limit": 80,
+          "max_score": 20,
+          "model_answer": "工程設計が職人任せで標準時間が未整備のため前工程に仕掛品が滞留し、後工程の負荷変動により納期遅延が発生している。",
+          "explanation": "問題→要因→影響の順で端的に述べる。",
+          "keywords": [
+            "標準時間未整備",
+            "仕掛品滞留",
+            "負荷変動",
+            "納期遅延"
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+          "diagram_path": null,
+          "diagram_caption": "現状工程のボトルネック図。"
+        },
+        {
+          "prompt": "第2問(30点) 生産計画と工程管理の改善策を120字以内で述べよ。",
+          "character_limit": 120,
+          "max_score": 30,
+          "model_answer": "設計段階で標準工数表とガントチャートを整備し、週次の負荷平準化会議で多能工シフトを調整する。工程間ではかんばん方式で仕掛品上限を可視化し、進捗はデジタルボードで共有する。",
+          "explanation": "計画・統制・情報共有を一貫して示す。",
+          "keywords": [
+            "標準工数",
+            "負荷平準化",
+            "多能工",
+            "かんばん",
+            "デジタルボード"
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+          "diagram_path": null,
+          "diagram_caption": "改善後の生産管理サイクル。"
+        },
+        {
+          "prompt": "第3問(25点) 品質確保のための仕組みを80字以内で述べよ。",
+          "character_limit": 80,
+          "max_score": 25,
+          "model_answer": "工程別チェックリストと初品確認を徹底し、図面データをPDMで一元管理して改訂履歴を共有することで設計変更ミスを防ぐ。",
+          "explanation": "標準化と情報管理の両面を示す。",
+          "keywords": [
+            "チェックリスト",
+            "初品確認",
+            "PDM",
+            "改訂履歴共有"
+          ],
+          "video_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+          "diagram_path": null,
+          "diagram_caption": "品質管理システムの概要。"
+        },
+        {
+          "prompt": "第4問(25点) 職人技能継承と人材育成策を80字以内で述べよ。",
+          "character_limit": 80,
+          "max_score": 25,
+          "model_answer": "熟練者の暗黙知を動画マニュアル化し、OJTインストラクター制度で技能評価とフィードバック面談を行い多能工化を進める。",
+          "explanation": "技能可視化と育成サイクルを因果で述べる。",
+          "keywords": [
+            "動画マニュアル",
+            "OJTインストラクター",
+            "フィードバック面談",
+            "多能工化"
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+          "diagram_path": null,
+          "diagram_caption": "技能伝承の仕組み図。"
+        }
+      ]
+    },
+    {
+      "year": "令和6年",
+      "case": "事例IV",
+      "title": "G社: IoT機器メーカーの財務戦略",
+      "overview": "IoTセンサーを製造販売するG社は、研究開発投資の拡大に伴い利益率が低下し、運転資本と投資資金の両立が課題となっている。海外展開に向けた新工場投資の是非を検討する必要がある。",
+      "questions": [
+        {
+          "prompt": "第1問(25点) 直近期の収益性と安全性を指標を用いて80字以内で評価せよ。",
+          "character_limit": 80,
+          "max_score": 25,
+          "model_answer": "研究開発費増で営業利益率が低下しROEも資本増強により悪化、自己資本比率は高水準で安全性は確保されている。",
+          "explanation": "複数指標を挙げ、因果で評価をまとめる。",
+          "keywords": [
+            "営業利益率",
+            "ROE",
+            "自己資本比率",
+            "研究開発費"
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+          "diagram_path": null,
+          "diagram_caption": "主要財務指標の推移グラフ。"
+        },
+        {
+          "prompt": "第2問(25点) 運転資本の課題と改善策を80字以内で述べよ。",
+          "character_limit": 80,
+          "max_score": 25,
+          "model_answer": "在庫回転が低下しCCCが延伸しているため、需要予測に基づく生産計画とサプライヤとのVMI導入で棚卸資産回転率を改善する。",
+          "explanation": "課題指標と施策・効果をセットで述べる。",
+          "keywords": [
+            "CCC",
+            "棚卸資産回転率",
+            "需要予測",
+            "VMI"
+          ],
+          "video_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+          "diagram_path": null,
+          "diagram_caption": "運転資本の改善施策フロー。"
+        },
+        {
+          "prompt": "第3問(25点) 新工場投資のNPV評価と意思決定のポイントを100字以内で述べよ。",
+          "character_limit": 100,
+          "max_score": 25,
+          "model_answer": "需要予測に基づくフリーキャッシュフローをWACCで割り引きNPVを算出し、感度分析で為替と稼働率の変動を検証したうえで、IRRが資本コストを上回るかを確認して投資可否を判断する。",
+          "explanation": "計算プロセスとリスク評価を明確にする。",
+          "keywords": [
+            "フリーキャッシュフロー",
+            "WACC",
+            "NPV",
+            "IRR",
+            "感度分析"
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+          "diagram_path": null,
+          "diagram_caption": "投資判断プロセス図。"
+        },
+        {
+          "prompt": "第4問(25点) 財務戦略としての資金調達と株主還元の方針を80字以内で述べよ。",
+          "character_limit": 80,
+          "max_score": 25,
+          "model_answer": "成長投資に必要な資金は社債と銀行シンジケートローンで調達し、余剰キャッシュはROICを上回る案件に優先投入しつつ配当性向を安定維持する。",
+          "explanation": "調達手段と株主還元のバランスを記述する。",
+          "keywords": [
+            "社債",
+            "シンジケートローン",
+            "ROIC",
+            "配当性向"
+          ],
+          "video_url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+          "diagram_path": null,
+          "diagram_caption": "資金調達と還元のバランス図。"
+        }
+      ]
     }
   ]
 }
