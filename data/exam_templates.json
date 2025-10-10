@@ -1,0 +1,62 @@
+[
+  {
+    "year": "令和6年",
+    "case": "事例III",
+    "questions": [
+      {
+        "number": 1,
+        "limit": 100,
+        "score": 25,
+        "headline": "新製品設計プロセスにおける課題と改善方針を述べよ"
+      },
+      {
+        "number": 2,
+        "limit": 120,
+        "score": 25,
+        "headline": "設計部門と製造部門の連携を強化する方策を提案せよ"
+      },
+      {
+        "number": 3,
+        "limit": 120,
+        "score": 25,
+        "headline": "技術伝承と人材育成の仕組み化に関する提案を行え"
+      },
+      {
+        "number": 4,
+        "limit": 120,
+        "score": 25,
+        "headline": "DX活用による生産計画と段取り最適化を示せ"
+      }
+    ]
+  },
+  {
+    "year": "令和5年",
+    "case": "事例III",
+    "questions": [
+      {
+        "number": 1,
+        "limit": 100,
+        "score": 25,
+        "headline": "需要変動下での在庫管理上の課題を整理せよ"
+      },
+      {
+        "number": 2,
+        "limit": 120,
+        "score": 25,
+        "headline": "在庫圧縮を実現する生産計画と情報共有の仕組みを述べよ"
+      },
+      {
+        "number": 3,
+        "limit": 120,
+        "score": 25,
+        "headline": "多能工化を進める教育・評価の方向性を提案せよ"
+      },
+      {
+        "number": 4,
+        "limit": 120,
+        "score": 25,
+        "headline": "外段取り化とライン編成の改善策を示せ"
+      }
+    ]
+  }
+]

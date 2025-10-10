@@ -4,11 +4,12 @@ from collections import defaultdict
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from uuid import uuid4
 import logging
 
 import html
+import io
 import json
 
 import math
@@ -23,6 +24,7 @@ import unicodedata
 
 import altair as alt
 import pandas as pd
+import pdfplumber
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -138,6 +140,28 @@ KEYWORD_RESOURCE_MAP = {
 CASE_ORDER = ["事例I", "事例II", "事例III", "事例IV"]
 
 
+CASEIII_TIMELINE = [
+    {
+        "year": "R6",
+        "theme": "設計DXでの多品種小ロット対応",
+        "focus": "設計BOMと生産BOMの連携で立ち上げリードタイムを短縮。技術伝承の仕組み化がポイント。",
+        "source": "https://www.j-smeca.or.jp/contents/0105007000_R6_case3.pdf",
+    },
+    {
+        "year": "R5",
+        "theme": "在庫圧縮と需要変動対応",
+        "focus": "需要予測精度を上げつつ、かんばん方式と外段取り化で仕掛在庫を削減。",
+        "source": "https://www.j-smeca.or.jp/contents/0105007000_R5_case3.pdf",
+    },
+    {
+        "year": "R4",
+        "theme": "段取り短縮と多能工化",
+        "focus": "段取り時間の可視化と標準作業書で段取り替えを効率化。技能伝承と教育体制の整備が問われた。",
+        "source": "https://www.j-smeca.or.jp/contents/0105007000_R4_case3.pdf",
+    },
+]
+
+
 CASE_FRAME_SHORTCUTS = {
     "事例I": [
         {
@@ -198,6 +222,376 @@ CASE_FRAME_SHORTCUTS = {
         }
     ],
 }
+
+
+@st.cache_data(show_spinner=False)
+def _load_exam_templates() -> List[Dict[str, Any]]:
+    template_path = Path("data/exam_templates.json")
+    if not template_path.exists():
+        return []
+    try:
+        return json.loads(template_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+
+
+def _normalize_case_label(raw: Optional[str]) -> Optional[str]:
+    if not raw:
+        return None
+    mapping = {
+        "Ⅰ": "事例I",
+        "Ⅱ": "事例II",
+        "Ⅲ": "事例III",
+        "Ⅳ": "事例IV",
+        "事例1": "事例I",
+        "事例2": "事例II",
+        "事例3": "事例III",
+        "事例4": "事例IV",
+    }
+    raw = raw.strip()
+    if raw in mapping:
+        return mapping[raw]
+    if raw.startswith("事例") and len(raw) == 3:
+        return raw
+    match = re.search(r"事例([ⅠⅡⅢⅣIV1234])", raw)
+    if match:
+        return mapping.get(match.group(1), f"事例{match.group(1)}")
+    return raw
+
+
+def _japanese_numeral_to_int(token: str) -> Optional[int]:
+    if not token:
+        return None
+    token = token.strip()
+    if token.isdigit():
+        return int(token)
+    numeral_map = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+    total = 0
+    for char in token:
+        if char == "十" and total == 0:
+            total = 10
+            continue
+        value = numeral_map.get(char)
+        if value is None:
+            return None
+        if char == "十" and total >= 10:
+            total += value
+        else:
+            total += value
+    return total if total else None
+
+
+def _extract_question_blocks(text: str) -> List[Tuple[int, str]]:
+    if not text:
+        return []
+    pattern = re.compile(r"第\s*([0-9一二三四五六七八九十]+)問[：:（(\s]?", re.MULTILINE)
+    matches = list(pattern.finditer(text))
+    if not matches:
+        return []
+    blocks: List[Tuple[int, str]] = []
+    for index, match in enumerate(matches):
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        order = _japanese_numeral_to_int(match.group(1)) or (index + 1)
+        block = text[start:end].strip()
+        blocks.append((order, block))
+    return blocks
+
+
+def _extract_questions_from_text(
+    text: str,
+    *,
+    default_year: Optional[str] = None,
+    default_case: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    if not text:
+        return []
+
+    year_match = re.search(r"令和\s*([0-9０-９]+)年度?", text)
+    if year_match:
+        digits = year_match.group(1).translate(str.maketrans("０１２３４５６７８９", "0123456789"))
+        year_label = f"令和{digits}年"
+    else:
+        year_label = default_year
+
+    case_match = re.search(r"事例[ⅠⅡⅢⅣIV1234]", text)
+    case_label = _normalize_case_label(case_match.group(0) if case_match else default_case)
+
+    questions: List[Dict[str, Any]] = []
+    for order, block in _extract_question_blocks(text):
+        block = block.replace("\u3000", " ").strip()
+        limit_match = re.search(r"([0-9０-９]{2,3})\s*字以内", block)
+        limit = None
+        if limit_match:
+            digits = limit_match.group(1).translate(str.maketrans("０１２３４５６７８９", "0123456789"))
+            limit = int(digits)
+
+        score_match = re.search(r"配点\s*([0-9０-９]{1,2})点", block)
+        score = None
+        if score_match:
+            digits = score_match.group(1).translate(str.maketrans("０１２３４５６７８９", "0123456789"))
+            score = int(digits)
+
+        headline = block.splitlines()[0].strip() if block.splitlines() else ""
+        body = block
+        questions.append(
+            {
+                "年度": year_label or default_year or "年度不明",
+                "事例": case_label or default_case or "事例不明",
+                "設問番号": order,
+                "問題文": body,
+                "配点": score,
+                "制限字数": limit,
+                "設問見出し": headline,
+                "模範解答": "未設定",
+                "解説": "未設定",
+            }
+        )
+
+    return questions
+
+
+def _extract_tables_from_pdf(pages: Iterable[pdfplumber.page.Page]) -> List[pd.DataFrame]:
+    tables: List[pd.DataFrame] = []
+    for page in pages:
+        for raw_table in page.extract_tables() or []:
+            if not raw_table:
+                continue
+            df = pd.DataFrame(raw_table)
+            df = df.dropna(how="all").dropna(axis=1, how="all")
+            if df.empty:
+                continue
+            header = df.iloc[0].fillna("")
+            if header.astype(str).str.len().sum() > 0:
+                df = df[1:]
+                df.columns = [str(col).strip() or f"列{idx + 1}" for idx, col in enumerate(header)]
+            else:
+                df.columns = [f"列{idx + 1}" for idx in range(len(df.columns))]
+            cleaned = df.reset_index(drop=True)
+            if not cleaned.empty:
+                tables.append(cleaned)
+    return tables
+
+
+def _apply_template_metadata(
+    questions: List[Dict[str, Any]],
+    templates: Dict[Tuple[str, str], Dict[str, Any]],
+    year_label: Optional[str],
+    case_label: Optional[str],
+) -> List[Dict[str, Any]]:
+    if not questions:
+        return questions
+    key = (year_label or "", case_label or "")
+    template = templates.get(key)
+    if not template:
+        return questions
+
+    template_questions = {item.get("number"): item for item in template.get("questions", [])}
+    for question in questions:
+        template_info = template_questions.get(question.get("設問番号"))
+        if not template_info:
+            continue
+        if pd.isna(question.get("制限字数")) and template_info.get("limit"):
+            question["制限字数"] = template_info.get("limit")
+        if pd.isna(question.get("配点")) and template_info.get("score"):
+            question["配点"] = template_info.get("score")
+        if not question.get("設問見出し") and template_info.get("headline"):
+            question["設問見出し"] = template_info.get("headline")
+    return questions
+
+
+def _auto_parse_exam_document(file_bytes: bytes, filename: str) -> Tuple[pd.DataFrame, List[pd.DataFrame]]:
+    name_lower = filename.lower()
+    default_year = None
+    default_case = None
+
+    templates = {
+        (item.get("year"), _normalize_case_label(item.get("case"))): item
+        for item in _load_exam_templates()
+        if item.get("year") and item.get("case")
+    }
+
+    match = re.search(r"r(\d{1,2})", name_lower)
+    if match:
+        default_year = f"令和{int(match.group(1))}年"
+    if "case3" in name_lower or "jirei3" in name_lower:
+        default_case = "事例III"
+    elif "case4" in name_lower or "jirei4" in name_lower:
+        default_case = "事例IV"
+    elif "case2" in name_lower or "jirei2" in name_lower:
+        default_case = "事例II"
+    elif "case1" in name_lower or "jirei1" in name_lower:
+        default_case = "事例I"
+
+    if name_lower.endswith(".pdf"):
+        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+            text = "\n".join((page.extract_text() or "") for page in pdf.pages)
+            tables = _extract_tables_from_pdf(pdf.pages)
+        questions = _extract_questions_from_text(
+            text,
+            default_year=default_year,
+            default_case=default_case,
+        )
+        normalized_year = questions[0]["年度"] if questions else default_year
+        normalized_case = _normalize_case_label(questions[0]["事例"]) if questions else default_case
+        questions = _apply_template_metadata(questions, templates, normalized_year, normalized_case)
+        return pd.DataFrame(questions), tables
+
+    buffer = io.BytesIO(file_bytes)
+    if name_lower.endswith(".csv"):
+        df = pd.read_csv(buffer)
+    elif name_lower.endswith(".xlsx") or name_lower.endswith(".xls"):
+        df = pd.read_excel(buffer)
+    else:
+        raise ValueError("サポートされていないファイル形式です")
+
+    required_cols = {"年度", "事例", "設問番号", "問題文", "配点", "模範解答", "解説"}
+    if required_cols.issubset(df.columns):
+        return df, []
+
+    text_source = "\n".join(
+        str(value)
+        for value in df.select_dtypes(include=["object", "string"]).fillna("").values.flatten()
+    )
+    questions = _extract_questions_from_text(
+        text_source,
+        default_year=default_year,
+        default_case=default_case,
+    )
+    normalized_year = questions[0]["年度"] if questions else default_year
+    normalized_case = _normalize_case_label(questions[0]["事例"]) if questions else default_case
+    questions = _apply_template_metadata(questions, templates, normalized_year, normalized_case)
+    return pd.DataFrame(questions), []
+
+
+def _render_caseiii_timeline() -> None:
+    if not CASEIII_TIMELINE:
+        return
+
+    if not st.session_state.get("_timeline_styles_injected"):
+        st.markdown(
+            dedent(
+                """
+                <style>
+                .timeline-wrapper {
+                    margin-top: 1.6rem;
+                    padding: 1.2rem 1rem;
+                    border-radius: 18px;
+                    background: linear-gradient(120deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.92));
+                    color: #e2e8f0;
+                    border: 1px solid rgba(148, 163, 184, 0.3);
+                    overflow: hidden;
+                }
+                .timeline-wrapper[data-theme="light"] {
+                    background: linear-gradient(120deg, rgba(226, 232, 240, 0.95), rgba(203, 213, 225, 0.92));
+                    color: #1f2937;
+                    border-color: rgba(148, 163, 184, 0.35);
+                }
+                .timeline-track {
+                    display: flex;
+                    gap: 1rem;
+                    overflow-x: auto;
+                    padding-bottom: 0.4rem;
+                    scroll-snap-type: x mandatory;
+                    animation: timeline-enter 0.9s ease-out;
+                }
+                .timeline-track::-webkit-scrollbar {
+                    height: 6px;
+                }
+                .timeline-track::-webkit-scrollbar-thumb {
+                    background: rgba(148, 163, 184, 0.4);
+                    border-radius: 999px;
+                }
+                .timeline-item {
+                    min-width: 240px;
+                    background: rgba(15, 23, 42, 0.55);
+                    border-radius: 14px;
+                    padding: 0.85rem;
+                    position: relative;
+                    scroll-snap-align: start;
+                    border: 1px solid rgba(148, 163, 184, 0.35);
+                    transition: transform 0.3s ease, box-shadow 0.3s ease;
+                }
+                .timeline-wrapper[data-theme="light"] .timeline-item {
+                    background: rgba(255, 255, 255, 0.9);
+                    border-color: rgba(148, 163, 184, 0.4);
+                }
+                .timeline-item:hover {
+                    transform: translateY(-6px);
+                    box-shadow: 0 18px 28px rgba(15, 23, 42, 0.28);
+                }
+                .timeline-year {
+                    font-size: 0.78rem;
+                    letter-spacing: 0.1em;
+                    color: rgba(226, 232, 240, 0.75);
+                    text-transform: uppercase;
+                }
+                .timeline-wrapper[data-theme="light"] .timeline-year {
+                    color: rgba(30, 41, 59, 0.6);
+                }
+                .timeline-theme {
+                    font-weight: 700;
+                    margin: 0.3rem 0 0.35rem;
+                    font-size: 0.95rem;
+                }
+                .timeline-focus {
+                    font-size: 0.8rem;
+                    line-height: 1.5;
+                    margin: 0;
+                }
+                .timeline-item::after {
+                    content: attr(data-source);
+                    position: absolute;
+                    left: 0.8rem;
+                    right: 0.8rem;
+                    bottom: 0.4rem;
+                    font-size: 0.68rem;
+                    color: rgba(148, 163, 184, 0.8);
+                    opacity: 0;
+                    transform: translateY(6px);
+                    transition: opacity 0.2s ease, transform 0.2s ease;
+                    pointer-events: none;
+                }
+                .timeline-item:hover::after {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+                @keyframes timeline-enter {
+                    from { opacity: 0; transform: translateX(-12px); }
+                    to { opacity: 1; transform: translateX(0); }
+                }
+                </style>
+                """
+            ),
+            unsafe_allow_html=True,
+        )
+        st.session_state["_timeline_styles_injected"] = True
+
+    theme = "dark" if _resolve_question_card_theme() == "dark" else "light"
+    items_html = "".join(
+        dedent(
+            f"""
+            <div class="timeline-item" data-source="PDF: {html.escape(item['source'])}">
+                <span class="timeline-year">{html.escape(item['year'])}</span>
+                <p class="timeline-theme">{html.escape(item['theme'])}</p>
+                <p class="timeline-focus">{html.escape(item['focus'])}</p>
+            </div>
+            """
+        )
+        for item in CASEIII_TIMELINE
+    )
+    st.markdown(
+        dedent(
+            f"""
+            <div class="timeline-wrapper" data-theme="{theme}">
+                <div class="timeline-track">
+                    {items_html}
+                </div>
+            </div>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
 
 
 EXAM_YEAR_NOTICE = {
@@ -484,9 +878,12 @@ def _init_session_state() -> None:
     st.session_state.setdefault("practice_started", None)
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
+    st.session_state.setdefault("past_data_tables", [])
     st.session_state.setdefault("flashcard_states", {})
     st.session_state.setdefault("ui_theme", "システム設定に合わせる")
     st.session_state.setdefault("_intent_card_styles_injected", False)
+    st.session_state.setdefault("_question_card_styles_injected", False)
+    st.session_state.setdefault("_timeline_styles_injected", False)
 
 
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
@@ -609,6 +1006,181 @@ def _insert_template_snippet(
 
     st.session_state.drafts[draft_key] = new_text
     st.session_state[textarea_state_key] = new_text
+
+
+def _resolve_question_card_theme() -> str:
+    theme = st.session_state.get("ui_theme", "システム設定に合わせる")
+    if theme == "ダークモード":
+        return "dark"
+    if theme == "ライトモード":
+        return "light"
+    return "auto"
+
+
+def _inject_question_card_styles() -> None:
+    if st.session_state.get("_question_card_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .question-mini-card {
+                border-radius: 16px;
+                padding: 1rem 1.25rem;
+                background: linear-gradient(140deg, rgba(30, 41, 59, 0.92), rgba(51, 65, 85, 0.92));
+                color: #e2e8f0;
+                box-shadow: 0 18px 32px rgba(15, 23, 42, 0.28);
+                display: flex;
+                flex-direction: column;
+                gap: 0.6rem;
+                border: 1px solid rgba(148, 163, 184, 0.25);
+                position: relative;
+                overflow: hidden;
+            }
+            .question-mini-card[data-theme="light"] {
+                background: linear-gradient(135deg, rgba(226, 232, 240, 0.9), rgba(203, 213, 225, 0.95));
+                color: #1e293b;
+                box-shadow: 0 14px 28px rgba(15, 23, 42, 0.2);
+                border-color: rgba(100, 116, 139, 0.35);
+            }
+            .question-mini-card::before {
+                content: "";
+                position: absolute;
+                inset: -40% -45% auto auto;
+                width: 240px;
+                height: 240px;
+                background: radial-gradient(circle at center, rgba(96, 165, 250, 0.25), transparent 70%);
+                opacity: 0.65;
+                pointer-events: none;
+            }
+            .question-mini-card .qm-eyebrow {
+                font-size: 0.72rem;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                color: rgba(226, 232, 240, 0.72);
+            }
+            .question-mini-card[data-theme="light"] .qm-eyebrow {
+                color: rgba(30, 41, 59, 0.6);
+            }
+            .question-mini-card h4 {
+                font-size: 1.02rem;
+                margin: 0;
+                font-weight: 700;
+            }
+            .question-mini-card p {
+                margin: 0;
+                font-size: 0.85rem;
+                line-height: 1.6;
+                color: inherit;
+            }
+            .question-mini-card .qm-meta {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.4rem;
+            }
+            .question-mini-card .qm-meta span {
+                font-size: 0.74rem;
+                padding: 0.2rem 0.55rem;
+                border-radius: 999px;
+                background: rgba(15, 23, 42, 0.28);
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                color: inherit;
+            }
+            .question-mini-card[data-theme="light"] .qm-meta span {
+                background: rgba(255, 255, 255, 0.75);
+                border-color: rgba(148, 163, 184, 0.35);
+            }
+            .question-mini-card .qm-chips {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.3rem;
+            }
+            .question-mini-card .qm-chip {
+                font-size: 0.72rem;
+                padding: 0.2rem 0.6rem;
+                border-radius: 999px;
+                background: rgba(94, 234, 212, 0.12);
+                border: 1px solid rgba(148, 163, 184, 0.45);
+                color: inherit;
+                backdrop-filter: blur(6px);
+            }
+            .question-mini-card[data-theme="light"] .qm-chip {
+                background: rgba(30, 64, 175, 0.12);
+                border-color: rgba(59, 130, 246, 0.35);
+                color: #1e3a8a;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_question_card_styles_injected"] = True
+
+
+def _render_question_overview_card(
+    question: Dict[str, Any],
+    *,
+    case_label: Optional[str] = None,
+    source_label: Optional[str] = None,
+) -> None:
+    if not question:
+        return
+
+    _inject_question_card_styles()
+    theme = _resolve_question_card_theme()
+    prompt = html.escape(question.get("prompt") or question.get("設問見出し") or "設問")
+    order = question.get("order") or question.get("設問番号")
+    eyebrow = f"設問{order}" if order else "設問"
+    limit = question.get("character_limit") or question.get("制限字数")
+    max_score = question.get("max_score") or question.get("配点")
+
+    element_label = "3点構成"
+    if limit and int(limit) <= 80:
+        element_label = "2点構成"
+
+    meta_items = [element_label]
+    if limit and pd.notna(limit):
+        meta_items.append(f"{int(limit)}字以内")
+    if max_score is not None and not pd.isna(max_score):
+        if isinstance(max_score, (int, float)) and float(max_score).is_integer():
+            score_label = str(int(max_score))
+        else:
+            score_label = str(max_score)
+        meta_items.append(f"配点 {score_label}点")
+    if source_label:
+        meta_items.append(source_label)
+
+    question_for_aim = dict(question)
+    if not question_for_aim.get("prompt") and question_for_aim.get("問題文"):
+        first_line = str(question_for_aim["問題文"]).splitlines()[0].strip()
+        if first_line:
+            question_for_aim["prompt"] = first_line
+    aim_text = question.get("aim") or _infer_question_aim(question_for_aim)
+    aim = html.escape(aim_text)
+
+    frames = CASE_FRAME_SHORTCUTS.get(case_label or question.get("case_label") or "", [])
+    frame_labels = [frame.get("label") for frame in frames[:4] if frame.get("label")]
+
+    meta_html = "".join(f"<span>{html.escape(str(item))}</span>" for item in meta_items if item)
+    chips_html = "".join(
+        f"<span class=\"qm-chip\">{html.escape(label)}</span>" for label in frame_labels
+    )
+
+    st.markdown(
+        dedent(
+            f"""
+            <div class="question-mini-card" data-theme="{theme}">
+                <span class="qm-eyebrow">{html.escape(eyebrow)}</span>
+                <h4>{prompt}</h4>
+                <div class="qm-meta">{meta_html}</div>
+                <p>{aim}</p>
+                <div class="qm-chips">{chips_html}</div>
+            </div>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
 
 
 def _render_intent_cards(
@@ -1852,6 +2424,10 @@ def dashboard_page(user: Dict) -> None:
         unsafe_allow_html=True,
     )
 
+    st.markdown("### 過去問タイムライン")
+    st.caption("令和6年から4年にかけての事例III『生産』テーマの変遷を俯瞰できます。ホバーで原紙PDFリンクを確認できます。")
+    _render_caseiii_timeline()
+
 
 def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
     if not attempts:
@@ -2397,6 +2973,10 @@ def _question_input(
 
     textarea_state_key = f"{widget_prefix}{key}"
 
+    question_overview = dict(question)
+    question_overview.setdefault("order", question.get("order"))
+    question_overview.setdefault("case_label", case_label)
+    _render_question_overview_card(question_overview, case_label=case_label)
     _render_intent_cards(question, key, textarea_state_key)
     _render_case_frame_shortcuts(case_label, key, textarea_state_key)
 
@@ -3331,12 +3911,53 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             diagram_caption_col = col
 
     for _, row in subset.iterrows():
-        st.subheader(f"第{row['設問番号']}問 ({row['配点']}点)")
+        raw_score = row.get("配点")
+        if pd.notna(raw_score):
+            if isinstance(raw_score, (int, float)) and float(raw_score).is_integer():
+                score_display = int(raw_score)
+            else:
+                score_display = raw_score
+        else:
+            score_display = "-"
+        st.subheader(f"第{row['設問番号']}問 ({score_display}点)")
+        prompt_line = str(row.get("設問見出し") or str(row["問題文"]).splitlines()[0]).strip()
+        overview_question = {
+            "order": row["設問番号"],
+            "prompt": prompt_line,
+            "character_limit": row.get("制限字数"),
+            "max_score": row.get("配点"),
+            "aim": str(row.get("問題文")).split("\n\n")[0],
+        }
+        _render_question_overview_card(
+            overview_question,
+            case_label=selected_case,
+            source_label=f"{selected_year} {selected_case}",
+        )
         st.write(row["問題文"])
-        max_chars = 60 if pd.notna(row["配点"]) and row["配点"] <= 25 else 80
+        limit_value = row.get("制限字数")
+        if pd.notna(limit_value):
+            max_chars = int(limit_value)
+        else:
+            max_chars = 60 if pd.notna(row["配点"]) and row["配点"] <= 25 else 80
         answer_key = f"uploaded_answer_{selected_year}_{selected_case}_{row['設問番号']}"
         user_answer = st.text_area("回答を入力", key=answer_key)
         _render_character_counter(user_answer, max_chars)
+        if pd.notna(limit_value):
+            with st.expander("文字数スライサー"):
+                slider_key = f"extract_{selected_year}_{selected_case}_{row['設問番号']}"
+                limit_int = int(limit_value)
+                slider_min = min(20, limit_int)
+                slider_step = max(1, min(5, limit_int))
+                extract_count = st.slider(
+                    "指定字数で抜き出し",
+                    min_value=slider_min,
+                    max_value=limit_int,
+                    value=limit_int,
+                    step=slider_step,
+                    key=slider_key,
+                )
+                excerpt = str(row["問題文"])[: extract_count]
+                st.code(excerpt, language="markdown")
         with st.expander("MECE/因果スキャナ", expanded=bool(user_answer.strip())):
             _render_mece_causal_scanner(user_answer)
         with st.expander("模範解答／解説を見る"):
@@ -3361,26 +3982,27 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
 
 def _handle_past_data_upload(uploaded_file) -> None:
     try:
-        filename = uploaded_file.name.lower()
-        if filename.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        elif filename.endswith(".xlsx") or filename.endswith(".xls"):
-            df = pd.read_excel(uploaded_file)
-        else:
-            st.error("対応していないファイル形式です。CSVまたはExcelファイルを選択してください。")
-            return
+        file_bytes = uploaded_file.read()
+        df, tables = _auto_parse_exam_document(file_bytes, uploaded_file.name)
     except Exception as exc:  # pragma: no cover - Streamlit runtime feedback
         st.error(f"ファイルの読み込み中にエラーが発生しました: {exc}")
         return
 
     required_cols = {"年度", "事例", "設問番号", "問題文", "配点", "模範解答", "解説"}
-    if not required_cols.issubset(df.columns):
-        missing = required_cols.difference(set(df.columns))
+    missing = required_cols.difference(set(df.columns))
+    if missing:
         st.error(f"必要な列が含まれていません。不足列: {', '.join(sorted(missing))}")
         return
 
     st.session_state.past_data = df
-    st.success("過去問データを読み込みました。『過去問演習』ページで利用できます。")
+    st.session_state.past_data_tables = tables
+    if df.empty:
+        st.warning("設問が抽出できませんでした。原紙テンプレートと照合できるPDF/CSVを指定してください。")
+        return
+    message = f"過去問データを読み込みました（{len(df)}件）。『過去問演習』ページで利用できます。"
+    if tables:
+        message += f" 数表 {len(tables)}件をPandas DataFrameとして抽出しました。"
+    st.success(message)
 
 
 def render_attempt_results(attempt_id: int) -> None:
@@ -4320,9 +4942,10 @@ def settings_page(user: Dict) -> None:
     with learning_tab:
         st.subheader("データ管理")
         uploaded_file = st.file_uploader(
-            "過去問データファイルをアップロード (CSV/Excel)",
-            type=["csv", "xlsx"],
+            "過去問データファイルをアップロード (CSV/Excel/PDF)",
+            type=["csv", "xlsx", "xls", "pdf"],
         )
+        st.caption("R6/R5 事例III原紙テンプレートを同梱し、自動分解の精度を高めています。PDFアップロードにも対応しています。")
         if uploaded_file is not None:
             _handle_past_data_upload(uploaded_file)
 
@@ -4331,8 +4954,15 @@ def settings_page(user: Dict) -> None:
                 f"読み込み済みのレコード数: {len(st.session_state.past_data)}件"
             )
             st.dataframe(st.session_state.past_data.head(), use_container_width=True)
+            tables = st.session_state.get("past_data_tables") or []
+            if tables:
+                with st.expander("抽出された数表", expanded=False):
+                    for idx, table in enumerate(tables, start=1):
+                        st.markdown(f"**数表 {idx}**")
+                        st.dataframe(table, use_container_width=True)
             if st.button("アップロードデータをクリア", key="clear_past_data"):
                 st.session_state.past_data = None
+                st.session_state.past_data_tables = []
                 st.info("アップロードデータを削除しました。")
 
         st.subheader("表示テーマ")
