@@ -1545,9 +1545,15 @@ def _render_problem_context_block(context_text: str) -> None:
         <div class="problem-context-root">
             <div class="context-toolbar" id="{toolbar_id}">
                 <div class="toolbar-actions">
-                    <button type="button" class="toolbar-button" data-action="highlight" data-target="{element_id}">
+                    <button type="button" class="toolbar-button toggle" data-action="highlight" data-target="{element_id}" aria-pressed="false" data-default-color="amber">
                         選択範囲にマーカー
                     </button>
+                    <div class="marker-palette" role="group" aria-label="マーカー色">
+                        <button type="button" class="marker-color selected" data-action="set-color" data-color="amber" aria-label="イエローマーカー"></button>
+                        <button type="button" class="marker-color" data-action="set-color" data-color="rose" aria-label="ピンクマーカー"></button>
+                        <button type="button" class="marker-color" data-action="set-color" data-color="sky" aria-label="ブルーマーカー"></button>
+                        <button type="button" class="marker-color" data-action="set-color" data-color="lime" aria-label="グリーンマーカー"></button>
+                    </div>
                     <button type="button" class="toolbar-button clear" data-action="clear-all" data-target="{element_id}">
                         マーカーを全て解除
                     </button>
@@ -1583,6 +1589,7 @@ def _render_problem_context_block(context_text: str) -> None:
             .toolbar-actions {{
                 display: flex;
                 flex-wrap: wrap;
+                align-items: center;
                 gap: 0.5rem;
             }}
             .toolbar-button {{
@@ -1596,6 +1603,10 @@ def _render_problem_context_block(context_text: str) -> None:
                 cursor: pointer;
                 box-shadow: inset 0 0 0 1px rgba(120, 53, 15, 0.15);
                 transition: transform 120ms ease, box-shadow 120ms ease;
+            }}
+            .toolbar-button.toggle.active {{
+                box-shadow: inset 0 0 0 2px rgba(120, 53, 15, 0.35), 0 6px 14px rgba(234, 179, 8, 0.32);
+                transform: translateY(-1px);
             }}
             .toolbar-button:hover {{
                 transform: translateY(-1px);
@@ -1611,6 +1622,58 @@ def _render_problem_context_block(context_text: str) -> None:
             }}
             .toolbar-button.clear:hover {{
                 box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.35), 0 6px 14px rgba(15, 23, 42, 0.18);
+            }}
+            .marker-palette {{
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+                padding: 0.25rem 0.45rem;
+                border-radius: 999px;
+                background: rgba(15, 23, 42, 0.06);
+                box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
+            }}
+            .marker-color {{
+                width: 1.35rem;
+                height: 1.35rem;
+                border-radius: 50%;
+                border: none;
+                cursor: pointer;
+                padding: 0;
+                position: relative;
+                background: transparent;
+                box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.15);
+                transition: transform 120ms ease, box-shadow 120ms ease;
+            }}
+            .marker-color:focus-visible {{
+                outline: 2px solid rgba(37, 99, 235, 0.8);
+                outline-offset: 2px;
+            }}
+            .marker-color::after {{
+                content: "";
+                position: absolute;
+                inset: 0.15rem;
+                border-radius: 50%;
+                background: currentColor;
+                opacity: 0.85;
+            }}
+            .marker-color[data-color="amber"] {{
+                color: rgba(250, 204, 21, 1);
+            }}
+            .marker-color[data-color="rose"] {{
+                color: rgba(244, 114, 182, 1);
+            }}
+            .marker-color[data-color="sky"] {{
+                color: rgba(125, 211, 252, 1);
+            }}
+            .marker-color[data-color="lime"] {{
+                color: rgba(163, 230, 53, 1);
+            }}
+            .marker-color:hover {{
+                transform: translateY(-1px);
+                box-shadow: 0 3px 6px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.2);
+            }}
+            .marker-color.selected {{
+                box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(15, 23, 42, 0.35);
             }}
             .toolbar-hint {{
                 font-size: 0.76rem;
@@ -1635,10 +1698,26 @@ def _render_problem_context_block(context_text: str) -> None:
                 margin-bottom: 0;
             }}
             .problem-context-block mark.fluorescent-marker {{
-                background: linear-gradient(transparent 35%, rgba(250, 204, 21, 0.95) 35%);
                 padding: 0 0.15rem;
                 border-radius: 0.2rem;
                 box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.05);
+                background: linear-gradient(transparent 40%, rgba(250, 204, 21, 0.95) 40%);
+            }}
+            .problem-context-block mark.fluorescent-marker.color-amber {{
+                background: linear-gradient(transparent 40%, rgba(250, 204, 21, 0.95) 40%);
+                box-shadow: 0 0 0 1px rgba(217, 119, 6, 0.12);
+            }}
+            .problem-context-block mark.fluorescent-marker.color-rose {{
+                background: linear-gradient(transparent 40%, rgba(244, 114, 182, 0.9) 40%);
+                box-shadow: 0 0 0 1px rgba(190, 24, 93, 0.12);
+            }}
+            .problem-context-block mark.fluorescent-marker.color-sky {{
+                background: linear-gradient(transparent 40%, rgba(125, 211, 252, 0.9) 40%);
+                box-shadow: 0 0 0 1px rgba(14, 116, 144, 0.12);
+            }}
+            .problem-context-block mark.fluorescent-marker.color-lime {{
+                background: linear-gradient(transparent 40%, rgba(163, 230, 53, 0.9) 40%);
+                box-shadow: 0 0 0 1px rgba(63, 98, 18, 0.12);
             }}
         </style>
         <script>
@@ -1649,25 +1728,41 @@ def _render_problem_context_block(context_text: str) -> None:
                     return;
                 }}
 
+                const highlightButton = toolbar.querySelector('[data-action="highlight"]');
+                const clearButton = toolbar.querySelector('[data-action="clear-all"]');
+                const colorButtons = Array.from(toolbar.querySelectorAll('[data-action="set-color"]'));
+
+                let highlightMode = false;
+                let activeColor = (highlightButton && highlightButton.dataset.defaultColor) || (colorButtons[0] && colorButtons[0].dataset.color) || "amber";
+
+                const setHighlightMode = (value) => {{
+                    highlightMode = Boolean(value);
+                    if (highlightButton) {{
+                        highlightButton.classList.toggle("active", highlightMode);
+                        highlightButton.setAttribute("aria-pressed", highlightMode ? "true" : "false");
+                    }}
+                }};
+
                 const applyHighlight = () => {{
                     const selection = window.getSelection();
                     if (!selection || selection.rangeCount === 0) {{
-                        return;
+                        return false;
                     }}
                     const range = selection.getRangeAt(0);
                     if (range.collapsed) {{
-                        return;
+                        return false;
                     }}
                     if (!container.contains(range.commonAncestorContainer)) {{
-                        return;
+                        return false;
                     }}
 
                     const mark = document.createElement("mark");
-                    mark.className = "fluorescent-marker";
+                    mark.className = "fluorescent-marker color-" + activeColor;
                     mark.appendChild(range.extractContents());
                     range.insertNode(mark);
                     container.normalize();
                     selection.removeAllRanges();
+                    return true;
                 }};
 
                 const clearAll = () => {{
@@ -1684,18 +1779,70 @@ def _render_problem_context_block(context_text: str) -> None:
                     }});
                 }};
 
-                toolbar.querySelector('[data-action="highlight"]').addEventListener("click", () => {{
-                    applyHighlight();
-                }});
-                toolbar.querySelector('[data-action="clear-all"]').addEventListener("click", () => {{
-                    clearAll();
-                    const selection = window.getSelection();
-                    if (selection) {{
-                        selection.removeAllRanges();
+                const scheduleAutoHighlight = () => {{
+                    if (!highlightMode) {{
+                        return;
                     }}
-                }});
+                    requestAnimationFrame(() => {{
+                        applyHighlight();
+                    }});
+                }};
+
+                if (highlightButton) {{
+                    highlightButton.addEventListener("click", () => {{
+                        const nextState = !highlightMode;
+                        setHighlightMode(nextState);
+                        if (nextState) {{
+                            if (!applyHighlight()) {{
+                                container.focus();
+                            }}
+                        }} else {{
+                            const selection = window.getSelection();
+                            if (selection) {{
+                                selection.removeAllRanges();
+                            }}
+                        }}
+                    }});
+                }}
+
+                if (clearButton) {{
+                    clearButton.addEventListener("click", () => {{
+                        clearAll();
+                        const selection = window.getSelection();
+                        if (selection) {{
+                            selection.removeAllRanges();
+                        }}
+                    }});
+                }}
+
+                if (colorButtons.length) {{
+                    colorButtons.forEach((button) => {{
+                        button.addEventListener("click", () => {{
+                            const nextColor = button.dataset.color || "amber";
+                            activeColor = nextColor;
+                            colorButtons.forEach((candidate) => {{
+                                candidate.classList.toggle("selected", candidate === button);
+                            }});
+                            if (highlightMode) {{
+                                requestAnimationFrame(() => {{
+                                    applyHighlight();
+                                }});
+                            }}
+                        }});
+                    }});
+                }}
 
                 container.addEventListener("keydown", (event) => {{
+                    if (event.key === "Escape") {{
+                        if (highlightMode) {{
+                            setHighlightMode(false);
+                        }}
+                        const selection = window.getSelection();
+                        if (selection) {{
+                            selection.removeAllRanges();
+                        }}
+                        return;
+                    }}
                     const allowed = [
                         "ArrowLeft",
                         "ArrowRight",
@@ -1709,7 +1856,8 @@ def _render_problem_context_block(context_text: str) -> None:
                         "Control",
                         "Meta",
                         "Alt",
-                        "Tab"
+                        "Tab",
+                        "Escape"
                     ];
                     if (allowed.includes(event.key)) {{
                         return;
@@ -1723,6 +1871,13 @@ def _render_problem_context_block(context_text: str) -> None:
                 ["paste", "drop"].forEach((type) => {{
                     container.addEventListener(type, (event) => event.preventDefault());
                 }});
+
+                ["mouseup", "keyup", "touchend"].forEach((type) => {{
+                    container.addEventListener(type, () => {{
+                        scheduleAutoHighlight();
+                    }});
+                }});
+
             }})();
         </script>
         """
