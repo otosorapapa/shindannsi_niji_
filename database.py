@@ -15,7 +15,7 @@ from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
 from threading import Lock
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 DB_PATH = Path("data/app.db")
 SEED_PATH = Path("data/seed_problems.json")
@@ -460,9 +460,30 @@ def _normalise_seed_payload(payload: Any) -> Dict[str, Any]:
         problem["questions"].append(question)
 
     normalised_problems: List[Dict[str, Any]] = []
+    def _question_order_key(question: Dict[str, Any]) -> Tuple[int, int, Union[float, str]]:
+        """Return a sortable key for question ordering hints."""
+
+        hint = question.get("_order_hint")
+        if hint is None:
+            return (1, 2, 0)
+
+        if isinstance(hint, (int, float)):
+            return (0, 0, float(hint))
+
+        if isinstance(hint, str):
+            stripped = hint.strip()
+            if stripped:
+                try:
+                    return (0, 0, float(stripped))
+                except ValueError:
+                    return (0, 1, stripped)
+            return (0, 1, "")
+
+        return (0, 1, str(hint))
+
     for problem in problems.values():
         questions = problem["questions"]
-        questions.sort(key=lambda q: (q.get("_order_hint") is None, q.get("_order_hint")))
+        questions.sort(key=_question_order_key)
         for question in questions:
             question.pop("_order_hint", None)
         normalised_problems.append(
