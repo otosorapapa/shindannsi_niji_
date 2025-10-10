@@ -120,6 +120,43 @@ KEYWORD_RESOURCE_MAP = {
 }
 
 
+CASE3_TIMELINE_EVENTS = [
+    {
+        "year": "令和6年度",
+        "theme": "設計改革と量産立上げ",
+        "points": [
+            "設計レビューと製造部門の連携強化",
+            "CAD/CAMデータを活用した加工条件の標準化",
+            "多品種少量生産での立上げリードタイム短縮",
+        ],
+        "pdf_label": "令和6年度 事例III 本試験問題 (PDF)",
+        "pdf_url": "https://www.j-smeca.or.jp/contents/wp-content/uploads/2024/01/r06_2ji_shiken_mondai.pdf",
+    },
+    {
+        "year": "令和5年度",
+        "theme": "在庫圧縮と生産統制",
+        "points": [
+            "受注変動に対応した生産統制システムの構築",
+            "余剰在庫の削減と需要予測の高度化",
+            "協力工場との情報共有と納期調整",
+        ],
+        "pdf_label": "令和5年度 事例III 本試験問題 (PDF)",
+        "pdf_url": "https://www.j-smeca.or.jp/contents/wp-content/uploads/2023/12/r05_2ji_shiken_mondai.pdf",
+    },
+    {
+        "year": "令和4年度",
+        "theme": "段取り改善と工程編成",
+        "points": [
+            "段取り時間の短縮と内段取り化",
+            "多工程持ちの技能伝承と作業標準化",
+            "ボトルネック工程の能力平準化",
+        ],
+        "pdf_label": "令和4年度 事例III 本試験問題 (PDF)",
+        "pdf_url": "https://www.j-smeca.or.jp/contents/wp-content/uploads/2022/12/r04_2ji_shiken_mondai.pdf",
+    },
+]
+
+
 @st.cache_data(show_spinner=False)
 def _load_problem_index() -> List[Dict[str, Any]]:
     return database.list_problems()
@@ -257,6 +294,169 @@ def _ensure_media_styles() -> None:
     st.session_state["_media_styles_injected"] = True
 
 
+def _ensure_timeline_styles() -> None:
+    if st.session_state.get("_timeline_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .timeline-section {
+                margin-top: 2.5rem;
+            }
+            .timeline-section h3 {
+                margin-bottom: 0.4rem;
+            }
+            .timeline-wrapper {
+                position: relative;
+                overflow: hidden;
+                border-radius: 18px;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: linear-gradient(135deg, rgba(248, 250, 252, 0.92), rgba(226, 232, 240, 0.85));
+                padding: 1.25rem 1rem;
+                box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+            }
+            .timeline-track {
+                display: flex;
+                width: max-content;
+                gap: 1.75rem;
+                animation: timeline-scroll 36s linear infinite;
+            }
+            .timeline-track:hover {
+                animation-play-state: paused;
+            }
+            .timeline-sequence {
+                display: flex;
+                gap: 1.75rem;
+            }
+            .timeline-item {
+                position: relative;
+                flex: 0 0 270px;
+                padding: 1rem 1rem 1.1rem;
+                border-radius: 16px;
+                background: rgba(255, 255, 255, 0.9);
+                border: 1px solid rgba(148, 163, 184, 0.45);
+                box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
+                backdrop-filter: blur(6px);
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+            }
+            .timeline-item:hover {
+                transform: translateY(-6px);
+                box-shadow: 0 20px 34px rgba(15, 23, 42, 0.12);
+            }
+            .timeline-item::after {
+                content: attr(data-tooltip);
+                position: absolute;
+                left: 50%;
+                bottom: calc(100% + 0.75rem);
+                transform: translateX(-50%);
+                padding: 0.6rem 0.75rem;
+                border-radius: 10px;
+                background: rgba(30, 41, 59, 0.95);
+                color: #f8fafc;
+                font-size: 0.75rem;
+                line-height: 1.45;
+                white-space: pre-line;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.2s ease, transform 0.2s ease;
+                box-shadow: 0 10px 20px rgba(15, 23, 42, 0.22);
+                width: 220px;
+            }
+            .timeline-item:hover::after {
+                opacity: 1;
+                transform: translate(-50%, -4px);
+            }
+            .timeline-year {
+                font-weight: 700;
+                font-size: 1rem;
+                color: #1e293b;
+                margin-bottom: 0.35rem;
+                display: flex;
+                align-items: center;
+                gap: 0.35rem;
+            }
+            .timeline-year::before {
+                content: "";
+                width: 10px;
+                height: 10px;
+                border-radius: 999px;
+                background: #0ea5e9;
+                box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.18);
+            }
+            .timeline-theme {
+                font-weight: 600;
+                color: #0369a1;
+                margin-bottom: 0.5rem;
+                font-size: 0.95rem;
+            }
+            .timeline-points {
+                margin: 0;
+                padding-left: 1.1rem;
+                color: #334155;
+                font-size: 0.85rem;
+                line-height: 1.55;
+            }
+            .timeline-link {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.3rem;
+                margin-top: 0.75rem;
+                font-size: 0.8rem;
+                font-weight: 600;
+                color: #0f172a;
+                text-decoration: none;
+            }
+            .timeline-link::after {
+                content: "↗";
+                font-size: 0.75rem;
+                color: #0f172a;
+            }
+            .timeline-legend {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 1rem;
+                font-size: 0.8rem;
+                color: #475569;
+                margin-top: 0.8rem;
+            }
+            .timeline-legend span {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+            }
+            .timeline-legend .bullet {
+                width: 8px;
+                height: 8px;
+                border-radius: 999px;
+                background: #0ea5e9;
+                box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18);
+            }
+            @keyframes timeline-scroll {
+                0% {
+                    transform: translateX(0);
+                }
+                100% {
+                    transform: translateX(-50%);
+                }
+            }
+            @media (max-width: 768px) {
+                .timeline-wrapper {
+                    padding: 1rem 0.75rem;
+                }
+                .timeline-item {
+                    flex: 0 0 240px;
+                }
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_timeline_styles_injected"] = True
+
+
 def _render_video_player(url: str, *, key_prefix: str) -> None:
     if not url:
         return
@@ -333,6 +533,58 @@ def _render_video_player(url: str, *, key_prefix: str) -> None:
         ),
         height=380,
     )
+
+
+def _render_case3_timeline() -> None:
+    _ensure_timeline_styles()
+
+    st.markdown('<div class="timeline-section">', unsafe_allow_html=True)
+    st.markdown("### 過去問タイムライン")
+    st.caption(
+        "事例IIIの生産テーマの変遷を令和6年→令和5年→令和4年の順で俯瞰できます。ホバーでPDF出典を確認し、詳細はリンクから参照してください。"
+    )
+
+    timeline_items: List[str] = []
+    for event in CASE3_TIMELINE_EVENTS:
+        tooltip = f"{event['pdf_label']}\n{event['pdf_url']}"
+        tooltip_attr = html.escape(tooltip, quote=True).replace("\n", "&#10;")
+        year_html = html.escape(event["year"])
+        theme_html = html.escape(event["theme"])
+        points_html = "".join(f"<li>{html.escape(point)}</li>" for point in event["points"])
+        link_url = html.escape(event["pdf_url"], quote=True)
+        link_label = html.escape(event["pdf_label"])
+        timeline_items.append(
+            dedent(
+                f"""
+                <div class="timeline-item" data-tooltip="{tooltip_attr}">
+                    <div class="timeline-year">{year_html}</div>
+                    <div class="timeline-theme">{theme_html}</div>
+                    <ul class="timeline-points">
+                        {points_html}
+                    </ul>
+                    <a class="timeline-link" href="{link_url}" target="_blank" rel="noopener noreferrer">{link_label}</a>
+                </div>
+                """
+            ).strip()
+        )
+
+    sequence_html = "".join(timeline_items)
+    timeline_html = dedent(
+        f"""
+        <div class="timeline-wrapper">
+            <div class="timeline-track">
+                <div class="timeline-sequence">{sequence_html}</div>
+                <div class="timeline-sequence">{sequence_html}</div>
+            </div>
+        </div>
+        """
+    ).strip()
+    st.markdown(timeline_html, unsafe_allow_html=True)
+    st.markdown(
+        "<div class=\"timeline-legend\"><span><span class=\"bullet\"></span>R6→R5→R4のテーマ推移</span><span>ホバーで出典PDFを表示</span></div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _resolve_diagram_path(diagram_path: str) -> Path:
@@ -1215,6 +1467,8 @@ def dashboard_page(user: Dict) -> None:
         ).strip(),
         unsafe_allow_html=True,
     )
+
+    _render_case3_timeline()
 
 
 def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
