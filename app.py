@@ -966,6 +966,20 @@ def _year_sort_key(year_label: str) -> int:
     return 0
 
 
+def _resolve_question_insight(question: Dict[str, Any]) -> Optional[str]:
+    question = question or {}
+    for key in (
+        "uploaded_question_insight",
+        "question_insight",
+        "insight",
+        "設問インサイト",
+    ):
+        normalized = _normalize_text_block(question.get(key))
+        if normalized:
+            return normalized
+    return None
+
+
 def _infer_question_aim(question: Dict[str, Any]) -> str:
     question = question or {}
     custom_aim = (
@@ -4669,11 +4683,16 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
                         question_entry.get("solution_prompt")
                         or question_entry.get("定番解法プロンプト")
                     )
+                    insight_override = _normalize_text_block(
+                        question_entry.get("question_insight")
+                        or question_entry.get("設問インサイト")
+                    )
                 else:
                     question_text = question_entry
                     aim_override = None
                     output_override = None
                     solution_override = None
+                    insight_override = None
 
                 normalized_text = _normalize_text_block(question_text)
                 if normalized_text:
@@ -4681,6 +4700,8 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
                     lines = [line.strip() for line in normalized_text.splitlines() if line.strip()]
                     first_line = lines[0] if lines else normalized_text.strip()
                     q["prompt"] = first_line or normalized_text
+                if insight_override:
+                    q["uploaded_question_insight"] = insight_override
                 if aim_override:
                     q["uploaded_question_aim"] = aim_override
                 if output_override:
@@ -4702,6 +4723,12 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
                     metadata_aim = _normalize_text_block(metadata.get("question_aim"))
                     if metadata_aim:
                         q["uploaded_question_aim"] = metadata_aim
+                    metadata_insight = _normalize_text_block(
+                        metadata.get("question_insight")
+                        or metadata.get("insight")
+                    )
+                    if metadata_insight:
+                        q["uploaded_question_insight"] = metadata_insight
                     metadata_output = _normalize_text_block(
                         metadata.get("output_format")
                     )
@@ -4978,6 +5005,10 @@ def practice_page(user: Dict) -> None:
             st.markdown(
                 f"**設問{selected_question['order']}：{selected_question['prompt']}**"
             )
+            insight_text = _resolve_question_insight(selected_question)
+            if insight_text:
+                st.markdown("##### 設問インサイト")
+                st.write(insight_text)
             full_question_text = _normalize_text_block(
                 _select_first(
                     selected_question,
@@ -5282,17 +5313,24 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                     override_text.get("solution_prompt")
                     or override_text.get("定番解法プロンプト")
                 )
+                insight_override = _normalize_text_block(
+                    override_text.get("question_insight")
+                    or override_text.get("設問インサイト")
+                )
             else:
                 override_body = override_text
                 aim_override = None
                 output_override = None
                 solution_override = None
+                insight_override = None
 
             normalized_override = _normalize_text_block(override_body)
             if normalized_override:
                 record["問題文"] = normalized_override
             if aim_override:
                 record["uploaded_question_aim"] = aim_override
+            if insight_override:
+                record["uploaded_question_insight"] = insight_override
             if output_override:
                 record["uploaded_output_format"] = output_override
             if solution_override:
@@ -5312,6 +5350,8 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                 record["解説"] = meta_question.get("explanation")
             if meta_question.get("detailed_explanation"):
                 record["詳細解説"] = meta_question.get("detailed_explanation")
+            if meta_question.get("question_insight"):
+                record["uploaded_question_insight"] = meta_question.get("question_insight")
             if meta_question.get("keywords"):
                 record["キーワード"] = "、".join(meta_question.get("keywords") or [])
             if meta_question.get("video_url"):
@@ -5502,6 +5542,9 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                     selected_question.get("キーワード") or selected_question.get("keywords")
                 ),
             }
+            insight_override = _resolve_question_insight(selected_question)
+            if insight_override:
+                insight_question["uploaded_question_insight"] = insight_override
             if selected_question.get("uploaded_question_aim"):
                 insight_question["uploaded_question_aim"] = selected_question.get(
                     "uploaded_question_aim"
@@ -5516,6 +5559,10 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                 )
             question_label = _format_question_option(selected_question_key) if selected_question_key else "設問"
             st.markdown(f"**{question_label}：{prompt_line}**")
+            insight_text = _resolve_question_insight(insight_question)
+            if insight_text:
+                st.markdown("##### 設問インサイト")
+                st.write(insight_text)
             full_question_text = question_body_text
             if full_question_text:
                 st.markdown("##### 設問文")
@@ -5805,6 +5852,16 @@ def _build_uploaded_exam_metadata(
                 ),
             )
         )
+        insight_text = _normalize_text_block(
+            _select_first(
+                row,
+                (
+                    "設問インサイト",
+                    "question_insight",
+                    "insight",
+                ),
+            )
+        )
         keywords = _normalize_text_block(row.get("キーワード"))
         if keywords:
             keyword_list = [
@@ -5830,6 +5887,7 @@ def _build_uploaded_exam_metadata(
             "question_aim": aim_text,
             "output_format": output_format_text,
             "solution_prompt": solution_prompt_text,
+            "question_insight": insight_text,
         }
 
     return case_metadata, question_metadata
@@ -5896,8 +5954,16 @@ def _handle_past_data_upload(file_bytes: bytes, filename: str) -> bool:
         ),
         None,
     )
+    insight_col = next(
+        (
+            col
+            for col in ("設問インサイト", "question_insight", "insight")
+            if col in df.columns
+        ),
+        None,
+    )
 
-    if text_col or aim_col or output_col or solution_col:
+    if text_col or aim_col or output_col or solution_col or insight_col:
         for _, row in df.iterrows():
             year_value = _normalize_text_block(row.get("年度"))
             case_raw = _normalize_text_block(row.get("事例"))
@@ -5929,6 +5995,10 @@ def _handle_past_data_upload(file_bytes: bytes, filename: str) -> bool:
                 solution_prompt = _normalize_text_block(row.get(solution_col))
                 if solution_prompt:
                     entry["solution_prompt"] = solution_prompt
+            if insight_col:
+                insight_text = _normalize_text_block(row.get(insight_col))
+                if insight_text:
+                    entry["question_insight"] = insight_text
 
     st.session_state.uploaded_question_texts = question_texts
     context_count = sum(
@@ -7182,11 +7252,13 @@ def settings_page(user: Dict) -> None:
                 year_label, case_label, question_no = parts[0], parts[1], parts[2]
                 if isinstance(text, dict):
                     body_text = text.get("question_text") or text.get("設問文") or ""
+                    insight_text = text.get("question_insight") or text.get("設問インサイト") or ""
                     aim_text = text.get("question_aim") or text.get("設問の狙い") or ""
                     output_text = text.get("output_format") or text.get("必要アウトプット形式") or ""
                     solution_text = text.get("solution_prompt") or text.get("定番解法プロンプト") or ""
                 else:
                     body_text = text or ""
+                    insight_text = ""
                     aim_text = ""
                     output_text = ""
                     solution_text = ""
@@ -7203,6 +7275,7 @@ def settings_page(user: Dict) -> None:
                         "設問": question_no,
                         "文字数": len(normalized_text),
                         "冒頭プレビュー": preview,
+                        "設問インサイト": insight_text or "-",
                         "設問の狙い": aim_text or "-",
                         "アウトプット形式": output_text or "-",
                         "解法プロンプト": solution_text or "-",
