@@ -988,28 +988,39 @@ def _suggest_solution_prompt(question: Dict[str, Any]) -> str:
     return "結論先出し→根拠→効果の黄金パターン。設問要求語を冒頭に置き、与件引用で説得力を高める。"
 
 
+def _problem_data_signature() -> float:
+    """Return a signature that changes whenever the problem dataset is updated."""
+
+    try:
+        return database.DB_PATH.stat().st_mtime
+    except FileNotFoundError:
+        return 0.0
+
+
 @st.cache_data(show_spinner=False)
-def _load_problem_index() -> List[Dict[str, Any]]:
+def _load_problem_index(signature: float) -> List[Dict[str, Any]]:
     return database.list_problems()
 
 
 @st.cache_data(show_spinner=False)
-def _load_problem_years() -> List[str]:
+def _load_problem_years(signature: float) -> List[str]:
     return database.list_problem_years()
 
 
 @st.cache_data(show_spinner=False)
-def _load_problem_cases(year: str) -> List[str]:
+def _load_problem_cases(year: str, signature: float) -> List[str]:
     return database.list_problem_cases(year)
 
 
 @st.cache_data(show_spinner=False)
-def _load_problem_detail(problem_id: int) -> Optional[Dict[str, Any]]:
+def _load_problem_detail(problem_id: int, signature: float) -> Optional[Dict[str, Any]]:
     return database.fetch_problem(problem_id)
 
 
 @st.cache_data(show_spinner=False)
-def _load_problem_by_year_case(year: str, case_label: str) -> Optional[Dict[str, Any]]:
+def _load_problem_by_year_case(
+    year: str, case_label: str, signature: float
+) -> Optional[Dict[str, Any]]:
     return database.fetch_problem_by_year_case(year, case_label)
 
 
@@ -4259,7 +4270,8 @@ def _calculate_level(total_experience: float) -> Dict[str, float]:
 
 
 def _compute_progress_overview(history_df: pd.DataFrame) -> Dict[str, Any]:
-    problems = _load_problem_index()
+    signature = _problem_data_signature()
+    problems = _load_problem_index(signature)
     total_pairs = {
         (row["year"], row["case_label"])
         for row in problems
@@ -4691,7 +4703,8 @@ def practice_page(user: Dict) -> None:
     )
 
     past_data_df = st.session_state.get("past_data")
-    index = _load_problem_index()
+    signature = _problem_data_signature()
+    index = _load_problem_index(signature)
 
     has_uploaded_data = past_data_df is not None and hasattr(past_data_df, "empty") and not past_data_df.empty
     has_database_data = bool(index)
@@ -4828,7 +4841,7 @@ def practice_page(user: Dict) -> None:
             )
 
             problem_id = case_map[selected_case][selected_year]
-            raw_problem = _load_problem_detail(problem_id)
+            raw_problem = _load_problem_detail(problem_id, signature)
             problem = _apply_uploaded_text_overrides(raw_problem)
 
             if problem and problem["questions"]:
@@ -6139,6 +6152,7 @@ def mock_exam_page(user: Dict) -> None:
     st.caption("事例I～IVをまとめて演習し、時間管理と一括採点を体験します。")
 
     session = st.session_state.mock_session
+    signature = _problem_data_signature()
 
     if not session:
         _remove_mock_notice_overlay()
@@ -6163,7 +6177,9 @@ def mock_exam_page(user: Dict) -> None:
 
         case_summaries = []
         for problem_id in selected_exam.problem_ids:
-            problem = _apply_uploaded_text_overrides(_load_problem_detail(problem_id))
+            problem = _apply_uploaded_text_overrides(
+                _load_problem_detail(problem_id, signature)
+            )
             if not problem:
                 continue
             case_summaries.append(
@@ -6214,14 +6230,18 @@ def mock_exam_page(user: Dict) -> None:
 
     tab_labels: List[str] = []
     for idx, problem_id in enumerate(exam.problem_ids):
-        problem = _apply_uploaded_text_overrides(_load_problem_detail(problem_id))
+        problem = _apply_uploaded_text_overrides(
+            _load_problem_detail(problem_id, signature)
+        )
         case_label = problem["case_label"] if problem else "不明"
         tab_labels.append(f"{idx+1}. {case_label}")
 
     tabs = st.tabs(tab_labels)
     for tab, problem_id in zip(tabs, exam.problem_ids):
         with tab:
-            problem = _apply_uploaded_text_overrides(_load_problem_detail(problem_id))
+            problem = _apply_uploaded_text_overrides(
+                _load_problem_detail(problem_id, signature)
+            )
             if not problem:
                 st.error("問題の読み込みに失敗しました。")
                 continue
@@ -6238,7 +6258,9 @@ def mock_exam_page(user: Dict) -> None:
     if st.button("模試を提出", type="primary"):
         overall_results = []
         for problem_id in exam.problem_ids:
-            problem = _apply_uploaded_text_overrides(_load_problem_detail(problem_id))
+            problem = _apply_uploaded_text_overrides(
+                _load_problem_detail(problem_id, signature)
+            )
             if not problem:
                 st.warning("一部の問題データが取得できなかったため採点をスキップしました。")
                 continue
