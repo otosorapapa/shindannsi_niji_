@@ -1695,28 +1695,6 @@ def _render_problem_context_block(context_text: str) -> None:
                     }}
                 }});
 
-                container.addEventListener("keydown", (event) => {{
-                    const allowed = [
-                        "ArrowLeft",
-                        "ArrowRight",
-                        "ArrowUp",
-                        "ArrowDown",
-                        "Home",
-                        "End",
-                        "PageUp",
-                        "PageDown",
-                        "Shift",
-                        "Control",
-                        "Meta",
-                        "Alt",
-                        "Tab"
-                    ];
-                    if (allowed.includes(event.key)) {{
-                        return;
-                    }}
-                    event.preventDefault();
-                }});
-
                 container.addEventListener("beforeinput", (event) => {{
                     event.preventDefault();
                 }});
