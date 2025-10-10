@@ -597,6 +597,7 @@ def _iter_question_context_candidates(question: Dict[str, Any]) -> Iterable[Any]
         question.get("context_text"),
         question.get("context_snippet"),
         question.get("与件文"),
+        question.get("与件文全体"),
         question.get("与件"),
         question.get("context_body"),
     ]
@@ -630,6 +631,7 @@ def _collect_problem_context_text(problem: Dict[str, Any]) -> Optional[str]:
         "context_body",
         "context_passages",
         "与件文",
+        "与件文全体",
         "与件",
     )
     for key in direct_keys:
@@ -4086,6 +4088,7 @@ def _question_input(
         question.get("context"),
         question.get("context_text"),
         question.get("context_snippet"),
+        question.get("与件文全体"),
         question.get("与件文"),
         question.get("与件"),
         question.get("context_passages"),
@@ -4645,6 +4648,7 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
         if normalized_context:
             cloned["context"] = normalized_context
             cloned["与件文"] = normalized_context
+            cloned["与件文全体"] = normalized_context
     if case_key:
         case_meta = uploaded_case_metadata.get(case_key, {})
         if case_meta.get("title"):
@@ -5201,10 +5205,10 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         st.error(f"必要な列が不足しています: {', '.join(sorted(missing))}")
         return
 
-    optional_context_cols = {"与件文", "詳細解説"}
+    optional_context_cols = {"与件文", "与件文全体", "詳細解説"}
     if not optional_context_cols.issubset(df.columns):
         st.info(
-            "テンプレートに『与件文』『詳細解説』列を追加すると、演習画面にハイライトと深掘り解説が表示されます。",
+            "テンプレートに『与件文全体』『与件文』『詳細解説』列を追加すると、演習画面にハイライトと深掘り解説が表示されます。",
             icon="💡",
         )
 
@@ -5371,11 +5375,14 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             if context_override and not any(
                 _normalize_text_block(record.get(col)) for col in optional_context_cols
             ):
-                record["与件文"] = context_override
+                record["与件文全体"] = context_override
+                record.setdefault("与件文", context_override)
         elif meta_case.get("context") and not any(
             _normalize_text_block(record.get(col)) for col in optional_context_cols
         ):
-            record["与件文"] = meta_case.get("context")
+            context_text = meta_case.get("context")
+            record["与件文全体"] = context_text
+            record.setdefault("与件文", context_text)
         records.append(record)
 
     if not records:
@@ -5664,6 +5671,7 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
     )
 
     context_candidates = [
+        selected_question.get("与件文全体"),
         selected_question.get("与件文"),
         selected_question.get("与件"),
         selected_question.get("context"),
@@ -5801,6 +5809,7 @@ def _build_uploaded_exam_metadata(
             _select_first(
                 row,
                 (
+                    "与件文全体",
                     "与件文",
                     "与件",
                     "context",
@@ -7237,7 +7246,9 @@ def settings_page(user: Dict) -> None:
                 st.session_state.uploaded_case_contexts = {}
                 st.info("登録済みの与件文データを削除しました。")
         else:
-            st.info("登録済みの与件文データはありません。テンプレートの『与件文』列を入力すると自動で取り込まれます。")
+            st.info(
+                "登録済みの与件文データはありません。テンプレートの『与件文全体』または『与件文』列を入力すると自動で取り込まれます。"
+            )
 
         st.markdown("##### 設問文プレビュー")
         question_texts = st.session_state.get("uploaded_question_texts", {}) or {}
