@@ -1517,36 +1517,6 @@ def _render_question_context_block(context_value: Any) -> None:
         st.write("\n\n".join(lines))
 
 
-def _inject_problem_context_styles() -> None:
-    if st.session_state.get("_problem_context_styles_injected"):
-        return
-    st.markdown(
-        dedent(
-            """
-            <style>
-            .problem-context-block {
-                border-left: 4px solid rgba(37, 99, 235, 0.8);
-                background: rgba(37, 99, 235, 0.06);
-                padding: 1.1rem 1.35rem;
-                border-radius: 14px;
-                margin: 1.2rem 0 1.6rem;
-                line-height: 1.75;
-            }
-            .problem-context-block p {
-                margin: 0 0 0.9rem;
-                font-size: 0.96rem;
-            }
-            .problem-context-block p:last-child {
-                margin-bottom: 0;
-            }
-            </style>
-            """
-        ),
-        unsafe_allow_html=True,
-    )
-    st.session_state["_problem_context_styles_injected"] = True
-
-
 def _render_problem_context_block(context_text: str) -> None:
     normalized = _normalize_text_block(context_text)
     if not normalized:
@@ -1565,11 +1535,200 @@ def _render_problem_context_block(context_text: str) -> None:
     if not blocks:
         return
 
-    _inject_problem_context_styles()
-    st.markdown(
-        "<div class=\"problem-context-block\">" + "".join(blocks) + "</div>",
-        unsafe_allow_html=True,
+    element_id = f"problem-context-{uuid.uuid4().hex}"
+    toolbar_id = f"{element_id}-toolbar"
+    total_lines = sum(block.count("<br/>") + 1 for block in blocks)
+    estimated_height = max(260, min(900, 130 + total_lines * 28))
+
+    highlight_html = dedent(
+        f"""
+        <div class="problem-context-root">
+            <div class="context-toolbar" id="{toolbar_id}">
+                <div class="toolbar-actions">
+                    <button type="button" class="toolbar-button" data-action="highlight" data-target="{element_id}">
+                        選択範囲にマーカー
+                    </button>
+                    <button type="button" class="toolbar-button clear" data-action="clear-all" data-target="{element_id}">
+                        マーカーを全て解除
+                    </button>
+                </div>
+                <span class="toolbar-hint">テキストをドラッグして蛍光マーカーを適用できます。</span>
+            </div>
+            <div class="problem-context-block" id="{element_id}" tabindex="0">
+                {''.join(blocks)}
+            </div>
+        </div>
+        <style>
+            * {{
+                box-sizing: border-box;
+            }}
+            body {{
+                margin: 0;
+                font-family: "Noto Sans JP", "Yu Gothic", sans-serif;
+                color: #0f172a;
+            }}
+            .problem-context-root {{
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                gap: 0.65rem;
+            }}
+            .context-toolbar {{
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+                font-size: 0.82rem;
+                color: #475569;
+            }}
+            .toolbar-actions {{
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }}
+            .toolbar-button {{
+                background: linear-gradient(135deg, rgba(250, 204, 21, 0.85), rgba(234, 179, 8, 0.65));
+                color: #422006;
+                border: none;
+                border-radius: 999px;
+                padding: 0.35rem 0.95rem;
+                font-size: 0.82rem;
+                font-weight: 600;
+                cursor: pointer;
+                box-shadow: inset 0 0 0 1px rgba(120, 53, 15, 0.15);
+                transition: transform 120ms ease, box-shadow 120ms ease;
+            }}
+            .toolbar-button:hover {{
+                transform: translateY(-1px);
+                box-shadow: inset 0 0 0 1px rgba(120, 53, 15, 0.28), 0 6px 12px rgba(234, 179, 8, 0.25);
+            }}
+            .toolbar-button:active {{
+                transform: translateY(0);
+            }}
+            .toolbar-button.clear {{
+                background: rgba(15, 23, 42, 0.08);
+                color: #0f172a;
+                box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.2);
+            }}
+            .toolbar-button.clear:hover {{
+                box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.35), 0 6px 14px rgba(15, 23, 42, 0.18);
+            }}
+            .toolbar-hint {{
+                font-size: 0.76rem;
+            }}
+            .problem-context-block {{
+                border-left: 4px solid rgba(37, 99, 235, 0.8);
+                background: rgba(37, 99, 235, 0.06);
+                padding: 1.1rem 1.35rem;
+                border-radius: 14px;
+                margin: 0 0 0.3rem;
+                line-height: 1.75;
+                font-size: 0.96rem;
+                outline: none;
+                overflow-y: auto;
+                max-height: 100%;
+                user-select: text;
+            }}
+            .problem-context-block p {{
+                margin: 0 0 0.9rem;
+            }}
+            .problem-context-block p:last-child {{
+                margin-bottom: 0;
+            }}
+            .problem-context-block mark.fluorescent-marker {{
+                background: linear-gradient(transparent 35%, rgba(250, 204, 21, 0.95) 35%);
+                padding: 0 0.15rem;
+                border-radius: 0.2rem;
+                box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.05);
+            }}
+        </style>
+        <script>
+            (function() {{
+                const container = document.getElementById("{element_id}");
+                const toolbar = document.getElementById("{toolbar_id}");
+                if (!container || !toolbar) {{
+                    return;
+                }}
+
+                const applyHighlight = () => {{
+                    const selection = window.getSelection();
+                    if (!selection || selection.rangeCount === 0) {{
+                        return;
+                    }}
+                    const range = selection.getRangeAt(0);
+                    if (range.collapsed) {{
+                        return;
+                    }}
+                    if (!container.contains(range.commonAncestorContainer)) {{
+                        return;
+                    }}
+
+                    const mark = document.createElement("mark");
+                    mark.className = "fluorescent-marker";
+                    mark.appendChild(range.extractContents());
+                    range.insertNode(mark);
+                    container.normalize();
+                    selection.removeAllRanges();
+                }};
+
+                const clearAll = () => {{
+                    container.querySelectorAll("mark.fluorescent-marker").forEach((mark) => {{
+                        const parent = mark.parentNode;
+                        if (!parent) {{
+                            return;
+                        }}
+                        while (mark.firstChild) {{
+                            parent.insertBefore(mark.firstChild, mark);
+                        }}
+                        parent.removeChild(mark);
+                        parent.normalize();
+                    }});
+                }};
+
+                toolbar.querySelector('[data-action="highlight"]').addEventListener("click", () => {{
+                    applyHighlight();
+                }});
+                toolbar.querySelector('[data-action="clear-all"]').addEventListener("click", () => {{
+                    clearAll();
+                    const selection = window.getSelection();
+                    if (selection) {{
+                        selection.removeAllRanges();
+                    }}
+                }});
+
+                container.addEventListener("keydown", (event) => {{
+                    const allowed = [
+                        "ArrowLeft",
+                        "ArrowRight",
+                        "ArrowUp",
+                        "ArrowDown",
+                        "Home",
+                        "End",
+                        "PageUp",
+                        "PageDown",
+                        "Shift",
+                        "Control",
+                        "Meta",
+                        "Alt",
+                        "Tab"
+                    ];
+                    if (allowed.includes(event.key)) {{
+                        return;
+                    }}
+                    event.preventDefault();
+                }});
+
+                container.addEventListener("beforeinput", (event) => {{
+                    event.preventDefault();
+                }});
+                ["paste", "drop"].forEach((type) => {{
+                    container.addEventListener(type, (event) => event.preventDefault());
+                }});
+            }})();
+        </script>
+        """
     )
+
+    components.html(highlight_html, height=estimated_height, scrolling=True)
 
 
 def _render_question_overview_card(
