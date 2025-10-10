@@ -9,6 +9,7 @@ from uuid import uuid4
 import logging
 
 import html
+import json
 
 import random
 
@@ -120,6 +121,108 @@ KEYWORD_RESOURCE_MAP = {
 }
 
 
+EXPERTISE_RESOURCES = {
+    "マーケティング": [
+        {
+            "label": "事例II対策: 顧客価値再定義テンプレート",
+            "url": "https://www.j-smeca.or.jp/contents/0105007000.html",
+        },
+        {
+            "label": "中小企業のマーケティング戦略 最新動向 (中小機構)",
+            "url": "https://www.smrj.go.jp/feature/marketing.html",
+        },
+    ],
+    "生産性向上": [
+        {
+            "label": "カイゼンとIoT活用チェックリスト",
+            "url": "https://www.chusho.meti.go.jp/industry/mono/kaizen/",
+        },
+        {
+            "label": "事例III: 生産オペレーション整理ワークシート",
+            "url": "https://www.j-smeca.or.jp/contents/0105005000.html",
+        },
+    ],
+    "サービス開発": [
+        {
+            "label": "サービス・ドミナント・ロジック解説資料",
+            "url": "https://www.service-design.jp/",
+        },
+    ],
+    "オペレーション改革": [
+        {
+            "label": "現場改革ロードマップ (中小企業庁)",
+            "url": "https://www.chusho.meti.go.jp/",
+        },
+    ],
+    "組織開発": [
+        {
+            "label": "事例I: 組織・人事の論点整理スライド",
+            "url": "https://www.j-smeca.or.jp/contents/0105003000.html",
+        },
+    ],
+    "人的資源": [
+        {
+            "label": "人的資源管理ハンドブック",
+            "url": "https://www.jil.go.jp/institute/",
+        },
+    ],
+    "DX推進": [
+        {
+            "label": "中小企業DX推進ガイドライン",
+            "url": "https://www.meti.go.jp/policy/it_policy/dx/",
+        },
+    ],
+    "財務会計": [
+        {
+            "label": "財務分析の着眼点: 事例IV演習",
+            "url": "https://www.jcci.or.jp/chusho/finance/",
+        },
+    ],
+    "管理会計": [
+        {
+            "label": "管理会計による意思決定支援ノート",
+            "url": "https://www.mof.go.jp/public_relations/finance/",
+        },
+    ],
+    "ブランド戦略": [
+        {
+            "label": "ブランド体験設計チェックリスト",
+            "url": "https://www.brandbusiness.jp/",
+        },
+    ],
+    "品質管理": [
+        {
+            "label": "品質管理7つ道具リマインド",
+            "url": "https://www.jsa.or.jp/",
+        },
+    ],
+    "イノベーション": [
+        {
+            "label": "イノベーション創出のフレームワーク集",
+            "url": "https://www.smrj.go.jp/feature/innovation.html",
+        },
+    ],
+    "新規事業": [
+        {
+            "label": "新規事業開発の実践ステップ",
+            "url": "https://www.jetro.go.jp/ext_images/jfile/report/07000648/report.pdf",
+        },
+    ],
+    "デジタル戦略": [
+        {
+            "label": "デジタルチャネル構築の成功事例集",
+            "url": "https://www.smrj.go.jp/feature/dx.html",
+        },
+    ],
+    "サプライチェーン": [
+        {
+            "label": "サプライチェーン再構築ガイド",
+            "url": "https://www.meti.go.jp/policy/logistics/",
+        },
+    ],
+}
+
+
 @st.cache_data(show_spinner=False)
 def _load_problem_index() -> List[Dict[str, Any]]:
     return database.list_problems()
@@ -143,6 +246,18 @@ def _load_problem_detail(problem_id: int) -> Optional[Dict[str, Any]]:
 @st.cache_data(show_spinner=False)
 def _load_problem_by_year_case(year: str, case_label: str) -> Optional[Dict[str, Any]]:
     return database.fetch_problem_by_year_case(year, case_label)
+
+
+@st.cache_data(show_spinner=False)
+def _load_committee_profiles() -> List[Dict[str, Any]]:
+    path = Path("data/committee_profiles.json")
+    if not path.exists():
+        return []
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        logging.exception("Failed to parse committee profile data")
+        return []
 
 
 def _init_session_state() -> None:
@@ -1048,7 +1163,7 @@ def dashboard_page(user: Dict) -> None:
     else:
         st.info("演習データが蓄積されると復習スケジュールがここに表示されます。")
 
-    overview_tab, chart_tab = st.tabs(["進捗サマリ", "事例別分析"])
+    overview_tab, chart_tab, committee_tab = st.tabs(["進捗サマリ", "事例別分析", "委員分析"])
 
     with overview_tab:
         if attempts:
@@ -1114,6 +1229,9 @@ def dashboard_page(user: Dict) -> None:
             st.altair_chart(bar + target_line, use_container_width=True)
         else:
             st.info("演習データが蓄積すると事例別の分析が表示されます。")
+
+    with committee_tab:
+        _render_committee_heatmap()
 
     latest_attempt = attempts[0] if attempts else None
     next_focus_card = {
@@ -1215,6 +1333,138 @@ def dashboard_page(user: Dict) -> None:
         ).strip(),
         unsafe_allow_html=True,
     )
+
+
+def _render_committee_heatmap() -> None:
+    profiles = _load_committee_profiles()
+    if not profiles:
+        st.info("委員プロフィールデータが見つかりません。data/committee_profiles.json を確認してください。")
+        return
+
+    years = sorted({profile.get("fiscal_year", "未指定") for profile in profiles}, reverse=True)
+    if not years:
+        st.info("対象年度の情報がありません。")
+        return
+
+    year = st.selectbox("対象年度", years, index=0, key="committee_year_selector")
+    filtered = [profile for profile in profiles if profile.get("fiscal_year", "未指定") == year]
+    if not filtered:
+        st.info(f"{year}の委員データが登録されていません。")
+        return
+
+    records: List[Dict[str, str]] = []
+    for profile in filtered:
+        expertise_list = profile.get("expertise") or []
+        case_list = profile.get("assigned_cases") or []
+        if not expertise_list or not case_list:
+            continue
+        for domain in expertise_list:
+            for case_label in case_list:
+                records.append(
+                    {
+                        "委員名": profile.get("name", "不明"),
+                        "専門分野": domain,
+                        "事例": case_label,
+                        "役割": profile.get("role", ""),
+                    }
+                )
+
+    if not records:
+        st.info("専門分野と事例の対応データが不足しています。")
+        return
+
+    df = pd.DataFrame(records)
+    summary = (
+        df.groupby(["専門分野", "事例"], as_index=False)
+        .agg(
+            委員数=("委員名", "nunique"),
+            役割=("役割", lambda roles: "・".join(sorted({role for role in roles if role}))),
+            委員一覧=("委員名", lambda names: "、".join(sorted(set(names)))),
+        )
+        .sort_values(["委員数", "事例"], ascending=[False, True])
+    )
+
+    if summary.empty:
+        st.info("表示できるデータがありません。")
+        return
+
+    summary["役割"] = summary["役割"].replace("", "-")
+
+    case_order = ["事例I", "事例II", "事例III", "事例IV"]
+    summary["事例"] = pd.Categorical(summary["事例"], categories=case_order, ordered=True)
+    summary = summary.sort_values(["事例", "専門分野"])
+
+    max_count = int(summary["委員数"].max())
+    color_scheme = alt.Scale(scheme="blues", domain=[0, max_count or 1])
+    heatmap = (
+        alt.Chart(summary)
+        .mark_rect(cornerRadius=6)
+        .encode(
+            x=alt.X("事例:N", sort=case_order, title="事例"),
+            y=alt.Y(
+                "専門分野:N",
+                sort=alt.SortField(field="委員数", order="descending"),
+                title="専門分野",
+            ),
+            color=alt.Color("委員数:Q", scale=color_scheme, title="担当委員数"),
+            tooltip=[
+                alt.Tooltip("専門分野:N", title="専門"),
+                alt.Tooltip("事例:N"),
+                alt.Tooltip("委員数:Q", title="担当委員数", format=".0f"),
+                alt.Tooltip("役割:N", title="主な役割"),
+                alt.Tooltip("委員一覧:N", title="該当委員"),
+            ],
+        )
+        .properties(height=320)
+    )
+
+    text = (
+        alt.Chart(summary)
+        .mark_text(fontWeight="bold")
+        .encode(
+            x=alt.X("事例:N", sort=case_order),
+            y=alt.Y("専門分野:N", sort=alt.SortField(field="委員数", order="descending")),
+            text=alt.Text("委員数:Q", format=".0f"),
+            color=alt.condition(
+                alt.datum.委員数 >= max(1, max_count) * 0.6,
+                alt.value("white"),
+                alt.value("#1f2937"),
+            ),
+        )
+    )
+
+    st.markdown("### 試験委員“専門×事例”ヒートマップ")
+    st.caption("最新の委員プロフィールをもとに、専門分野と担当事例の重なりを可視化します。")
+    st.altair_chart((heatmap + text).configure_axis(labelFontSize=12, titleFontSize=12), use_container_width=True)
+
+    focus_pairs = summary[summary["委員数"] == max_count]
+    st.markdown("#### 今年の重心")
+    if focus_pairs.empty:
+        st.caption("強調すべき組み合わせはまだ特定されていません。")
+    else:
+        for _, row in focus_pairs.iterrows():
+            st.markdown(
+                f"- **{row['専門分野']} × {row['事例']}** — {int(row['委員数'])}名が担当 ( {row['委員一覧']} )"
+            )
+
+    domain_totals = summary.groupby("専門分野")["委員数"].sum().sort_values(ascending=False)
+    if not domain_totals.empty:
+        st.markdown("#### 狙い撃ちの予習リスト")
+        for domain, count in domain_totals.head(3).items():
+            domain_rows = summary[summary["専門分野"] == domain].sort_values("委員数", ascending=False)
+            top_cases = "、".join(domain_rows.head(2)["事例"].astype(str).tolist()) or "-"
+            resources = EXPERTISE_RESOURCES.get(domain)
+            if not resources:
+                resources = DEFAULT_KEYWORD_RESOURCES
+            st.markdown(
+                f"- **{domain}** — 交点 {int(count)}件 / 注目事例: {top_cases if top_cases else '-'}"
+            )
+            for resource in resources:
+                st.markdown(
+                    f"    - [{resource['label']}]({resource['url']})",
+                )
+
+    st.caption("データソース: 学習用に整理した令和7年度の委員公開情報 (試作)。")
 
 
 def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
