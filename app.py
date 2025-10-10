@@ -4782,32 +4782,10 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             icon="💡",
         )
 
-    year_options = sorted(df["年度"].dropna().unique(), key=lambda x: str(x))
-    if not year_options:
-        st.warning("年度の値が見つかりませんでした。")
-        return
-    selected_year = st.selectbox("年度を選択", year_options, format_func=lambda x: str(x))
+    contexts = dict(st.session_state.get("uploaded_case_contexts", {}))
+    question_texts = dict(st.session_state.get("uploaded_question_texts", {}))
 
-    case_options = sorted(
-        df[df["年度"] == selected_year]["事例"].dropna().unique(),
-        key=lambda x: str(x),
-    )
-    if not case_options:
-        st.warning("選択した年度の事例が見つかりませんでした。")
-        return
-    selected_case = st.selectbox("事例を選択", case_options)
-
-    subset = (
-        df[(df["年度"] == selected_year) & (df["事例"] == selected_case)]
-        .copy()
-        .sort_values("設問番号")
-    )
-
-    if subset.empty:
-        st.info("該当する設問がありません。")
-        return
-
-    normalized_columns = {str(col).lower(): col for col in subset.columns}
+    normalized_columns = {str(col).lower(): col for col in df.columns}
     video_col = None
     diagram_col = None
     diagram_caption_col = None
@@ -4819,94 +4797,400 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         elif key in {"図解キャプション", "diagram_caption"}:
             diagram_caption_col = col
 
-    for _, row in subset.iterrows():
-        raw_score = row.get("配点")
-        if pd.notna(raw_score):
-            if isinstance(raw_score, (int, float)) and float(raw_score).is_integer():
-                score_display = int(raw_score)
-            else:
-                score_display = raw_score
-        else:
-            score_display = "-"
-        st.subheader(f"第{row['設問番号']}問 ({score_display}点)")
-        prompt_line = str(row.get("設問見出し") or str(row["問題文"]).splitlines()[0]).strip()
-        overview_question = {
-            "order": row["設問番号"],
-            "prompt": prompt_line,
-            "character_limit": row.get("制限字数"),
-            "max_score": row.get("配点"),
-            "aim": str(row.get("問題文")).split("\n\n")[0],
-        }
-        _render_question_overview_card(
-            overview_question,
-            case_label=selected_case,
-            source_label=f"{selected_year} {selected_case}",
-        )
-        context_candidates = [
-            row.get("与件文"),
-            row.get("与件"),
-            row.get("context"),
-            row.get("context_text"),
-        ]
-        for candidate in context_candidates:
-            normalized_context = _normalize_text_block(candidate)
-            if normalized_context:
-                _render_question_context_block(normalized_context)
-                break
-        st.markdown("**問題文**")
-        st.write(row["問題文"])
-        limit_value = row.get("制限字数")
-        if pd.notna(limit_value):
-            max_chars = int(limit_value)
-        else:
-            max_chars = 60 if pd.notna(row["配点"]) and row["配点"] <= 25 else 80
-        answer_key = f"uploaded_answer_{selected_year}_{selected_case}_{row['設問番号']}"
-        user_answer = st.text_area("回答を入力", key=answer_key)
-        _render_character_counter(user_answer, max_chars)
-        if pd.notna(limit_value):
-            with st.expander("文字数スライサー"):
-                slider_key = f"extract_{selected_year}_{selected_case}_{row['設問番号']}"
-                limit_int = int(limit_value)
-                slider_min = min(20, limit_int)
-                slider_step = max(1, min(5, limit_int))
-                extract_count = st.slider(
-                    "指定字数で抜き出し",
-                    min_value=slider_min,
-                    max_value=limit_int,
-                    value=limit_int,
-                    step=slider_step,
-                    key=slider_key,
+    def _display_numeric(value: Any) -> str:
+        if value is None:
+            return "-"
+        try:
+            if pd.isna(value):
+                return "-"
+        except TypeError:
+            pass
+        if isinstance(value, (int, float)):
+            if isinstance(value, float) and float(value).is_integer():
+                return str(int(value))
+            return str(value)
+        text = str(value).strip()
+        return text or "-"
+
+    def _has_value(value: Any) -> bool:
+        if value is None:
+            return False
+        try:
+            if pd.isna(value):
+                return False
+        except TypeError:
+            pass
+        if isinstance(value, str) and not value.strip():
+            return False
+        return True
+
+    def _extract_keywords(value: Any) -> List[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            parts = re.split(r"[、,;\n]", value)
+            return [part.strip() for part in parts if part.strip()]
+        if isinstance(value, Iterable):
+            return [str(item).strip() for item in value if str(item).strip()]
+        return []
+
+    records: List[Dict[str, Any]] = []
+    for row_order, (row_index, row) in enumerate(df.iterrows()):
+        year_value = _normalize_text_block(row.get("年度"))
+        case_raw = _normalize_text_block(row.get("事例"))
+        if not year_value or not case_raw:
+            continue
+        year_label = _format_reiwa_label(str(year_value))
+        case_label = _normalize_case_label(case_raw) or str(case_raw)
+        record = dict(row)
+        record["_option_key"] = f"{case_label}::{year_label}::{row_index}"
+        record["_row_order"] = row_order
+        record["_year_label"] = year_label
+        record["_year_display"] = year_value
+        record["_case_label"] = case_label
+        normalized_number = _normalize_question_number(row.get("設問番号"))
+        record["_normalized_question_number"] = normalized_number
+        if normalized_number is not None:
+            slot_key = _compose_slot_key(year_label, case_label, int(normalized_number))
+            override_text = question_texts.get(slot_key)
+            normalized_override = _normalize_text_block(override_text)
+            if normalized_override:
+                record["問題文"] = normalized_override
+        if contexts:
+            context_key = _compose_case_key(year_label, case_label)
+            context_override = _normalize_text_block(contexts.get(context_key))
+            if context_override and not any(
+                _normalize_text_block(record.get(col)) for col in optional_context_cols
+            ):
+                record["与件文"] = context_override
+        records.append(record)
+
+    if not records:
+        st.warning("年度または事例が不足しているため、ナビゲーションを生成できません。アップロードデータを確認してください。")
+        return
+
+    case_map: Dict[str, Dict[str, List[str]]] = defaultdict(lambda: defaultdict(list))
+    question_lookup: Dict[str, Dict[str, Any]] = {}
+    for record in records:
+        option_key = record["_option_key"]
+        case_map[record["_case_label"]][record["_year_label"]].append(option_key)
+        question_lookup[option_key] = record
+
+    for case_label, years in case_map.items():
+        for year_label, option_keys in years.items():
+            option_keys.sort(
+                key=lambda key: (
+                    1 if question_lookup[key].get("_normalized_question_number") is None else 0,
+                    question_lookup[key].get("_normalized_question_number")
+                    if question_lookup[key].get("_normalized_question_number") is not None
+                    else question_lookup[key].get("_row_order", 0),
+                    question_lookup[key].get("_row_order", 0),
                 )
-                excerpt = str(row["問題文"])[: extract_count]
-                st.code(excerpt, language="markdown")
-        with st.expander("MECE/因果スキャナ", expanded=bool(user_answer.strip())):
-            _render_mece_causal_scanner(user_answer)
-        detailed_explanation = _normalize_text_block(row.get("詳細解説"))
-        expander_label = "模範解答／解説を見る"
-        if detailed_explanation:
-            expander_label += "（詳細あり）"
-        with st.expander(expander_label):
-            video_url = None
-            diagram_path = None
-            diagram_caption = None
-            if video_col and pd.notna(row.get(video_col)):
-                video_url = str(row[video_col])
-            if diagram_col and pd.notna(row.get(diagram_col)):
-                diagram_path = str(row[diagram_col])
-            if diagram_caption_col and pd.notna(row.get(diagram_caption_col)):
-                diagram_caption = str(row[diagram_caption_col])
-            _render_model_answer_section(
-                model_answer=row["模範解答"],
-                explanation=row["解説"],
-                video_url=video_url,
-                diagram_path=diagram_path,
-                diagram_caption=diagram_caption,
-                context_id=f"uploaded-{selected_year}-{selected_case}-{row['設問番号']}",
-                year=selected_year,
-                case_label=selected_case,
-                question_number=_normalize_question_number(row.get("設問番号")),
-                detailed_explanation=detailed_explanation,
             )
+
+    def _case_sort_key(label: str) -> Tuple[int, str]:
+        return (
+            CASE_ORDER.index(label) if label in CASE_ORDER else len(CASE_ORDER),
+            label,
+        )
+
+    case_options = sorted(case_map.keys(), key=_case_sort_key)
+    if not case_options:
+        st.warning("事例の情報が見つかりませんでした。")
+        return
+
+    tree_col, insight_col = st.columns([0.42, 0.58], gap="large")
+    selected_case: Optional[str] = None
+    selected_year: Optional[str] = None
+    selected_question_key: Optional[str] = None
+    selected_question: Optional[Dict[str, Any]] = None
+
+    question_body_text: str = ""
+
+    with tree_col:
+        st.markdown('<div class="practice-tree">', unsafe_allow_html=True)
+        st.markdown("#### 出題ナビゲーション")
+        st.caption("事例→年度→設問の順にクリックすると、右側に要点が即時表示されます。")
+
+        case_key = "uploaded_tree_case"
+        if case_key not in st.session_state or st.session_state[case_key] not in case_options:
+            st.session_state[case_key] = case_options[0]
+        selected_case = st.radio(
+            "事例I〜IV",
+            case_options,
+            key=case_key,
+            label_visibility="collapsed",
+        )
+
+        year_options = sorted(
+            case_map[selected_case].keys(),
+            key=_year_sort_key,
+            reverse=True,
+        )
+        if not year_options:
+            st.warning("選択した事例の年度が見つかりませんでした。", icon="⚠️")
+        else:
+            year_key = f"uploaded_tree_year::{selected_case}"
+            if year_key not in st.session_state or st.session_state[year_key] not in year_options:
+                st.session_state[year_key] = year_options[0]
+            selected_year = st.radio(
+                "↳ 年度 (R6/R5/R4…)",
+                year_options,
+                key=year_key,
+                format_func=_format_reiwa_label,
+                label_visibility="collapsed",
+            )
+
+            question_keys = case_map[selected_case][selected_year]
+
+            def _format_question_option(option_key: str) -> str:
+                data = question_lookup.get(option_key, {})
+                number = data.get("_normalized_question_number")
+                if number is not None:
+                    try:
+                        return f"設問{int(number)}"
+                    except (TypeError, ValueError):
+                        return f"設問{number}"
+                raw_number = _normalize_text_block(data.get("設問番号"))
+                return f"設問{raw_number}" if raw_number else "設問"
+
+            question_key = f"uploaded_tree_question::{selected_case}::{selected_year}"
+            if question_keys:
+                if (
+                    question_key not in st.session_state
+                    or st.session_state[question_key] not in question_keys
+                ):
+                    st.session_state[question_key] = question_keys[0]
+                selected_question_key = st.radio(
+                    "↳ 設問1〜",
+                    question_keys,
+                    key=question_key,
+                    format_func=_format_question_option,
+                    label_visibility="collapsed",
+                )
+                selected_question = question_lookup.get(selected_question_key)
+                if selected_question:
+                    raw_question_text = selected_question.get("問題文")
+                    normalized_text = _normalize_text_block(raw_question_text)
+                    if normalized_text:
+                        question_body_text = normalized_text
+                    else:
+                        try:
+                            if pd.isna(raw_question_text):
+                                question_body_text = ""
+                            else:
+                                question_body_text = str(raw_question_text) if raw_question_text is not None else ""
+                        except TypeError:
+                            question_body_text = str(raw_question_text) if raw_question_text is not None else ""
+            else:
+                st.info("この年度の設問データが見つかりません。設定ページを確認してください。", icon="ℹ️")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with insight_col:
+        st.markdown("#### 設問インサイト")
+        if selected_case and selected_year:
+            st.markdown(f"**{selected_case} / {_format_reiwa_label(selected_year)}**")
+        if selected_question:
+            prompt_line = _normalize_text_block(
+                selected_question.get("設問見出し")
+            ) or (question_body_text.splitlines()[0] if question_body_text else "")
+            limit_value_normalized = _normalize_question_number(selected_question.get("制限字数"))
+            insight_question = {
+                "prompt": prompt_line,
+                "設問文": question_body_text,
+                "character_limit": limit_value_normalized,
+                "max_score": selected_question.get("配点"),
+                "explanation": selected_question.get("解説"),
+                "keywords": _extract_keywords(
+                    selected_question.get("キーワード") or selected_question.get("keywords")
+                ),
+            }
+            question_label = _format_question_option(selected_question_key) if selected_question_key else "設問"
+            st.markdown(f"**{question_label}：{prompt_line}**")
+            full_question_text = question_body_text
+            if full_question_text:
+                st.markdown("##### 設問文")
+                st.write(full_question_text)
+            st.markdown("##### 設問の狙い")
+            st.write(_infer_question_aim(insight_question))
+            st.markdown("##### 必要アウトプット形式")
+            st.write(_describe_output_requirements(insight_question))
+            st.markdown("##### 定番解法プロンプト")
+            st.write(_suggest_solution_prompt(insight_question))
+        else:
+            st.caption("設問を選択すると狙いや解法テンプレートを表示します。")
+
+    if not (selected_case and selected_year and selected_question):
+        st.info("出題ナビゲーションから設問を選択すると詳細が表示されます。")
+        return
+
+    subset_keys = case_map[selected_case][selected_year]
+    include_limit = any(
+        _has_value(question_lookup[key].get("制限字数")) for key in subset_keys
+    )
+    include_keywords = any(
+        _extract_keywords(
+            question_lookup[key].get("キーワード") or question_lookup[key].get("keywords")
+        )
+        for key in subset_keys
+    )
+    overview_rows = []
+    for key in subset_keys:
+        data = question_lookup[key]
+        number_label = _normalize_text_block(data.get("設問番号"))
+        normalized_number = data.get("_normalized_question_number")
+        if normalized_number is not None:
+            number_label = str(int(normalized_number))
+        overview_row = {
+            "設問": number_label or "-",
+            "配点": _display_numeric(data.get("配点")),
+        }
+        if include_limit:
+            overview_row["制限字数"] = _display_numeric(data.get("制限字数"))
+        if include_keywords:
+            keywords = _extract_keywords(
+                data.get("キーワード") or data.get("keywords")
+            )
+            overview_row["キーワード"] = "、".join(keywords) if keywords else "-"
+        overview_rows.append(overview_row)
+
+    if overview_rows:
+        overview_df = pd.DataFrame(overview_rows)
+        column_config: Dict[str, Any] = {}
+        if "キーワード" in overview_df.columns:
+            column_config["キーワード"] = st.column_config.TextColumn(help="採点で評価される重要ポイント")
+        if "制限字数" in overview_df.columns:
+            column_config["制限字数"] = st.column_config.TextColumn(help="設問に指定された文字数上限")
+        st.data_editor(
+            overview_df,
+            hide_index=True,
+            use_container_width=True,
+            disabled=True,
+            column_config=column_config,
+        )
+        st.caption("選択した年度・事例の設問一覧です。配点や制限字数を確認しましょう。")
+
+    question_number = selected_question.get("_normalized_question_number")
+    question_heading = (
+        f"第{int(question_number)}問" if isinstance(question_number, (int, float)) else None
+    )
+    if not question_heading:
+        raw_number_label = _normalize_text_block(selected_question.get("設問番号"))
+        question_heading = f"設問{raw_number_label}" if raw_number_label else "設問"
+
+    raw_score = selected_question.get("配点")
+    score_display = _display_numeric(raw_score)
+    st.subheader(f"{question_heading} ({score_display}点)")
+
+    prompt_line = _normalize_text_block(selected_question.get("設問見出し")) or (
+        question_body_text.splitlines()[0] if question_body_text else ""
+    )
+    limit_value_raw = selected_question.get("制限字数")
+    limit_int: Optional[int] = _normalize_question_number(limit_value_raw)
+    if limit_int is None and limit_value_raw is not None:
+        try:
+            if not pd.isna(limit_value_raw):
+                limit_int = int(float(limit_value_raw))
+        except (TypeError, ValueError):
+            limit_int = None
+
+    overview_question = {
+        "order": question_number or selected_question.get("設問番号"),
+        "prompt": prompt_line,
+        "character_limit": limit_int,
+        "max_score": raw_score,
+        "aim": question_body_text.split("\n\n")[0] if question_body_text else "",
+    }
+    _render_question_overview_card(
+        overview_question,
+        case_label=selected_case,
+        source_label=f"{selected_year} {selected_case}",
+    )
+
+    context_candidates = [
+        selected_question.get("与件文"),
+        selected_question.get("与件"),
+        selected_question.get("context"),
+        selected_question.get("context_text"),
+    ]
+    for candidate in context_candidates:
+        normalized_context = _normalize_text_block(candidate)
+        if normalized_context:
+            _render_question_context_block(normalized_context)
+            break
+
+    st.markdown("**問題文**")
+    st.write(question_body_text)
+
+    if limit_int is not None:
+        max_chars = limit_int
+    else:
+        score_numeric = None
+        try:
+            if pd.notna(raw_score):
+                score_numeric = float(raw_score)
+        except (TypeError, ValueError):
+            score_numeric = None
+        if score_numeric is not None and score_numeric <= 25:
+            max_chars = 60
+        else:
+            max_chars = 80
+
+    answer_fragment = (
+        _normalize_text_block(selected_question.get("設問番号"))
+        or (str(question_number) if question_number is not None else selected_question_key)
+    )
+    answer_key = f"uploaded_answer_{selected_year}_{selected_case}_{answer_fragment}"
+    user_answer = st.text_area("回答を入力", key=answer_key)
+    _render_character_counter(user_answer, max_chars)
+
+    if limit_int is not None:
+        with st.expander("文字数スライサー"):
+            slider_key = f"extract_{selected_year}_{selected_case}_{answer_fragment}"
+            slider_min = min(20, limit_int)
+            slider_step = max(1, min(5, limit_int))
+            extract_count = st.slider(
+                "指定字数で抜き出し",
+                min_value=slider_min,
+                max_value=limit_int,
+                value=limit_int,
+                step=slider_step,
+                key=slider_key,
+            )
+            excerpt = (question_body_text or "")[: extract_count]
+            st.code(excerpt, language="markdown")
+
+    with st.expander("MECE/因果スキャナ", expanded=bool(user_answer.strip())):
+        _render_mece_causal_scanner(user_answer)
+
+    detailed_explanation = _normalize_text_block(selected_question.get("詳細解説"))
+    expander_label = "模範解答／解説を見る"
+    if detailed_explanation:
+        expander_label += "（詳細あり）"
+
+    with st.expander(expander_label):
+        video_url = None
+        diagram_path = None
+        diagram_caption = None
+        if video_col and pd.notna(selected_question.get(video_col)):
+            video_url = str(selected_question.get(video_col))
+        if diagram_col and pd.notna(selected_question.get(diagram_col)):
+            diagram_path = str(selected_question.get(diagram_col))
+        if diagram_caption_col and pd.notna(selected_question.get(diagram_caption_col)):
+            diagram_caption = str(selected_question.get(diagram_caption_col))
+        _render_model_answer_section(
+            model_answer=selected_question.get("模範解答"),
+            explanation=selected_question.get("解説"),
+            video_url=video_url,
+            diagram_path=diagram_path,
+            diagram_caption=diagram_caption,
+            context_id=f"uploaded-{selected_year}-{selected_case}-{answer_fragment}",
+            year=selected_year,
+            case_label=selected_case,
+            question_number=_normalize_question_number(selected_question.get("設問番号")),
+            detailed_explanation=detailed_explanation,
+        )
 
 
 def _load_tabular_frame(file_bytes: bytes, filename: str) -> pd.DataFrame:
