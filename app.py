@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from collections import defaultdict
 import copy
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
@@ -8,52 +7,37 @@ from textwrap import dedent
 from typing import Any, Dict, Iterable, List, Optional, Pattern, Set, Tuple
 from uuid import uuid4
 import logging
-
 import html
 import io
 import json
-
 import math
-
 import random
-
 import re
-
 import uuid
-
 import unicodedata
-
 import zipfile
-
 import altair as alt
 import pandas as pd
 import pdfplumber
 import streamlit as st
 import streamlit.components.v1 as components
-
-
 st.set_page_config(
     page_title="中小企業診断士二次試験ナビゲーション",
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
 import committee_analysis
 import database
 import mock_exam
 import scoring
 from database import RecordedAnswer
 from scoring import QuestionSpec
-
-
 MOCK_NOTICE_ITEMS = [
     "試験時間は80分です。開始と同時に計測し、終了合図とともに筆記を止めてください。",
     "机上に置けるのは HB〜2B 鉛筆・シャープペンシル、消しゴム、時計のみです。電子機器は使用禁止です。",
     "解答用紙の氏名・受験番号を最初に記入し、問題冊子・答案の持ち出しは禁止されています。",
     "途中退室は認められません。監督員の指示に従い、終了後は静かに退室してください。",
 ]
-
-
 DEFAULT_KEYWORD_RESOURCES = [
     {
         "label": "中小企業診断協会: 2次試験過去問題", 
@@ -64,8 +48,6 @@ DEFAULT_KEYWORD_RESOURCES = [
         "url": "https://www.smeca.jp/consultant/exam/keyword.html",
     },
 ]
-
-
 KEYWORD_RESOURCE_MAP = {
     "製造技術": [
         {
@@ -146,11 +128,7 @@ KEYWORD_RESOURCE_MAP = {
         },
     ],
 }
-
-
 CASE_ORDER = ["事例I", "事例II", "事例III", "事例IV"]
-
-
 CASEIII_TIMELINE = [
     {
         "year": "R6",
@@ -171,8 +149,6 @@ CASEIII_TIMELINE = [
         "source": "https://www.j-smeca.or.jp/contents/0105007000_R4_case3.pdf",
     },
 ]
-
-
 CASE_FRAME_SHORTCUTS = {
     "事例I": [
         {
@@ -233,8 +209,6 @@ CASE_FRAME_SHORTCUTS = {
         }
     ],
 }
-
-
 PAST_EXAM_TEMPLATE_PATH = Path(__file__).resolve().parent / "data" / "past_exam_template.csv"
 CASE_CONTEXT_TEMPLATE_PATH = Path(__file__).resolve().parent / "data" / "case_context_template.csv"
 QUESTION_TEXT_TEMPLATE_PATH = (
@@ -246,7 +220,6 @@ EXAM_COMMITTEE_PROFILES_JSON_PATH = (
     Path(__file__).resolve().parent / "data" / "exam_committee_profiles.json"
 )
 SEED_PROBLEMS_JSON_PATH = Path(__file__).resolve().parent / "data" / "seed_problems.json"
-
 TEMPLATE_BUNDLE_FILES = [
     ("past_exam_template.csv", PAST_EXAM_TEMPLATE_PATH),
     ("case_context_template.csv", CASE_CONTEXT_TEMPLATE_PATH),
@@ -256,8 +229,6 @@ TEMPLATE_BUNDLE_FILES = [
     ("exam_committee_profiles.json", EXAM_COMMITTEE_PROFILES_JSON_PATH),
     ("seed_problems.json", SEED_PROBLEMS_JSON_PATH),
 ]
-
-
 @st.cache_data(show_spinner=False)
 def _load_exam_templates() -> List[Dict[str, Any]]:
     template_path = Path("data/exam_templates.json")
@@ -267,50 +238,36 @@ def _load_exam_templates() -> List[Dict[str, Any]]:
         return json.loads(template_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return []
-
-
 @st.cache_data(show_spinner=False)
 def _load_past_exam_template_bytes() -> bytes:
     if not PAST_EXAM_TEMPLATE_PATH.exists():
         raise FileNotFoundError("past_exam_template.csv not found")
     return PAST_EXAM_TEMPLATE_PATH.read_bytes()
-
-
 @st.cache_data(show_spinner=False)
 def _load_past_exam_template_preview() -> pd.DataFrame:
     if not PAST_EXAM_TEMPLATE_PATH.exists():
         raise FileNotFoundError("past_exam_template.csv not found")
     return pd.read_csv(PAST_EXAM_TEMPLATE_PATH)
-
-
 @st.cache_data(show_spinner=False)
 def _load_case_context_template_bytes() -> bytes:
     if not CASE_CONTEXT_TEMPLATE_PATH.exists():
         raise FileNotFoundError("case_context_template.csv not found")
     return CASE_CONTEXT_TEMPLATE_PATH.read_bytes()
-
-
 @st.cache_data(show_spinner=False)
 def _load_case_context_template_preview() -> pd.DataFrame:
     if not CASE_CONTEXT_TEMPLATE_PATH.exists():
         raise FileNotFoundError("case_context_template.csv not found")
     return pd.read_csv(CASE_CONTEXT_TEMPLATE_PATH)
-
-
 @st.cache_data(show_spinner=False)
 def _load_question_text_template_bytes() -> bytes:
     if not QUESTION_TEXT_TEMPLATE_PATH.exists():
         raise FileNotFoundError("question_text_template.csv not found")
     return QUESTION_TEXT_TEMPLATE_PATH.read_bytes()
-
-
 @st.cache_data(show_spinner=False)
 def _load_question_text_template_preview() -> pd.DataFrame:
     if not QUESTION_TEXT_TEMPLATE_PATH.exists():
         raise FileNotFoundError("question_text_template.csv not found")
     return pd.read_csv(QUESTION_TEXT_TEMPLATE_PATH)
-
-
 @st.cache_data(show_spinner=False)
 def _load_template_bundle_bytes() -> bytes:
     missing_files = [
@@ -319,16 +276,12 @@ def _load_template_bundle_bytes() -> bytes:
     if missing_files:
         joined = ", ".join(missing_files)
         raise FileNotFoundError(f"Missing template files: {joined}")
-
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
         for archive_name, source_path in TEMPLATE_BUNDLE_FILES:
             zip_file.writestr(archive_name, source_path.read_bytes())
-
     buffer.seek(0)
     return buffer.getvalue()
-
-
 def _normalize_case_label(raw: Optional[str]) -> Optional[str]:
     if not raw:
         return None
@@ -351,8 +304,6 @@ def _normalize_case_label(raw: Optional[str]) -> Optional[str]:
     if match:
         return mapping.get(match.group(1), f"事例{match.group(1)}")
     return raw
-
-
 def _japanese_numeral_to_int(token: str) -> Optional[int]:
     if not token:
         return None
@@ -373,8 +324,6 @@ def _japanese_numeral_to_int(token: str) -> Optional[int]:
         else:
             total += value
     return total if total else None
-
-
 def _extract_question_blocks(text: str) -> List[Tuple[int, str]]:
     if not text:
         return []
@@ -390,8 +339,6 @@ def _extract_question_blocks(text: str) -> List[Tuple[int, str]]:
         block = text[start:end].strip()
         blocks.append((order, block))
     return blocks
-
-
 def _extract_questions_from_text(
     text: str,
     *,
@@ -400,17 +347,14 @@ def _extract_questions_from_text(
 ) -> List[Dict[str, Any]]:
     if not text:
         return []
-
     year_match = re.search(r"令和\s*([0-9０-９]+)年度?", text)
     if year_match:
         digits = year_match.group(1).translate(str.maketrans("０１２３４５６７８９", "0123456789"))
         year_label = f"令和{digits}年"
     else:
         year_label = default_year
-
     case_match = re.search(r"事例[ⅠⅡⅢⅣIV1234]", text)
     case_label = _normalize_case_label(case_match.group(0) if case_match else default_case)
-
     questions: List[Dict[str, Any]] = []
     for order, block in _extract_question_blocks(text):
         block = block.replace("\u3000", " ").strip()
@@ -419,13 +363,11 @@ def _extract_questions_from_text(
         if limit_match:
             digits = limit_match.group(1).translate(str.maketrans("０１２３４５６７８９", "0123456789"))
             limit = int(digits)
-
         score_match = re.search(r"配点\s*([0-9０-９]{1,2})点", block)
         score = None
         if score_match:
             digits = score_match.group(1).translate(str.maketrans("０１２３４５６７８９", "0123456789"))
             score = int(digits)
-
         headline = block.splitlines()[0].strip() if block.splitlines() else ""
         body = block
         questions.append(
@@ -441,10 +383,7 @@ def _extract_questions_from_text(
                 "解説": "未設定",
             }
         )
-
     return questions
-
-
 def _extract_tables_from_pdf(pages: Iterable[pdfplumber.page.Page]) -> List[pd.DataFrame]:
     tables: List[pd.DataFrame] = []
     for page in pages:
@@ -465,8 +404,6 @@ def _extract_tables_from_pdf(pages: Iterable[pdfplumber.page.Page]) -> List[pd.D
             if not cleaned.empty:
                 tables.append(cleaned)
     return tables
-
-
 def _apply_template_metadata(
     questions: List[Dict[str, Any]],
     templates: Dict[Tuple[str, str], Dict[str, Any]],
@@ -479,7 +416,6 @@ def _apply_template_metadata(
     template = templates.get(key)
     if not template:
         return questions
-
     template_questions = {item.get("number"): item for item in template.get("questions", [])}
     for question in questions:
         template_info = template_questions.get(question.get("設問番号"))
@@ -492,19 +428,15 @@ def _apply_template_metadata(
         if not question.get("設問見出し") and template_info.get("headline"):
             question["設問見出し"] = template_info.get("headline")
     return questions
-
-
 def _auto_parse_exam_document(file_bytes: bytes, filename: str) -> Tuple[pd.DataFrame, List[pd.DataFrame]]:
     name_lower = filename.lower()
     default_year = None
     default_case = None
-
     templates = {
         (item.get("year"), _normalize_case_label(item.get("case"))): item
         for item in _load_exam_templates()
         if item.get("year") and item.get("case")
     }
-
     match = re.search(r"r(\d{1,2})", name_lower)
     if match:
         default_year = f"令和{int(match.group(1))}年"
@@ -516,7 +448,6 @@ def _auto_parse_exam_document(file_bytes: bytes, filename: str) -> Tuple[pd.Data
         default_case = "事例II"
     elif "case1" in name_lower or "jirei1" in name_lower:
         default_case = "事例I"
-
     if name_lower.endswith(".pdf"):
         with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
             text = "\n".join((page.extract_text() or "") for page in pdf.pages)
@@ -530,7 +461,6 @@ def _auto_parse_exam_document(file_bytes: bytes, filename: str) -> Tuple[pd.Data
         normalized_case = _normalize_case_label(questions[0]["事例"]) if questions else default_case
         questions = _apply_template_metadata(questions, templates, normalized_year, normalized_case)
         return pd.DataFrame(questions), tables
-
     buffer = io.BytesIO(file_bytes)
     if name_lower.endswith(".csv"):
         df = pd.read_csv(buffer)
@@ -538,11 +468,9 @@ def _auto_parse_exam_document(file_bytes: bytes, filename: str) -> Tuple[pd.Data
         df = pd.read_excel(buffer)
     else:
         raise ValueError("サポートされていないファイル形式です")
-
     required_cols = {"年度", "事例", "設問番号", "問題文", "配点", "模範解答", "解説"}
     if required_cols.issubset(df.columns):
         return df, []
-
     text_source = "\n".join(
         str(value)
         for value in df.select_dtypes(include=["object", "string"]).fillna("").values.flatten()
@@ -556,16 +484,10 @@ def _auto_parse_exam_document(file_bytes: bytes, filename: str) -> Tuple[pd.Data
     normalized_case = _normalize_case_label(questions[0]["事例"]) if questions else default_case
     questions = _apply_template_metadata(questions, templates, normalized_year, normalized_case)
     return pd.DataFrame(questions), []
-
-
 def _compose_slot_key(year: str, case_label: str, question_number: int) -> str:
     return f"{year}::{case_label}::{question_number}"
-
-
 def _compose_case_key(year: str, case_label: str) -> str:
     return f"{year}::{case_label}"
-
-
 def _normalize_question_number(value: Any) -> Optional[int]:
     if value is None:
         return None
@@ -587,23 +509,17 @@ def _normalize_question_number(value: Any) -> Optional[int]:
         if numeral:
             return numeral
     return None
-
-
 def _select_first(data: Dict[str, Any], keys: Iterable[str]) -> Any:
     for key in keys:
         if key in data and data[key] not in (None, ""):
             return data[key]
     return None
-
-
 def _ensure_text(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, (list, tuple, set)):
         return "\n".join(str(item).strip() for item in value if str(item).strip())
     return str(value).strip()
-
-
 def _normalize_text_block(value: Any) -> Optional[str]:
     if value is None:
         return None
@@ -622,12 +538,9 @@ def _normalize_text_block(value: Any) -> Optional[str]:
     if lowered in {"nan", "none"}:
         return None
     return text
-
-
 def _iter_question_context_candidates(question: Dict[str, Any]) -> Iterable[Any]:
     if not question:
         return []
-
     candidates: List[Any] = [
         question.get("context"),
         question.get("context_text"),
@@ -637,7 +550,6 @@ def _iter_question_context_candidates(question: Dict[str, Any]) -> Iterable[Any]
         question.get("与件"),
         question.get("context_body"),
     ]
-
     passages = question.get("context_passages")
     if isinstance(passages, (list, tuple, set)):
         for passage in passages:
@@ -653,14 +565,10 @@ def _iter_question_context_candidates(question: Dict[str, Any]) -> Iterable[Any]
                 candidates.append(passage)
     elif passages is not None:
         candidates.append(passages)
-
     return candidates
-
-
 def _collect_problem_context_text(problem: Dict[str, Any]) -> Optional[str]:
     if not problem:
         return None
-
     direct_keys = (
         "context",
         "context_text",
@@ -691,10 +599,8 @@ def _collect_problem_context_text(problem: Dict[str, Any]) -> Optional[str]:
             normalized = _normalize_text_block(value)
             if normalized:
                 return normalized
-
     fragments: List[str] = []
     seen: Set[str] = set()
-
     for question in problem.get("questions", []):
         for candidate in _iter_question_context_candidates(question):
             normalized = _normalize_text_block(candidate)
@@ -702,13 +608,9 @@ def _collect_problem_context_text(problem: Dict[str, Any]) -> Optional[str]:
                 continue
             seen.add(normalized)
             fragments.append(normalized)
-
     if not fragments:
         return None
-
     return "\n\n".join(fragments)
-
-
 def _coerce_points(value: Any) -> List[str]:
     if value is None:
         return []
@@ -719,8 +621,6 @@ def _coerce_points(value: Any) -> List[str]:
         return []
     candidates = re.split(r"[\n,、]", text)
     return [candidate.strip() for candidate in candidates if candidate.strip()]
-
-
 def _coerce_lecturer_payload(value: Any) -> Dict[str, str]:
     if value is None:
         return {}
@@ -745,8 +645,6 @@ def _coerce_lecturer_payload(value: Any) -> Dict[str, str]:
     if not text:
         return {}
     return {"answer": text}
-
-
 def _coerce_scoring_payload(value: Any) -> Dict[str, Any]:
     if value is None:
         return {}
@@ -774,8 +672,6 @@ def _coerce_scoring_payload(value: Any) -> Dict[str, Any]:
     if text:
         return {"note": text}
     return {}
-
-
 def _parse_model_answer_slots(payload: Any) -> Dict[str, Dict[str, Any]]:
     if isinstance(payload, dict):
         for key in ("entries", "questions", "items", "data", "slots"):
@@ -789,7 +685,6 @@ def _parse_model_answer_slots(payload: Any) -> Dict[str, Dict[str, Any]]:
         entries = payload
     else:
         raise ValueError("JSONは配列または entries/items キーを持つオブジェクトで指定してください。")
-
     results: Dict[str, Dict[str, Any]] = {}
     for entry in entries:
         if not isinstance(entry, dict):
@@ -797,18 +692,14 @@ def _parse_model_answer_slots(payload: Any) -> Dict[str, Dict[str, Any]]:
         year_raw = _select_first(entry, ["year", "年度"])
         case_raw = _select_first(entry, ["case", "case_label", "事例"])
         question_raw = _select_first(entry, ["question", "question_number", "設問", "設問番号"])
-
         year = _ensure_text(year_raw)
         case_label = _normalize_case_label(_ensure_text(case_raw)) if case_raw else None
         question_number = _normalize_question_number(question_raw)
-
         if not year or not case_label or not question_number:
             raise ValueError("年度・事例・設問番号は必須です。値を確認してください。")
-
         lecturer_a_value = _select_first(entry, ["lecturer_a", "teacher_a", "講師A"])
         lecturer_b_value = _select_first(entry, ["lecturer_b", "teacher_b", "講師B"])
         scoring_value = _select_first(entry, ["scoring", "criteria", "score_points", "採点観点"])
-
         slot_entry = {
             "year": year,
             "case_label": case_label,
@@ -819,12 +710,9 @@ def _parse_model_answer_slots(payload: Any) -> Dict[str, Dict[str, Any]]:
         }
         key = _compose_slot_key(year, case_label, question_number)
         results[key] = slot_entry
-
     if not results:
         raise ValueError("登録可能な設問データが見つかりませんでした。")
     return results
-
-
 def _lookup_custom_model_slot(
     year: Optional[str], case_label: Optional[str], question_number: Optional[int]
 ) -> Optional[Dict[str, Any]]:
@@ -833,12 +721,9 @@ def _lookup_custom_model_slot(
     slots: Dict[str, Dict[str, Any]] = st.session_state.get("model_answer_slots", {})
     key = _compose_slot_key(str(year), _normalize_case_label(case_label), int(question_number))
     return slots.get(key)
-
-
 def _render_caseiii_timeline() -> None:
     if not CASEIII_TIMELINE:
         return
-
     if not st.session_state.get("_timeline_styles_injected"):
         st.markdown(
             dedent(
@@ -937,7 +822,6 @@ def _render_caseiii_timeline() -> None:
             unsafe_allow_html=True,
         )
         st.session_state["_timeline_styles_injected"] = True
-
     theme = "dark" if _resolve_question_card_theme() == "dark" else "light"
     items_html = "".join(
         dedent(
@@ -963,8 +847,6 @@ def _render_caseiii_timeline() -> None:
         ),
         unsafe_allow_html=True,
     )
-
-
 EXAM_YEAR_NOTICE = {
     "R5": {
         "time": "80分 / 4設問構成",
@@ -975,8 +857,6 @@ EXAM_YEAR_NOTICE = {
         ],
     },
 }
-
-
 def _format_reiwa_label(year_label: str) -> str:
     if not year_label:
         return ""
@@ -984,8 +864,6 @@ def _format_reiwa_label(year_label: str) -> str:
     if match:
         return f"R{int(match.group(1))}"
     return year_label
-
-
 def _year_sort_key(year_label: str) -> int:
     match = re.search(r"令和(\d+)年", year_label)
     if match:
@@ -994,8 +872,6 @@ def _year_sort_key(year_label: str) -> int:
     if digits:
         return int(digits[0])
     return 0
-
-
 def _resolve_question_insight(question: Dict[str, Any]) -> Optional[str]:
     question = question or {}
     for key in (
@@ -1008,8 +884,6 @@ def _resolve_question_insight(question: Dict[str, Any]) -> Optional[str]:
         if normalized:
             return normalized
     return None
-
-
 def _infer_question_aim(question: Dict[str, Any]) -> str:
     question = question or {}
     custom_aim = (
@@ -1020,14 +894,11 @@ def _infer_question_aim(question: Dict[str, Any]) -> str:
     )
     if custom_aim:
         return str(custom_aim)
-
     explanation = question.get("explanation")
     if explanation:
         return explanation
     prompt = question.get("prompt", "")
     return f"{prompt} の背景意図を整理し、与件の根拠に基づいて答えましょう。"
-
-
 def _describe_output_requirements(question: Dict[str, Any]) -> str:
     question = question or {}
     custom_description = (
@@ -1038,7 +909,6 @@ def _describe_output_requirements(question: Dict[str, Any]) -> str:
     )
     if custom_description:
         return str(custom_description)
-
     limit = question.get("character_limit")
     if not limit:
         return "明確な文字数指定なし。設問要求語に沿って簡潔に記述します。"
@@ -1053,8 +923,6 @@ def _describe_output_requirements(question: Dict[str, Any]) -> str:
     else:
         guidance = "課題→原因→施策の3段構成で、文頭に結論を置きながら補足説明を充実させます。"
     return f"{template['limit']}・{template['score']}。{guidance}"
-
-
 def _suggest_solution_prompt(question: Dict[str, Any]) -> str:
     question = question or {}
     custom_prompt = (
@@ -1065,7 +933,6 @@ def _suggest_solution_prompt(question: Dict[str, Any]) -> str:
     )
     if custom_prompt:
         return str(custom_prompt)
-
     prompt_text = question.get("prompt", "")
     limit = question.get("character_limit") or 0
     if "課題" in prompt_text and "改善" in prompt_text:
@@ -1077,62 +944,42 @@ def _suggest_solution_prompt(question: Dict[str, Any]) -> str:
     if limit >= 120:
         return "MECEで論点分解し、P(課題)→A(原因)→S(施策)→E(効果) の流れで80秒以内に骨子化。"
     return "結論先出し→根拠→効果の黄金パターン。設問要求語を冒頭に置き、与件引用で説得力を高める。"
-
-
 def _problem_data_signature() -> float:
     """Return a signature that changes whenever the problem dataset is updated."""
-
     db_mtime = 0.0
     seed_mtime = 0.0
-
     try:
         db_mtime = database.DB_PATH.stat().st_mtime
     except FileNotFoundError:
         db_mtime = 0.0
-
     try:
         seed_mtime = SEED_PROBLEMS_JSON_PATH.stat().st_mtime
     except FileNotFoundError:
         seed_mtime = 0.0
-
     return db_mtime + seed_mtime
-
-
 @st.cache_data(show_spinner=False)
 def _load_problem_index(signature: float) -> List[Dict[str, Any]]:
     return database.list_problems()
-
-
 @st.cache_data(show_spinner=False)
 def _load_problem_years(signature: float) -> List[str]:
     return database.list_problem_years()
-
-
 @st.cache_data(show_spinner=False)
 def _load_problem_cases(year: str, signature: float) -> List[str]:
     return database.list_problem_cases(year)
-
-
 @st.cache_data(show_spinner=False)
 def _load_problem_detail(problem_id: int, signature: float) -> Optional[Dict[str, Any]]:
     return database.fetch_problem(problem_id)
-
-
 @st.cache_data(show_spinner=False)
 def _load_problem_by_year_case(
     year: str, case_label: str, signature: float
 ) -> Optional[Dict[str, Any]]:
     return database.fetch_problem_by_year_case(year, case_label)
-
-
 def _render_mock_notice_overlay(start_time: datetime, total_minutes: int = 80) -> None:
     if not start_time:
         return
-
     start_iso = start_time.strftime("%Y-%m-%dT%H:%M:%SZ")
     notice_items = "".join(f"<li>{html.escape(item)}</li>" for item in MOCK_NOTICE_ITEMS)
     total_seconds = total_minutes * 60
-
     style_css = dedent(
         """
         .mock-overlay {
@@ -1197,7 +1044,6 @@ def _render_mock_notice_overlay(start_time: datetime, total_minutes: int = 80) -
         }
         """
     ).strip()
-
     overlay_body = dedent(
         f"""
         <h4>本番モード</h4>
@@ -1209,7 +1055,6 @@ def _render_mock_notice_overlay(start_time: datetime, total_minutes: int = 80) -
         <small>注意書きはページ上部の切替で隠すことができます。</small>
         """
     ).strip()
-
     overlay_html = dedent(
         f"""
         <script>
@@ -1222,7 +1067,6 @@ def _render_mock_notice_overlay(start_time: datetime, total_minutes: int = 80) -
                     style.textContent = {json.dumps(style_css)};
                     parentDoc.head.appendChild(style);
                 }}
-
                 let overlay = parentDoc.getElementById('mock-overlay');
                 if (!overlay) {{
                     overlay = parentDoc.createElement('div');
@@ -1232,13 +1076,10 @@ def _render_mock_notice_overlay(start_time: datetime, total_minutes: int = 80) -
                     overlay.setAttribute('aria-live', 'polite');
                     parentDoc.body.appendChild(overlay);
                 }}
-
                 overlay.innerHTML = {json.dumps(overlay_body)};
-
                 const timerEl = overlay.querySelector('[data-timer]');
                 const totalSeconds = {total_seconds};
                 const start = new Date('{start_iso}Z');
-
                 function updateTimer() {{
                     const now = new Date();
                     const elapsed = Math.floor((now.getTime() - start.getTime()) / 1000);
@@ -1246,7 +1087,6 @@ def _render_mock_notice_overlay(start_time: datetime, total_minutes: int = 80) -
                     const minutes = String(Math.floor(remaining / 60)).padStart(2, '0');
                     const seconds = String(remaining % 60).padStart(2, '0');
                     timerEl.textContent = minutes + ':' + seconds;
-
                     let state = 'normal';
                     if (remaining === 0) {{
                         state = 'end';
@@ -1257,7 +1097,6 @@ def _render_mock_notice_overlay(start_time: datetime, total_minutes: int = 80) -
                     }}
                     overlay.dataset.state = state;
                 }}
-
                 updateTimer();
                 parentWin.clearInterval(parentWin.__mockOverlayTimer);
                 parentWin.__mockOverlayTimer = parentWin.setInterval(updateTimer, 1000);
@@ -1265,10 +1104,7 @@ def _render_mock_notice_overlay(start_time: datetime, total_minutes: int = 80) -
         </script>
         """
     ).strip()
-
     components.html(overlay_html, height=0, width=0)
-
-
 def _remove_mock_notice_overlay() -> None:
     cleanup_script = dedent(
         """
@@ -1292,10 +1128,7 @@ def _remove_mock_notice_overlay() -> None:
         </script>
         """
     ).strip()
-
     components.html(cleanup_script, height=0, width=0)
-
-
 def _init_session_state() -> None:
     if "user" not in st.session_state:
         guest = database.get_or_create_guest_user()
@@ -1321,16 +1154,11 @@ def _init_session_state() -> None:
     st.session_state.setdefault("_timeline_styles_injected", False)
     st.session_state.setdefault("_practice_question_styles_injected", False)
     st.session_state.setdefault("model_answer_slots", {})
-
-
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
     return f"guideline_visible::{problem_id}::{question_id}"
-
-
 def _inject_guideline_styles() -> None:
     if st.session_state.get("_guideline_styles_injected"):
         return
-
     st.markdown(
         """
         <style>
@@ -1407,12 +1235,9 @@ def _inject_guideline_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_guideline_styles_injected"] = True
-
-
 def _inject_practice_question_styles() -> None:
     if st.session_state.get("_practice_question_styles_injected"):
         return
-
     st.markdown(
         dedent(
             """
@@ -1591,19 +1416,14 @@ def _inject_practice_question_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_practice_question_styles_injected"] = True
-
-
 def _practice_tone_for_index(index: Optional[int]) -> str:
     palette = ["mizu", "sakura", "matcha", "lavender", "citrus"]
     if not index:
         return palette[0]
     return palette[(int(index) - 1) % len(palette)]
-
-
 def _inject_intent_card_styles() -> None:
     if st.session_state.get("_intent_card_styles_injected"):
         return
-
     st.markdown(
         dedent(
             """
@@ -1718,26 +1538,19 @@ def _inject_intent_card_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_intent_card_styles_injected"] = True
-
-
 def _compact_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
-
-
 def _format_preview_text(text: str, max_length: int = 72) -> str:
     compact = _compact_text(text)
     if len(compact) <= max_length:
         return compact
     return compact[: max_length - 1].rstrip(" 、。.,;・") + "…"
-
-
 def _insert_template_snippet(
     draft_key: str, textarea_state_key: str, snippet: str
 ) -> None:
     snippet = snippet.strip()
     if not snippet:
         return
-
     current_text = st.session_state.drafts.get(draft_key, "").rstrip()
     if current_text:
         if not current_text.endswith(("。", "！", "？", "\n")):
@@ -1745,11 +1558,8 @@ def _insert_template_snippet(
         new_text = f"{current_text}\n{snippet}"
     else:
         new_text = snippet
-
     st.session_state.drafts[draft_key] = new_text
     st.session_state[textarea_state_key] = new_text
-
-
 def _resolve_question_card_theme() -> str:
     theme = st.session_state.get("ui_theme", "システム設定に合わせる")
     if theme == "ダークモード":
@@ -1757,12 +1567,9 @@ def _resolve_question_card_theme() -> str:
     if theme == "ライトモード":
         return "light"
     return "auto"
-
-
 def _inject_question_card_styles() -> None:
     if st.session_state.get("_question_card_styles_injected"):
         return
-
     st.markdown(
         dedent(
             """
@@ -1858,12 +1665,9 @@ def _inject_question_card_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_question_card_styles_injected"] = True
-
-
 def _inject_question_insight_styles() -> None:
     if st.session_state.get("_question_insight_styles_injected"):
         return
-
     st.markdown(
         dedent(
             """
@@ -1915,12 +1719,9 @@ def _inject_question_insight_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_question_insight_styles_injected"] = True
-
-
 def _render_question_insight_block(text: str) -> None:
     if not text:
         return
-
     _inject_question_insight_styles()
     insight_html = html.escape(text).replace("\n", "<br />")
     st.markdown(
@@ -1937,12 +1738,9 @@ def _render_question_insight_block(text: str) -> None:
         ),
         unsafe_allow_html=True,
     )
-
-
 def _inject_context_highlight_styles() -> None:
     if st.session_state.get("_context_highlight_styles_injected"):
         return
-
     st.markdown(
         dedent(
             """
@@ -1988,12 +1786,9 @@ def _inject_context_highlight_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_context_highlight_styles_injected"] = True
-
-
 def _inject_context_column_styles() -> None:
     if st.session_state.get("_context_panel_styles_injected_v3"):
         return
-
     st.markdown(
         dedent(
             """
@@ -2235,8 +2030,6 @@ def _inject_context_column_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_context_panel_styles_injected_v3"] = True
-
-
 def _inject_context_panel_behavior() -> None:
     st.markdown(
         dedent(
@@ -2251,18 +2044,15 @@ def _inject_context_panel_behavior() -> None:
                     const mainColumn = doc.querySelector('.practice-main-column');
                     const triggers = Array.from(doc.querySelectorAll('.context-panel-trigger'));
                     let lastTrigger = null;
-
                     if (panel && !panel.hasAttribute('aria-hidden')) {
                         panel.setAttribute('aria-hidden', 'true');
                     }
-
                     const getPanelOffset = () => {
                         const rootStyles = window.getComputedStyle(doc.documentElement);
                         const rawOffset = rootStyles.getPropertyValue('--context-panel-offset');
                         const parsed = parseFloat(rawOffset);
                         return Number.isFinite(parsed) ? parsed : 72;
                     };
-
                     const updateScrollbarCompensation = () => {
                         if (!panel || !scrollArea) {
                             return;
@@ -2276,7 +2066,6 @@ def _inject_context_panel_behavior() -> None:
                             `${scrollbarWidth}px`
                         );
                     };
-
                     const syncColumnMinHeight = (mq) => {
                         if (!column) {
                             return;
@@ -2301,13 +2090,11 @@ def _inject_context_panel_behavior() -> None:
                             );
                         }
                     };
-
                     const setAriaExpanded = (open) => {
                         triggers.forEach((button) => {
                             button.setAttribute('aria-expanded', open ? 'true' : 'false');
                         });
                     };
-
                     const setOpen = (open, options = {}) => {
                         const {
                             suppressFocus = false,
@@ -2315,32 +2102,25 @@ def _inject_context_panel_behavior() -> None:
                             trigger = null,
                             returnFocusTo = null,
                         } = options;
-
                         if (!doc.body) {
                             return;
                         }
-
                         if (trigger) {
                             lastTrigger = trigger;
                         }
-
                         doc.body.classList.toggle('context-panel-open', open);
                         setAriaExpanded(open);
-
                         if (panel) {
                             panel.setAttribute('aria-hidden', open ? 'false' : 'true');
                         }
-
                         if (open) {
                             window.requestAnimationFrame(updateScrollbarCompensation);
                         } else {
                             updateScrollbarCompensation();
                         }
-
                         if (open && scrollArea && !suppressFocus) {
                             scrollArea.focus({ preventScroll: false });
                         }
-
                         if (!open && !skipReturnFocus) {
                             const focusTarget = returnFocusTo || lastTrigger || triggers[0];
                             if (focusTarget) {
@@ -2348,15 +2128,12 @@ def _inject_context_panel_behavior() -> None:
                             }
                         }
                     };
-
                     const handleTrigger = (button) => {
                         setOpen(true, { trigger: button });
                     };
-
                     const handleClose = (options = {}) => {
                         setOpen(false, options);
                     };
-
                     if (triggers.length) {
                         triggers.forEach((button) => {
                             if (button.dataset.bound === 'true') {
@@ -2366,10 +2143,8 @@ def _inject_context_panel_behavior() -> None:
                             button.setAttribute('aria-expanded', 'false');
                         });
                     }
-
                     if (doc.body && doc.body.dataset.contextPanelDelegated !== 'true') {
                         doc.body.dataset.contextPanelDelegated = 'true';
-
                         doc.addEventListener(
                             'click',
                             (event) => {
@@ -2379,14 +2154,12 @@ def _inject_context_panel_behavior() -> None:
                                     handleTrigger(triggerButton);
                                     return;
                                 }
-
                                 const closeButton = event.target.closest('.context-panel-close');
                                 if (closeButton) {
                                     event.preventDefault();
                                     handleClose();
                                     return;
                                 }
-
                                 const backdrop = event.target.closest('.context-panel-backdrop');
                                 if (backdrop && event.target === backdrop) {
                                     handleClose({ suppressFocus: true, skipReturnFocus: true });
@@ -2394,7 +2167,6 @@ def _inject_context_panel_behavior() -> None:
                             },
                             { passive: false }
                         );
-
                         doc.addEventListener(
                             'keydown',
                             (event) => {
@@ -2404,7 +2176,6 @@ def _inject_context_panel_behavior() -> None:
                                     handleTrigger(triggerButton);
                                     return;
                                 }
-
                                 const closeButton = event.target.closest('.context-panel-close');
                                 if (closeButton && (event.key === 'Enter' || event.key === ' ')) {
                                     event.preventDefault();
@@ -2414,7 +2185,6 @@ def _inject_context_panel_behavior() -> None:
                             { passive: false }
                         );
                     }
-
                     const mediaQuery = window.matchMedia('(max-width: 900px)');
                     const syncForViewport = (mq) => {
                         if (!panel) {
@@ -2431,17 +2201,14 @@ def _inject_context_panel_behavior() -> None:
                         }
                         syncColumnMinHeight(mq);
                     };
-
                     syncForViewport(mediaQuery);
                     if (mediaQuery.addEventListener) {
                         mediaQuery.addEventListener('change', syncForViewport);
                     } else if (mediaQuery.addListener) {
                         mediaQuery.addListener(syncForViewport);
                     }
-
                     updateScrollbarCompensation();
                     syncColumnMinHeight(mediaQuery);
-
                     if (scrollArea && typeof ResizeObserver !== 'undefined') {
                         if (!scrollArea.__contextPanelResizeObserver) {
                             scrollArea.__contextPanelResizeObserver = new ResizeObserver(
@@ -2450,7 +2217,6 @@ def _inject_context_panel_behavior() -> None:
                             scrollArea.__contextPanelResizeObserver.observe(scrollArea);
                         }
                     }
-
                     if (mainColumn && typeof ResizeObserver !== 'undefined') {
                         if (!mainColumn.__contextColumnResizeObserver) {
                             mainColumn.__contextColumnResizeObserver = new ResizeObserver(() => {
@@ -2459,7 +2225,6 @@ def _inject_context_panel_behavior() -> None:
                             mainColumn.__contextColumnResizeObserver.observe(mainColumn);
                         }
                     }
-
                     if (doc.body && !doc.body.dataset.contextPanelResizeBound) {
                         doc.body.dataset.contextPanelResizeBound = 'true';
                         window.addEventListener(
@@ -2473,7 +2238,6 @@ def _inject_context_panel_behavior() -> None:
                             }
                         );
                     }
-
                     if (doc.body && !doc.body.dataset.contextPanelEscapeBound) {
                         doc.body.dataset.contextPanelEscapeBound = 'true';
                         doc.addEventListener('keydown', (event) => {
@@ -2483,7 +2247,6 @@ def _inject_context_panel_behavior() -> None:
                         });
                     }
                 };
-
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', setupContextPanel);
                 } else {
@@ -2495,22 +2258,17 @@ def _inject_context_panel_behavior() -> None:
         ),
         unsafe_allow_html=True,
     )
-
-
 def _render_question_context_block(context_value: Any) -> None:
     context_text = _normalize_text_block(context_value)
     if not context_text:
         return
-
     normalized = context_text.replace("\r\n", "\n").replace("\r", "\n")
     lines = [line.strip() for line in normalized.split("\n") if line.strip()]
     if not lines:
         return
-
     summary = " / ".join(lines[:2])
     if len(summary) > 160:
         summary = summary[:157].rstrip() + "…"
-
     _inject_context_highlight_styles()
     theme = _resolve_question_card_theme()
     st.markdown(
@@ -2524,124 +2282,91 @@ def _render_question_context_block(context_value: Any) -> None:
         ),
         unsafe_allow_html=True,
     )
-
     with st.expander("与件文を全文表示", expanded=False):
         st.write("\n\n".join(lines))
-
-
 def _split_long_japanese_paragraph(paragraph: str, max_chars: int = 120) -> List[str]:
     """Heuristically split a long Japanese paragraph into shorter segments.
-
     The 与件文データ often arrives as a single block of text without paragraph
     breaks. To improve readability we chunk the text by sentences (句点終止) while
     keeping each chunk reasonably sized.
     """
-
     stripped = paragraph.strip()
     if len(stripped) <= max_chars:
         return [stripped] if stripped else []
-
     sentences = [
         s.strip()
         for s in re.findall(r"[^。！？]+[。！？]?", stripped)
         if s.strip()
     ]
-
     if len(sentences) <= 1:
         return [stripped]
-
     chunks: List[str] = []
     current = ""
     for sentence in sentences:
         if not current:
             current = sentence
             continue
-
         candidate = f"{current}{sentence}"
         if len(candidate) <= max_chars or len(current) < max_chars * 0.6:
             current = candidate
             continue
-
         chunks.append(current.strip())
         current = sentence
-
     if current:
         chunks.append(current.strip())
-
     # Fall back to the original paragraph if the heuristic failed to create
     # multiple meaningful chunks.
     if len(chunks) <= 1:
         return [stripped]
-
     return chunks
-
-
 def _compile_context_search_pattern(query: Optional[str]) -> Optional[Pattern[str]]:
     if query is None:
         return None
-
     normalized = str(query).replace("\u3000", " ").strip()
     if not normalized:
         return None
-
     parts = [re.escape(part) for part in re.split(r"\s+", normalized) if part]
     if not parts:
         return None
-
     return re.compile("|".join(parts), re.IGNORECASE)
-
-
 def _highlight_context_line(
     text: str, pattern: Optional[Pattern[str]]
 ) -> Tuple[str, int]:
     if not text:
         return "", 0
-
     if not pattern:
         return html.escape(text), 0
-
     segments: List[str] = []
     match_count = 0
     last_index = 0
-
     for match in pattern.finditer(text):
         start, end = match.span()
         if start == end:
             continue
-
         if start > last_index:
             segments.append(html.escape(text[last_index:start]))
-
         segments.append(
             f'<mark class="context-search-hit">{html.escape(match.group(0))}</mark>'
         )
         match_count += 1
         last_index = end
-
     segments.append(html.escape(text[last_index:]))
-
     return "".join(segments), match_count
-
-
 def _render_problem_context_block(
     context_text: str, search_query: Optional[str] = None
 ) -> int:
     normalized = _normalize_text_block(context_text)
     if not normalized:
         return 0
-
     paragraphs: List[str] = []
     for raw_block in normalized.replace("\r\n", "\n").replace("\r", "\n").split("\n\n"):
         paragraph = raw_block.strip()
         if paragraph:
             paragraphs.append(paragraph)
-
     if not paragraphs:
         return 0
-
     if len(paragraphs) == 1:
         paragraphs = _split_long_japanese_paragraph(paragraphs[0])
-
     blocks: List[str] = []
     search_pattern = _compile_context_search_pattern(search_query)
     total_matches = 0
@@ -2651,24 +2376,19 @@ def _render_problem_context_block(
             stripped_line = raw_line.strip()
             if not stripped_line:
                 continue
-
             highlighted_line, matches = _highlight_context_line(
                 stripped_line, search_pattern
             )
             total_matches += matches
             line_fragments.append(highlighted_line)
-
         if line_fragments:
             blocks.append(f"<p>{'<br/>'.join(line_fragments)}</p>")
-
     if not blocks:
         return total_matches
-
     element_id = f"problem-context-{uuid.uuid4().hex}"
     toolbar_id = f"{element_id}-toolbar"
     total_lines = sum(block.count("<br/>") + 1 for block in blocks)
     estimated_height = max(620, min(1200, 260 + total_lines * 30))
-
     highlight_html = dedent(
         f"""
         <div class="problem-context-root">
@@ -2905,17 +2625,14 @@ def _render_problem_context_block(
                 if (!container || !toolbar) {{
                     return;
                 }}
-
                 const highlightButton = toolbar.querySelector('[data-action="highlight"]');
                 const undoButton = toolbar.querySelector('[data-action="undo"]');
                 const clearButton = toolbar.querySelector('[data-action="clear-all"]');
                 const colorButtons = Array.from(toolbar.querySelectorAll('[data-action="set-color"]'));
-
                 let highlightMode = false;
                 let activeColor = (highlightButton && highlightButton.dataset.defaultColor) || (colorButtons[0] && colorButtons[0].dataset.color) || "amber";
                 const history = [];
                 const maxHistory = 30;
-
                 const updateUndoState = () => {{
                     if (!undoButton) {{
                         return;
@@ -2924,7 +2641,6 @@ def _render_problem_context_block(
                     undoButton.disabled = disabled;
                     undoButton.setAttribute("aria-disabled", disabled ? "true" : "false");
                 }};
-
                 const pushHistory = (snapshot) => {{
                     if (!undoButton || !snapshot || history[history.length - 1] === snapshot) {{
                         return;
@@ -2935,9 +2651,7 @@ def _render_problem_context_block(
                     }}
                     updateUndoState();
                 }};
-
                 updateUndoState();
-
                 const setHighlightMode = (value) => {{
                     highlightMode = Boolean(value);
                     if (highlightButton) {{
@@ -2945,7 +2659,6 @@ def _render_problem_context_block(
                         highlightButton.setAttribute("aria-pressed", highlightMode ? "true" : "false");
                     }}
                 }};
-
                 const applyHighlight = () => {{
                     const selection = window.getSelection();
                     if (!selection || selection.rangeCount === 0) {{
@@ -2958,7 +2671,6 @@ def _render_problem_context_block(
                     if (!container.contains(range.commonAncestorContainer)) {{
                         return false;
                     }}
-
                     const snapshot = container.innerHTML;
                     const mark = document.createElement("mark");
                     mark.className = "fluorescent-marker color-" + activeColor;
@@ -2969,7 +2681,6 @@ def _render_problem_context_block(
                     pushHistory(snapshot);
                     return true;
                 }};
-
                 const clearAll = () => {{
                     const marks = Array.from(container.querySelectorAll("mark.fluorescent-marker"));
                     if (!marks.length) {{
@@ -2990,7 +2701,6 @@ def _render_problem_context_block(
                     pushHistory(snapshot);
                     return true;
                 }};
-
                 const scheduleAutoHighlight = () => {{
                     if (!highlightMode) {{
                         return;
@@ -2999,7 +2709,6 @@ def _render_problem_context_block(
                         applyHighlight();
                     }});
                 }};
-
                 if (highlightButton) {{
                     highlightButton.addEventListener("click", () => {{
                         const nextState = !highlightMode;
@@ -3016,7 +2725,6 @@ def _render_problem_context_block(
                         }}
                     }});
                 }}
-
                 if (clearButton) {{
                     clearButton.addEventListener("click", () => {{
                         const changed = clearAll();
@@ -3029,7 +2737,6 @@ def _render_problem_context_block(
                         }}
                     }});
                 }}
-
                 if (undoButton) {{
                     undoButton.addEventListener("click", () => {{
                         if (!history.length) {{
@@ -3045,7 +2752,6 @@ def _render_problem_context_block(
                         }}
                     }});
                 }}
-
                 if (colorButtons.length) {{
                     colorButtons.forEach((button) => {{
                         button.addEventListener("click", () => {{
@@ -3062,7 +2768,6 @@ def _render_problem_context_block(
                         }});
                     }});
                 }}
-
                 container.addEventListener("keydown", (event) => {{
                     if (event.key === "Escape") {{
                         if (highlightMode) {{
@@ -3095,20 +2800,17 @@ def _render_problem_context_block(
                     }}
                     event.preventDefault();
                 }});
-
                 container.addEventListener("beforeinput", (event) => {{
                     event.preventDefault();
                 }});
                 ["paste", "drop"].forEach((type) => {{
                     container.addEventListener(type, (event) => event.preventDefault());
                 }});
-
                 ["mouseup", "keyup", "touchend"].forEach((type) => {{
                     container.addEventListener(type, () => {{
                         scheduleAutoHighlight();
                     }});
                 }});
-
                 const handleScroll = () => {{
                     if (!toolbar) {{
                         return;
@@ -3117,17 +2819,12 @@ def _render_problem_context_block(
                 }};
                 container.addEventListener("scroll", handleScroll);
                 handleScroll();
-
             }})();
         </script>
         """
     )
-
     components.html(highlight_html, height=estimated_height, scrolling=True)
-
     return total_matches
-
-
 def _render_question_overview_card(
     question: Dict[str, Any],
     *,
@@ -3136,7 +2833,6 @@ def _render_question_overview_card(
 ) -> None:
     if not question:
         return
-
     _inject_question_card_styles()
     theme = _resolve_question_card_theme()
     prompt = html.escape(question.get("prompt") or question.get("設問見出し") or "設問")
@@ -3144,11 +2840,9 @@ def _render_question_overview_card(
     eyebrow = f"設問{order}" if order else "設問"
     limit = question.get("character_limit") or question.get("制限字数")
     max_score = question.get("max_score") or question.get("配点")
-
     element_label = "3点構成"
     if limit and int(limit) <= 80:
         element_label = "2点構成"
-
     meta_items = [element_label]
     if limit and pd.notna(limit):
         meta_items.append(f"{int(limit)}字以内")
@@ -3160,7 +2854,6 @@ def _render_question_overview_card(
         meta_items.append(f"配点 {score_label}点")
     if source_label:
         meta_items.append(source_label)
-
     question_for_aim = dict(question)
     if not question_for_aim.get("prompt") and question_for_aim.get("問題文"):
         first_line = str(question_for_aim["問題文"]).splitlines()[0].strip()
@@ -3168,15 +2861,12 @@ def _render_question_overview_card(
             question_for_aim["prompt"] = first_line
     aim_text = question.get("aim") or _infer_question_aim(question_for_aim)
     aim = html.escape(aim_text)
-
     frames = CASE_FRAME_SHORTCUTS.get(case_label or question.get("case_label") or "", [])
     frame_labels = [frame.get("label") for frame in frames[:4] if frame.get("label")]
-
     meta_html = "".join(f"<span>{html.escape(str(item))}</span>" for item in meta_items if item)
     chips_html = "".join(
         f"<span class=\"qm-chip\">{html.escape(label)}</span>" for label in frame_labels
     )
-
     st.markdown(
         dedent(
             f"""
@@ -3191,8 +2881,6 @@ def _render_question_overview_card(
         ),
         unsafe_allow_html=True,
     )
-
-
 def _render_intent_cards(
     question: Dict[str, Any], draft_key: str, textarea_state_key: str
 ) -> None:
@@ -3203,11 +2891,9 @@ def _render_intent_cards(
     ]
     if not cards:
         return
-
     _inject_intent_card_styles()
     st.markdown("<p class=\"intent-card-header\">設問趣旨カード</p>", unsafe_allow_html=True)
     st.caption("クリックで例示表現をドラフトに素早く差し込めます。ホバーで全文を確認できます。")
-
     grid_container = st.container()
     with grid_container:
         st.markdown("<div class=\"intent-card-grid\">", unsafe_allow_html=True)
@@ -3238,21 +2924,16 @@ def _render_intent_cards(
                     "label": card["label"],
                 }
         st.markdown("</div>", unsafe_allow_html=True)
-
-
 def _render_case_frame_shortcuts(
     case_label: Optional[str], draft_key: str, textarea_state_key: str
 ) -> None:
     if not case_label:
         return
-
     frames = CASE_FRAME_SHORTCUTS.get(case_label)
     if not frames:
         return
-
     st.markdown("<p class=\"intent-card-header\">頻出フレーム</p>", unsafe_allow_html=True)
     st.caption("一読で狙いを掴み、クリックで定番フレーズを挿入できます。")
-
     grid_container = st.container()
     with grid_container:
         st.markdown("<div class=\"case-frame-grid\">", unsafe_allow_html=True)
@@ -3298,31 +2979,24 @@ def _render_case_frame_shortcuts(
                     "label": frame["label"],
                 }
         st.markdown("</div>", unsafe_allow_html=True)
-
-
 def _format_amount(value: Optional[float]) -> str:
     if value is None:
         return "-"
     if isinstance(value, float) and not math.isfinite(value):
         return "-"
     return f"{value:,.1f}"
-
-
 def _format_percent(value: Optional[float]) -> str:
     if value is None:
         return "-"
     if isinstance(value, float) and not math.isfinite(value):
         return "-"
     return f"{value * 100:.1f}%"
-
-
 def _render_case_iv_bridge(draft_key: str) -> None:
     prefix = f"cvp_bridge_{draft_key}"
     st.markdown("##### 事例IV『計算→記述』ブリッジ")
     st.caption(
         "令和5・6年のCVP分析レイアウトに合わせ、損益分岐点の計算結果から記述ドラフトまでをワンストップで整理します。"
     )
-
     input_col1, input_col2, input_col3 = st.columns(3)
     with input_col1:
         sales = st.number_input(
@@ -3349,11 +3023,9 @@ def _render_case_iv_bridge(draft_key: str) -> None:
             step=10.0,
             key=f"{prefix}_fixed",
         )
-
     variable_ratio = variable_percent / 100.0
     contribution_margin_ratio = 1.0 - variable_ratio
     cm_ratio_valid = contribution_margin_ratio > 0
-
     st.markdown("**① 変動費率・固定費**")
     contribution_margin_text = (
         _format_percent(contribution_margin_ratio) if cm_ratio_valid else "-"
@@ -3362,11 +3034,9 @@ def _render_case_iv_bridge(draft_key: str) -> None:
         f"{'✅' if cm_ratio_valid else '⚠️'} 貢献利益率 {_format_percent(contribution_margin_ratio) if cm_ratio_valid else '算出不可'}"
         f" / 固定費 {_format_amount(fixed_cost)}万円"
     )
-
     break_even_sales = None
     if cm_ratio_valid:
         break_even_sales = fixed_cost / contribution_margin_ratio if contribution_margin_ratio else None
-
     st.markdown("**② 損益分岐点 (BEP)**")
     if break_even_sales is None:
         st.markdown("⚠️ 貢献利益率が0%以下のため損益分岐点を計算できません。変動費率の前提を見直しましょう。")
@@ -3377,14 +3047,12 @@ def _render_case_iv_bridge(draft_key: str) -> None:
             f"{'✅' if sales > 0 else '⚠️'} 損益分岐点売上高 {_format_amount(break_even_sales)}万円"
             f"（実績との差 {_format_amount(abs(gap_amount))}万円{gap_direction}）"
         )
-
     st.markdown("**③ 安全余裕率**")
     safety_margin_ratio = None
     safety_margin_amount = None
     if break_even_sales is not None and sales > 0:
         safety_margin_amount = sales - break_even_sales
         safety_margin_ratio = safety_margin_amount / sales
-
     if safety_margin_ratio is None:
         st.markdown("⚠️ 売上高を入力すると安全余裕率が自動計算されます。")
     else:
@@ -3400,19 +3068,16 @@ def _render_case_iv_bridge(draft_key: str) -> None:
         else:
             status_icon = "✅"
             evaluation = "安全余裕率に一定の余裕があり、貢献利益率向上や固定費回収後の利益拡大策が検討できます。"
-
         st.markdown(
             f"{status_icon} 安全余裕率 {_format_percent(safety_margin_ratio)}"
             f"（余裕 {_format_amount(abs(safety_margin_amount or 0.0))}万円）"
         )
         st.caption(evaluation)
-
     analysis_lines: List[str] = []
     analysis_lines.append(
         f"売上高{_format_amount(sales)}万円、変動費率{variable_percent:.1f}%"
         f"（貢献利益率 {contribution_margin_text}）で固定費{_format_amount(fixed_cost)}万円と整理。"
     )
-
     if break_even_sales is None:
         analysis_lines.append(
             "貢献利益率が確保できず損益分岐点を計算できないため、コスト構造の把握と前提の再確認を優先します。"
@@ -3438,11 +3103,9 @@ def _render_case_iv_bridge(draft_key: str) -> None:
             analysis_lines.append(
                 f"安全余裕率は{_format_percent(safety_margin_ratio)}で、{action_text}"
             )
-
     analysis_text = "".join(analysis_lines)
     draft_state_key = f"{prefix}_draft"
     st.session_state[draft_state_key] = analysis_text
-
     st.markdown("**④ 示唆ドラフト**")
     st.caption("計算結果を要約した文章をコピーして答案骨子に活用できます。")
     st.text_area(
@@ -3452,12 +3115,9 @@ def _render_case_iv_bridge(draft_key: str) -> None:
         key=draft_state_key,
         disabled=True,
     )
-
-
 def _ensure_media_styles() -> None:
     if st.session_state.get("_media_styles_injected"):
         return
-
     st.markdown(
         dedent(
             """
@@ -3507,12 +3167,9 @@ def _ensure_media_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_media_styles_injected"] = True
-
-
 def _render_video_player(url: str, *, key_prefix: str) -> None:
     if not url:
         return
-
     _ensure_media_styles()
     player_id = f"media-player-{key_prefix}-{uuid4().hex}"
     escaped_url = html.escape(url, quote=True)
@@ -3521,7 +3178,6 @@ def _render_video_player(url: str, *, key_prefix: str) -> None:
         f'<button class="media-control-button" data-speed="{speed}">{speed}x</button>'
         for speed in speeds
     )
-
     components.html(
         dedent(
             f"""
@@ -3546,7 +3202,6 @@ def _render_video_player(url: str, *, key_prefix: str) -> None:
               const speedButtons = Array.from(container.querySelectorAll('[data-speed]'));
               const backButton = container.querySelector('[data-action="back"]');
               const forwardButton = container.querySelector('[data-action="forward"]');
-
               function setActiveSpeed(rate) {{
                 if (!video) return;
                 video.playbackRate = rate;
@@ -3555,21 +3210,18 @@ def _render_video_player(url: str, *, key_prefix: str) -> None:
                   button.classList.toggle('active', isActive);
                 }});
               }}
-
               speedButtons.forEach((button) => {{
                 button.addEventListener('click', () => {{
                   const rate = Number(button.dataset.speed) || 1.0;
                   setActiveSpeed(rate);
                 }});
               }});
-
               if (backButton) {{
                 backButton.addEventListener('click', () => {{
                   if (!video) return;
                   video.currentTime = Math.max(0, video.currentTime - 10);
                 }});
               }}
-
               if (forwardButton) {{
                 forwardButton.addEventListener('click', () => {{
                   if (!video) return;
@@ -3577,7 +3229,6 @@ def _render_video_player(url: str, *, key_prefix: str) -> None:
                   video.currentTime = Math.min(video.duration || target, target);
                 }});
               }}
-
               setActiveSpeed(1.0);
             }})();
             </script>
@@ -3585,31 +3236,23 @@ def _render_video_player(url: str, *, key_prefix: str) -> None:
         ),
         height=380,
     )
-
-
 def _resolve_diagram_path(diagram_path: str) -> Path:
     path = Path(diagram_path)
     if not path.is_absolute():
         base_dir = Path(__file__).resolve().parent
         path = base_dir / path
     return path
-
-
 def _render_diagram_resource(diagram_path: Optional[str], caption: Optional[str]) -> None:
     if not diagram_path:
         return
-
     path = _resolve_diagram_path(diagram_path)
     if not path.exists():
         st.warning("図解ファイルが見つかりませんでした。", icon="⚠️")
         return
-
     try:
         st.image(path.read_bytes(), caption=caption, use_column_width=True)
     except Exception as exc:  # pragma: no cover - rendering guard
         st.warning(f"図解の表示中に問題が発生しました: {exc}", icon="⚠️")
-
-
 def _render_slot_lecturer_tab(tab: "st._DeltaGenerator", payload: Dict[str, str], empty_message: str) -> None:
     with tab:
         if not payload or not any(value for value in payload.values()):
@@ -3623,8 +3266,6 @@ def _render_slot_lecturer_tab(tab: "st._DeltaGenerator", payload: Dict[str, str]
         if commentary_text:
             st.markdown("**講評**")
             st.write(commentary_text)
-
-
 def _render_slot_scoring_tab(tab: "st._DeltaGenerator", payload: Dict[str, Any]) -> None:
     with tab:
         if not payload:
@@ -3640,8 +3281,6 @@ def _render_slot_scoring_tab(tab: "st._DeltaGenerator", payload: Dict[str, Any])
             st.write(note)
         if not points and not note:
             st.caption("採点観点の内容が空です。JSONの配列やコメントを設定してください。")
-
-
 def _render_model_answer_section(
     *,
     model_answer: Any,
@@ -3673,38 +3312,30 @@ def _render_model_answer_section(
         st.caption(
             f"年度: {custom_slot['year']} / {custom_slot['case_label']} 第{custom_slot['question_number']}問"
         )
-
     model_answer_text = _normalize_text_block(model_answer)
     explanation_text = _normalize_text_block(explanation)
     detailed_text = _normalize_text_block(detailed_explanation)
-
     st.write("**模範解答**")
     if model_answer_text:
         st.write(model_answer_text)
     else:
         st.caption("模範解答が登録されていません。")
-
     st.write("**解説サマリ**")
     if explanation_text:
         st.write(explanation_text)
     else:
         st.caption("解説が登録されていません。")
-
     if detailed_text:
         with st.expander("詳細解説をじっくり読む", expanded=False):
             st.write(detailed_text)
             st.caption("採点者視点の根拠や書き方のポイントを深掘りできます。")
-
     if video_url:
         st.markdown("**動画解説**")
         _render_video_player(video_url, key_prefix=context_id)
         st.caption("倍速再生と10秒スキップで効率的に復習できます。")
-
     # 添付図解の表示は現在無効化しているため、diagram_path が指定されていても描画しない
-
 def main_view() -> None:
     user = st.session_state.user
-
     navigation_items = {
         "ホーム": dashboard_page,
         "過去問演習": practice_page,
@@ -3712,7 +3343,6 @@ def main_view() -> None:
         "学習履歴": history_page,
         "設定": settings_page,
     }
-
     st.sidebar.title("ナビゲーション")
     st.sidebar.markdown(
         dedent(
@@ -3747,227 +3377,698 @@ def main_view() -> None:
         ).strip(),
         unsafe_allow_html=True,
     )
-
     nav_labels = list(navigation_items.keys())
     if st.session_state.page not in navigation_items:
         st.session_state.page = nav_labels[0]
-
     navigation_key = "navigation_selection"
     current_page = st.session_state.page
-
     if navigation_key not in st.session_state:
         st.session_state[navigation_key] = current_page
     elif st.session_state[navigation_key] not in navigation_items:
         st.session_state[navigation_key] = current_page
-
     selected_page = st.sidebar.radio(
         "ページを選択",
         nav_labels,
         key=navigation_key,
     )
-
     st.session_state.page = selected_page
-
     st.sidebar.divider()
     st.sidebar.info(f"利用者: {user['name']} ({user['plan']}プラン)")
     st.sidebar.caption(
         "必要な情報にすぐアクセスできるよう、ページ別にコンテンツを整理しています。"
     )
-
     page = st.session_state.page
     navigation_items[page](user)
-
-
 def _inject_dashboard_styles() -> None:
     if st.session_state.get("_dashboard_styles_injected"):
         return
-
     st.markdown(
         dedent(
             """
             <style>
+            :root {
+                --pastel-blue: #e8f1ff;
+                --pastel-green: #e5f8ec;
+                --pastel-yellow: #fff4d6;
+                --pastel-pink: #ffe8f1;
+                --hairline: rgba(148, 163, 184, 0.32);
+                --hairline-strong: rgba(100, 116, 139, 0.45);
+                --surface: rgba(255, 255, 255, 0.94);
+                --surface-strong: rgba(255, 255, 255, 0.98);
+                --brand: #2563eb;
+                --brand-strong: #1d4ed8;
+                --focus-ring: 0 0 0 2px rgba(37, 99, 235, 0.35);
+                --shadow-card: 0 28px 42px rgba(15, 23, 42, 0.12);
+                --shadow-subtle: 0 16px 32px rgba(15, 23, 42, 0.08);
+            }
+            html {
+                scroll-behavior: smooth;
+            }
             [data-testid="stAppViewContainer"] {
-                background: linear-gradient(180deg, #fefaf6 0%, #f5f8ff 40%, #ffffff 100%);
+                background: linear-gradient(180deg, #f8fafc 0%, #fdfdfd 28%, #ffffff 100%);
             }
             .block-container {
-                padding: 1.35rem 1.9rem 3.2rem;
-                max-width: min(1500px, 96vw);
+                padding: 1.35rem 2rem 3rem;
+                max-width: min(1380px, 95vw);
             }
-            .section-divider {
-                height: 1px;
-                background: linear-gradient(90deg, rgba(148, 163, 184, 0), rgba(148, 163, 184, 0.45), rgba(148, 163, 184, 0));
-                margin: 1.25rem 0;
+            .dashboard-shell {
+                display: flex;
+                flex-direction: column;
+                gap: 2.75rem;
             }
-            .section-divider.section-tight {
-                margin: 0.6rem 0 1rem;
+            .toc-chips {
+                display: inline-flex;
+                flex-wrap: wrap;
+                gap: 0.6rem;
+                padding: 0.4rem 0;
+                border-bottom: 1px solid var(--hairline);
+                margin-bottom: 0.2rem;
             }
-            .section-divider.section-break {
-                margin: 1.8rem 0 1.2rem;
-            }
-            .section-divider.section-top-divider {
-                margin-top: 0.75rem;
-            }
-            .section-card {
-                border-radius: 20px;
-                padding: 1.35rem 1.5rem;
-                background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.96));
-                border: 1.5px solid rgba(148, 163, 184, 0.28);
-                box-shadow: 0 14px 26px rgba(15, 23, 42, 0.12);
-            }
-            .section-card + .section-card {
-                margin-top: 1rem;
-            }
-            .metric-row {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-                gap: 1.05rem;
-                margin-top: 1rem;
-            }
-            .metric-card {
-                position: relative;
-                border-radius: 18px;
-                padding: 1.4rem;
+            .toc-chip {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0.5rem 1rem;
+                border-radius: 999px;
+                border: 1px solid rgba(148, 163, 184, 0.45);
+                background: var(--surface);
                 color: #0f172a;
-                background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(244, 247, 254, 0.96));
-                border: 1.5px solid rgba(148, 163, 184, 0.24);
-                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+                font-size: 0.88rem;
+                font-weight: 600;
+                text-decoration: none;
+                transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
             }
-            .metric-card::after {
+            .toc-chip[aria-current="location"] {
+                border-color: var(--brand-strong);
+                background: rgba(37, 99, 235, 0.1);
+                color: var(--brand-strong);
+            }
+            .toc-chip:hover,
+            .toc-chip:focus-visible {
+                border-color: var(--brand-strong);
+                background: rgba(37, 99, 235, 0.14);
+                color: var(--brand-strong);
+                outline: none;
+                box-shadow: var(--focus-ring);
+            }
+            .dashboard-section {
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                gap: 1.4rem;
+                padding-top: 0.5rem;
+            }
+            .dashboard-section::before {
                 content: "";
                 position: absolute;
-                inset: 1px;
-                border-radius: 16px;
-                border: 1px solid rgba(255, 255, 255, 0.65);
+                inset: 0 auto auto 0;
+                height: 1px;
+                width: 100%;
+                background: linear-gradient(90deg, rgba(148, 163, 184, 0), var(--hairline), rgba(148, 163, 184, 0));
+                transform: translateY(-1.3rem);
             }
-            .metric-card .metric-label {
-                font-size: 0.88rem;
-                font-weight: 600;
+            .dashboard-section.is-highlighted {
+                animation: dashboardHighlight 2s ease;
+            }
+            @keyframes dashboardHighlight {
+                0% { background: rgba(59, 130, 246, 0.08); }
+                100% { background: transparent; }
+            }
+            .section-header {
+                display: flex;
+                flex-direction: column;
+                gap: 0.45rem;
+            }
+            .section-header h2 {
+                font-size: clamp(1.35rem, 1.15rem + 0.6vw, 1.6rem);
+                margin: 0;
+                color: #0f172a;
+            }
+            .section-lead {
+                margin: 0;
                 color: #475569;
+                font-size: 0.95rem;
+            }
+            .dashboard-grid {
+                display: grid;
+                gap: 1.4rem;
+            }
+            .dashboard-grid--12 {
+                grid-template-columns: repeat(12, minmax(0, 1fr));
+            }
+            .grid-span-12 { grid-column: span 12; }
+            .grid-span-8 { grid-column: span 8; }
+            .grid-span-7 { grid-column: span 7; }
+            .grid-span-6 { grid-column: span 6; }
+            .grid-span-5 { grid-column: span 5; }
+            .grid-span-4 { grid-column: span 4; }
+            .grid-span-3 { grid-column: span 3; }
+            .kpi-grid {
+                gap: 1.25rem;
+            }
+            .dashboard-card,
+            .kpi-card {
+                position: relative;
+                border-radius: 20px;
+                padding: 1.5rem 1.65rem;
+                border: 1px solid var(--hairline);
+                background: var(--surface);
+                box-shadow: var(--shadow-subtle);
+                transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+            }
+            .dashboard-card:hover,
+            .dashboard-card:focus-within,
+            .kpi-card:hover,
+            .kpi-card:focus-within {
+                border-color: var(--hairline-strong);
+                box-shadow: var(--shadow-card);
+                transform: translateY(-2px);
+            }
+            .kpi-card[data-tone="blue"] { background: linear-gradient(180deg, var(--pastel-blue), var(--surface)); }
+            .kpi-card[data-tone="green"] { background: linear-gradient(180deg, var(--pastel-green), var(--surface)); }
+            .kpi-card__header {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+            }
+            .kpi-card__eyebrow {
+                margin: 0;
+                font-size: 0.9rem;
                 letter-spacing: 0.04em;
                 text-transform: uppercase;
-            }
-            .metric-card .metric-value {
-                font-size: 1.95rem;
-                font-weight: 700;
-                margin: 0.35rem 0;
-                color: #0f172a;
-            }
-            .metric-card .metric-desc {
-                font-size: 0.85rem;
-                color: #64748b;
-                margin: 0;
-            }
-            .metric-card.progress {
-                background: linear-gradient(135deg, #e0f2fe, #f0f9ff);
-                border-color: rgba(59, 130, 246, 0.25);
-            }
-            .metric-card.progress .metric-label,
-            .metric-card.progress .metric-desc {
-                color: #1d4ed8;
-            }
-            .metric-card.score {
-                background: linear-gradient(135deg, #dcfce7, #f0fdf4);
-                border-color: rgba(34, 197, 94, 0.28);
-            }
-            .metric-card.score .metric-label,
-            .metric-card.score .metric-desc {
-                color: #047857;
-            }
-            .metric-card.alert {
-                background: linear-gradient(135deg, #fef3c7, #fff7ed);
-                border-color: rgba(234, 179, 8, 0.32);
-                color: #92400e;
-            }
-            .insight-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                gap: 1.2rem;
-            }
-            .insight-card {
-                display: flex;
-                gap: 1rem;
-                align-items: center;
-                border-radius: 18px;
-                padding: 1.15rem 1.35rem;
-                background: linear-gradient(135deg, rgba(254, 249, 245, 0.95), rgba(248, 251, 255, 0.96));
-                border: 1.5px solid rgba(236, 72, 153, 0.14);
-                box-shadow: 0 10px 22px rgba(236, 72, 153, 0.08);
-            }
-            .insight-icon {
-                font-size: 1.9rem;
-            }
-            .insight-title {
-                font-weight: 600;
-                margin: 0;
                 color: #475569;
             }
-            .insight-value {
-                font-size: 1.32rem;
+            .kpi-card__value {
+                margin: 0;
+                font-size: clamp(2.1rem, 1.6rem + 1.2vw, 2.6rem);
                 font-weight: 700;
-                margin: 0.15rem 0 0.35rem;
                 color: #0f172a;
             }
-            .insight-desc {
-                font-size: 0.84rem;
-                margin: 0;
-                color: #6b7280;
+            .kpi-card__unit {
+                font-size: 1rem;
+                margin-left: 0.3rem;
+                color: #475569;
             }
-            .action-grid {
+            .kpi-card__caption {
+                margin: 0.65rem 0 1rem;
+                font-size: 0.95rem;
+                color: #475569;
+            }
+            .kpi-card__progress {
+                position: relative;
+                width: 100%;
+                height: 12px;
+                border-radius: 999px;
+                background: rgba(15, 23, 42, 0.12);
+                overflow: hidden;
+            }
+            .kpi-card__progress-fill {
+                height: 100%;
+                border-radius: inherit;
+                background: linear-gradient(90deg, var(--brand), var(--brand-strong));
+                transition: width 0.6s ease;
+            }
+            .dashboard-card--progress {
+                background: linear-gradient(180deg, var(--pastel-green), var(--surface-strong));
+            }
+            .dashboard-card--feed {
+                background: linear-gradient(180deg, var(--pastel-pink), var(--surface));
+            }
+            .dashboard-card--analysis {
+                background: linear-gradient(180deg, var(--pastel-yellow), var(--surface));
+            }
+            .dashboard-card--insight {
+                background: linear-gradient(180deg, rgba(226, 232, 240, 0.18), var(--surface));
+            }
+            .stat-group {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 0.8rem;
+                margin-bottom: 1.2rem;
+            }
+            .stat-chip {
+                padding: 0.6rem 0.75rem;
+                border-radius: 12px;
+                border: 1px solid rgba(148, 163, 184, 0.4);
+                background: rgba(255, 255, 255, 0.7);
+            }
+            .stat-chip dt {
+                margin: 0;
+                font-size: 0.78rem;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                color: #64748b;
+            }
+            .stat-chip dd {
+                margin: 0.2rem 0 0;
+                font-size: 1.05rem;
+                font-weight: 600;
+                color: #0f172a;
+            }
+            .progress-rows {
+                display: flex;
+                flex-direction: column;
+                gap: 1.1rem;
+            }
+            .progress-row {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .progress-row__header {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                gap: 0.6rem;
+            }
+            .progress-row__title {
+                margin: 0;
+                font-weight: 600;
+                color: #0f172a;
+            }
+            .progress-row__value {
+                font-size: 0.95rem;
+                color: #334155;
+            }
+            .progress-row__track {
+                width: 100%;
+                height: 12px;
+                border-radius: 999px;
+                background: rgba(148, 163, 184, 0.28);
+                overflow: hidden;
+            }
+            .progress-row__fill {
+                height: 100%;
+                border-radius: inherit;
+                background: linear-gradient(90deg, rgba(34, 197, 94, 0.8), rgba(21, 128, 61, 0.95));
+                transition: width 0.6s ease;
+            }
+            .progress-row[data-tone="blue"] .progress-row__fill {
+                background: linear-gradient(90deg, rgba(37, 99, 235, 0.85), rgba(29, 78, 216, 0.95));
+            }
+            .progress-row[data-tone="yellow"] .progress-row__fill {
+                background: linear-gradient(90deg, rgba(234, 179, 8, 0.8), rgba(217, 119, 6, 0.9));
+            }
+            .progress-row__caption {
+                margin: 0;
+                font-size: 0.83rem;
+                color: #475569;
+            }
+            .timeline {
+                position: relative;
+                padding-left: 1.3rem;
+                display: flex;
+                flex-direction: column;
                 gap: 1.05rem;
             }
-            .action-card {
-                border-radius: 16px;
-                padding: 1.2rem 1.3rem;
-                background: linear-gradient(135deg, rgba(236, 254, 255, 0.92), rgba(255, 249, 245, 0.92));
-                border: 1.5px dashed rgba(14, 165, 233, 0.35);
-                box-shadow: 0 8px 18px rgba(14, 165, 233, 0.12);
+            .timeline::before {
+                content: "";
+                position: absolute;
+                inset: 0 auto 0 0.45rem;
+                width: 1px;
+                background: linear-gradient(180deg, rgba(148, 163, 184, 0.3), rgba(148, 163, 184, 0.6));
             }
-            .action-card strong {
-                display: block;
-                font-size: 1.03rem;
-                margin-bottom: 0.35rem;
+            .timeline__item {
+                position: relative;
+                padding: 0.6rem 0 0.6rem 0.2rem;
+                border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+            }
+            .timeline__item:last-child {
+                border-bottom: none;
+            }
+            .timeline__item[hidden] { display: none; }
+            .timeline__dot {
+                position: absolute;
+                left: -1.1rem;
+                top: 0.95rem;
+                width: 11px;
+                height: 11px;
+                border-radius: 999px;
+                border: 2px solid rgba(37, 99, 235, 0.4);
+                background: #fff;
+            }
+            .timeline__title {
+                margin: 0;
+                font-weight: 600;
                 color: #0f172a;
             }
-            .action-card p {
-                margin: 0;
-                font-size: 0.88rem;
+            .timeline__meta,
+            .timeline__score,
+            .timeline__desc {
+                margin: 0.15rem 0 0;
+                font-size: 0.86rem;
                 color: #475569;
             }
-            .table-card {
-                border-radius: 20px;
-                padding: 1.3rem 1rem 0.75rem;
-                background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(240, 249, 255, 0.96));
-                border: 1.5px solid rgba(148, 163, 184, 0.28);
-                box-shadow: 0 10px 22px rgba(148, 163, 184, 0.18);
+            .insight-card-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+                gap: 1rem;
             }
-            .stTabs [data-baseweb="tab-list"] {
+            .insight-tile {
+                padding: 1rem 1.1rem;
+                border-radius: 16px;
+                border: 1px solid rgba(236, 72, 153, 0.24);
+                background: linear-gradient(180deg, rgba(255, 241, 247, 0.85), rgba(255, 255, 255, 0.95));
+                display: grid;
+                gap: 0.45rem;
+                box-shadow: 0 12px 22px rgba(236, 72, 153, 0.12);
+            }
+            .insight-tile__label {
+                margin: 0;
+                font-size: 0.78rem;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                color: #be185d;
+            }
+            .insight-tile__value {
+                margin: 0;
+                font-size: 1.2rem;
+                font-weight: 700;
+                color: #0f172a;
+            }
+            .insight-tile__desc {
+                margin: 0;
+                font-size: 0.82rem;
+                color: #475569;
+            }
+            .tag-toolbar {
+                display: flex;
+                flex-wrap: wrap;
                 gap: 0.6rem;
-                padding: 0.5rem;
-                background: rgba(226, 232, 240, 0.3);
-                border-radius: 999px;
-                border: 1px solid rgba(148, 163, 184, 0.24);
+                margin-top: 1.2rem;
             }
-            .stTabs [data-baseweb="tab"] {
+            .insight-tag {
                 border-radius: 999px;
-                padding: 0.45rem 1.45rem;
-                background: rgba(255, 255, 255, 0.82);
-                border: 1px solid rgba(148, 163, 184, 0.18);
+                border: 1px solid rgba(244, 114, 182, 0.5);
+                background: rgba(255, 240, 246, 0.9);
+                padding: 0.45rem 0.85rem;
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: #9d174d;
+                transition: all 0.2s ease;
             }
-            .stTabs [aria-selected="true"] {
-                background: rgba(14, 165, 233, 0.18) !important;
-                border-color: rgba(14, 165, 233, 0.4) !important;
-                color: #0ea5e9 !important;
+            .insight-tag[aria-pressed="true"] {
+                background: #be185d;
+                color: #fff;
+                border-color: #9d174d;
+            }
+            .insight-tag:focus-visible {
+                outline: none;
+                box-shadow: var(--focus-ring);
+            }
+            .badge-list {
+                margin: 1.3rem 0 0;
+                padding: 0;
+                list-style: none;
+                display: grid;
+                gap: 0.55rem;
+            }
+            .badge-item {
+                display: flex;
+                gap: 0.6rem;
+                align-items: baseline;
+                font-size: 0.88rem;
+                color: #475569;
+                border-bottom: 1px dashed rgba(236, 72, 153, 0.35);
+                padding-bottom: 0.45rem;
+            }
+            .badge-item:last-child {
+                border-bottom: none;
+                padding-bottom: 0;
+            }
+            .badge-item strong {
+                color: #be185d;
+            }
+            .recommendation-list {
+                margin: 1.1rem 0 0;
+                padding-left: 1.1rem;
+                color: #1f2937;
+                font-size: 0.9rem;
+            }
+            .recommendation-note {
+                display: block;
+                margin-top: 0.25rem;
+                font-size: 0.78rem;
+                color: #475569;
+            }
+            .insight-banner {
+                padding: 1.1rem 1.3rem;
+                border-radius: 16px;
+                background: linear-gradient(135deg, rgba(14, 116, 255, 0.16), rgba(59, 130, 246, 0.1));
+                border: 1px solid rgba(59, 130, 246, 0.32);
+            }
+            .insight-banner details {
+                color: #0f172a;
+            }
+            .insight-banner summary {
+                list-style: none;
+                font-weight: 600;
+                cursor: pointer;
+                display: flex;
+                gap: 0.5rem;
+                align-items: center;
+            }
+            .insight-banner summary::before {
+                content: "ℹ️";
+            }
+            .insight-banner details[open] summary::after {
+                content: "閉じる";
+                margin-left: auto;
+                font-size: 0.78rem;
+                color: rgba(15, 23, 42, 0.6);
+            }
+            .insight-banner details > div {
+                margin-top: 0.8rem;
+                font-size: 0.88rem;
+                line-height: 1.5;
+                color: #1e293b;
+            }
+            .upcoming-review {
+                margin-top: 1.4rem;
+            }
+            .upcoming-review__title {
+                margin: 0 0 0.6rem;
+                font-size: 0.95rem;
+                font-weight: 600;
+                color: #0f172a;
+            }
+            .upcoming-review__list {
+                margin: 0;
+                padding: 0;
+                list-style: none;
+                display: grid;
+                gap: 0.55rem;
+            }
+            .upcoming-review__item {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.45rem;
+                padding-bottom: 0.55rem;
+                border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+                font-size: 0.85rem;
+                color: #334155;
+            }
+            .upcoming-review__item:last-child {
+                border-bottom: none;
+            }
+            .upcoming-review__badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.3rem;
+                padding: 0.2rem 0.55rem;
+                border-radius: 999px;
+                background: rgba(37, 99, 235, 0.18);
+                color: #1d4ed8;
+                font-weight: 600;
+                font-size: 0.78rem;
+            }
+            .action-links {
+                margin-top: 1.4rem;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 0.8rem;
+            }
+            .action-link {
+                border-radius: 14px;
+                padding: 0.85rem 1rem;
+                border: 1px dashed rgba(14, 165, 233, 0.45);
+                background: rgba(236, 254, 255, 0.92);
+                color: #0f172a;
+                font-size: 0.88rem;
+                text-decoration: none;
+                transition: border-color 0.2s ease, transform 0.2s ease;
+            }
+            .action-link:hover,
+            .action-link:focus-visible {
+                border-color: rgba(14, 165, 233, 0.8);
+                transform: translateY(-1px);
+                outline: none;
+                box-shadow: var(--focus-ring);
+            }
+            .heatmap-legend {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.6rem;
+                margin: 0.9rem 0 0;
+                font-size: 0.85rem;
+                color: #475569;
+            }
+            .heatmap-legend span {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+                padding: 0.35rem 0.6rem;
+                border-radius: 999px;
+                border: 1px solid rgba(148, 163, 184, 0.3);
+                background: rgba(255, 255, 255, 0.6);
+            }
+            .empty-state {
+                margin: 0;
+                font-size: 0.9rem;
+                color: #475569;
+            }
+            .focus-outline:focus-visible {
+                outline: none;
+                box-shadow: var(--focus-ring);
+            }
+            @media (prefers-reduced-motion: reduce) {
+                *, *::before, *::after {
+                    animation-duration: 0.01ms !important;
+                    animation-iteration-count: 1 !important;
+                    transition-duration: 0.01ms !important;
+                    scroll-behavior: auto !important;
+                }
+            }
+            @media screen and (max-width: 1024px) {
+                .dashboard-grid--12 {
+                    grid-template-columns: repeat(6, minmax(0, 1fr));
+                }
+                .grid-span-7 { grid-column: span 6; }
+                .grid-span-8 { grid-column: span 6; }
+            }
+            @media screen and (max-width: 720px) {
+                .dashboard-grid--12 {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+                .grid-span-6,
+                .grid-span-5,
+                .grid-span-4,
+                .grid-span-3 { grid-column: span 2; }
+                .toc-chips {
+                    gap: 0.4rem;
+                }
+                .toc-chip {
+                    padding: 0.45rem 0.9rem;
+                }
             }
             </style>
             """
         ).strip(),
         unsafe_allow_html=True,
     )
+    st.markdown(
+        dedent(
+            """
+            <script>
+            window.addEventListener('DOMContentLoaded', () => {
+                const chips = Array.from(document.querySelectorAll('.toc-chip'));
+                const sections = Array.from(document.querySelectorAll('.dashboard-section'));
+                const setCurrent = (targetId) => {
+                    if (!targetId) {
+                        return;
+                    }
+                    chips.forEach((chip) => {
+                        const isCurrent = chip.dataset.section === targetId;
+                        chip.setAttribute('aria-current', isCurrent ? 'location' : 'false');
+                    });
+                };
+                const triggerHighlight = (section) => {
+                    if (!section) {
+                        return;
+                    }
+                    section.classList.add('is-highlighted');
+                    window.setTimeout(() => {
+                        section.classList.remove('is-highlighted');
+                    }, 2000);
+                };
+                if (sections.length) {
+                    const observer = new IntersectionObserver((entries) => {
+                        entries.forEach((entry) => {
+                            if (entry.isIntersecting) {
+                                const id = entry.target.getAttribute('id');
+                                setCurrent(id);
+                                triggerHighlight(entry.target);
+                            }
+                        });
+                    }, { rootMargin: '-35% 0px -45% 0px', threshold: 0.25 });
+                    sections.forEach((section) => observer.observe(section));
+                }
+                chips.forEach((chip) => {
+                    chip.addEventListener('click', () => {
+                        const target = chip.dataset.section;
+                        setCurrent(target);
+                        const section = document.getElementById(target);
+                        if (section) {
+                            triggerHighlight(section);
+                        }
+                    });
+                });
+                window.addEventListener('hashchange', () => {
+                    const id = window.location.hash.replace('#', '');
+                    setCurrent(id);
+                    const section = document.getElementById(id);
+                    if (section) {
+                        triggerHighlight(section);
+                    }
+                });
+                const filterTimeline = () => {
+                    const activeTags = Array.from(document.querySelectorAll('.insight-tag[aria-pressed="true"]'))
+                        .map((node) => node.dataset.case);
+                    const items = document.querySelectorAll('.timeline__item');
+                    if (!items.length) {
+                        return;
+                    }
+                    if (!activeTags.length) {
+                        items.forEach((item) => item.removeAttribute('hidden'));
+                        return;
+                    }
+                    items.forEach((item) => {
+                        const caseLabel = item.dataset.case;
+                        if (activeTags.includes(caseLabel)) {
+                            item.removeAttribute('hidden');
+                        } else {
+                            item.setAttribute('hidden', 'hidden');
+                        }
+                    });
+                };
+                document.querySelectorAll('.insight-tag').forEach((tag) => {
+                    tag.addEventListener('click', (event) => {
+                        const button = event.currentTarget;
+                        const pressed = button.getAttribute('aria-pressed') === 'true';
+                        button.setAttribute('aria-pressed', String(!pressed));
+                        filterTimeline();
+                    });
+                });
+                document.querySelectorAll('.insight-banner details[data-storage-key]').forEach((details) => {
+                    const key = details.dataset.storageKey;
+                    if (!key) {
+                        return;
+                    }
+                    const stored = window.localStorage.getItem(key);
+                    if (stored === 'closed') {
+                        details.open = false;
+                    }
+                    details.addEventListener('toggle', () => {
+                        window.localStorage.setItem(key, details.open ? 'open' : 'closed');
+                    });
+                });
+            });
+            </script>
+            """
+        ).strip(),
+        unsafe_allow_html=True,
+    )
     st.session_state["_dashboard_styles_injected"] = True
-
-
 def _format_datetime_label(value: datetime | str | None) -> str:
     if isinstance(value, datetime):
         return value.strftime("%Y年%m月%d日")
@@ -3978,8 +4079,6 @@ def _format_datetime_label(value: datetime | str | None) -> str:
         except ValueError:
             return value
     return "記録なし"
-
-
 def _format_duration_minutes(total_minutes: int) -> str:
     hours, minutes = divmod(total_minutes, 60)
     if hours and minutes:
@@ -3987,8 +4086,6 @@ def _format_duration_minutes(total_minutes: int) -> str:
     if hours:
         return f"{hours}時間"
     return f"{minutes}分"
-
-
 def _goal_period(period_type: str, reference: dt_date) -> tuple[dt_date, dt_date]:
     if period_type == "weekly":
         start = reference - timedelta(days=reference.weekday())
@@ -4001,8 +4098,6 @@ def _goal_period(period_type: str, reference: dt_date) -> tuple[dt_date, dt_date
             next_month = start.replace(month=start.month + 1, day=1)
         end = next_month - timedelta(days=1)
     return start, end
-
-
 def _distribute_minutes(total_minutes: int, total_days: int) -> List[int]:
     if total_days <= 0:
         return []
@@ -4015,8 +4110,6 @@ def _distribute_minutes(total_minutes: int, total_days: int) -> List[int]:
             minutes += 1
         distribution.append(minutes)
     return distribution
-
-
 def _generate_default_sessions(
     *,
     period_type: str,
@@ -4047,8 +4140,6 @@ def _generate_default_sessions(
             }
         )
     return sessions
-
-
 def _build_calendar_export(
     *, goal: Dict[str, Any], sessions: List[Dict[str, Any]], user_name: str
 ) -> bytes:
@@ -4080,146 +4171,156 @@ def _build_calendar_export(
         lines.append("END:VEVENT")
     lines.append("END:VCALENDAR")
     return "\r\n".join(lines).encode("utf-8")
-
-
-def _render_committee_heatmap_section(default_year: str = "令和7年度") -> None:
-    dataset = committee_analysis.load_committee_dataset()
-    if not dataset:
-        return
-
-    df = committee_analysis.flatten_profiles(dataset)
-    if df.empty:
-        return
-
-    summary_df = committee_analysis.aggregate_heatmap(df)
-    if summary_df.empty:
-        return
-
-    year_label = dataset.get("year", default_year)
-
-    st.subheader("試験委員“専門×事例”ヒートマップ")
-    st.caption(
-        f"{year_label}の基本/出題委員の専門領域と担当事例をマッピングしました。色が濃いほど、当該組み合わせの影響度が高いことを示します。"
-    )
-
-    total_committees = int(df["委員"].nunique())
-    case_totals = summary_df.groupby("事例")["重み"].sum().sort_values(ascending=False)
-    domain_totals = summary_df.groupby("専門カテゴリ")["重み"].sum().sort_values(ascending=False)
-
-    top_case_label = case_totals.index[0] if not case_totals.empty else "-"
-    top_domain_label = domain_totals.index[0] if not domain_totals.empty else "-"
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("委員数", f"{total_committees}名")
-    if not case_totals.empty:
-        col2.metric("最注目の事例", top_case_label, f"重み {case_totals.iloc[0]:.1f}")
-    else:
-        col2.metric("最注目の事例", "-", "")
-    if not domain_totals.empty:
-        col3.metric("強みの専門領域", top_domain_label, f"重み {domain_totals.iloc[0]:.1f}")
-    else:
-        col3.metric("強みの専門領域", "-", "")
-
-    primary_focus = committee_analysis.identify_primary_focus(dataset, summary_df)
-    if primary_focus:
-        info_lines = [f"今年の“重心”は「{primary_focus['label']}」。"]
-        rationale = primary_focus.get("rationale")
-        if rationale:
-            info_lines.append(str(rationale))
-        study_list = primary_focus.get("study_list") or []
-        if study_list:
-            info_lines.append("推奨テーマ: " + " / ".join(study_list[:3]))
-        st.info("\n".join(info_lines), icon="🎯")
-
-    domain_order = committee_analysis.domain_order(summary_df)
-    chart_data = summary_df.copy()
-    max_weight = float(chart_data["重み"].max() or 0)
-    color_scale = alt.Scale(scheme="blues", domain=(0, max_weight if max_weight > 0 else 1), domainMin=0)
-
-    chart = (
-        alt.Chart(chart_data)
-        .mark_rect()
-        .encode(
-            x=alt.X("事例:N", sort=CASE_ORDER, title="事例"),
-            y=alt.Y("専門カテゴリ:N", sort=domain_order, title="専門領域"),
-            color=alt.Color(
-                "重み:Q",
-                scale=color_scale,
-                title="影響度",
-            ),
-            tooltip=[
-                alt.Tooltip("専門カテゴリ:N", title="専門領域"),
-                alt.Tooltip("事例:N", title="事例"),
-                alt.Tooltip("重み:Q", title="重み", format=".2f"),
-                alt.Tooltip("委員数:Q", title="担当委員数"),
-                alt.Tooltip("重点テーマ:N", title="重点テーマ"),
-            ],
+    def _render_committee_heatmap_section(default_year: str = "令和7年度") -> Dict[str, Any]:
+        result: Dict[str, Any] = {"recommendations": [], "primary_focus": None, "cross_focuses": []}
+        dataset = committee_analysis.load_committee_dataset()
+        if not dataset:
+            st.markdown(
+                "<p class='empty-state'>委員データがまだ登録されていません。</p>",
+                unsafe_allow_html=True,
+            )
+            return result
+        df = committee_analysis.flatten_profiles(dataset)
+        if df.empty:
+            st.markdown(
+                "<p class='empty-state'>委員プロフィールからヒートマップを生成できませんでした。</p>",
+                unsafe_allow_html=True,
+            )
+            return result
+        summary_df = committee_analysis.aggregate_heatmap(df)
+        if summary_df.empty:
+            st.markdown(
+                "<p class='empty-state'>ヒートマップ用の集計結果がありません。</p>",
+                unsafe_allow_html=True,
+            )
+            return result
+        year_label = dataset.get("year", default_year)
+        total_committees = int(df["委員"].nunique())
+        case_totals = summary_df.groupby("事例")["重み"].sum().sort_values(ascending=False)
+        domain_totals = summary_df.groupby("専門カテゴリ")["重み"].sum().sort_values(ascending=False)
+        top_case_label = case_totals.index[0] if not case_totals.empty else "-"
+        top_case_weight = float(case_totals.iloc[0]) if not case_totals.empty else 0.0
+        top_domain_label = domain_totals.index[0] if not domain_totals.empty else "-"
+        top_domain_weight = float(domain_totals.iloc[0]) if not domain_totals.empty else 0.0
+        stat_html = "".join(
+            dedent(
+                f"""
+                <div class="stat-chip">
+                    <dt>{html.escape(item['label'])}</dt>
+                    <dd>{html.escape(item['value'])}</dd>
+                </div>
+                """
+            ).strip()
+            for item in [
+                {"label": "対象年度", "value": f"{year_label}"},
+                {"label": "委員数", "value": f"{total_committees}名"},
+                {"label": "最注目の事例", "value": f"{top_case_label}（重み {top_case_weight:.1f}）" if top_case_label != '-' else 'データ不足'},
+                {"label": "強み領域", "value": f"{top_domain_label}（重み {top_domain_weight:.1f}）" if top_domain_label != '-' else 'データ不足'},
+            ]
         )
-        .properties(height=320)
-    )
-    text_layer_weight = (
-        alt.Chart(chart_data)
-        .mark_text(color="#0f172a", fontSize=13, fontWeight="bold", dy=-6)
-        .encode(
-            x="事例:N",
-            y="専門カテゴリ:N",
-            text=alt.Text("重み:Q", format=".1f"),
+        st.markdown(
+            dedent(
+                f"""
+                <div class="section-lead">委員の専門領域と担当事例を重み付きで可視化しています。色が濃いほど影響度が高く、セル内の数値は重みと担当委員数を示します。</div>
+                <dl class="stat-group">{stat_html}</dl>
+                """
+            ).strip(),
+            unsafe_allow_html=True,
         )
-    )
-    text_layer_members = (
-        alt.Chart(chart_data)
-        .mark_text(color="#334155", fontSize=11, dy=10)
-        .encode(
-            x="事例:N",
-            y="専門カテゴリ:N",
-            text=alt.Text("委員数:Q", format=".0f"),
+        recommendations = committee_analysis.focus_recommendations(summary_df, limit=5)
+        cross_focuses = committee_analysis.cross_focus_highlights(dataset, limit=2)
+        result["primary_focus"] = committee_analysis.identify_primary_focus(dataset, summary_df)
+        result["recommendations"] = recommendations
+        result["cross_focuses"] = cross_focuses
+        legend_min = float(summary_df["重み"].min() or 0.0)
+        legend_median = float(summary_df["重み"].median() or 0.0)
+        legend_max = float(summary_df["重み"].max() or 0.0)
+        domain_order = committee_analysis.domain_order(summary_df)
+        chart_data = summary_df.copy()
+        max_weight = float(chart_data["重み"].max() or 1.0)
+        color_scale = alt.Scale(scheme="blues", domain=(0, max_weight if max_weight > 0 else 1), domainMin=0)
+        chart = (
+            alt.Chart(chart_data)
+            .mark_rect()
+            .encode(
+                x=alt.X("事例:N", sort=CASE_ORDER, title="事例"),
+                y=alt.Y("専門カテゴリ:N", sort=domain_order, title="専門領域"),
+                color=alt.Color("重み:Q", scale=color_scale, title="影響度"),
+                tooltip=[
+                    alt.Tooltip("専門カテゴリ:N", title="専門領域"),
+                    alt.Tooltip("事例:N", title="事例"),
+                    alt.Tooltip("重み:Q", title="重み", format=".2f"),
+                    alt.Tooltip("委員数:Q", title="担当委員数"),
+                    alt.Tooltip("重点テーマ:N", title="重点テーマ"),
+                ],
+            )
+            .properties(height=320)
         )
-    )
-
-    highlight_rows = chart_data.nlargest(3, "重み")
-    highlight_layer = (
-        alt.Chart(highlight_rows)
-        .mark_rect(stroke="#1d4ed8", strokeWidth=2, fillOpacity=0)
-        .encode(
-            x="事例:N",
-            y="専門カテゴリ:N",
+        text_layer_weight = (
+            alt.Chart(chart_data)
+            .mark_text(color="#0f172a", fontSize=13, fontWeight="bold", dy=-6)
+            .encode(x="事例:N", y="専門カテゴリ:N", text=alt.Text("重み:Q", format=".1f"))
         )
-    )
-
-    st.altair_chart(chart + text_layer_weight + text_layer_members + highlight_layer, use_container_width=True)
-
-    st.caption("セル内の下段の数値は担当委員数を表しています。青枠は特に重みが大きい上位3組み合わせです。")
-
-    recommendations = committee_analysis.focus_recommendations(summary_df, limit=5)
-    if recommendations:
-        st.markdown("**狙い撃ち予習リスト**")
-        for item in recommendations:
-            themes = item.get("themes", [])
-            comment = item.get("comment")
-            bullet = f"- **{item.get('case', '')} × {item.get('domain', '')}**"
-            if comment:
-                bullet += f" — {comment}"
-            st.markdown(bullet)
-            if themes:
-                st.caption("推奨演習: " + " / ".join(themes[:3]))
-
-    cross_focuses = committee_analysis.cross_focus_highlights(dataset, limit=2)
-    if cross_focuses:
-        st.markdown("**横断テーマ候補**")
-        for entry in cross_focuses:
-            cases = "・".join(entry.get("cases", []))
-            headline = f"- 🔗 **{entry.get('label', '')}**"
-            if cases:
-                headline += f" ({cases})"
-            rationale = entry.get("rationale")
-            if rationale:
-                headline += f" — {rationale}"
-            st.markdown(headline)
-            study_list = entry.get("study_list") or []
-            if study_list:
-                st.caption("推奨演習: " + " / ".join(study_list[:3]))
-
-
+        text_layer_members = (
+            alt.Chart(chart_data)
+            .mark_text(color="#334155", fontSize=11, dy=10)
+            .encode(x="事例:N", y="専門カテゴリ:N", text=alt.Text("委員数:Q", format=".0f"))
+        )
+        highlight_rows = chart_data.nlargest(3, "重み")
+        highlight_layer = (
+            alt.Chart(highlight_rows)
+            .mark_rect(stroke="#1d4ed8", strokeWidth=2, fillOpacity=0)
+            .encode(x="事例:N", y="専門カテゴリ:N")
+        )
+        st.altair_chart(chart + text_layer_weight + text_layer_members + highlight_layer, use_container_width=True)
+        legend_html = dedent(
+            f"""
+            <div class="heatmap-legend">
+                <span>最小重み {legend_min:.1f}</span>
+                <span>中央値 {legend_median:.1f}</span>
+                <span>最大重み {legend_max:.1f}</span>
+            </div>
+            """
+        ).strip()
+        st.markdown(legend_html, unsafe_allow_html=True)
+        st.caption("セル上段は重み、下段は担当委員数を示します。青枠は影響度上位3組み合わせです。")
+        with st.expander("ヒートマップ数値を表形式で確認", expanded=False):
+            display_df = summary_df[["専門カテゴリ", "事例", "重み", "委員数", "重点テーマ"]].rename(
+                columns={"専門カテゴリ": "専門領域", "事例": "事例", "重み": "重み", "委員数": "委員数", "重点テーマ": "重点テーマ"}
+            )
+            st.dataframe(display_df, hide_index=True, use_container_width=True)
+        if recommendations:
+            st.markdown("**狙い撃ち予習リスト**")
+            bullets: List[str] = []
+            for item in recommendations[:3]:
+                label_parts = [item.get("case"), item.get("domain")]
+                label = " × ".join(part for part in label_parts if part)
+                if not label:
+                    label = "重点テーマ"
+                comment = item.get("comment")
+                entry = f"- **{label}**"
+                if comment:
+                    entry += f" — {comment}"
+                themes = item.get("themes") or []
+                if themes:
+                    entry += f" （推奨演習: {' / '.join(map(str, themes[:3]))}）"
+                bullets.append(entry)
+            st.markdown("\\n".join(bullets))
+        if cross_focuses:
+            st.markdown("**横断テーマ候補**")
+            notes: List[str] = []
+            for entry in cross_focuses:
+                label = entry.get("label") or "横断テーマ"
+                cases = entry.get("cases") or []
+                rationale = entry.get("rationale")
+                note = f"- 🔗 **{label}**"
+                if cases:
+                    note += f" ({'・'.join(map(str, cases))})"
+                if rationale:
+                    note += f" — {rationale}"
+                notes.append(note)
+            st.markdown("\\n".join(notes))
+        return result
 def _render_study_planner(user: Dict) -> None:
     today = dt_date.today()
     st.subheader("スタディプランナー")
@@ -4229,15 +4330,12 @@ def _render_study_planner(user: Dict) -> None:
         _render_study_goal_panel(user, period_type="weekly", reference_date=today)
     with monthly_tab:
         _render_study_goal_panel(user, period_type="monthly", reference_date=today)
-
-
 def _render_study_goal_panel(
     user: Dict, *, period_type: str, reference_date: dt_date
 ) -> None:
     label = "週間" if period_type == "weekly" else "月間"
     start, end = _goal_period(period_type, reference_date)
     st.markdown(f"**対象期間:** {start.strftime('%Y-%m-%d')} 〜 {end.strftime('%Y-%m-%d')}")
-
     existing_goal = database.get_current_study_goal(
         user_id=user["id"], period_type=period_type, reference_date=reference_date
     )
@@ -4246,7 +4344,6 @@ def _render_study_goal_panel(
     default_hours = round(default_minutes / 60, 1) if default_minutes else 0.0
     default_score = float(existing_goal["target_score"]) if existing_goal else 65.0
     default_time = existing_goal["preferred_start_time"] if existing_goal else dt_time(20, 0)
-
     with st.form(f"{period_type}_goal_form", clear_on_submit=False):
         practice_target = st.number_input(
             "演習回数目標 (回)", min_value=0, value=default_practice, step=1
@@ -4259,7 +4356,6 @@ def _render_study_goal_panel(
         )
         preferred_time = st.time_input("学習開始時間", value=default_time or dt_time(20, 0))
         submitted = st.form_submit_button("目標を保存")
-
     if submitted:
         target_minutes = int(round(study_hours * 60))
         goal_id = database.upsert_study_goal(
@@ -4284,21 +4380,18 @@ def _render_study_goal_panel(
         database.replace_study_sessions(goal_id, sessions)
         st.success(f"{label}目標を保存しました。外部カレンダーへの同期も更新されています。")
         st.experimental_rerun()
-
     goal = database.get_current_study_goal(
         user_id=user["id"], period_type=period_type, reference_date=reference_date
     )
     if not goal:
         st.info(f"{label}目標を設定すると進捗が表示されます。")
         return
-
     progress = database.aggregate_attempts_between(
         user_id=user["id"], start_date=goal["start_date"], end_date=goal["end_date"]
     )
     practice_target = goal["target_practice_count"]
     time_target = goal["target_study_minutes"]
     score_target = goal["target_score"]
-
     practice_ratio = (
         progress["practice_count"] / practice_target if practice_target else 0.0
     )
@@ -4308,7 +4401,6 @@ def _render_study_goal_panel(
     score_ratio = (
         progress["average_score"] / score_target if score_target else 0.0
     )
-
     col1, col2, col3 = st.columns(3)
     practice_value = (
         f"{progress['practice_count']} / {practice_target} 回"
@@ -4330,26 +4422,22 @@ def _render_study_goal_panel(
         else f"{progress['average_score']:.1f} 点"
     )
     score_delta = f"{score_ratio * 100:.0f}% 達成" if score_target else "目標未設定"
-
     with col1:
         st.metric("演習回数進捗", practice_value, delta=practice_delta)
     with col2:
         st.metric("学習時間進捗", time_value, delta=time_delta)
     with col3:
         st.metric("平均得点進捗", score_value, delta=score_delta)
-
     st.progress(min(practice_ratio, 1.0) if practice_target else 1.0)
     st.caption("演習回数の進捗率")
     st.progress(min(time_ratio, 1.0) if time_target else 1.0)
     st.caption("学習時間の進捗率")
     st.progress(min(score_ratio, 1.0) if score_target else 1.0)
     st.caption("得点目標の達成率 (平均点)")
-
     total_days = (goal["end_date"] - goal["start_date"]).days + 1
     days_elapsed = (min(dt_date.today(), goal["end_date"]) - goal["start_date"]).days + 1
     days_elapsed = max(1, min(days_elapsed, total_days))
     expected_ratio = days_elapsed / total_days if total_days else 1.0
-
     if (
         practice_ratio >= 1.0
         and (time_target == 0 or time_ratio >= 1.0)
@@ -4362,7 +4450,6 @@ def _render_study_goal_panel(
         )
     else:
         st.info(f"{label}目標は計画通りに進んでいます。今のペースを維持しましょう。")
-
     sessions = database.list_study_sessions(goal["id"])
     if sessions:
         session_df = pd.DataFrame(
@@ -4378,7 +4465,6 @@ def _render_study_goal_panel(
         )
         st.markdown("### 日々の学習予定")
         st.data_editor(session_df, hide_index=True, disabled=True, use_container_width=True)
-
         ics_bytes = _build_calendar_export(goal=goal, sessions=sessions, user_name=user["name"])
         st.download_button(
             f"{label}プランを外部カレンダーへ同期 (ICS)",
@@ -4391,340 +4477,589 @@ def _render_study_goal_panel(
         )
     else:
         st.info("学習時間目標を設定すると日々の予定が自動生成されます。")
-
-
 def dashboard_page(user: Dict) -> None:
     _inject_dashboard_styles()
-
+    def _ensure_datetime(value: Any) -> Optional[datetime]:
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError:
+                return None
+        return None
     st.title("ホームダッシュボード")
     st.caption("学習状況のサマリと機能へのショートカット")
-    st.markdown("<div class='section-divider section-top-divider'></div>", unsafe_allow_html=True)
-
+    st.markdown("<div class='dashboard-shell'>", unsafe_allow_html=True)
     attempts = database.list_attempts(user_id=user["id"])
     gamification = _calculate_gamification(attempts)
+    stats = database.aggregate_statistics(user["id"])
     total_attempts = len(attempts)
     total_score = sum(row["total_score"] or 0 for row in attempts)
     total_max = sum(row["total_max_score"] or 0 for row in attempts)
-    average_score = round(total_score / total_attempts, 1) if total_attempts else 0
-    completion_rate = (total_score / total_max * 100) if total_max else 0
-
-    point_col, streak_col, badge_col = st.columns([1, 1, 2])
-    with point_col:
-        st.metric("累計ポイント", f"{gamification['points']} pt")
-        level_progress = 0.0
-        if gamification["level_threshold"]:
-            level_progress = gamification["level_progress"] / gamification["level_threshold"]
-        st.progress(min(level_progress, 1.0))
-        if gamification["points"] == 0:
-            st.caption("演習を実施するとポイントが貯まりレベルアップします。")
-        else:
-            st.caption(
-                f"レベル{gamification['level']} / 次のレベルまであと {gamification['points_to_next_level']} pt"
-            )
-    with streak_col:
-        st.metric("連続学習日数", f"{gamification['current_streak']}日")
-        if gamification["next_milestone"]:
-            progress = gamification["attempts"] / gamification["next_milestone"]
-            st.progress(min(progress, 1.0))
-            st.caption(
-                f"次の称号まであと {max(gamification['next_milestone'] - gamification['attempts'], 0)} 回の演習"
-            )
-        else:
-            st.caption("最高ランクに到達しました！継続おめでとうございます。")
-    with badge_col:
-        st.subheader("獲得バッジ")
-        if gamification["badges"]:
-            for badge in gamification["badges"]:
-                st.markdown(f"- 🏅 **{badge['title']}** — {badge['description']}")
-        else:
-            st.caption("バッジはまだありません。演習や模試で獲得を目指しましょう。")
-
-    stats = database.aggregate_statistics(user["id"])
+    average_score = round(total_score / total_attempts, 1) if total_attempts else 0.0
+    completion_rate = (total_score / total_max * 100) if total_max else 0.0
     total_learning_minutes = sum((row["duration_seconds"] or 0) for row in attempts) // 60
-
-    best_case_label = None
+    best_case_label: Optional[str] = None
     best_case_rate = 0.0
     if stats:
-        case_ratios = [
-            (case_label, (values["avg_score"] / values["avg_max"] * 100) if values["avg_max"] else 0)
-            for case_label, values in stats.items()
-        ]
-        if case_ratios:
-            best_case_label, best_case_rate = max(case_ratios, key=lambda item: item[1])
-
-    metric_cards = [
-        {
-            "label": "演習回数",
-            "value": f"{total_attempts}回",
-            "desc": "これまで解いたケースの累計",
-            "class": "progress",
-        },
-        {
-            "label": "平均得点",
-            "value": f"{average_score}点",
-            "desc": "全演習の平均スコア",
-            "class": "score",
-        },
-        {
-            "label": "得点達成率",
-            "value": f"{completion_rate:.0f}%",
-            "desc": "満点に対する平均達成度",
-            "class": "score",
-        },
-        {
-            "label": "得意な事例",
-            "value": best_case_label or "記録なし",
-            "desc": f"平均達成率 {best_case_rate:.0f}%" if best_case_label else "データが蓄積されると表示されます",
-            "class": "progress",
-        },
-    ]
-
-    card_blocks = "\n".join(
-        dedent(
-            f"""
-            <div class="metric-card {card['class']}">
-                <div class="metric-label">{card['label']}</div>
-                <div class="metric-value">{card['value']}</div>
-                <p class="metric-desc">{card['desc']}</p>
-            </div>
-            """
-        ).strip()
-        for card in metric_cards
-    )
-    st.markdown(
-        dedent(
-            f"""
-            <div class="metric-row">
-            {card_blocks}
-            </div>
-            """
-        ).strip(),
-        unsafe_allow_html=True,
-    )
-    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
-
-    _render_committee_heatmap_section()
-    _render_study_planner(user)
-
-    upcoming_reviews = database.list_upcoming_reviews(user_id=user["id"], limit=6)
-    due_review_count = database.count_due_reviews(user_id=user["id"])
-    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
-    st.subheader("復習スケジュール（間隔反復）")
-    if upcoming_reviews:
-        if due_review_count:
-            st.warning(
-                f"{due_review_count}件の復習が期限到来または超過しています。優先的に取り組みましょう。",
-                icon="⏳",
-            )
-        schedule_df = pd.DataFrame(
-            [
-                {
-                    "次回予定": review["due_at"].strftime("%Y-%m-%d"),
-                    "事例": f"{review['year']} {review['case_label']}",
-                    "タイトル": review["title"],
-                    "前回達成度": f"{(review['last_score_ratio'] or 0) * 100:.0f}%",
-                    "間隔": f"{review['interval_days']}日",
-                    "ステータス": "要復習" if review["due_at"] <= datetime.utcnow() else "予定",
-                }
-                for review in upcoming_reviews
-            ]
-        )
-        st.markdown('<div class="section-card table-card table-card--schedule">', unsafe_allow_html=True)
-        st.data_editor(
-            schedule_df,
-            hide_index=True,
-            use_container_width=True,
-            disabled=True,
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.caption("演習結果に応じて次回の復習タイミングを自動で提案します。")
-    else:
-        st.info("演習データが蓄積されると復習スケジュールがここに表示されます。")
-
-    overview_tab, chart_tab = st.tabs(["進捗サマリ", "事例別分析"])
-
-    with overview_tab:
-        if attempts:
-            summary_df = pd.DataFrame(
-                [
-                    {
-                        "実施日": row["submitted_at"].strftime("%Y-%m-%d")
-                        if isinstance(row["submitted_at"], datetime)
-                        else row["submitted_at"],
-                        "年度": row["year"],
-                        "事例": row["case_label"],
-                        "モード": "模試" if row["mode"] == "mock" else "演習",
-                        "得点": row["total_score"],
-                        "満点": row["total_max_score"],
-                    }
-                    for row in attempts
-                ]
-            )
-            st.markdown('<div class="section-card table-card table-card--summary">', unsafe_allow_html=True)
-            st.data_editor(
-                summary_df,
-                use_container_width=True,
-                hide_index=True,
-                disabled=True,
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-            st.caption("最近の受験結果を表形式で確認できます。列ヘッダーにマウスを合わせるとソートが可能です。")
-        else:
-            st.info("まだ演習結果がありません。『過去問演習』から学習を開始しましょう。")
-
-    with chart_tab:
-        if stats:
-            chart_data = []
-            for case_label, values in stats.items():
-                chart_data.append(
-                    {
-                        "事例": case_label,
-                        "得点": values["avg_score"],
-                        "満点": values["avg_max"],
-                    }
-                )
-            df = pd.DataFrame(chart_data)
-            df["達成率"] = df.apply(
-                lambda row: row["得点"] / row["満点"] * 100 if row["満点"] else 0,
-                axis=1,
-            )
-            st.subheader("事例別平均達成率")
-            bar = (
-                alt.Chart(df)
-                .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
-                .encode(
-                    y=alt.Y("事例:N", sort="-x", title=None),
-                    x=alt.X("達成率:Q", scale=alt.Scale(domain=[0, 100]), title="平均達成率 (%)"),
-                    color=alt.value("#22c55e"),
-                    tooltip=["事例", "得点", "満点", alt.Tooltip("達成率:Q", format=".1f")],
-                )
-            )
-            target_line = (
-                alt.Chart(pd.DataFrame({"ベンチマーク": [60]}))
-                .mark_rule(color="#f97316", strokeDash=[6, 4])
-                .encode(x="ベンチマーク:Q")
-            )
-            st.altair_chart(bar + target_line, use_container_width=True)
-        else:
-            st.info("演習データが蓄積すると事例別の分析が表示されます。")
-
-    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
-    st.markdown("### 学習ハイライト")
-    st.markdown("<div class='section-divider section-tight'></div>", unsafe_allow_html=True)
-
-    latest_attempt = attempts[0] if attempts else None
-    next_focus_card = {
-        "icon": "🎯",
-        "title": "次に集中すべき事例",
-        "value": "最初の演習を始めましょう",
-        "desc": "演習を完了すると優先度が表示されます。",
-    }
-    if stats:
-        focus_case_label = None
-        focus_rate = None
+        case_ratios: List[Tuple[str, float]] = []
         for case_label, values in stats.items():
             if not values["avg_max"]:
                 continue
             ratio = values["avg_score"] / values["avg_max"] * 100
-            if focus_rate is None or ratio < focus_rate:
-                focus_rate = ratio
-                focus_case_label = case_label
-        if focus_case_label:
+            case_ratios.append((case_label, ratio))
+        if case_ratios:
+            best_case_label, best_case_rate = max(case_ratios, key=lambda item: item[1])
+    today = dt_date.today()
+    week_start = today - timedelta(days=6)
+    weekly_progress = database.aggregate_attempts_between(
+        user_id=user["id"],
+        start_date=week_start,
+        end_date=today,
+    )
+    weekly_goal = database.get_current_study_goal(
+        user_id=user["id"], period_type="weekly", reference_date=today
+    )
+    practice_target = int(weekly_goal["target_practice_count"]) if weekly_goal else 5
+    if practice_target <= 0:
+        practice_target = 5
+    time_target = int(weekly_goal["target_study_minutes"]) if weekly_goal else 300
+    if time_target <= 0:
+        time_target = 300
+    score_target = float(weekly_goal["target_score"]) if weekly_goal else 60.0
+    if score_target <= 0:
+        score_target = 60.0
+    practice_value = weekly_progress["practice_count"]
+    time_value = weekly_progress["total_duration_minutes"]
+    score_value = weekly_progress["average_score"]
+    practice_desc = (
+        f"{practice_value} / {practice_target} 回" if practice_target else f"{practice_value} 回"
+    )
+    time_desc = f"{time_value} / {time_target} 分" if time_target else f"{time_value} 分"
+    score_desc = (
+        f"{score_value:.1f} / {score_target:.1f} 点"
+        if score_target
+        else f"{score_value:.1f} 点"
+    )
+    level_threshold = gamification.get("level_threshold") or 100
+    level_progress_value = gamification.get("level_progress") or 0
+    streak_value = gamification.get("current_streak") or 0
+    streak_target = 7 if streak_value < 7 else max(14, streak_value)
+    streak_gap = max(streak_target - streak_value, 0)
+    if streak_value == 0:
+        streak_caption = "今日から連続学習をスタートしましょう。"
+    elif streak_gap:
+        streak_caption = f"{streak_target}日達成まであと {streak_gap}日です。"
+    else:
+        streak_caption = f"{streak_target}日連続を更新中です！"
+    kpi_cards = [
+        {
+            "id": "kpi-points",
+            "title": "累計ポイント",
+            "display": f"{gamification['points']:,}",
+            "unit": "pt",
+            "tone": "blue",
+            "context": (
+                "演習を実施するとポイントが貯まります。"
+                if gamification["points"] == 0
+                else f"レベル{gamification['level']} / 次のレベルまであと {gamification['points_to_next_level']} pt"
+            ),
+            "progress_value": float(level_progress_value),
+            "progress_max": float(level_threshold or max(level_progress_value, 1)),
+            "progress_label": "レベル進捗",
+        },
+        {
+            "id": "kpi-streak",
+            "title": "連続学習日数",
+            "display": str(streak_value),
+            "unit": "日",
+            "tone": "green",
+            "context": streak_caption,
+            "progress_value": float(min(streak_value, streak_target)),
+            "progress_max": float(max(streak_target, 1)),
+            "progress_label": "記録更新状況",
+        },
+    ]
+    progress_items = [
+        {
+            "id": "progress-practice",
+            "label": "演習回数 (直近7日)",
+            "value": float(practice_value),
+            "target": float(practice_target or max(practice_value, 1)),
+            "unit": "回",
+            "tone": "blue",
+            "desc": f"週間目標 {practice_target}回",
+            "display": practice_desc,
+        },
+        {
+            "id": "progress-time",
+            "label": "学習時間 (直近7日)",
+            "value": float(time_value),
+            "target": float(time_target or max(time_value, 60)),
+            "unit": "分",
+            "tone": "green",
+            "desc": f"週間目標 {time_target}分 ({time_target / 60:.1f}時間)",
+            "display": time_desc,
+        },
+        {
+            "id": "progress-score",
+            "label": "平均得点 (直近7日)",
+            "value": float(score_value),
+            "target": float(score_target or max(score_value, 1)),
+            "unit": "点",
+            "tone": "yellow",
+            "desc": f"目標 {score_target:.1f}点",
+            "display": score_desc,
+        },
+    ]
+    stat_data: List[Dict[str, str]] = [
+        {"label": "累計演習", "value": f"{total_attempts}回"},
+        {"label": "平均得点", "value": f"{average_score:.1f}点"},
+        {"label": "得点達成率", "value": f"{completion_rate:.0f}%"},
+    ]
+    if best_case_label:
+        stat_data.append(
+            {"label": "得意な事例", "value": f"{best_case_label}（{best_case_rate:.0f}%）"}
+        )
+    timeline_items: List[str] = []
+    for attempt in attempts[:6]:
+        submitted_dt = _ensure_datetime(attempt.get("submitted_at"))
+        date_label = (
+            submitted_dt.strftime("%Y-%m-%d (%a)") if submitted_dt else "日付未登録"
+        )
+        time_label = submitted_dt.strftime("%H:%M") if submitted_dt else ""
+        case_label = attempt.get("case_label") or "-"
+        year_label = attempt.get("year") or ""
+        mode_label = "模擬試験" if attempt.get("mode") == "mock" else "演習"
+        title = html.escape(attempt.get("title") or "")
+        score = float(attempt.get("total_score") or 0)
+        max_score = float(attempt.get("total_max_score") or 0)
+        ratio = (score / max_score * 100) if max_score else 0.0
+        score_line = (
+            f"得点 {score:.0f} / {max_score:.0f} 点 ({ratio:.0f}%)"
+            if max_score
+            else f"得点 {score:.0f} 点"
+        )
+        descriptor_parts = []
+        if year_label:
+            descriptor_parts.append(f"{year_label}年度")
+        descriptor_parts.append(case_label)
+        descriptor = html.escape(" / ".join(descriptor_parts))
+        timeline_items.append(
+            dedent(
+                f"""
+                <li class="timeline__item" data-case="{html.escape(case_label)}">
+                    <span class="timeline__dot" aria-hidden="true"></span>
+                    <p class="timeline__title">{descriptor}</p>
+                    <p class="timeline__meta">{html.escape(date_label)} {html.escape(time_label)}・{mode_label}</p>
+                    <p class="timeline__score">{html.escape(score_line)}</p>
+                    {f'<p class="timeline__desc">{title}</p>' if title else ''}
+                </li>
+                """
+            ).strip()
+        )
+    if timeline_items:
+        timeline_html = "<ol class='timeline' aria-live='polite'>" + ''.join(timeline_items) + "</ol>"
+    else:
+        timeline_html = "<p class='empty-state'>まだ実績がありません。最初の演習を完了するとタイムラインがここに表示されます。</p>"
+    toc_html = dedent(
+        """
+        <nav class="toc-chips" role="navigation" aria-label="ページ内目次">
+            <a class="toc-chip" href="#kpi" data-section="kpi" aria-current="location">KPI</a>
+            <a class="toc-chip" href="#performance" data-section="performance">実績</a>
+            <a class="toc-chip" href="#analysis" data-section="analysis">ヒートマップ</a>
+            <a class="toc-chip" href="#insights" data-section="insights">洞察</a>
+        </nav>
+        """
+    ).strip()
+    st.markdown(toc_html, unsafe_allow_html=True)
+    kpi_cards_html: List[str] = []
+    for card in kpi_cards:
+        progress_max = card["progress_max"] or max(card["progress_value"], 1.0)
+        percent = min(max(card["progress_value"] / progress_max, 0.0), 1.0) * 100
+        context_id = f"{card['id']}-context"
+        title_id = f"{card['id']}-value"
+        kpi_cards_html.append(
+            dedent(
+                f"""
+                <article class="kpi-card grid-span-6" data-tone="{card['tone']}" role="group" aria-labelledby="{title_id}" aria-describedby="{context_id}">
+                    <div class="kpi-card__header">
+                        <p class="kpi-card__eyebrow">{html.escape(card['title'])}</p>
+                        <p id="{title_id}" class="kpi-card__value">{html.escape(card['display'])}<span class="kpi-card__unit">{html.escape(card['unit'])}</span></p>
+                    </div>
+                    <p id="{context_id}" class="kpi-card__caption">{html.escape(card['context'])}</p>
+                    <div class="kpi-card__progress" role="progressbar" aria-valuemin="0" aria-valuenow="{card['progress_value']:.2f}" aria-valuemax="{progress_max:.2f}" aria-label="{html.escape(card['progress_label'])}">
+                        <div class="kpi-card__progress-fill" style="width:{percent:.2f}%;"></div>
+                    </div>
+                </article>
+                """
+            ).strip()
+        )
+    kpi_section_html = dedent(
+        f"""
+        <section id="kpi" class="dashboard-section" role="region" aria-labelledby="kpi-heading">
+            <div class="section-header">
+                <h2 id="kpi-heading">KPIレーン</h2>
+                <p class="section-lead">ポイントと連続日数を即座に確認し、学習リズムを把握しましょう。</p>
+            </div>
+            <div class="dashboard-grid dashboard-grid--12 kpi-grid">
+                {''.join(kpi_cards_html)}
+            </div>
+        </section>
+        """
+    ).strip()
+    st.markdown(kpi_section_html, unsafe_allow_html=True)
+    stat_html = "".join(
+        dedent(
+            f"""
+            <div class="stat-chip">
+                <dt>{html.escape(item['label'])}</dt>
+                <dd>{html.escape(item['value'])}</dd>
+            </div>
+            """
+        ).strip()
+        for item in stat_data
+    )
+    progress_rows_html: List[str] = []
+    for item in progress_items:
+        target_value = item["target"] or max(item["value"], 1.0)
+        percent = min(max(item["value"] / target_value, 0.0), 1.0) * 100
+        label_id = f"{item['id']}-label"
+        desc_id = f"{item['id']}-desc"
+        progress_rows_html.append(
+            dedent(
+                f"""
+                <div class="progress-row" data-tone="{item['tone']}" role="group" aria-labelledby="{label_id}" aria-describedby="{desc_id}">
+                    <div class="progress-row__header">
+                        <p id="{label_id}" class="progress-row__title">{html.escape(item['label'])}</p>
+                        <span class="progress-row__value">{html.escape(item['display'])}</span>
+                    </div>
+                    <div class="progress-row__track" role="progressbar" aria-valuemin="0" aria-valuenow="{item['value']:.2f}" aria-valuemax="{target_value:.2f}" aria-labelledby="{label_id}" aria-describedby="{desc_id}">
+                        <div class="progress-row__fill" style="width:{percent:.2f}%;"></div>
+                    </div>
+                    <p id="{desc_id}" class="progress-row__caption">{html.escape(item['desc'])}</p>
+                </div>
+                """
+            ).strip()
+        )
+    progress_card_html = dedent(
+        f"""
+        <article class="dashboard-card dashboard-card--progress grid-span-7" role="group" aria-labelledby="performance-progress-heading">
+            <h3 id="performance-progress-heading">週間進捗</h3>
+            <dl class="stat-group">{stat_html}</dl>
+            <div class="progress-rows">
+                {''.join(progress_rows_html)}
+            </div>
+        </article>
+        """
+    ).strip()
+    timeline_card_html = dedent(
+        f"""
+        <article class="dashboard-card dashboard-card--feed grid-span-5" role="group" aria-labelledby="performance-feed-heading">
+            <h3 id="performance-feed-heading">実績フィード</h3>
+            {timeline_html}
+        </article>
+        """
+    ).strip()
+    performance_section_html = dedent(
+        f"""
+        <section id="performance" class="dashboard-section" role="region" aria-labelledby="performance-heading">
+            <div class="section-header">
+                <h2 id="performance-heading">進捗・実績レーン</h2>
+                <p class="section-lead">週間の進捗と最新実績をタイムラインで確認できます。</p>
+            </div>
+            <div class="dashboard-grid dashboard-grid--12">
+                {progress_card_html}
+                {timeline_card_html}
+            </div>
+        </section>
+        """
+    ).strip()
+    st.markdown(performance_section_html, unsafe_allow_html=True)
+    st.markdown(
+        dedent(
+            """
+            <section id="analysis" class="dashboard-section" role="region" aria-labelledby="analysis-heading">
+                <div class="section-header">
+                    <h2 id="analysis-heading">分析レーン</h2>
+                    <p class="section-lead">専門分野と事例の相関をヒートマップで把握し、準備の優先度を定めます。</p>
+                </div>
+                <div class="dashboard-grid dashboard-grid--12">
+                    <article class="dashboard-card dashboard-card--analysis grid-span-12" role="group" aria-labelledby="analysis-heading">
+            """
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+    heatmap_result = _render_committee_heatmap_section()
+    st.markdown(
+        dedent(
+            """
+                    </article>
+                </div>
+            </section>
+            """
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+    latest_attempt = attempts[0] if attempts else None
+    next_focus_card = {
+        "label": "次に集中すべき事例",
+        "value": "最初の演習を始めましょう",
+        "desc": "演習を完了すると優先度が表示されます。",
+    }
+    if stats:
+        weakest_case: Optional[str] = None
+        weakest_ratio: Optional[float] = None
+        for case_label, values in stats.items():
+            if not values["avg_max"]:
+                continue
+            ratio = values["avg_score"] / values["avg_max"] * 100
+            if weakest_ratio is None or ratio < weakest_ratio:
+                weakest_ratio = ratio
+                weakest_case = case_label
+        if weakest_case and weakest_ratio is not None:
             next_focus_card = {
-                "icon": "🎯",
-                "title": "次に集中すべき事例",
-                "value": focus_case_label,
-                "desc": f"平均達成率 {focus_rate:.0f}%。重点復習で底上げしましょう。",
+                "label": "次に集中すべき事例",
+                "value": weakest_case,
+                "desc": f"平均達成率 {weakest_ratio:.0f}%。重点復習で底上げしましょう。",
             }
-
     learning_time_card = {
-        "icon": "⏱️",
-        "title": "累計学習時間",
+        "label": "累計学習時間",
         "value": _format_duration_minutes(total_learning_minutes),
         "desc": "記録された演習・模試の回答時間の合計",
     }
     if total_learning_minutes == 0:
         learning_time_card["value"] = "0分"
         learning_time_card["desc"] = "初回の演習で学習時間を記録しましょう。"
-
     latest_result_card = {
-        "icon": "📈",
-        "title": "直近の結果",
+        "label": "直近の結果",
         "value": "データなし",
         "desc": "演習を完了すると最新結果が表示されます。",
     }
     if latest_attempt:
-        latest_score = latest_attempt["total_score"] or 0
-        latest_max = latest_attempt["total_max_score"] or 0
-        latest_ratio = (latest_score / latest_max * 100) if latest_max else 0
+        latest_score = float(latest_attempt.get("total_score") or 0)
+        latest_max = float(latest_attempt.get("total_max_score") or 0)
+        latest_ratio = (latest_score / latest_max * 100) if latest_max else 0.0
         latest_result_card = {
-            "icon": "📈",
-            "title": "直近の結果",
-            "value": f"{latest_score:.0f} / {latest_max:.0f}点 ({latest_ratio:.0f}%)",
-            "desc": f"{_format_datetime_label(latest_attempt['submitted_at'])} 実施",
+            "label": "直近の結果",
+            "value": (
+                f"{latest_score:.0f} / {latest_max:.0f}点 ({latest_ratio:.0f}%)"
+                if latest_max
+                else f"{latest_score:.0f}点"
+            ),
+            "desc": f"{_format_datetime_label(latest_attempt.get('submitted_at'))} 実施",
         }
-
-    insight_cards = "\n".join(
+    insight_tiles_data = [next_focus_card, learning_time_card, latest_result_card]
+    insight_tiles_html = "".join(
         dedent(
             f"""
-            <div class="insight-card">
-                <div class="insight-icon">{card['icon']}</div>
-                <div>
-                    <p class="insight-title">{card['title']}</p>
-                    <p class="insight-value">{card['value']}</p>
-                    <p class="insight-desc">{card['desc']}</p>
-                </div>
+            <div class="insight-tile">
+                <p class="insight-tile__label">{html.escape(tile['label'])}</p>
+                <p class="insight-tile__value">{html.escape(tile['value'])}</p>
+                <p class="insight-tile__desc">{html.escape(tile['desc'])}</p>
             </div>
             """
         ).strip()
-        for card in [next_focus_card, learning_time_card, latest_result_card]
+        for tile in insight_tiles_data
     )
-    st.markdown(
-        dedent(
-            f"""
-            <div class="section-card">
-                <div class="insight-grid">
-                {insight_cards}
+    strength_tags: List[Tuple[str, float]] = []
+    if stats:
+        for case_label, values in stats.items():
+            if not values["avg_max"]:
+                continue
+            ratio = values["avg_score"] / values["avg_max"] * 100
+            if ratio > 0:
+                strength_tags.append((case_label, ratio))
+    strength_tags.sort(key=lambda item: item[1], reverse=True)
+    if strength_tags:
+        tag_buttons = []
+        for case_label, ratio in strength_tags[:4]:
+            tag_buttons.append(
+                f"<button type='button' class='insight-tag' data-case='{html.escape(case_label)}' aria-pressed='false'>{html.escape(case_label)} {ratio:.0f}%</button>"
+            )
+        tag_toolbar_html = (
+            "<div class='tag-toolbar' role='toolbar' aria-label='強みタグフィルタ'>"
+            + ''.join(tag_buttons)
+            + "</div>"
+        )
+    else:
+        tag_toolbar_html = (
+            "<p class='empty-state'>演習データが蓄積すると強みタグが表示されます。</p>"
+        )
+    if gamification["badges"]:
+        badge_items = []
+        for badge in gamification["badges"]:
+            badge_items.append(
+                f"<li class='badge-item'><span>🏅</span><strong>{html.escape(badge['title'])}</strong><span>{html.escape(badge['description'])}</span></li>"
+            )
+        badge_html = "<ul class='badge-list'>" + ''.join(badge_items) + "</ul>"
+    else:
+        badge_html = (
+            "<p class='empty-state'>バッジはまだありません。演習や模試で獲得を目指しましょう。</p>"
+        )
+    recommendation_entries = heatmap_result.get("recommendations") or []
+    cross_focus_entries = heatmap_result.get("cross_focuses") or []
+    recommendation_html = ""
+    focus_sections: List[str] = []
+    if recommendation_entries:
+        bullets: List[str] = []
+        for item in recommendation_entries[:3]:
+            label_parts = [item.get("case"), item.get("domain")]
+            label = " × ".join(part for part in label_parts if part)
+            comment = item.get("comment")
+            themes = item.get("themes") or []
+            details = ""
+            if comment:
+                details += f" — {html.escape(str(comment))}"
+            if themes:
+                details += (
+                    f"<span class='recommendation-note'>推奨演習: {html.escape(' / '.join(themes[:3]))}</span>"
+                )
+            bullets.append(
+                f"<li><strong>{html.escape(label or '重点テーマ')}</strong>{details}</li>"
+            )
+        focus_sections.append(
+            dedent(
+                f"""
+                <div class="insight-subsection">
+                    <h4 class="insight-subheading">狙い撃ち予習リスト</h4>
+                    <ul class="insight-list insight-list--bulleted">
+                        {''.join(bullets)}
+                    </ul>
                 </div>
-            </div>
-            """
-        ).strip(),
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
-    st.markdown("### 次のアクション")
-    st.markdown("<div class='section-divider section-tight'></div>", unsafe_allow_html=True)
-    st.markdown(
-        dedent(
-            """
-            <div class="section-card">
-                <div class="action-grid">
-                    <div class="action-card">
-                        <strong>過去問演習</strong>
-                        <p>年度・事例を指定して弱点補強の演習を行いましょう。</p>
-                    </div>
-                    <div class="action-card">
-                        <strong>模擬試験</strong>
-                        <p>タイマー付きの本番形式で得点力とタイムマネジメントを鍛えます。</p>
-                    </div>
-                    <div class="action-card">
-                        <strong>学習履歴</strong>
-                        <p>得点推移を可視化し、改善の兆しや課題を振り返りましょう。</p>
-                    </div>
+                """
+            ).strip()
+        )
+    if cross_focus_entries:
+        notes: List[str] = []
+        for entry in cross_focus_entries:
+            label_text = html.escape(entry.get("label") or "横断テーマ")
+            cases = entry.get("cases") or []
+            cases_text = ""
+            if cases:
+                cases_text = f" <span class='insight-note'>({html.escape('・'.join(map(str, cases)))})</span>"
+            rationale = entry.get("rationale")
+            rationale_text = ""
+            if rationale:
+                rationale_text = f" — {html.escape(str(rationale))}"
+            notes.append(
+                f"<li><span aria-hidden='true'>🔗</span><strong>{label_text}</strong>{cases_text}{rationale_text}</li>"
+            )
+        focus_sections.append(
+            dedent(
+                f"""
+                <div class="insight-subsection">
+                    <h4 class="insight-subheading">横断テーマ候補</h4>
+                    <ul class="insight-list insight-list--bulleted">
+                        {''.join(notes)}
+                    </ul>
                 </div>
+                """
+            ).strip()
+        )
+    if focus_sections:
+        recommendation_html = "".join(focus_sections)
+    else:
+        recommendation_html = (
+            "<p class='empty-state'>演習データが蓄積されると、優先すべきテーマと横断候補が表示されます。</p>"
+        )
+    due_review_count = database.count_due_reviews(user_id=user["id"])
+    upcoming_reviews = database.list_upcoming_reviews(user_id=user["id"], limit=5)
+    banner_lines: List[str] = []
+    if due_review_count:
+        banner_lines.append(
+            f"<p><strong>{due_review_count}件</strong>の復習が期限を迎えています。優先して取り組みましょう。</p>"
+        )
+    else:
+        banner_lines.append("<p>復習は計画どおり進んでいます。このペースをキープしましょう。</p>")
+    primary_focus = heatmap_result.get("primary_focus")
+    if primary_focus:
+        focus_label = html.escape(primary_focus.get("label", ""))
+        rationale = primary_focus.get("rationale")
+        if rationale:
+            banner_lines.append(
+                f"<p>今年の重心: <strong>{focus_label}</strong> — {html.escape(str(rationale))}</p>"
+            )
+        else:
+            banner_lines.append(f"<p>今年の重心: <strong>{focus_label}</strong></p>")
+        study_list = primary_focus.get("study_list") or []
+        if study_list:
+            banner_lines.append(
+                f"<p>推奨演習: {html.escape(' / '.join(study_list[:3]))}</p>"
+            )
+    banner_body = "".join(banner_lines)
+    insight_banner_html = dedent(
+        f"""
+        <div class="insight-banner">
+            <details open data-storage-key="dashboard-insight-banner">
+                <summary>学習アラートとヒント</summary>
+                <div>{banner_body}</div>
+            </details>
+        </div>
+        """
+    ).strip()
+    if upcoming_reviews:
+        review_items: List[str] = []
+        for review in upcoming_reviews:
+            due_label = review["due_at"].strftime("%Y-%m-%d")
+            case_label = review.get("case_label") or "-"
+            title = html.escape(review.get("title") or "")
+            ratio = review.get("last_score_ratio") or 0.0
+            interval = review.get("interval_days")
+            interval_text = f"{interval}日周期" if interval else "復習予定"
+            review_items.append(
+                dedent(
+                    f"""
+                    <li class="upcoming-review__item">
+                        <span class="upcoming-review__badge">{html.escape(due_label)}</span>
+                        <span>{html.escape(case_label)}</span>
+                        {f'<span class="timeline__desc">{title}</span>' if title else ''}
+                        <span>前回達成率 {ratio * 100:.0f}%</span>
+                        <span>{html.escape(interval_text)}</span>
+                    </li>
+                    """
+                ).strip()
+            )
+        upcoming_html = (
+            "<div class='upcoming-review'><p class='upcoming-review__title'>次の復習予定</p><ul class='upcoming-review__list'>"
+            + ''.join(review_items)
+            + "</ul></div>"
+        )
+    else:
+        upcoming_html = (
+            "<div class='upcoming-review'><p class='upcoming-review__title'>次の復習予定</p><p class='empty-state'>復習キューは空です。演習を完了するとここに表示されます。</p></div>"
+        )
+    insight_section_html = dedent(
+        f"""
+        <section id="insights" class="dashboard-section" role="region" aria-labelledby="insights-heading">
+            <div class="section-header">
+                <h2 id="insights-heading">洞察レーン</h2>
+                <p class="section-lead">強みタグでフィードを絞り込み、次の学習アクションを確認しましょう。</p>
             </div>
-            """
-        ).strip(),
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
-    st.markdown("### 過去問タイムライン")
-    st.caption("令和6年から4年にかけての事例III『生産』テーマの変遷を俯瞰できます。ホバーで原紙PDFリンクを確認できます。")
-    _render_caseiii_timeline()
-
-
+            <div class="dashboard-grid dashboard-grid--12">
+                <article class="dashboard-card dashboard-card--insight grid-span-7" role="group" aria-labelledby="insights-summary-heading">
+                    <h3 id="insights-summary-heading">強みと最新ハイライト</h3>
+                    <div class="insight-card-grid">
+                        {insight_tiles_html}
+                    </div>
+                    {tag_toolbar_html}
+                    {badge_html}
+                    {recommendation_html}
+                </article>
+                <article class="dashboard-card dashboard-card--insight grid-span-5" role="group" aria-labelledby="insights-alert-heading">
+                    <h3 id="insights-alert-heading">アラート / 復習キュー</h3>
+                    {insight_banner_html}
+                    {upcoming_html}
+                </article>
+            </div>
+        </section>
+        """
+    ).strip()
+    st.markdown(insight_section_html, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+    with st.expander("スタディプランナー（週間・月間）", expanded=False):
+        _render_study_planner(user)
 def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
     if not attempts:
         return {
@@ -4738,7 +5073,6 @@ def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
             "level_threshold": 100,
             "points_to_next_level": 100,
         }
-
     parsed_attempts = []
     for row in attempts:
         submitted_at = row.get("submitted_at")
@@ -4749,7 +5083,6 @@ def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
                 parsed_attempts.append(datetime.fromisoformat(submitted_at))
             except ValueError:
                 continue
-
     unique_dates = sorted({dt.date() for dt in parsed_attempts}, reverse=True)
     streak = 0
     previous_date = None
@@ -4763,7 +5096,6 @@ def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
             elif gap > 1:
                 break
         previous_date = current
-
     best_ratio = 0.0
     mock_clears = 0
     high_mock_scores = 0
@@ -4789,9 +5121,7 @@ def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
             points += 10
         elif ratio >= 0.6:
             points += 5
-
     points += streak * 2
-
     if total_attempts >= 1:
         badges.append({"title": "スタートダッシュ", "description": "初めての演習を完了しました"})
     if streak >= 3:
@@ -4806,18 +5136,15 @@ def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
         badges.append({"title": "継続学習バッジ", "description": "演習を積み重ね学習の習慣化が進んでいます"})
     if high_mock_scores:
         badges.append({"title": "優秀回答者バッジ", "description": "模試で高得点を記録しました"})
-
     milestones = [3, 7, 15, 30]
     next_milestone = None
     for milestone in milestones:
         if total_attempts < milestone:
             next_milestone = milestone
             break
-
     level = points // level_threshold + 1
     level_progress = points % level_threshold
     points_to_next_level = level_threshold - level_progress if level_progress else level_threshold
-
     return {
         "attempts": total_attempts,
         "current_streak": streak,
@@ -4829,12 +5156,8 @@ def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
         "level_threshold": level_threshold,
         "points_to_next_level": points_to_next_level,
     }
-
-
 def _draft_key(problem_id: int, question_id: int) -> str:
     return f"draft_{problem_id}_{question_id}"
-
-
 def _compute_fullwidth_length(text: str) -> float:
     total = 0.0
     for char in text:
@@ -4846,15 +5169,11 @@ def _compute_fullwidth_length(text: str) -> float:
         else:
             total += 1.0
     return total
-
-
 def _format_fullwidth_length(value: float) -> str:
     rounded = round(value, 1)
     if abs(rounded - round(rounded)) < 1e-6:
         return f"{int(round(rounded))}"
     return f"{rounded:.1f}"
-
-
 def _ensure_character_meter_styles() -> None:
     if st.session_state.get("_char_meter_styles_injected"):
         return
@@ -4918,8 +5237,6 @@ def _ensure_character_meter_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_char_meter_styles_injected"] = True
-
-
 def _render_character_meter(current: float, limit: Optional[int]) -> None:
     _ensure_character_meter_styles()
     checkpoints = [80, 100, 120]
@@ -4953,7 +5270,6 @@ def _render_character_meter(current: float, limit: Optional[int]) -> None:
         )
     meter_html.append("</div></div>")
     st.markdown("".join(meter_html), unsafe_allow_html=True)
-
     formatted_current = _format_fullwidth_length(current)
     if limit:
         caption_left = f"全角換算 {formatted_current}字"
@@ -4969,8 +5285,6 @@ def _render_character_meter(current: float, limit: Optional[int]) -> None:
         f'<div class="char-meter-caption"><span>{caption_left}</span><span title="100字は2〜3文が目安です。">{caption_right}</span></div>',
         unsafe_allow_html=True,
     )
-
-
 def _render_character_counter(text: str, limit: Optional[int]) -> None:
     fullwidth_length = _compute_fullwidth_length(text)
     if limit is None:
@@ -4981,7 +5295,6 @@ def _render_character_counter(text: str, limit: Optional[int]) -> None:
         if fullwidth_length >= 120:
             st.error("120字を超えています。要素を整理して因果の主軸を絞りましょう。")
         return
-
     remaining = limit - fullwidth_length
     if remaining >= 0:
         remaining_text = f"残り {_format_fullwidth_length(remaining)}字"
@@ -4994,10 +5307,7 @@ def _render_character_counter(text: str, limit: Optional[int]) -> None:
         st.error("文字数が上限を超えています。赤字の警告に従い削減しましょう。")
     elif fullwidth_length >= 120 and limit > 120:
         st.error("120字を超えると冗長になりやすいです。重要語に絞りましょう。")
-
     _render_character_meter(fullwidth_length, limit)
-
-
 TOKEN_PATTERN = re.compile(r"[ぁ-んァ-ヶ一-龥ａ-ｚＡ-Ｚa-zA-Z0-9]+")
 SYNONYM_GROUPS = [
     {"label": "改善・向上", "words": ["改善", "改良", "向上", "高め", "高める", "強化", "底上げ"]},
@@ -5007,8 +5317,6 @@ SYNONYM_GROUPS = [
 ]
 ENUMERATION_CONNECTORS = ["ため", "ので", "こと", "結果", "よって", "そのため", "さらに", "一方"]
 CAUSAL_STARTERS = ["そのため", "その結果", "結果として", "よって", "したがって", "だから", "ゆえに"]
-
-
 def _inject_mece_scanner_styles() -> None:
     if st.session_state.get("_mece_scanner_styles_injected"):
         return
@@ -5054,15 +5362,12 @@ def _inject_mece_scanner_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_mece_scanner_styles_injected"] = True
-
-
 def _build_highlight_html(text: str, spans: List[Dict[str, Any]]) -> str:
     if not text:
         return "<p class='mece-scan-block'>入力された文章がここに表示されます。</p>"
     if not spans:
         escaped = html.escape(text).replace("\n", "<br />")
         return f"<div class='mece-scan-block'>{escaped}</div>"
-
     boundaries = sorted({0, len(text), *[span["start"] for span in spans], *[span["end"] for span in spans]})
     pieces: List[str] = []
     for index in range(len(boundaries) - 1):
@@ -5082,8 +5387,6 @@ def _build_highlight_html(text: str, spans: List[Dict[str, Any]]) -> str:
             f"<span class='mece-highlight {classes}' title='{html.escape(tooltip)}'>{escaped}</span>"
         )
     return f"<div class='mece-scan-block'>{''.join(pieces)}</div>"
-
-
 def _find_duplicate_tokens(text: str) -> Tuple[List[Dict[str, Any]], List[str]]:
     occurrences: Dict[str, List[Tuple[int, int]]] = defaultdict(list)
     for match in TOKEN_PATTERN.finditer(text):
@@ -5091,7 +5394,6 @@ def _find_duplicate_tokens(text: str) -> Tuple[List[Dict[str, Any]], List[str]]:
         if len(token.strip()) < 2:
             continue
         occurrences[token].append((match.start(), match.end()))
-
     spans: List[Dict[str, Any]] = []
     summary: List[str] = []
     for token, positions in occurrences.items():
@@ -5103,8 +5405,6 @@ def _find_duplicate_tokens(text: str) -> Tuple[List[Dict[str, Any]], List[str]]:
                 {"start": start, "end": end, "class": "duplicate", "label": f"重複語: {token}"}
             )
     return spans, summary
-
-
 def _find_synonym_redundancies(text: str) -> Tuple[List[Dict[str, Any]], List[str]]:
     spans: List[Dict[str, Any]] = []
     summary: List[str] = []
@@ -5124,8 +5424,6 @@ def _find_synonym_redundancies(text: str) -> Tuple[List[Dict[str, Any]], List[st
                     {"start": start, "end": end, "class": "synonym", "label": f"同義反復: {group['label']}"}
                 )
     return spans, summary
-
-
 def _detect_simple_enumerations(text: str) -> Tuple[List[Dict[str, Any]], List[str]]:
     spans: List[Dict[str, Any]] = []
     summary: List[str] = []
@@ -5157,8 +5455,6 @@ def _detect_simple_enumerations(text: str) -> Tuple[List[Dict[str, Any]], List[s
         )
         summary.append(stripped[:30] + ("…" if len(stripped) > 30 else ""))
     return spans, summary
-
-
 def _suggest_causal_bridges(text: str) -> List[str]:
     sentences: List[str] = []
     length = len(text)
@@ -5173,11 +5469,9 @@ def _suggest_causal_bridges(text: str) -> List[str]:
         index = end
         if sentence:
             sentences.append(sentence)
-
     suggestions: List[str] = []
     if len(sentences) < 2:
         return suggestions
-
     for i in range(len(sentences) - 1):
         current_sentence = sentences[i]
         next_sentence = sentences[i + 1]
@@ -5193,13 +5487,10 @@ def _suggest_causal_bridges(text: str) -> List[str]:
     if not suggestions and not any(starter in sentence for sentence in sentences for starter in CAUSAL_STARTERS):
         suggestions.append("因→果の接続詞（その結果／だから等）を入れると論理の流れが明確になります。")
     return suggestions
-
-
 def _analyze_mece_causal(text: str) -> Dict[str, Any]:
     duplicate_spans, duplicate_summary = _find_duplicate_tokens(text)
     synonym_spans, synonym_summary = _find_synonym_redundancies(text)
     enumeration_spans, enumeration_summary = _detect_simple_enumerations(text)
-
     all_spans = duplicate_spans + synonym_spans + enumeration_spans
     combined_spans: List[Dict[str, Any]] = []
     seen = set()
@@ -5209,7 +5500,6 @@ def _analyze_mece_causal(text: str) -> Dict[str, Any]:
             continue
         seen.add(key)
         combined_spans.append(span)
-
     return {
         "spans": combined_spans,
         "duplicates": duplicate_summary,
@@ -5217,18 +5507,14 @@ def _analyze_mece_causal(text: str) -> Dict[str, Any]:
         "enumerations": enumeration_summary,
         "suggestions": _suggest_causal_bridges(text),
     }
-
-
 def _render_mece_causal_scanner(text: str) -> None:
     _inject_mece_scanner_styles()
     st.caption("MECE/因果スキャナ：重複語・列挙・接続詞不足を自動チェックします。")
     if not text.strip():
         st.info("文章を入力するとハイライト結果と因果接続の提案が表示されます。")
         return
-
     analysis = _analyze_mece_causal(text)
     st.markdown(_build_highlight_html(text, analysis["spans"]), unsafe_allow_html=True)
-
     summary_blocks: List[str] = []
     if analysis["duplicates"]:
         summary_blocks.append(
@@ -5243,17 +5529,13 @@ def _render_mece_causal_scanner(text: str) -> None:
         summary_blocks.append(
             f"<div><strong>単純列挙の疑い</strong><ul>{items}</ul></div>"
         )
-
     if summary_blocks:
         st.markdown(
             "<div class='mece-scan-summary'>" + "".join(summary_blocks) + "</div>",
             unsafe_allow_html=True,
         )
-
     for suggestion in analysis["suggestions"]:
         st.warning(suggestion)
-
-
 def _question_input(
     problem_id: int,
     question: Dict,
@@ -5268,9 +5550,7 @@ def _question_input(
     if key not in st.session_state.drafts:
         saved_default = st.session_state.saved_answers.get(key, "")
         st.session_state.drafts[key] = saved_default
-
     textarea_state_key = f"{widget_prefix}{key}"
-
     anchor_source = (
         question_index
         if question_index is not None
@@ -5288,14 +5568,12 @@ def _question_input(
             f"<div id=\"{anchor_id}\" class=\"practice-question-anchor\" aria-hidden=\"true\"></div>",
             unsafe_allow_html=True,
         )
-
     question_overview = dict(question)
     question_overview.setdefault("order", question.get("order"))
     question_overview.setdefault("case_label", case_label)
     _render_question_overview_card(question_overview, case_label=case_label)
     _render_intent_cards(question, key, textarea_state_key)
     _render_case_frame_shortcuts(case_label, key, textarea_state_key)
-
     context_candidates = [
         question.get("context"),
         question.get("context_text"),
@@ -5310,7 +5588,6 @@ def _question_input(
         if normalized_context:
             _render_question_context_block(normalized_context)
             break
-
     question_body = _normalize_text_block(
         _select_first(
             question,
@@ -5320,20 +5597,16 @@ def _question_input(
     if question_body:
         st.markdown("**設問文**")
         st.write(question_body)
-
     if case_label == "事例IV":
         _render_case_iv_bridge(key)
-
     notice = st.session_state.get("_intent_card_notice")
     if notice and notice.get("draft_key") == key:
         st.success(f"「{notice['label']}」の例示表現を挿入しました。", icon="✍️")
         st.session_state.pop("_intent_card_notice", None)
-
     frame_notice = st.session_state.get("_case_frame_notice")
     if frame_notice and frame_notice.get("draft_key") == key:
         st.success(f"「{frame_notice['label']}」フレームを挿入しました。", icon="🧩")
         st.session_state.pop("_case_frame_notice", None)
-
     value = st.session_state.drafts.get(key, "")
     help_text = f"文字数目安: {question['character_limit']}字" if question["character_limit"] else ""
     st.markdown(
@@ -5367,8 +5640,6 @@ def _question_input(
         st.session_state[textarea_state_key] = saved_text
         status_placeholder.info("保存済みの下書きを復元しました。")
     return text
-
-
 def _reset_flashcard_state(problem_id: int, size: int) -> Dict[str, Any]:
     order = list(range(size))
     random.shuffle(order)
@@ -5378,23 +5649,17 @@ def _reset_flashcard_state(problem_id: int, size: int) -> Dict[str, Any]:
     for key in [key for key in st.session_state.keys() if key.startswith(result_prefix)]:
         st.session_state.pop(key, None)
     return state
-
-
 def _get_flashcard_state(problem_id: int, size: int) -> Dict[str, Any]:
     key = str(problem_id)
     state = st.session_state.flashcard_states.get(key)
     if not state or state.get("size") != size:
         state = _reset_flashcard_state(problem_id, size)
     return state
-
-
 def _normalize_keyword_for_matching(text: str) -> str:
     normalized = unicodedata.normalize("NFKC", str(text or "").strip())
     normalized = re.sub(r"[\s\u3000]+", "", normalized)
     normalized = normalized.replace("・", "")
     return normalized
-
-
 def _evaluate_flashcard_guess(
     problem_id: int, card_index: int, keywords: Iterable[str], guess_text: str
 ) -> Dict[str, Any]:
@@ -5404,7 +5669,6 @@ def _evaluate_flashcard_guess(
         if not normalized:
             continue
         keyword_pairs.append((keyword, normalized))
-
     raw_entries = [part.strip() for part in re.split(r"[\n,、/]+", guess_text or "") if part.strip()]
     entry_pairs: List[Tuple[str, str]] = []
     seen_entries: Set[str] = set()
@@ -5414,11 +5678,9 @@ def _evaluate_flashcard_guess(
             continue
         seen_entries.add(normalized)
         entry_pairs.append((entry, normalized))
-
     remaining_indices: List[int] = list(range(len(keyword_pairs)))
     matched_keywords: List[str] = []
     extra_inputs: List[str] = []
-
     for entry, normalized in entry_pairs:
         matched_index: Optional[int] = None
         for idx in remaining_indices:
@@ -5430,13 +5692,10 @@ def _evaluate_flashcard_guess(
             continue
         matched_keywords.append(keyword_pairs[matched_index][0])
         remaining_indices.remove(matched_index)
-
     missed_keywords = [keyword_pairs[idx][0] for idx in remaining_indices]
-
     matched_count = len(matched_keywords)
     total_keywords = len(keyword_pairs)
     accuracy = matched_count / total_keywords if total_keywords else 0.0
-
     progress_root = st.session_state.setdefault("flashcard_progress", {})
     problem_progress = progress_root.setdefault(str(problem_id), {})
     card_key = str(card_index)
@@ -5459,7 +5718,6 @@ def _evaluate_flashcard_guess(
     entry["last_accuracy"] = accuracy
     entry["last_attempted_at"] = datetime.now().isoformat()
     entry["last_improved"] = improved
-
     return {
         "matched": matched_keywords,
         "missed": missed_keywords,
@@ -5470,8 +5728,6 @@ def _evaluate_flashcard_guess(
         "improved": improved,
         "attempts": entry["attempts"],
     }
-
-
 def _render_retrieval_flashcards(problem: Dict) -> None:
     flashcards: List[Dict[str, Any]] = []
     for index, question in enumerate(problem.get("questions", [])):
@@ -5485,24 +5741,18 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
                 "keywords": keywords,
             }
         )
-
     if not flashcards:
         st.info("この問題ではキーワードが登録されていないため、フラッシュカードを生成できません。")
         return
-
     st.subheader("リトリーバル・プラクティス")
     st.caption(
         "回答作成の前に、設問の重要キーワードを記憶から呼び起こしましょう。"
         " 思い出しの練習（retrieval practice）は再読よりも記憶定着を高めるとされています。"
     )
-
     st.session_state.setdefault("flashcard_progress", {})
     problem_progress = st.session_state.flashcard_progress.setdefault(str(problem["id"]), {})
-
     progress_container = st.container()
-
     state = _get_flashcard_state(problem["id"], len(flashcards))
-
     completed_entries = [entry for entry in problem_progress.values() if entry.get("attempts", 0) > 0]
     with progress_container:
         if completed_entries:
@@ -5530,16 +5780,13 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
                     pass
         else:
             st.caption("カードごとにキーワードを書き出して想起力を測定しましょう。")
-
     card_placeholder = st.container()
     button_placeholder = st.container()
-
     with button_placeholder:
         col_reveal, _, col_next, _, col_shuffle = st.columns([1, 0.1, 1, 0.1, 1])
         reveal_clicked = col_reveal.button("キーワードを表示", key=f"flashcard_reveal_{problem['id']}")
         next_clicked = col_next.button("次のカードへ", key=f"flashcard_next_{problem['id']}")
         shuffle_clicked = col_shuffle.button("カードを再シャッフル", key=f"flashcard_shuffle_{problem['id']}")
-
     if shuffle_clicked:
         state = _reset_flashcard_state(problem["id"], len(flashcards))
     else:
@@ -5548,17 +5795,13 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
             state["revealed"] = False
         if reveal_clicked:
             state["revealed"] = True
-
     st.session_state.flashcard_states[str(problem["id"])] = state
-
     order = state["order"]
     current_position = state["index"]
     card = flashcards[order[current_position]]
-
     card_index = order[current_position]
     result_state_key = f"flashcard_result::{problem['id']}::{card_index}"
     guess_state_key = f"flashcard_guess::{problem['id']}::{card_index}"
-
     with card_placeholder:
         st.markdown(f"**カード {current_position + 1} / {len(flashcards)}**")
         st.write(card["title"])
@@ -5570,7 +5813,6 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
         </div>
         """
         st.markdown(card_html, unsafe_allow_html=True)
-
         guess_text = st.text_area(
             "思い出したキーワードを箇条書きで入力",
             key=guess_state_key,
@@ -5579,14 +5821,12 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
             help="Enterキーで改行し、思い出した単語を一行ずつ入力してください。",
         )
         st.caption("答えを見る前に、自分の言葉でキーワードを書き出してみましょう。")
-
         evaluation = st.session_state.get(result_state_key)
         if reveal_clicked:
             evaluation = _evaluate_flashcard_guess(
                 problem["id"], card_index, card["keywords"], guess_text
             )
             st.session_state[result_state_key] = evaluation
-
         if state["revealed"]:
             st.success("\n".join(f"・{keyword}" for keyword in card["keywords"]), icon="✅")
             if evaluation is None:
@@ -5616,10 +5856,6 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
                     )
         else:
             st.info("キーワードを思い出したら、上のボタンから答え合わせをしましょう。")
-
-
-
-
 def _compute_learning_stats(history_df: pd.DataFrame) -> Dict[str, Any]:
     stats: Dict[str, Any] = {"total_sessions": int(len(history_df))}
     if history_df.empty:
@@ -5636,20 +5872,17 @@ def _compute_learning_stats(history_df: pd.DataFrame) -> Dict[str, Any]:
             }
         )
         return stats
-
     sorted_dates = history_df.dropna(subset=["日付"]).sort_values("日付")["日付"]
     python_dates = [
         value.to_pydatetime() if hasattr(value, "to_pydatetime") else value for value in sorted_dates
     ]
     last_study_at = python_dates[-1]
-
     intervals = sorted_dates.diff().dropna()
     intervals_days = intervals.dt.total_seconds() / (60 * 60 * 24)
     intervals_days = intervals_days[intervals_days > 0]
     recommended_interval = int(round(intervals_days.median())) if not intervals_days.empty else 3
     recommended_interval = max(1, recommended_interval)
     next_study_at = last_study_at + timedelta(days=recommended_interval)
-
     unique_days = sorted({value.date() for value in python_dates})
     streak = 0
     previous_day: Optional[dt_date] = None
@@ -5662,11 +5895,9 @@ def _compute_learning_stats(history_df: pd.DataFrame) -> Dict[str, Any]:
             else:
                 break
         previous_day = day
-
     recent_scores = history_df["得点"].dropna().tail(5)
     recent_average = float(recent_scores.mean()) if not recent_scores.empty else None
     best_score = float(history_df["得点"].dropna().max()) if history_df["得点"].notna().any() else None
-
     stats.update(
         {
             "recent_average": recent_average,
@@ -5679,24 +5910,19 @@ def _compute_learning_stats(history_df: pd.DataFrame) -> Dict[str, Any]:
         }
     )
     return stats
-
-
 def _calculate_level(total_experience: float) -> Dict[str, float]:
     level = 1
     xp_needed = 200.0
     xp_floor = 0.0
     xp_remaining = float(total_experience)
-
     while xp_remaining >= xp_needed:
         xp_remaining -= xp_needed
         xp_floor += xp_needed
         level += 1
         xp_needed = 200.0 + (level - 1) * 120.0
-
     progress_ratio = 0.0
     if xp_needed > 0:
         progress_ratio = max(0.0, min(1.0, xp_remaining / xp_needed))
-
     return {
         "level": level,
         "total_experience": total_experience,
@@ -5707,8 +5933,6 @@ def _calculate_level(total_experience: float) -> Dict[str, float]:
         "next_level_requirement": xp_needed,
         "progress_ratio": progress_ratio,
     }
-
-
 def _compute_progress_overview(history_df: pd.DataFrame) -> Dict[str, Any]:
     signature = _problem_data_signature()
     problems = _load_problem_index(signature)
@@ -5717,7 +5941,6 @@ def _compute_progress_overview(history_df: pd.DataFrame) -> Dict[str, Any]:
         for row in problems
         if row["year"] and row["case_label"]
     }
-
     year_totals: Dict[str, set] = defaultdict(set)
     case_totals: Dict[str, set] = defaultdict(set)
     for row in problems:
@@ -5727,11 +5950,9 @@ def _compute_progress_overview(history_df: pd.DataFrame) -> Dict[str, Any]:
             continue
         year_totals[year].add(case_label)
         case_totals[case_label].add(year)
-
     completed_pairs: set = set()
     pair_bonus_awarded: set = set()
     total_experience = 0.0
-
     if not history_df.empty:
         for _, record in history_df.iterrows():
             score = record.get("得点")
@@ -5739,7 +5960,6 @@ def _compute_progress_overview(history_df: pd.DataFrame) -> Dict[str, Any]:
             mode_label = record.get("モード")
             year = record.get("年度")
             case_label = record.get("事例")
-
             base_xp = 120.0 if mode_label == "模試" else 100.0
             ratio = 0.0
             if pd.notna(score) and pd.notna(max_score) and max_score:
@@ -5748,7 +5968,6 @@ def _compute_progress_overview(history_df: pd.DataFrame) -> Dict[str, Any]:
                 except (TypeError, ZeroDivisionError):
                     ratio = 0.0
             total_experience += base_xp + ratio * 100.0
-
             if isinstance(year, str) and isinstance(case_label, str):
                 pair = (year, case_label)
                 if pair in total_pairs:
@@ -5756,7 +5975,6 @@ def _compute_progress_overview(history_df: pd.DataFrame) -> Dict[str, Any]:
                     if pair not in pair_bonus_awarded:
                         total_experience += 40.0
                         pair_bonus_awarded.add(pair)
-
     year_progress = []
     for year in sorted(year_totals.keys(), reverse=True):
         total_count = len(year_totals[year])
@@ -5770,7 +5988,6 @@ def _compute_progress_overview(history_df: pd.DataFrame) -> Dict[str, Any]:
                 "ratio": max(0.0, min(1.0, ratio)),
             }
         )
-
     case_progress = []
     for case_label in sorted(case_totals.keys()):
         total_count = len(case_totals[case_label])
@@ -5784,13 +6001,10 @@ def _compute_progress_overview(history_df: pd.DataFrame) -> Dict[str, Any]:
                 "ratio": max(0.0, min(1.0, ratio)),
             }
         )
-
     overall_total = len(total_pairs)
     overall_completed = len(completed_pairs)
     overall_ratio = overall_completed / overall_total if overall_total else 0.0
-
     level_info = _calculate_level(total_experience)
-
     return {
         "experience": total_experience,
         "level": level_info,
@@ -5802,8 +6016,6 @@ def _compute_progress_overview(history_df: pd.DataFrame) -> Dict[str, Any]:
             "ratio": max(0.0, min(1.0, overall_ratio)),
         },
     }
-
-
 def _safe_time_from_string(value: Optional[str]) -> dt_time:
     if not value:
         return dt_time(hour=20, minute=0)
@@ -5812,8 +6024,6 @@ def _safe_time_from_string(value: Optional[str]) -> dt_time:
         return dt_time(hour=int(hour), minute=int(minute))
     except Exception:
         return dt_time(hour=20, minute=0)
-
-
 def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
     if not value:
         return None
@@ -5821,24 +6031,18 @@ def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
         return datetime.fromisoformat(value)
     except ValueError:
         return None
-
-
 def _calculate_next_reminder(reference: datetime, interval_days: int, reminder_time: dt_time) -> datetime:
     interval_days = max(1, interval_days)
     minimum_dt = reference + timedelta(days=interval_days)
     candidate = datetime.combine(minimum_dt.date(), reminder_time)
     if candidate < minimum_dt:
         candidate += timedelta(days=1)
-
     now = datetime.now()
     if candidate <= now:
         delta = now - candidate
         periods = int(delta.total_seconds() // (interval_days * 24 * 60 * 60)) + 1
         candidate += timedelta(days=interval_days * periods)
-
     return candidate
-
-
 def _build_schedule_preview(
     reference: datetime,
     interval_days: int,
@@ -5861,14 +6065,9 @@ def _build_schedule_preview(
             }
         )
         current += timedelta(days=interval_days)
-
     return pd.DataFrame(events)
-
-
 def _mode_label(mode: str) -> str:
     return "模試" if mode == "mock" else "演習"
-
-
 def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
     if not records:
         return {
@@ -5876,10 +6075,8 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
             "summary": pd.DataFrame(),
             "recommendations": [],
         }
-
     answer_rows: List[Dict[str, Any]] = []
     keyword_stats: Dict[str, Dict[str, Any]] = {}
-
     for record in records:
         keyword_hits: Dict[str, bool] = record.get("keyword_hits") or {}
         total_keywords = len(keyword_hits)
@@ -5893,10 +6090,8 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
                 score_ratio = (record.get("score") or 0) / record["max_score"]
             except ZeroDivisionError:
                 score_ratio = None
-
         matched_keywords = [kw for kw, hit in keyword_hits.items() if hit]
         missing_keywords = [kw for kw, hit in keyword_hits.items() if not hit]
-
         answer_rows.append(
             {
                 "attempt_id": record["attempt_id"],
@@ -5912,7 +6107,6 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
                 "モード": _mode_label(record.get("mode", "practice")),
             }
         )
-
         for keyword, hit in keyword_hits.items():
             stat = keyword_stats.setdefault(
                 keyword,
@@ -5939,7 +6133,6 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
                         "hit": hit,
                     }
                 )
-
     answers_df = pd.DataFrame(answer_rows)
     if not answers_df.empty:
         answers_df["回答日時"] = pd.to_datetime(answers_df["回答日時"], errors="coerce")
@@ -5949,10 +6142,8 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
         answers_df["含まれたキーワード表示"] = answers_df["含まれたキーワード"].apply(
             lambda keywords: "、".join(keywords) if keywords else "-"
         )
-
     summary_rows: List[Dict[str, Any]] = []
     recommendations: List[Dict[str, Any]] = []
-
     for keyword, stat in keyword_stats.items():
         attempts = stat["attempts"]
         hits = stat["hits"]
@@ -5966,7 +6157,6 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
                 "出題年度": "、".join(sorted(stat["years"])) if stat["years"] else "-",
             }
         )
-
         if attempts >= 1 and hit_rate < 0.6:
             example_entry = next((ex for ex in stat["examples"] if not ex["hit"]), None)
             if example_entry is None and stat["examples"]:
@@ -5984,24 +6174,18 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
                     "example": example_text,
                 }
             )
-
     summary_df = pd.DataFrame(summary_rows)
     if not summary_df.empty:
         summary_df.sort_values(["出題数", "達成率(%)"], ascending=[False, False], inplace=True)
-
     recommendations.sort(key=lambda item: (item["hit_rate"], -item["attempts"]))
-
     return {
         "answers": answers_df,
         "summary": summary_df,
         "recommendations": recommendations,
     }
-
-
 def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if not problem:
         return problem
-
     contexts = st.session_state.get("uploaded_case_contexts", {}) or {}
     question_texts = st.session_state.get("uploaded_question_texts", {}) or {}
     uploaded_case_metadata = st.session_state.get("uploaded_case_metadata", {}) or {}
@@ -6011,7 +6195,6 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
     if not contexts and not question_texts:
         if not uploaded_case_metadata and not uploaded_question_metadata:
             return problem
-
     cloned = copy.deepcopy(problem)
     raw_year_label = _normalize_text_block(cloned.get("year") or cloned.get("年度")) or ""
     year_label = _format_reiwa_label(str(raw_year_label)) if raw_year_label else ""
@@ -6019,7 +6202,6 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
     case_label = _normalize_case_label(_normalize_text_block(case_label_raw)) if case_label_raw else None
     if case_label:
         cloned["case_label"] = case_label
-
     case_key = _compose_case_key(year_label, case_label) if year_label and case_label else None
     if year_label and case_label:
         context_text = contexts.get(case_key) if case_key else None
@@ -6036,7 +6218,6 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
             cloned["title"] = case_meta["title"]
         if case_meta.get("overview"):
             cloned["overview"] = case_meta["overview"]
-
     questions: List[Dict[str, Any]] = []
     for question in cloned.get("questions", []):
         q = dict(question)
@@ -6078,7 +6259,6 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
                     output_override = None
                     solution_override = None
                     insight_override = None
-
                 normalized_text = _normalize_text_block(question_text)
                 if normalized_text:
                     q["設問文"] = normalized_text
@@ -6141,17 +6321,12 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
                     if metadata.get("diagram_caption"):
                         q["diagram_caption"] = metadata.get("diagram_caption")
         questions.append(q)
-
     if questions:
         cloned["questions"] = questions
-
     return cloned
-
-
 def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。与件ハイライトと詳細解説で復習効果を高めましょう。")
-
     st.markdown(
         dedent(
             """
@@ -6239,7 +6414,6 @@ def practice_page(user: Dict) -> None:
         ).strip(),
         unsafe_allow_html=True,
     )
-
     st.markdown(
         dedent(
             """
@@ -6249,10 +6423,8 @@ def practice_page(user: Dict) -> None:
                 if (!doc?.body) {
                     return;
                 }
-
                 const STORAGE_KEY = 'practiceQuickNavPosition';
                 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-
                 const ensureExplicitPosition = (nav) => {
                     const computed = doc.defaultView?.getComputedStyle(nav);
                     if (!computed) {
@@ -6267,7 +6439,6 @@ def practice_page(user: Dict) -> None:
                     nav.style.bottom = "auto";
                     nav.style.right = "auto";
                 };
-
                 const applyStoredPosition = (nav) => {
                     const stored = window.parent?.localStorage?.getItem(STORAGE_KEY);
                     if (!stored) {
@@ -6290,7 +6461,6 @@ def practice_page(user: Dict) -> None:
                         console.warn('Failed to parse stored Qナビ position', error);
                     }
                 };
-
                 const savePosition = (left, top) => {
                     try {
                         window.parent?.localStorage?.setItem(
@@ -6301,7 +6471,6 @@ def practice_page(user: Dict) -> None:
                         console.warn('Failed to store Qナビ position', error);
                     }
                 };
-
                 const initializeNav = () => {
                     const nav = doc.querySelector('.practice-quick-nav');
                     if (!nav) {
@@ -6310,14 +6479,11 @@ def practice_page(user: Dict) -> None:
                     if (nav.dataset.draggableInitialized === 'true') {
                         return true;
                     }
-
                     if (nav.tabIndex < 0) {
                         nav.tabIndex = 0;
                     }
-
                     applyStoredPosition(nav);
                     ensureExplicitPosition(nav);
-
                     const startDrag = (event) => {
                         if (event.button !== undefined && event.button !== 0) {
                             return;
@@ -6328,11 +6494,9 @@ def practice_page(user: Dict) -> None:
                         event.preventDefault();
                         ensureExplicitPosition(nav);
                         nav.style.cursor = 'grabbing';
-
                         const rect = nav.getBoundingClientRect();
                         const offsetX = event.clientX - rect.left;
                         const offsetY = event.clientY - rect.top;
-
                         const onPointerMove = (moveEvent) => {
                             const availableWidth = doc.documentElement.clientWidth;
                             const availableHeight = doc.documentElement.clientHeight;
@@ -6348,15 +6512,12 @@ def practice_page(user: Dict) -> None:
                                 12,
                                 Math.max(12, availableHeight - navHeight - 12)
                             );
-
                             nav.style.left = `${targetLeft}px`;
                             nav.style.top = `${targetTop}px`;
                         };
-
                         const usePointerCapture =
                             typeof event.pointerId === 'number' &&
                             typeof nav.setPointerCapture === 'function';
-
                         const onPointerUp = () => {
                             if (usePointerCapture && nav.hasPointerCapture?.(event.pointerId)) {
                                 nav.releasePointerCapture(event.pointerId);
@@ -6371,14 +6532,12 @@ def practice_page(user: Dict) -> None:
                                 doc.removeEventListener('pointercancel', onPointerUp);
                             }
                             nav.style.cursor = 'grab';
-
                             const left = parseFloat(nav.style.left || '0');
                             const top = parseFloat(nav.style.top || '0');
                             if (!Number.isNaN(left) && !Number.isNaN(top)) {
                                 savePosition(left, top);
                             }
                         };
-
                         if (usePointerCapture) {
                             nav.setPointerCapture(event.pointerId);
                             nav.addEventListener('pointermove', onPointerMove);
@@ -6390,7 +6549,6 @@ def practice_page(user: Dict) -> None:
                             doc.addEventListener('pointercancel', onPointerUp);
                         }
                     };
-
                     nav.addEventListener('pointerdown', startDrag);
                     nav.addEventListener('keydown', (event) => {
                         const step = event.shiftKey ? 32 : 16;
@@ -6407,16 +6565,13 @@ def practice_page(user: Dict) -> None:
                         } else {
                             return;
                         }
-
                         event.preventDefault();
                         ensureExplicitPosition(nav);
-
                         const rect = nav.getBoundingClientRect();
                         const availableWidth = doc.documentElement.clientWidth;
                         const availableHeight = doc.documentElement.clientHeight;
                         const navWidth = nav.offsetWidth;
                         const navHeight = nav.offsetHeight;
-
                         const targetLeft = clamp(
                             rect.left + deltaX,
                             12,
@@ -6427,7 +6582,6 @@ def practice_page(user: Dict) -> None:
                             12,
                             Math.max(12, availableHeight - navHeight - 12)
                         );
-
                         nav.style.left = `${targetLeft}px`;
                         nav.style.top = `${targetTop}px`;
                         savePosition(targetLeft, targetTop);
@@ -6435,7 +6589,6 @@ def practice_page(user: Dict) -> None:
                     nav.dataset.draggableInitialized = 'true';
                     return true;
                 };
-
                 if (!initializeNav()) {
                     const observer = new MutationObserver(() => {
                         if (initializeNav()) {
@@ -6443,7 +6596,6 @@ def practice_page(user: Dict) -> None:
                         }
                     });
                     observer.observe(doc.body, { childList: true, subtree: true });
-
                     setTimeout(() => observer.disconnect(), 10000);
                 }
             })();
@@ -6452,14 +6604,11 @@ def practice_page(user: Dict) -> None:
         ).strip(),
         unsafe_allow_html=True,
     )
-
     past_data_df = st.session_state.get("past_data")
     signature = _problem_data_signature()
     index = _load_problem_index(signature)
-
     has_uploaded_data = past_data_df is not None and hasattr(past_data_df, "empty") and not past_data_df.empty
     has_database_data = bool(index)
-
     source_labels = {
         "database": "データベース登録問題",
         "uploaded": "アップロードデータ",
@@ -6469,13 +6618,11 @@ def practice_page(user: Dict) -> None:
         available_sources.append("database")
     if has_uploaded_data:
         available_sources.append("uploaded")
-
     if not available_sources:
         st.warning(
             "問題データが登録されていません。seed_problems.jsonを確認するか、設定ページから過去問データをアップロードしてください。"
         )
         return
-
     data_source_key = "practice_data_source"
     default_source = st.session_state.get(data_source_key)
     if default_source not in available_sources:
@@ -6484,7 +6631,6 @@ def practice_page(user: Dict) -> None:
         else:
             default_source = available_sources[0]
         st.session_state[data_source_key] = default_source
-
     if len(available_sources) > 1:
         data_source = st.radio(
             "利用する出題データ",
@@ -6496,19 +6642,15 @@ def practice_page(user: Dict) -> None:
         data_source = available_sources[0]
         st.session_state[data_source_key] = data_source
         st.caption(f"出題データ: {source_labels[data_source]}")
-
     if data_source == "uploaded":
         _practice_with_uploaded_data(past_data_df)
         return
-
     if not has_database_data:
         st.warning("問題データが登録されていません。seed_problems.jsonを確認してください。")
         return
-
     case_map: Dict[str, Dict[str, int]] = defaultdict(dict)
     for entry in index:
         case_map[entry["case_label"]][entry["year"]] = entry["id"]
-
     case_options = sorted(
         case_map.keys(),
         key=lambda label: (
@@ -6516,11 +6658,9 @@ def practice_page(user: Dict) -> None:
             label,
         ),
     )
-
     if not case_options:
         st.warning("事例が登録されていません。データを追加してください。")
         return
-
     st.markdown(
         dedent(
             """
@@ -6542,19 +6682,15 @@ def practice_page(user: Dict) -> None:
         ).strip(),
         unsafe_allow_html=True,
     )
-
     problem: Optional[Dict[str, Any]] = None
     selected_case: Optional[str] = None
     selected_year: Optional[str] = None
     selected_question: Optional[Dict[str, Any]] = None
-
     tree_col, insight_col = st.columns([0.42, 0.58], gap="large")
-
     with tree_col:
         st.markdown('<div class="practice-tree">', unsafe_allow_html=True)
         st.markdown("#### 出題ナビゲーション")
         st.caption("事例→年度→設問の順にクリックすると、右側に要点が即時表示されます。")
-
         case_key = "practice_tree_case"
         if case_key not in st.session_state or st.session_state[case_key] not in case_options:
             st.session_state[case_key] = case_options[0]
@@ -6567,7 +6703,6 @@ def practice_page(user: Dict) -> None:
             horizontal=True,
         )
         st.markdown("</div>", unsafe_allow_html=True)
-
         year_options = sorted(
             case_map[selected_case].keys(),
             key=_year_sort_key,
@@ -6577,7 +6712,6 @@ def practice_page(user: Dict) -> None:
         problem_id: Optional[int] = None
         question_lookup: Dict[int, Dict[str, Any]] = {}
         question_options: List[int] = []
-
         if not year_options:
             st.warning("選択した事例の年度が登録されていません。", icon="⚠️")
         else:
@@ -6593,26 +6727,21 @@ def practice_page(user: Dict) -> None:
                 horizontal=True,
             )
             st.markdown("</div>", unsafe_allow_html=True)
-
             problem_id = case_map[selected_case][selected_year]
             raw_problem = _load_problem_detail(problem_id, signature)
             problem = _apply_uploaded_text_overrides(raw_problem)
-
             if problem and problem["questions"]:
                 question_lookup = {q["id"]: q for q in problem["questions"]}
                 question_options = list(question_lookup.keys())
-
         question_key = f"practice_tree_question_{problem_id}" if problem_id else "practice_tree_question"
         if question_options:
             if question_key not in st.session_state or st.session_state[question_key] not in question_options:
                 st.session_state[question_key] = question_options[0]
-
             def _format_question_option(question_id: int) -> str:
                 question = question_lookup.get(question_id)
                 if not question:
                     return "設問"
                 return f"設問{question['order']}"
-
             st.markdown('<div class="tree-level tree-level-question">', unsafe_allow_html=True)
             selected_question_id = st.radio(
                 "↳ 設問1〜",
@@ -6626,16 +6755,13 @@ def practice_page(user: Dict) -> None:
             selected_question = question_lookup.get(selected_question_id)
         elif selected_year:
             st.info("この事例の設問データが見つかりません。設定ページから追加してください。", icon="ℹ️")
-
         st.markdown("</div>", unsafe_allow_html=True)
-
     with insight_col:
         st.markdown("#### 設問インサイト")
         if selected_case and selected_year:
             st.markdown(f"**{selected_case} / {_format_reiwa_label(selected_year)}**")
         if problem:
             st.caption(problem["title"])
-
         short_year = _format_reiwa_label(selected_year or "")
         notice = EXAM_YEAR_NOTICE.get(short_year)
         if notice:
@@ -6644,7 +6770,6 @@ def practice_page(user: Dict) -> None:
                 f"試験時間: {notice['time']}\n{notes_text}",
                 icon="📝",
             )
-
         if selected_question:
             st.markdown(
                 f"**設問{selected_question['order']}：{selected_question['prompt']}**"
@@ -6670,19 +6795,15 @@ def practice_page(user: Dict) -> None:
             st.write(_suggest_solution_prompt(selected_question))
         else:
             st.caption("設問を選択すると狙いや解法テンプレートを表示します。")
-
     if not problem:
         st.error("問題を取得できませんでした。")
         return
-
     st.markdown('<div id="practice-top"></div>', unsafe_allow_html=True)
-
     if selected_year and selected_case:
         st.subheader(f"{selected_year} {selected_case}『{problem['title']}』")
     else:
         st.subheader(problem["title"])
     st.write(problem["overview"])
-
     layout_container = st.container()
     problem_context = _collect_problem_context_text(problem)
     if problem_context:
@@ -6737,9 +6858,7 @@ def practice_page(user: Dict) -> None:
                 )
                 search_feedback = st.empty()
             st.markdown("</div>", unsafe_allow_html=True)
-
             match_count = _render_problem_context_block(problem_context, search_query)
-
             normalized_query = (search_query or "").strip()
             if normalized_query:
                 if match_count:
@@ -6748,16 +6867,13 @@ def practice_page(user: Dict) -> None:
                     search_feedback.caption("該当箇所は見つかりませんでした。")
             else:
                 search_feedback.empty()
-
             st.markdown("</div></div></section></div></div>", unsafe_allow_html=True)
             _inject_context_panel_behavior()
     else:
         main_col = layout_container
-
     answers: List[RecordedAnswer] = []
     question_specs: List[QuestionSpec] = []
     submitted = False
-
     with main_col:
         st.markdown('<div class="practice-main-column">', unsafe_allow_html=True)
         question_count = len(problem["questions"])
@@ -6777,7 +6893,6 @@ def practice_page(user: Dict) -> None:
                 ).strip(),
                 unsafe_allow_html=True,
             )
-
         question_overview = pd.DataFrame(
             [
                 {
@@ -6803,16 +6918,11 @@ def practice_page(user: Dict) -> None:
             },
         )
         st.caption("採点の観点を事前に確認してから回答に取り組みましょう。")
-
         _render_retrieval_flashcards(problem)
-
         if not st.session_state.practice_started:
             st.session_state.practice_started = datetime.utcnow()
-
         st.markdown('<div id="practice-answers"></div>', unsafe_allow_html=True)
-
         _inject_guideline_styles()
-
         for idx, question in enumerate(problem["questions"], start=1):
             tone = _practice_tone_for_index(idx)
             st.markdown(
@@ -6863,7 +6973,6 @@ def practice_page(user: Dict) -> None:
                             """
                         ).strip()
                     )
-
                 model_answer_text = _normalize_text_block(question.get("model_answer"))
                 if model_answer_text:
                     model_answer_html = html.escape(model_answer_text).replace("\n", "<br>")
@@ -6891,7 +7000,6 @@ def practice_page(user: Dict) -> None:
                             """
                         ).strip()
                     )
-
                 explanation_text = _normalize_text_block(
                     question.get("explanation") or question.get("解説")
                 )
@@ -6914,7 +7022,6 @@ def practice_page(user: Dict) -> None:
                             """
                         ).strip()
                     )
-
                 if rows:
                     st.markdown(
                         """
@@ -6931,20 +7038,15 @@ def practice_page(user: Dict) -> None:
                 st.caption(
                     "模範解答は構成や論理展開の参考例です。キーワードを押さえつつ自分の言葉で表現しましょう。"
                 )
-
             st.markdown("</section>", unsafe_allow_html=True)
             if idx < question_count:
                 st.markdown(
                     '<div class="practice-question-divider" aria-hidden="true"></div>',
                     unsafe_allow_html=True,
                 )
-
         st.markdown('<div id="practice-actions"></div>', unsafe_allow_html=True)
-
         submitted = st.button("AI採点に送信", type="primary")
-
         st.markdown('</div>', unsafe_allow_html=True)
-
     if submitted:
         answers = []
         for question, spec in zip(problem["questions"], question_specs):
@@ -6959,14 +7061,12 @@ def practice_page(user: Dict) -> None:
                     keyword_hits=result.keyword_hits,
                 )
             )
-
         submitted_at = datetime.utcnow()
         started_at = st.session_state.practice_started or submitted_at
         duration = int((submitted_at - started_at).total_seconds())
         total_score = sum(answer.score for answer in answers)
         total_max = sum(question["max_score"] for question in problem["questions"])
         score_ratio = (total_score / total_max) if total_max else 0.0
-
         attempt_id = database.record_attempt(
             user_id=user["id"],
             problem_id=problem["id"],
@@ -6983,34 +7083,27 @@ def practice_page(user: Dict) -> None:
             reviewed_at=submitted_at,
         )
         st.session_state.practice_started = None
-
         st.success("採点が完了しました。結果を確認してください。")
         render_attempt_results(attempt_id)
-
-
 def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
     if df is None or df.empty:
         st.info("アップロード済みの過去問データがありません。設定ページからファイルを登録してください。")
         return
-
     required_cols = {"年度", "事例", "設問番号", "問題文", "配点", "模範解答", "解説"}
     if not required_cols.issubset(df.columns):
         missing = required_cols.difference(set(df.columns))
         st.error(f"必要な列が不足しています: {', '.join(sorted(missing))}")
         return
-
     optional_context_cols = {"与件文", "与件文全体", "詳細解説"}
     if not optional_context_cols.issubset(df.columns):
         st.info(
             "テンプレートに『与件文全体』『与件文』『詳細解説』列を追加すると、演習画面にハイライトと深掘り解説が表示されます。",
             icon="💡",
         )
-
     contexts = dict(st.session_state.get("uploaded_case_contexts", {}))
     question_texts = dict(st.session_state.get("uploaded_question_texts", {}))
     case_metadata = dict(st.session_state.get("uploaded_case_metadata", {}))
     question_metadata = dict(st.session_state.get("uploaded_question_metadata", {}))
-
     normalized_columns = {str(col).lower(): col for col in df.columns}
     video_col = None
     diagram_col = None
@@ -7022,7 +7115,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             diagram_col = col
         elif key in {"図解キャプション", "diagram_caption"}:
             diagram_caption_col = col
-
     def _display_numeric(value: Any) -> str:
         if value is None:
             return "-"
@@ -7037,7 +7129,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             return str(value)
         text = str(value).strip()
         return text or "-"
-
     def _has_value(value: Any) -> bool:
         if value is None:
             return False
@@ -7049,7 +7140,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         if isinstance(value, str) and not value.strip():
             return False
         return True
-
     def _extract_keywords(value: Any) -> List[str]:
         if value is None:
             return []
@@ -7059,7 +7149,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         if isinstance(value, Iterable):
             return [str(item).strip() for item in value if str(item).strip()]
         return []
-
     records: List[Dict[str, Any]] = []
     for row_order, (row_index, row) in enumerate(df.iterrows()):
         year_value = _normalize_text_block(row.get("年度"))
@@ -7121,7 +7210,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                 output_override = None
                 solution_override = None
                 insight_override = None
-
             normalized_override = _normalize_text_block(override_body)
             if normalized_override:
                 record["問題文"] = normalized_override
@@ -7178,18 +7266,15 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             record["与件文全体"] = context_text
             record.setdefault("与件文", context_text)
         records.append(record)
-
     if not records:
         st.warning("年度または事例が不足しているため、ナビゲーションを生成できません。アップロードデータを確認してください。")
         return
-
     case_map: Dict[str, Dict[str, List[str]]] = defaultdict(lambda: defaultdict(list))
     question_lookup: Dict[str, Dict[str, Any]] = {}
     for record in records:
         option_key = record["_option_key"]
         case_map[record["_case_label"]][record["_year_label"]].append(option_key)
         question_lookup[option_key] = record
-
     for case_label, years in case_map.items():
         for year_label, option_keys in years.items():
             option_keys.sort(
@@ -7201,31 +7286,25 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                     question_lookup[key].get("_row_order", 0),
                 )
             )
-
     def _case_sort_key(label: str) -> Tuple[int, str]:
         return (
             CASE_ORDER.index(label) if label in CASE_ORDER else len(CASE_ORDER),
             label,
         )
-
     case_options = sorted(case_map.keys(), key=_case_sort_key)
     if not case_options:
         st.warning("事例の情報が見つかりませんでした。")
         return
-
     tree_col, insight_col = st.columns([0.42, 0.58], gap="large")
     selected_case: Optional[str] = None
     selected_year: Optional[str] = None
     selected_question_key: Optional[str] = None
     selected_question: Optional[Dict[str, Any]] = None
-
     question_body_text: str = ""
-
     with tree_col:
         st.markdown('<div class="practice-tree">', unsafe_allow_html=True)
         st.markdown("#### 出題ナビゲーション")
         st.caption("事例→年度→設問の順にクリックすると、右側に要点が即時表示されます。")
-
         case_key = "uploaded_tree_case"
         if case_key not in st.session_state or st.session_state[case_key] not in case_options:
             st.session_state[case_key] = case_options[0]
@@ -7238,7 +7317,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             horizontal=True,
         )
         st.markdown("</div>", unsafe_allow_html=True)
-
         year_options = sorted(
             case_map[selected_case].keys(),
             key=_year_sort_key,
@@ -7260,9 +7338,7 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                 horizontal=True,
             )
             st.markdown("</div>", unsafe_allow_html=True)
-
             question_keys = case_map[selected_case][selected_year]
-
             def _format_question_option(option_key: str) -> str:
                 data = question_lookup.get(option_key, {})
                 number = data.get("_normalized_question_number")
@@ -7273,7 +7349,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                         return f"設問{number}"
                 raw_number = _normalize_text_block(data.get("設問番号"))
                 return f"設問{raw_number}" if raw_number else "設問"
-
             question_key = f"uploaded_tree_question::{selected_case}::{selected_year}"
             if question_keys:
                 if (
@@ -7315,9 +7390,7 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                             question_body_text = str(raw_question_text) if raw_question_text is not None else ""
             else:
                 st.info("この年度の設問データが見つかりません。設定ページを確認してください。", icon="ℹ️")
-
         st.markdown("</div>", unsafe_allow_html=True)
-
     with insight_col:
         st.markdown("#### 設問インサイト")
         case_meta = {}
@@ -7395,11 +7468,9 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             st.write(_suggest_solution_prompt(insight_question))
         else:
             st.caption("設問を選択すると狙いや解法テンプレートを表示します。")
-
     if not (selected_case and selected_year and selected_question):
         st.info("出題ナビゲーションから設問を選択すると詳細が表示されます。")
         return
-
     subset_keys = case_map[selected_case][selected_year]
     include_limit = any(
         _has_value(question_lookup[key].get("制限字数")) for key in subset_keys
@@ -7429,7 +7500,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             )
             overview_row["キーワード"] = "、".join(keywords) if keywords else "-"
         overview_rows.append(overview_row)
-
     if overview_rows:
         overview_df = pd.DataFrame(overview_rows)
         column_config: Dict[str, Any] = {}
@@ -7445,7 +7515,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             column_config=column_config,
         )
         st.caption("選択した年度・事例の設問一覧です。配点や制限字数を確認しましょう。")
-
     question_number = selected_question.get("_normalized_question_number")
     question_heading = (
         f"第{int(question_number)}問" if isinstance(question_number, (int, float)) else None
@@ -7453,11 +7522,9 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
     if not question_heading:
         raw_number_label = _normalize_text_block(selected_question.get("設問番号"))
         question_heading = f"設問{raw_number_label}" if raw_number_label else "設問"
-
     raw_score = selected_question.get("配点")
     score_display = _display_numeric(raw_score)
     st.subheader(f"{question_heading} ({score_display}点)")
-
     prompt_line = _normalize_text_block(selected_question.get("設問見出し")) or (
         question_body_text.splitlines()[0] if question_body_text else ""
     )
@@ -7469,7 +7536,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                 limit_int = int(float(limit_value_raw))
         except (TypeError, ValueError):
             limit_int = None
-
     overview_question = {
         "order": question_number or selected_question.get("設問番号"),
         "prompt": prompt_line,
@@ -7482,7 +7548,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         case_label=selected_case,
         source_label=f"{selected_year} {selected_case}",
     )
-
     context_candidates = [
         selected_question.get("与件文全体"),
         selected_question.get("与件文"),
@@ -7495,10 +7560,8 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         if normalized_context:
             _render_question_context_block(normalized_context)
             break
-
     st.markdown("**問題文**")
     st.write(question_body_text)
-
     if limit_int is not None:
         max_chars = limit_int
     else:
@@ -7512,7 +7575,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             max_chars = 60
         else:
             max_chars = 80
-
     answer_fragment = (
         _normalize_text_block(selected_question.get("設問番号"))
         or (str(question_number) if question_number is not None else selected_question_key)
@@ -7520,7 +7582,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
     answer_key = f"uploaded_answer_{selected_year}_{selected_case}_{answer_fragment}"
     user_answer = st.text_area("回答を入力", key=answer_key)
     _render_character_counter(user_answer, max_chars)
-
     if limit_int is not None:
         with st.expander("文字数スライサー"):
             slider_key = f"extract_{selected_year}_{selected_case}_{answer_fragment}"
@@ -7536,15 +7597,12 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             )
             excerpt = (question_body_text or "")[: extract_count]
             st.code(excerpt, language="markdown")
-
     with st.expander("MECE/因果スキャナ", expanded=bool(user_answer.strip())):
         _render_mece_causal_scanner(user_answer)
-
     detailed_explanation = _normalize_text_block(selected_question.get("詳細解説"))
     expander_label = "模範解答／解説を見る"
     if detailed_explanation:
         expander_label += "（詳細あり）"
-
     with st.expander(expander_label):
         video_url = None
         diagram_path = None
@@ -7567,8 +7625,6 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             question_number=_normalize_question_number(selected_question.get("設問番号")),
             detailed_explanation=detailed_explanation,
         )
-
-
 def _load_tabular_frame(file_bytes: bytes, filename: str) -> pd.DataFrame:
     name_lower = filename.lower()
     buffer = io.BytesIO(file_bytes)
@@ -7577,24 +7633,19 @@ def _load_tabular_frame(file_bytes: bytes, filename: str) -> pd.DataFrame:
     if name_lower.endswith(".xlsx") or name_lower.endswith(".xls"):
         return pd.read_excel(buffer)
     raise ValueError("サポートされていないファイル形式です")
-
-
 def _build_uploaded_exam_metadata(
     df: pd.DataFrame,
 ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     case_metadata: Dict[str, Dict[str, Any]] = {}
     question_metadata: Dict[str, Dict[str, Any]] = {}
-
     for _, row in df.iterrows():
         year_value = _normalize_text_block(row.get("年度"))
         case_raw = _normalize_text_block(row.get("事例"))
         if not year_value or not case_raw:
             continue
-
         year_label = _format_reiwa_label(str(year_value))
         case_label = _normalize_case_label(case_raw) or str(case_raw)
         case_key = _compose_case_key(year_label, case_label)
-
         title = _normalize_text_block(
             _select_first(
                 row,
@@ -7630,7 +7681,6 @@ def _build_uploaded_exam_metadata(
                 ),
             )
         )
-
         case_entry = case_metadata.setdefault(case_key, {})
         if title:
             case_entry["title"] = title
@@ -7638,11 +7688,9 @@ def _build_uploaded_exam_metadata(
             case_entry["overview"] = overview
         if context_text:
             case_entry.setdefault("context", context_text)
-
         number = _normalize_question_number(row.get("設問番号"))
         if number is None:
             continue
-
         slot_key = _compose_slot_key(year_label, case_label, int(number))
         aim_text = _normalize_text_block(
             _select_first(
@@ -7693,7 +7741,6 @@ def _build_uploaded_exam_metadata(
             ]
         else:
             keyword_list = []
-
         question_metadata[slot_key] = {
             "prompt": _normalize_text_block(row.get("設問見出し")),
             "question_text": _normalize_text_block(row.get("問題文")),
@@ -7711,29 +7758,23 @@ def _build_uploaded_exam_metadata(
             "solution_prompt": solution_prompt_text,
             "question_insight": insight_text,
         }
-
     return case_metadata, question_metadata
-
-
 def _handle_past_data_upload(file_bytes: bytes, filename: str) -> bool:
     try:
         df, tables = _auto_parse_exam_document(file_bytes, filename)
     except Exception as exc:  # pragma: no cover - Streamlit runtime feedback
         st.error(f"ファイルの読み込み中にエラーが発生しました: {exc}")
         return False
-
     required_cols = {"年度", "事例", "設問番号", "問題文", "配点", "模範解答", "解説"}
     missing = required_cols.difference(set(df.columns))
     if missing:
         st.error(f"必要な列が含まれていません。不足列: {', '.join(sorted(missing))}")
         return False
-
     st.session_state.past_data = df
     st.session_state.past_data_tables = tables
     case_metadata, question_metadata = _build_uploaded_exam_metadata(df)
     st.session_state.uploaded_case_metadata = case_metadata
     st.session_state.uploaded_question_metadata = question_metadata
-
     contexts = dict(st.session_state.get("uploaded_case_contexts", {}))
     for case_key, meta in case_metadata.items():
         if not isinstance(case_key, str):
@@ -7742,7 +7783,6 @@ def _handle_past_data_upload(file_bytes: bytes, filename: str) -> bool:
         if context_text:
             contexts[case_key] = context_text
     st.session_state.uploaded_case_contexts = contexts
-
     existing_question_texts = dict(st.session_state.get("uploaded_question_texts", {}))
     normalized_question_texts: Dict[str, Dict[str, Any]] = {}
     for key, value in existing_question_texts.items():
@@ -7750,7 +7790,6 @@ def _handle_past_data_upload(file_bytes: bytes, filename: str) -> bool:
             normalized_question_texts[key] = dict(value)
         else:
             normalized_question_texts[key] = {"question_text": value}
-
     question_texts = normalized_question_texts
     text_col = next(
         (col for col in ("設問文", "問題文", "question_text") if col in df.columns),
@@ -7784,7 +7823,6 @@ def _handle_past_data_upload(file_bytes: bytes, filename: str) -> bool:
         ),
         None,
     )
-
     if text_col or aim_col or output_col or solution_col or insight_col:
         for _, row in df.iterrows():
             year_value = _normalize_text_block(row.get("年度"))
@@ -7792,15 +7830,12 @@ def _handle_past_data_upload(file_bytes: bytes, filename: str) -> bool:
             question_number = _normalize_question_number(row.get("設問番号"))
             if not year_value or not case_raw or question_number is None:
                 continue
-
             year_label = _format_reiwa_label(str(year_value))
             case_label = _normalize_case_label(case_raw)
             if not case_label:
                 continue
-
             key = _compose_slot_key(year_label, case_label, int(question_number))
             entry = question_texts.setdefault(key, {})
-
             if text_col:
                 question_text = _normalize_text_block(row.get(text_col))
                 if question_text:
@@ -7821,7 +7856,6 @@ def _handle_past_data_upload(file_bytes: bytes, filename: str) -> bool:
                 insight_text = _normalize_text_block(row.get(insight_col))
                 if insight_text:
                     entry["question_insight"] = insight_text
-
     st.session_state.uploaded_question_texts = question_texts
     context_count = sum(
         1 for meta in case_metadata.values() if (meta or {}).get("context")
@@ -7847,8 +7881,6 @@ def _handle_past_data_upload(file_bytes: bytes, filename: str) -> bool:
         message += f" 数表 {len(tables)}件をPandas DataFrameとして抽出しました。"
     st.success(message)
     return True
-
-
 def _handle_model_answer_slot_upload(file_bytes: bytes, filename: str) -> bool:
     try:
         payload = json.loads(file_bytes.decode("utf-8"))
@@ -7858,34 +7890,27 @@ def _handle_model_answer_slot_upload(file_bytes: bytes, filename: str) -> bool:
     except json.JSONDecodeError as exc:  # pragma: no cover - Streamlit runtime feedback
         st.error(f"JSONの読み込みに失敗しました: {exc}")
         return False
-
     try:
         parsed_slots = _parse_model_answer_slots(payload)
     except ValueError as exc:  # pragma: no cover - Streamlit runtime feedback
         st.error(str(exc))
         return False
-
     existing = dict(st.session_state.get("model_answer_slots", {}))
     added = 0
     updated = 0
-
     for key, slot in parsed_slots.items():
         if key in existing:
             updated += 1
         else:
             added += 1
         existing[key] = slot
-
     st.session_state.model_answer_slots = existing
     st.success(f"模範解答スロットを登録しました。（新規 {added}件 / 上書き {updated}件）")
     return True
-
-
 def render_attempt_results(attempt_id: int) -> None:
     detail = database.fetch_attempt_detail(attempt_id)
     attempt = detail["attempt"]
     answers = detail["answers"]
-
     st.subheader("採点結果")
     total_score = attempt["total_score"] or 0
     total_max = attempt["total_max_score"] or 0
@@ -7909,7 +7934,6 @@ def render_attempt_results(attempt_id: int) -> None:
         if ratio >= 0.7:
             st.success("模擬試験クリア！称号『模試コンプリート』を獲得しました。")
             st.balloons()
-
     summary_rows = []
     for idx, answer in enumerate(answers, start=1):
         summary_rows.append(
@@ -7931,12 +7955,10 @@ def render_attempt_results(attempt_id: int) -> None:
             disabled=True,
         )
         st.caption("各設問の得点とキーワード達成状況を整理しました。弱点分析に活用してください。")
-
     case_label = answers[0].get("case_label") if answers else None
     bundle_evaluation = scoring.evaluate_case_bundle(case_label=case_label, answers=answers)
     if bundle_evaluation:
         _render_case_bundle_feedback(bundle_evaluation)
-
     for idx, answer in enumerate(answers, start=1):
         with st.expander(f"設問{idx}の結果", expanded=True):
             st.write(f"**得点:** {answer['score']} / {answer['max_score']}")
@@ -7962,17 +7984,13 @@ def render_attempt_results(attempt_id: int) -> None:
                     detailed_explanation=answer.get("detailed_explanation"),
                 )
                 st.caption("採点基準: 模範解答の論点とキーワードが盛り込まれているかを中心に評価しています。")
-
     st.info("学習履歴ページから過去の答案をいつでも振り返ることができます。")
-
-
 def _render_case_bundle_feedback(evaluation: scoring.BundleEvaluation) -> None:
     st.markdown("### 観点別フィードバック")
     score_col, chart_col = st.columns([0.9, 1.1])
     with score_col:
         st.metric("提言力スコア", f"{evaluation.overall_score:.0f} / 100")
         st.caption(evaluation.summary)
-
     criteria_df = pd.DataFrame(
         [
             {
@@ -7984,7 +8002,6 @@ def _render_case_bundle_feedback(evaluation: scoring.BundleEvaluation) -> None:
             for crit in evaluation.criteria
         ]
     )
-
     with chart_col:
         if not criteria_df.empty:
             chart = (
@@ -8004,7 +8021,6 @@ def _render_case_bundle_feedback(evaluation: scoring.BundleEvaluation) -> None:
                 .properties(height=180)
             )
             st.altair_chart(chart, use_container_width=True)
-
     st.markdown("**観点別コメント**")
     for row in criteria_df.itertuples():
         score_pct = row.スコア * 100
@@ -8012,24 +8028,19 @@ def _render_case_bundle_feedback(evaluation: scoring.BundleEvaluation) -> None:
         st.markdown(
             f"- **{row.観点}** （{score_pct:.0f}点 / 比重{weight_pct:.0f}%）: {row.コメント}"
         )
-
     if evaluation.recommendations:
         st.markdown("**次のアクション**")
         for recommendation in evaluation.recommendations:
             st.markdown(f"- {recommendation}")
-
-
 def _render_mock_exam_overview(
     exam: mock_exam.MockExam, *, container: Optional[Any] = None
 ) -> None:
     target = container or st
     if not (exam.notices or exam.timetable or exam.case_guides):
         return
-
     if exam.notices:
         target.markdown("#### 受験上の注意")
         target.markdown("\n".join(f"- {note}" for note in exam.notices))
-
     if exam.timetable:
         target.markdown("#### 本番時間割")
         rows = ["| 区分 | 時刻 | 補足 |", "| --- | --- | --- |"]
@@ -8039,7 +8050,6 @@ def _render_mock_exam_overview(
                 f"| {slot.get('slot', '')} | {slot.get('time', '')} | {detail} |"
             )
         target.markdown("\n".join(rows))
-
     if exam.case_guides:
         target.markdown("#### 事例別の体裁・確認ポイント")
         for guide in exam.case_guides:
@@ -8057,12 +8067,9 @@ def _render_mock_exam_overview(
             if specific_notes:
                 target.caption("注意")
                 target.markdown("\n".join(f"- {note}" for note in specific_notes))
-
-
 def _render_mock_exam_sidebar(exam: mock_exam.MockExam) -> None:
     if not (exam.timetable or exam.notices):
         return
-
     sidebar = st.sidebar.container()
     sidebar.divider()
     if exam.timetable:
@@ -8077,28 +8084,22 @@ def _render_mock_exam_sidebar(exam: mock_exam.MockExam) -> None:
         sidebar.markdown("#### 注意事項")
         for note in exam.notices:
             sidebar.markdown(f"- {note}")
-
-
 def _infer_case_weakness_tags(
     problem: Dict[str, Any], question_results: List[Dict[str, Any]]
 ) -> List[str]:
     tags: set[str] = set()
     if not question_results:
         return []
-
     keyword_ratios: List[float] = []
     lacking_causality = 0
     action_without_effect = 0
     missing_financial = False
     blank_answers = 0
-
     for item in question_results:
         answer_text = item.get("answer", "") or ""
         result = item.get("result")
-
         if not answer_text.strip():
             blank_answers += 1
-
         if result is not None:
             keyword_hits = result.keyword_hits or {}
             if keyword_hits:
@@ -8109,13 +8110,11 @@ def _infer_case_weakness_tags(
                         missing_financial = True
             elif answer_text.strip():
                 keyword_ratios.append(1.0)
-
         if answer_text.strip():
             if not _has_causal_connector(answer_text):
                 lacking_causality += 1
             if _mentions_action_without_effect(answer_text):
                 action_without_effect += 1
-
     total_questions = len(question_results)
     if keyword_ratios and sum(ratio < 0.5 for ratio in keyword_ratios) >= max(1, total_questions // 2):
         tags.add("キーワード網羅不足")
@@ -8127,10 +8126,7 @@ def _infer_case_weakness_tags(
         tags.add("財務指標の選定ミス")
     if blank_answers:
         tags.add("未回答あり")
-
     return sorted(tags)
-
-
 def _has_causal_connector(text: str) -> bool:
     normalized = text.replace(" ", "").replace("　", "")
     connectors = [
@@ -8146,8 +8142,6 @@ def _has_causal_connector(text: str) -> bool:
         "ゆえ",
     ]
     return any(connector in normalized for connector in connectors)
-
-
 def _mentions_action_without_effect(text: str) -> bool:
     normalized = text.replace(" ", "").replace("　", "")
     action_keywords = [
@@ -8179,42 +8173,31 @@ def _mentions_action_without_effect(text: str) -> bool:
     has_action = any(keyword in normalized for keyword in action_keywords)
     has_effect = any(keyword in normalized for keyword in effect_keywords)
     return has_action and not has_effect
-
-
 def _looks_financial_keyword(keyword: str) -> bool:
     return bool(re.search(r"[A-Z]{2,}", keyword)) or any(
         token in keyword for token in ["率", "利益", "回転", "負債", "CF", "キャッシュ", "NPV", "ROA", "ROE", "ROI", "原価", "損益", "資本"]
     )
-
-
 def mock_exam_page(user: Dict) -> None:
     st.title("模擬試験モード")
     st.caption("事例I～IVをまとめて演習し、時間管理と一括採点を体験します。")
-
     session = st.session_state.mock_session
     signature = _problem_data_signature()
-
     if not session:
         _remove_mock_notice_overlay()
         st.subheader("模試セットを選択")
         st.caption("説明を確認し、解きたい模試セットを選んでください。開始ボタンは右側に配置しています。")
-
         exams = mock_exam.available_mock_exams()
         exam_options = {exam.title: exam for exam in exams}
         exam_options["ランダム演習セット"] = mock_exam.random_mock_exam()
-
         select_col, start_col = st.columns([3, 1])
         with select_col:
             selected_title = st.selectbox("模試セット", list(exam_options.keys()))
-
         selected_exam = exam_options[selected_title]
-
         with start_col:
             st.write("")
             start_clicked = st.button(
                 "模試を開始", type="primary", use_container_width=True
             )
-
         case_summaries = []
         for problem_id in selected_exam.problem_ids:
             problem = _apply_uploaded_text_overrides(
@@ -8228,9 +8211,7 @@ def mock_exam_page(user: Dict) -> None:
         if case_summaries:
             st.markdown("**セット内容の概要**")
             st.markdown("\n".join(case_summaries))
-
         _render_mock_exam_overview(selected_exam)
-
         if start_clicked:
             st.session_state.mock_session = {
                 "exam": selected_exam,
@@ -8240,7 +8221,6 @@ def mock_exam_page(user: Dict) -> None:
             st.session_state["mock_notice_toggle"] = True
             st.rerun()
         return
-
     exam = session["exam"]
     start_time = session["start"]
     elapsed = datetime.utcnow() - start_time
@@ -8250,10 +8230,8 @@ def mock_exam_page(user: Dict) -> None:
     st.info(
         f"模試開始からの経過時間: {elapsed_minutes:02d}分{elapsed_seconds:02d}秒"
     )
-
     if "mock_notice_toggle" not in st.session_state:
         st.session_state["mock_notice_toggle"] = True
-
     show_notice = st.checkbox(
         "本番モードの注意書きを表示する",
         key="mock_notice_toggle",
@@ -8262,12 +8240,10 @@ def mock_exam_page(user: Dict) -> None:
         _render_mock_notice_overlay(start_time=start_time)
     else:
         _remove_mock_notice_overlay()
-
     _render_mock_exam_sidebar(exam)
     if exam.notices or exam.timetable or exam.case_guides:
         with st.expander("本番セット（R6）の注意事項・体裁を確認する", expanded=False) as exp:
             _render_mock_exam_overview(exam, container=exp)
-
     tab_labels: List[str] = []
     for idx, problem_id in enumerate(exam.problem_ids):
         problem = _apply_uploaded_text_overrides(
@@ -8275,7 +8251,6 @@ def mock_exam_page(user: Dict) -> None:
         )
         case_label = problem["case_label"] if problem else "不明"
         tab_labels.append(f"{idx+1}. {case_label}")
-
     tabs = st.tabs(tab_labels)
     for tab, problem_id in zip(tabs, exam.problem_ids):
         with tab:
@@ -8307,7 +8282,6 @@ def mock_exam_page(user: Dict) -> None:
                         '<div class="practice-question-divider" aria-hidden="true"></div>',
                         unsafe_allow_html=True,
                     )
-
     if st.button("模試を提出", type="primary"):
         overall_results = []
         for problem_id in exam.problem_ids:
@@ -8362,7 +8336,6 @@ def mock_exam_page(user: Dict) -> None:
             )
             weakness_tags = _infer_case_weakness_tags(problem, case_question_results)
             overall_results.append((problem, attempt_id, weakness_tags))
-
         st.session_state.mock_session = None
         st.session_state.pop("mock_notice_toggle", None)
         _remove_mock_notice_overlay()
@@ -8376,23 +8349,17 @@ def mock_exam_page(user: Dict) -> None:
                 st.markdown(chips)
             else:
                 st.caption("特筆すべき弱点は検出されませんでした。")
-
-
 def history_page(user: Dict) -> None:
     st.title("学習履歴")
     st.caption("演習記録・得点推移・エクスポートを確認します。")
-
     history_records = database.fetch_learning_history(user["id"])
     if not history_records:
         st.info("まだ演習履歴がありません。演習を実施するとここに表示されます。")
         return
-
     history_df = pd.DataFrame(history_records)
     history_df["日付"] = pd.to_datetime(history_df["日付"], errors="coerce")
     history_df.sort_values("日付", inplace=True)
-
     keyword_records = database.fetch_keyword_performance(user["id"])
-
     stats = _compute_learning_stats(history_df)
     progress_overview = _compute_progress_overview(history_df)
     reminder_settings = database.get_reminder_settings(user["id"])
@@ -8415,14 +8382,12 @@ def history_page(user: Dict) -> None:
     last_notified_dt = _parse_iso_datetime(
         reminder_settings["last_notified_at"] if reminder_settings else None
     )
-
     st.subheader("進捗ハイライトとスケジュール")
     summary_col1, summary_col2, summary_col3 = st.columns(3)
     summary_col1.metric("累計演習", f"{stats['total_sessions']}回")
     avg_display = f"{stats['recent_average']:.1f}点" if stats["recent_average"] is not None else "ー"
     summary_col2.metric("直近5回平均", avg_display)
     summary_col3.metric("連続学習日数", f"{stats['streak_days']}日")
-
     if stats["last_study_at"] is not None:
         st.info(
             f"直近の演習は {stats['last_study_at'].strftime('%Y-%m-%d %H:%M')} 実施。"
@@ -8431,7 +8396,6 @@ def history_page(user: Dict) -> None:
         )
     else:
         st.info("これから学習を始めましょう。初期推奨リマインダーは3日おきです。")
-
     if review_schedule:
         st.markdown("#### 復習予定リスト")
         if due_reviews_count:
@@ -8454,7 +8418,6 @@ def history_page(user: Dict) -> None:
         st.dataframe(review_df, use_container_width=True)
     else:
         st.caption("演習完了後に復習予定が自動生成されます。")
-
     with st.expander("リマインダー設定", expanded=reminder_settings is None):
         st.write("学習リズムに合わせて通知頻度・時刻・チャネルをカスタマイズできます。")
         cadence_labels = {
@@ -8469,7 +8432,6 @@ def history_page(user: Dict) -> None:
             if reminder_settings and reminder_settings["cadence"] == "custom"
             else stats["recommended_interval"]
         )
-
         with st.form("reminder_form"):
             cadence_choice = st.selectbox(
                 "通知頻度",
@@ -8495,9 +8457,7 @@ def history_page(user: Dict) -> None:
                 options=channel_options,
                 default=[c for c in selected_channels if c in channel_options] or channel_options[:1],
             )
-
             submitted = st.form_submit_button("設定を保存")
-
             if submitted:
                 if not channels_selection:
                     st.warning("通知チャネルを1つ以上選択してください。")
@@ -8510,7 +8470,6 @@ def history_page(user: Dict) -> None:
                         interval_days = 7
                     else:
                         interval_days = int(custom_interval) if custom_interval else 1
-
                     next_trigger = _calculate_next_reminder(
                         stats["reference_datetime"], interval_days, reminder_time_input
                     )
@@ -8531,7 +8490,6 @@ def history_page(user: Dict) -> None:
                     selected_channels = list(reminder_settings["preferred_channels"])
                     next_trigger_dt = _parse_iso_datetime(reminder_settings["next_trigger_at"])
                     last_notified_dt = _parse_iso_datetime(reminder_settings["last_notified_at"])
-
     if reminder_settings and next_trigger_dt:
         st.success(
             f"次回の通知予定: {next_trigger_dt.strftime('%Y-%m-%d %H:%M')}"
@@ -8555,7 +8513,6 @@ def history_page(user: Dict) -> None:
             last_notified_dt = _parse_iso_datetime(reminder_settings["last_notified_at"])
     else:
         st.info("リマインダーを設定すると、メールやスマートフォン通知と連携した学習習慣づくりをサポートできます。")
-
     schedule_preview = _build_schedule_preview(
         stats["reference_datetime"],
         active_interval,
@@ -8565,11 +8522,9 @@ def history_page(user: Dict) -> None:
     )
     st.dataframe(schedule_preview, use_container_width=True)
     st.caption("今後の通知予定（サンプル）を確認し、リマインダー運用のイメージを掴めます。")
-
     st.caption(
         "通知APIやワークフロー自動化ツールと連携すると、保存した予定に合わせたメール送信やモバイル通知の運用が可能です。"
     )
-
     st.subheader("学習レベルと進捗状況")
     level_info = progress_overview["level"]
     level_col, summary_col = st.columns([1, 2])
@@ -8587,7 +8542,6 @@ def history_page(user: Dict) -> None:
             f"年度×事例の進捗: {overall['completed']} / {overall['total']}"
             f" ({overall['ratio'] * 100:.0f}%)"
         )
-
     year_col, case_col = st.columns(2)
     with year_col:
         st.markdown("##### 年度別進捗")
@@ -8599,7 +8553,6 @@ def history_page(user: Dict) -> None:
                 st.progress(year_item["ratio"])
         else:
             st.info("問題データが登録されていません。")
-
     with case_col:
         st.markdown("##### 事例別進捗")
         if progress_overview["cases"]:
@@ -8610,13 +8563,10 @@ def history_page(user: Dict) -> None:
                 st.progress(case_item["ratio"])
         else:
             st.info("問題データが登録されていません。")
-
     st.divider()
-
     unique_years = sorted(history_df["年度"].dropna().unique())
     unique_cases = sorted(history_df["事例"].dropna().unique())
     modes = {"practice": "演習", "mock": "模試"}
-
     filter_col1, filter_col2, filter_col3 = st.columns(3)
     with filter_col1:
         selected_years = st.multiselect("年度で絞り込む", options=unique_years)
@@ -8624,7 +8574,6 @@ def history_page(user: Dict) -> None:
         selected_cases = st.multiselect("事例で絞り込む", options=unique_cases)
     with filter_col3:
         selected_modes = st.multiselect("モード", options=list(modes.keys()), format_func=lambda key: modes[key])
-
     filtered_df = history_df.copy()
     if selected_years:
         filtered_df = filtered_df[filtered_df["年度"].isin(selected_years)]
@@ -8633,7 +8582,6 @@ def history_page(user: Dict) -> None:
     if selected_modes:
         selected_mode_labels = [modes[key] for key in selected_modes]
         filtered_df = filtered_df[filtered_df["モード"].isin(selected_mode_labels)]
-
     filtered_keyword_records = keyword_records
     if selected_years:
         filtered_keyword_records = [
@@ -8647,13 +8595,10 @@ def history_page(user: Dict) -> None:
         filtered_keyword_records = [
             record for record in filtered_keyword_records if record["mode"] in selected_modes
         ]
-
     keyword_analysis = _analyze_keyword_records(filtered_keyword_records)
-
     overview_tab, chart_tab, keyword_tab, detail_tab = st.tabs(
         ["一覧", "グラフ", "キーワード分析", "詳細・エクスポート"]
     )
-
     with overview_tab:
         display_df = filtered_df.copy()
         display_df["日付"] = display_df["日付"].dt.strftime("%Y-%m-%d %H:%M")
@@ -8664,7 +8609,6 @@ def history_page(user: Dict) -> None:
             disabled=True,
         )
         st.caption("複数条件でフィルタした演習履歴を確認できます。列名をクリックすると並び替えできます。")
-
     with chart_tab:
         score_history = filtered_df.dropna(subset=["得点", "日付"])
         if score_history.empty:
@@ -8682,17 +8626,14 @@ def history_page(user: Dict) -> None:
                 .properties(height=320)
             )
             st.altair_chart(line_chart, use_container_width=True)
-
             avg_df = score_history.groupby("事例", as_index=False)["得点"].mean()
             st.subheader("事例別平均点")
             bar_chart = alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="得点:Q")
             st.altair_chart(bar_chart, use_container_width=True)
-
     with keyword_tab:
         answers_df = keyword_analysis["answers"]
         summary_df = keyword_analysis["summary"]
         recommendations = keyword_analysis["recommendations"]
-
         if answers_df.empty and summary_df.empty:
             st.info("キーワード採点の記録がまだありません。演習を重ねると分析が表示されます。")
         else:
@@ -8730,7 +8671,6 @@ def history_page(user: Dict) -> None:
                     st.caption("左下に位置する設問はキーワード・得点ともに伸びしろがあります。重点的に復習しましょう。")
                 else:
                     st.info("スコアとキーワード判定が揃った設問がまだありません。")
-
             if not summary_df.empty:
                 st.markdown("#### 頻出キーワードの達成状況")
                 display_summary = summary_df.copy()
@@ -8744,7 +8684,6 @@ def history_page(user: Dict) -> None:
                     disabled=True,
                 )
                 st.caption("出題頻度が高いキーワードほど上位に表示されます。達成率が低いキーワードは計画的に復習しましょう。")
-
             if recommendations:
                 st.markdown("#### 優先して復習したいテーマ")
                 for recommendation in recommendations[:5]:
@@ -8761,7 +8700,6 @@ def history_page(user: Dict) -> None:
                     for resource in resources:
                         lines.append(f"    - [参考資料]({resource['url']}): {resource['label']}")
                     st.markdown("\n".join(lines))
-
             if not answers_df.empty:
                 st.markdown("#### 設問別キーワード判定一覧")
                 detail_df = answers_df[
@@ -8785,7 +8723,6 @@ def history_page(user: Dict) -> None:
                 )
                 st.data_editor(detail_df, hide_index=True, use_container_width=True, disabled=True)
                 st.caption("各設問の到達状況と不足キーワードを一覧化しました。学習計画に反映してください。")
-
     with detail_tab:
         csv_export = filtered_df.copy()
         csv_export["日付"] = csv_export["日付"].dt.strftime("%Y-%m-%d %H:%M:%S")
@@ -8796,12 +8733,10 @@ def history_page(user: Dict) -> None:
             file_name="history.csv",
             mime="text/csv",
         )
-
         recent_history = filtered_df.dropna(subset=["日付"]).sort_values("日付", ascending=False)
         if recent_history.empty:
             st.info("詳細表示できる履歴がありません。フィルタ条件を変更してください。")
             return
-
         options = list(recent_history.index)
         selected_idx = st.selectbox(
             "詳細を確認する演習",
@@ -8810,22 +8745,16 @@ def history_page(user: Dict) -> None:
         )
         attempt_id = int(recent_history.loc[selected_idx, "attempt_id"])
         render_attempt_results(attempt_id)
-
-
 def settings_page(user: Dict) -> None:
     st.title("設定・プラン管理")
-
     st.write(
         f"**ユーザー名:** {user['name']}\n"
         f"**メールアドレス:** {user['email']}\n"
         f"**契約プラン:** {user['plan']}"
     )
-
     plan_tab, learning_tab = st.tabs(["プラン管理", "学習設定"])
-
     with plan_tab:
         st.subheader("プラン一覧")
-
         plan_features = pd.DataFrame(
             [
                 {
@@ -8845,11 +8774,9 @@ def settings_page(user: Dict) -> None:
             ]
         )
         st.dataframe(plan_features, use_container_width=True, hide_index=True)
-
         st.caption(
             "\U0001f4a1 プレミアムプランでは AI 採点の上限が解除され、全ての模擬試験・過去問で詳細解説を好きなだけ閲覧できます。"
         )
-
         st.subheader("アップグレードのメリット")
         col1, col2 = st.columns(2)
         with col1:
@@ -8866,10 +8793,8 @@ def settings_page(user: Dict) -> None:
                 - 🕒 **優先サポート**: 24時間以内のメール返信で学習の悩みをサポートします。
                 """
             )
-
         st.subheader("プラン変更")
         st.write("AI採点の回数制限を拡張し、詳細解説を無制限に閲覧できる有料プランをご用意しています。")
-
         pricing_col, action_col = st.columns([1.2, 1])
         with pricing_col:
             st.markdown(
@@ -8887,7 +8812,6 @@ def settings_page(user: Dict) -> None:
                     st.success("プレミアムプランに変更しました。")
             else:
                 st.info("既にプレミアムプランをご利用中です。")
-
         st.subheader("サポート")
         st.markdown(
             dedent(
@@ -8898,13 +8822,11 @@ def settings_page(user: Dict) -> None:
                 """
             ).strip()
         )
-
     with learning_tab:
         st.subheader("データアップロード")
         st.caption(
             "過去問・与件文・設問文を1つのCSV/Excel/PDFで一括管理できます。テンプレートを確認しながらアップロードしてください。"
         )
-
         st.markdown("#### テンプレートダウンロード")
         try:
             bundle_bytes = _load_template_bundle_bytes()
@@ -8923,7 +8845,6 @@ def settings_page(user: Dict) -> None:
             )
             included = " / ".join(name for name, _ in TEMPLATE_BUNDLE_FILES)
             st.caption(f"含まれるファイル: {included}")
-
         st.markdown("#### 過去問データ（与件文・設問文を含む）")
         uploaded_file = st.file_uploader(
             "過去問データファイルをアップロード (CSV/Excel/PDF)",
@@ -8949,13 +8870,11 @@ def settings_page(user: Dict) -> None:
             with st.expander("テンプレートのサンプルを見る", expanded=False):
                 preview_df = _load_past_exam_template_preview()
                 st.dataframe(preview_df, use_container_width=True, hide_index=True)
-
         if uploaded_file is not None:
             st.session_state.pending_past_data_upload = {
                 "name": uploaded_file.name,
                 "data": uploaded_file.getvalue(),
             }
-
         pending_past = st.session_state.get("pending_past_data_upload")
         if pending_past:
             st.caption(f"選択中のファイル: {pending_past['name']}")
@@ -8974,7 +8893,6 @@ def settings_page(user: Dict) -> None:
             with clear_col:
                 if st.button("選択中のファイルをクリア", key="reset_past_data_upload"):
                     st.session_state.pending_past_data_upload = None
-
         past_df = st.session_state.past_data
         if past_df is not None:
             st.caption(f"読み込み済みのレコード数: {len(past_df)}件")
@@ -9045,7 +8963,6 @@ def settings_page(user: Dict) -> None:
                 st.info("アップロードデータを削除しました。")
         else:
             st.info("過去問データは未登録です。テンプレートを利用してアップロードしてください。")
-
         st.markdown("##### 与件文プレビュー")
         contexts = st.session_state.get("uploaded_case_contexts", {}) or {}
         if contexts:
@@ -9094,7 +9011,6 @@ def settings_page(user: Dict) -> None:
             st.info(
                 "登録済みの与件文データはありません。テンプレートの『与件文全体』または『与件文』列を入力すると自動で取り込まれます。"
             )
-
         st.markdown("##### 設問文プレビュー")
         question_texts = st.session_state.get("uploaded_question_texts", {}) or {}
         if question_texts:
@@ -9162,7 +9078,6 @@ def settings_page(user: Dict) -> None:
                 st.info("登録済みの設問文データを削除しました。")
         else:
             st.info("登録済みの設問文データはありません。テンプレートの『問題文』『設問の狙い』列などを入力すると自動で反映されます。")
-
         st.subheader("ワンクリック模範解答スロット")
         st.caption("講師別の模範解答・講評セットを JSON でまとめて登録し、設問ごとにワンクリックで参照できます。")
         slot_file = st.file_uploader(
@@ -9176,7 +9091,6 @@ def settings_page(user: Dict) -> None:
                 "name": slot_file.name,
                 "data": slot_file.getvalue(),
             }
-
         pending_slots = st.session_state.get("pending_model_answer_slot_upload")
         if pending_slots:
             st.caption(f"選択中のファイル: {pending_slots['name']}")
@@ -9197,7 +9111,6 @@ def settings_page(user: Dict) -> None:
                     "選択中のファイルをクリア", key="reset_model_answer_slot_upload"
                 ):
                     st.session_state.pending_model_answer_slot_upload = None
-
         slots = st.session_state.get("model_answer_slots", {})
         if slots:
             summary_rows = []
@@ -9232,7 +9145,6 @@ def settings_page(user: Dict) -> None:
                 st.info("模範解答スロットを削除しました。")
         else:
             st.info("登録済みの模範解答スロットはありません。JSONをアップロードして利用を開始してください。")
-
         with st.expander("JSONフォーマットのサンプル", expanded=False):
             sample_payload = {
                 "entries": [
@@ -9256,7 +9168,6 @@ def settings_page(user: Dict) -> None:
                 ]
             }
             st.code(json.dumps(sample_payload, ensure_ascii=False, indent=2), language="json")
-
         st.subheader("表示テーマ")
         theme_options = [
             "システム設定に合わせる",
@@ -9274,11 +9185,7 @@ def settings_page(user: Dict) -> None:
         if selected_theme != st.session_state.ui_theme:
             st.session_state.ui_theme = selected_theme
             st.success(f"テーマを『{selected_theme}』に変更しました。")
-
-
 logger = logging.getLogger(__name__)
-
-
 if __name__ == "__main__":
     database.initialize_database()
     _init_session_state()
