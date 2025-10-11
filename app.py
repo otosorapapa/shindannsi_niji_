@@ -1902,63 +1902,98 @@ def _inject_context_panel_behavior() -> None:
             (() => {
                 const setupContextPanel = () => {
                     const doc = window.document;
-                    const openButton = doc.querySelector('.context-panel-trigger');
-                    const closeButton = doc.querySelector('.context-panel-close');
-                    const backdrop = doc.querySelector('.context-panel-backdrop');
+                    const openButtons = Array.from(doc.querySelectorAll('.context-panel-trigger'));
+                    const closeButtons = Array.from(doc.querySelectorAll('.context-panel-close'));
+                    const backdrops = Array.from(doc.querySelectorAll('.context-panel-backdrop'));
                     const panel = doc.getElementById('context-panel');
                     const scrollArea = panel ? panel.querySelector('.context-panel-scroll') : null;
+                    let lastTrigger = null;
 
                     if (panel && !panel.hasAttribute('aria-hidden')) {
                         panel.setAttribute('aria-hidden', 'true');
                     }
 
+                    const setAriaExpanded = (open) => {
+                        openButtons.forEach((button) => {
+                            button.setAttribute('aria-expanded', open ? 'true' : 'false');
+                        });
+                    };
+
                     const setOpen = (open, options = {}) => {
-                        const { suppressFocus = false, skipReturnFocus = false } = options;
+                        const {
+                            suppressFocus = false,
+                            skipReturnFocus = false,
+                            trigger = null,
+                            returnFocusTo = null,
+                        } = options;
+
                         if (!doc.body) {
                             return;
                         }
-                        doc.body.classList.toggle('context-panel-open', open);
-                        if (openButton) {
-                            openButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+
+                        if (trigger) {
+                            lastTrigger = trigger;
                         }
+
+                        doc.body.classList.toggle('context-panel-open', open);
+                        setAriaExpanded(open);
+
                         if (panel) {
                             panel.setAttribute('aria-hidden', open ? 'false' : 'true');
                         }
+
                         if (open && scrollArea && !suppressFocus) {
                             scrollArea.focus({ preventScroll: false });
                         }
-                        if (!open && openButton && !skipReturnFocus) {
-                            openButton.focus();
+
+                        if (!open && !skipReturnFocus) {
+                            const focusTarget = returnFocusTo || lastTrigger || openButtons[0];
+                            if (focusTarget) {
+                                focusTarget.focus();
+                            }
                         }
                     };
 
-                    if (openButton && !openButton.dataset.bound) {
-                        openButton.dataset.bound = 'true';
-                        openButton.setAttribute('aria-expanded', 'false');
-                        openButton.addEventListener('click', () => setOpen(true));
-                        openButton.addEventListener('keydown', (event) => {
+                    openButtons.forEach((button) => {
+                        if (button.dataset.bound === 'true') {
+                            return;
+                        }
+                        button.dataset.bound = 'true';
+                        button.setAttribute('aria-expanded', 'false');
+                        button.addEventListener('click', () => setOpen(true, { trigger: button }));
+                        button.addEventListener('keydown', (event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
                                 event.preventDefault();
-                                setOpen(true);
+                                setOpen(true, { trigger: button });
                             }
                         });
-                    }
+                    });
 
-                    if (closeButton && !closeButton.dataset.bound) {
-                        closeButton.dataset.bound = 'true';
-                        closeButton.addEventListener('click', () => setOpen(false));
-                        closeButton.addEventListener('keydown', (event) => {
+                    closeButtons.forEach((button) => {
+                        if (button.dataset.bound === 'true') {
+                            return;
+                        }
+                        button.dataset.bound = 'true';
+                        button.addEventListener('click', () => setOpen(false));
+                        button.addEventListener('keydown', (event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
                                 event.preventDefault();
                                 setOpen(false);
                             }
                         });
-                    }
+                    });
 
-                    if (backdrop && !backdrop.dataset.bound) {
-                        backdrop.dataset.bound = 'true';
-                        backdrop.addEventListener('click', () => setOpen(false));
-                    }
+                    backdrops.forEach((node) => {
+                        if (node.dataset.bound === 'true') {
+                            return;
+                        }
+                        node.dataset.bound = 'true';
+                        node.addEventListener('click', (event) => {
+                            if (event.target === node) {
+                                setOpen(false, { suppressFocus: true, skipReturnFocus: true });
+                            }
+                        });
+                    });
 
                     const mediaQuery = window.matchMedia('(max-width: 900px)');
                     const syncForViewport = (mq) => {
@@ -1969,9 +2004,7 @@ def _inject_context_panel_behavior() -> None:
                             setOpen(false, { suppressFocus: true, skipReturnFocus: true });
                         } else {
                             panel.setAttribute('aria-hidden', 'false');
-                            if (openButton) {
-                                openButton.setAttribute('aria-expanded', 'true');
-                            }
+                            setAriaExpanded(true);
                             if (doc.body) {
                                 doc.body.classList.remove('context-panel-open');
                             }
