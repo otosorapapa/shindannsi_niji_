@@ -212,6 +212,92 @@
         min-width: 0;
       }
 
+      .quick-access {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-lg);
+        border-radius: var(--radius-card);
+        border: 1px solid var(--color-border);
+        background-color: var(--color-surface);
+        box-shadow: 0 16px 32px rgba(16, 24, 40, 0.06);
+      }
+
+      .quick-access__header {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .quick-access__grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--spacing-sm);
+      }
+
+      .quick-access__link {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-md);
+        border-radius: 14px;
+        border: 1px solid transparent;
+        background-color: var(--color-chip-bg);
+        color: inherit;
+        text-decoration: none;
+        font-weight: 600;
+        transition: transform var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease,
+          border-color var(--transition-duration) ease;
+      }
+
+      .quick-access__link:hover,
+      .quick-access__link:focus-visible {
+        transform: translateY(-2px);
+        border-color: var(--color-chip-active);
+        box-shadow: 0 12px 24px rgba(16, 24, 40, 0.12);
+      }
+
+      .quick-access__icon {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: var(--color-chip-active);
+        color: var(--color-chip-active-text);
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+      }
+
+      .quick-access__texts {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .quick-access__title {
+        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--color-text-strong);
+      }
+
+      .quick-access__description {
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+        font-weight: 500;
+      }
+
+      .quick-access__cta {
+        margin-left: auto;
+        font-size: 1.4rem;
+        color: var(--color-text-muted);
+      }
+
       .exercise__tabs {
         position: sticky;
         top: var(--spacing-lg);
@@ -584,6 +670,14 @@
         .context-pane {
           flex-basis: 320px;
         }
+
+        .quick-access {
+          padding: var(--spacing-md);
+        }
+
+        .quick-access__grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
 
       @media (max-width: 768px) {
@@ -603,11 +697,19 @@
           position: sticky;
           top: 0;
         }
+
+        .quick-access__grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
       }
 
       @media (max-width: 600px) {
         .layout {
           padding: var(--spacing-md);
+        }
+
+        .quick-access__link {
+          padding: var(--spacing-sm) var(--spacing-md);
         }
 
         .context-pane__miniheader {
@@ -675,6 +777,52 @@
 
       <main class="exercise" role="main" aria-labelledby="exercise-heading">
         <h2 id="exercise-heading" class="sr-only">演習と設問</h2>
+        <section
+          class="quick-access"
+          aria-labelledby="quick-access-heading"
+          role="navigation"
+        >
+          <div class="quick-access__header">
+            <h2 id="quick-access-heading" class="heading-lg">
+              ワンクリックアクセス
+            </h2>
+            <p class="text-muted">
+              よく使うページを厳選。次のアクションにすぐ移動できます。
+            </p>
+          </div>
+          <div class="quick-access__grid">
+            <a class="quick-access__link" href="/past-exams">
+              <span class="quick-access__icon" aria-hidden="true">過去</span>
+              <span class="quick-access__texts">
+                <span class="quick-access__title">過去問題アーカイブ</span>
+                <span class="quick-access__description"
+                  >年度別PDFと解答骨子をまとめて確認</span
+                >
+              </span>
+              <span class="quick-access__cta" aria-hidden="true">→</span>
+            </a>
+            <a class="quick-access__link" href="/favorites">
+              <span class="quick-access__icon" aria-hidden="true">推し</span>
+              <span class="quick-access__texts">
+                <span class="quick-access__title">お気に入り問題</span>
+                <span class="quick-access__description"
+                  >ブックマークした問題だけに集中</span
+                >
+              </span>
+              <span class="quick-access__cta" aria-hidden="true">→</span>
+            </a>
+            <a class="quick-access__link" href="/mock-exam">
+              <span class="quick-access__icon" aria-hidden="true">模試</span>
+              <span class="quick-access__texts">
+                <span class="quick-access__title">80分模試モード</span>
+                <span class="quick-access__description"
+                  >時間制限付きで本番形式に即アクセス</span
+                >
+              </span>
+              <span class="quick-access__cta" aria-hidden="true">→</span>
+            </a>
+          </div>
+        </section>
         <nav
           class="exercise__tabs"
           role="tablist"
