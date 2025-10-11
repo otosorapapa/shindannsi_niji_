@@ -1728,7 +1728,7 @@ def _inject_context_highlight_styles() -> None:
 
 
 def _inject_context_column_styles() -> None:
-    if st.session_state.get("_context_panel_styles_injected_v2"):
+    if st.session_state.get("_context_panel_styles_injected_v3"):
         return
 
     st.markdown(
@@ -1737,6 +1737,9 @@ def _inject_context_column_styles() -> None:
             <style>
             :root {
                 --context-panel-offset: 72px;
+            }
+            html {
+                scroll-behavior: smooth;
             }
             .context-panel-mobile-bar {
                 display: none;
@@ -1780,16 +1783,21 @@ def _inject_context_column_styles() -> None:
                 background: #ffffff;
                 border: 1px solid #e5e7eb;
                 border-radius: 0.5rem;
-                padding: 1rem;
+                padding: 1.25rem;
                 line-height: 1.7;
                 box-sizing: border-box;
                 margin-bottom: 1.5rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                overflow: hidden;
             }
             .context-panel-inner {
                 display: flex;
                 flex-direction: column;
                 gap: 0.75rem;
-                height: 100%;
+                flex: 1 1 auto;
+                min-height: 0;
             }
             .context-panel-header {
                 display: flex;
@@ -1815,9 +1823,12 @@ def _inject_context_column_styles() -> None:
             }
             .context-panel-scroll {
                 overflow-y: auto;
-                padding-right: 0.75rem;
-                scrollbar-gutter: stable;
+                padding-right: calc(0.85rem + var(--context-scrollbar-compensation, 0px));
+                margin-right: calc(-1 * var(--context-scrollbar-compensation, 0px));
+                scrollbar-gutter: stable both-edges;
                 scrollbar-width: thin;
+                flex: 1 1 auto;
+                min-height: 0;
             }
             .context-panel-scroll::-webkit-scrollbar {
                 width: 0.5rem;
@@ -1833,9 +1844,14 @@ def _inject_context_column_styles() -> None:
                 .context-panel {
                     position: sticky;
                     top: var(--context-panel-offset, 72px);
+                    max-height: calc(100vh - 96px);
+                }
+                .context-panel-inner {
+                    flex: 1 1 auto;
+                    min-height: 0;
                 }
                 .context-panel-scroll {
-                    max-height: calc(100vh - 96px);
+                    max-height: none;
                 }
             }
             @media (max-width: 900px) {
@@ -1891,7 +1907,7 @@ def _inject_context_column_styles() -> None:
         ),
         unsafe_allow_html=True,
     )
-    st.session_state["_context_panel_styles_injected_v2"] = True
+    st.session_state["_context_panel_styles_injected_v3"] = True
 
 
 def _inject_context_panel_behavior() -> None:
@@ -1910,6 +1926,20 @@ def _inject_context_panel_behavior() -> None:
                     if (panel && !panel.hasAttribute('aria-hidden')) {
                         panel.setAttribute('aria-hidden', 'true');
                     }
+
+                    const updateScrollbarCompensation = () => {
+                        if (!panel || !scrollArea) {
+                            return;
+                        }
+                        const scrollbarWidth = Math.max(
+                            0,
+                            scrollArea.offsetWidth - scrollArea.clientWidth
+                        );
+                        panel.style.setProperty(
+                            '--context-scrollbar-compensation',
+                            `${scrollbarWidth}px`
+                        );
+                    };
 
                     const setAriaExpanded = (open) => {
                         triggers.forEach((button) => {
@@ -1938,6 +1968,12 @@ def _inject_context_panel_behavior() -> None:
 
                         if (panel) {
                             panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+                        }
+
+                        if (open) {
+                            window.requestAnimationFrame(updateScrollbarCompensation);
+                        } else {
+                            updateScrollbarCompensation();
                         }
 
                         if (open && scrollArea && !suppressFocus) {
@@ -2039,6 +2075,24 @@ def _inject_context_panel_behavior() -> None:
                         mediaQuery.addEventListener('change', syncForViewport);
                     } else if (mediaQuery.addListener) {
                         mediaQuery.addListener(syncForViewport);
+                    }
+
+                    updateScrollbarCompensation();
+
+                    if (scrollArea && typeof ResizeObserver !== 'undefined') {
+                        if (!scrollArea.__contextPanelResizeObserver) {
+                            scrollArea.__contextPanelResizeObserver = new ResizeObserver(
+                                updateScrollbarCompensation
+                            );
+                            scrollArea.__contextPanelResizeObserver.observe(scrollArea);
+                        }
+                    }
+
+                    if (doc.body && !doc.body.dataset.contextPanelResizeBound) {
+                        doc.body.dataset.contextPanelResizeBound = 'true';
+                        window.addEventListener('resize', updateScrollbarCompensation, {
+                            passive: true,
+                        });
                     }
 
                     if (doc.body && !doc.body.dataset.contextPanelEscapeBound) {
@@ -4670,6 +4724,7 @@ def _question_input(
     disabled: bool = False,
     widget_prefix: str = "textarea_",
     case_label: Optional[str] = None,
+    question_index: Optional[int] = None,
 ) -> str:
     key = _draft_key(problem_id, question["id"])
     if key not in st.session_state.drafts:
@@ -4677,6 +4732,24 @@ def _question_input(
         st.session_state.drafts[key] = saved_default
 
     textarea_state_key = f"{widget_prefix}{key}"
+
+    anchor_source = (
+        question_index
+        if question_index is not None
+        else question.get("order")
+        or question.get("設問番号")
+        or question.get("prompt")
+        or question.get("id")
+    )
+    if anchor_source is not None:
+        anchor_slug = re.sub(r"[^0-9a-zA-Z]+", "-", str(anchor_source)).strip("-")
+        if not anchor_slug:
+            anchor_slug = str(question.get("id"))
+        anchor_id = f"question-q{anchor_slug}"
+        st.markdown(
+            f"<div id=\"{anchor_id}\" class=\"practice-question-anchor\" aria-hidden=\"true\"></div>",
+            unsafe_allow_html=True,
+        )
 
     question_overview = dict(question)
     question_overview.setdefault("order", question.get("order"))
@@ -5560,25 +5633,71 @@ def practice_page(user: Dict) -> None:
             """
             <style>
             .practice-quick-nav {
+                position: fixed;
+                bottom: 2.25rem;
+                right: 2.25rem;
                 display: flex;
-                gap: 0.75rem;
-                flex-wrap: wrap;
-                margin-bottom: 0.5rem;
+                flex-direction: column;
+                gap: 0.6rem;
+                padding: 0.85rem 1rem;
+                border-radius: 0.75rem;
+                border: 1px solid #e5e7eb;
+                background: rgba(255, 255, 255, 0.96);
+                box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
+                z-index: 75;
+                min-width: 92px;
+            }
+            .practice-quick-nav-title {
+                font-size: 0.8rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: #374151;
+            }
+            .practice-quick-nav-items {
+                display: flex;
+                flex-direction: column;
+                gap: 0.4rem;
             }
             .practice-quick-nav a {
                 text-decoration: none;
             }
-            .practice-quick-nav a button {
-                padding: 0.45rem 1.2rem;
-                border-radius: 0.5rem;
-                border: none;
-                background-color: #2563eb;
-                color: white;
+            .practice-quick-nav-link {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0.42rem 0.95rem;
+                border-radius: 999px;
                 font-weight: 600;
-                cursor: pointer;
+                font-size: 0.95rem;
+                border: 1px solid transparent;
+                background-color: #2563eb;
+                color: #ffffff;
+                transition: background-color 120ms ease, transform 120ms ease;
             }
-            .practice-quick-nav a button:hover {
+            .practice-quick-nav-link:hover {
                 background-color: #1d4ed8;
+                transform: translateY(-1px);
+            }
+            .practice-quick-nav-link:focus-visible {
+                outline: 3px solid rgba(59, 130, 246, 0.5);
+                outline-offset: 2px;
+            }
+            .practice-question-anchor {
+                scroll-margin-top: 80px;
+            }
+            body.context-panel-open .practice-quick-nav {
+                display: none;
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .practice-quick-nav-link {
+                    transition: none;
+                }
+            }
+            @media (max-width: 900px) {
+                .practice-quick-nav {
+                    display: none;
+                }
             }
             </style>
             """
@@ -5854,17 +5973,23 @@ def practice_page(user: Dict) -> None:
     submitted = False
 
     with main_col:
-        st.markdown(
-            dedent(
-                """
-                <div class="practice-quick-nav">
-                    <a href="#practice-answers"><button type="button">質問へ移動</button></a>
-                    <a href="#practice-actions"><button type="button">下へスクロール</button></a>
-                </div>
-                """
-            ).strip(),
-            unsafe_allow_html=True,
-        )
+        question_count = len(problem["questions"])
+        if question_count:
+            nav_items = "".join(
+                f"<a href=\"#question-q{idx}\" class=\"practice-quick-nav-link\" role=\"button\" aria-label=\"設問{idx}へ移動\">Q{idx}</a>"
+                for idx in range(1, question_count + 1)
+            )
+            st.markdown(
+                dedent(
+                    f"""
+                    <nav class=\"practice-quick-nav\" aria-label=\"設問ナビゲーション\">
+                        <span class=\"practice-quick-nav-title\">Qナビ</span>
+                        <div class=\"practice-quick-nav-items\">{nav_items}</div>
+                    </nav>
+                    """
+                ).strip(),
+                unsafe_allow_html=True,
+            )
 
         question_overview = pd.DataFrame(
             [
@@ -5901,11 +6026,12 @@ def practice_page(user: Dict) -> None:
 
         _inject_guideline_styles()
 
-        for question in problem["questions"]:
+        for idx, question in enumerate(problem["questions"], start=1):
             text = _question_input(
                 problem["id"],
                 question,
                 case_label=problem.get("case_label") or problem.get("case"),
+                question_index=idx,
             )
             question_specs.append(
                 QuestionSpec(
@@ -7351,12 +7477,13 @@ def mock_exam_page(user: Dict) -> None:
                 continue
             st.subheader(problem["title"])
             st.write(problem["overview"])
-            for question in problem["questions"]:
+            for idx, question in enumerate(problem["questions"], start=1):
                 _question_input(
                     problem_id,
                     question,
                     widget_prefix="mock_textarea_",
                     case_label=problem.get("case_label") or problem.get("case"),
+                    question_index=idx,
                 )
 
     if st.button("模試を提出", type="primary"):
