@@ -5240,6 +5240,74 @@ def _inject_dashboard_styles() -> None:
                 outline-offset: 4px;
                 transition: outline 200ms ease;
             }
+            .dashboard-lane__accordion {
+                display: block;
+                border-radius: 20px;
+                padding: clamp(0.2rem, 0.6vw, 0.35rem) clamp(0.45rem, 0.9vw, 0.7rem)
+                    clamp(0.85rem, 1.3vw, 1.05rem);
+                transition: background 200ms ease, box-shadow 200ms ease;
+            }
+            .dashboard-lane__summary {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 1rem;
+                cursor: pointer;
+                margin: 0;
+                padding: clamp(0.6rem, 1vw, 0.85rem) clamp(0.75rem, 1.35vw, 1.2rem);
+                width: 100%;
+                border-radius: 16px;
+                background: rgba(248, 250, 252, 0.82);
+                border: 1px solid rgba(148, 163, 184, 0.32);
+                box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+                transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
+            }
+            .dashboard-lane__accordion[open] .dashboard-lane__summary {
+                background: rgba(219, 234, 254, 0.55);
+                border-color: rgba(37, 99, 235, 0.35);
+                box-shadow: 0 20px 36px rgba(37, 99, 235, 0.14);
+            }
+            .dashboard-lane__summary::-webkit-details-marker {
+                display: none;
+            }
+            .dashboard-lane__summary-indicator {
+                flex-shrink: 0;
+                width: 34px;
+                height: 34px;
+                border-radius: 999px;
+                background: rgba(37, 99, 235, 0.15);
+                color: var(--brand-strong);
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.1rem;
+                transition: transform 200ms ease, background 200ms ease, color 200ms ease;
+            }
+            .dashboard-lane__accordion[open] .dashboard-lane__summary-indicator {
+                transform: rotate(180deg);
+                background: rgba(37, 99, 235, 0.25);
+                color: rgba(30, 64, 175, 1);
+            }
+            .dashboard-lane__summary:focus-visible {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.32), 0 12px 26px rgba(15, 23, 42, 0.08);
+            }
+            .dashboard-lane__content {
+                margin-top: clamp(0.75rem, 1vw, 1rem);
+                display: flex;
+                flex-direction: column;
+                gap: clamp(0.75rem, 1vw, 1.2rem);
+            }
+            @media (max-width: 720px) {
+                .dashboard-lane__summary {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 0.65rem;
+                }
+                .dashboard-lane__summary-indicator {
+                    align-self: flex-end;
+                }
+            }
             [data-testid="stDataFrame"] table,
             [data-testid="stDataFrame"] tbody,
             [data-testid="stDataFrame"] th,
@@ -5279,6 +5347,56 @@ def _inject_dashboard_styles() -> None:
                 const root = document;
                 const navLinks = Array.from(root.querySelectorAll('.dashboard-toc__link'));
                 const sections = Array.from(root.querySelectorAll('[data-section-id]'));
+                const accordions = Array.from(root.querySelectorAll('.dashboard-lane__accordion'));
+                const accordionForSection = (sectionId) => {
+                    if (!sectionId) return null;
+                    return (
+                        accordions.find((accordion) => {
+                            const section = accordion.closest('[data-section-id]');
+                            return section && section.getAttribute('data-section-id') === sectionId;
+                        }) || null
+                    );
+                };
+                const updateNavExpanded = () => {
+                    navLinks.forEach((link) => {
+                        const targetId = link.getAttribute('data-target');
+                        const accordion = accordionForSection(targetId);
+                        if (accordion) {
+                            link.setAttribute('aria-expanded', accordion.open ? 'true' : 'false');
+                        }
+                    });
+                };
+                const restoreAccordionState = (accordion) => {
+                    const storageKey = accordion.getAttribute('data-accordion-storage');
+                    if (!storageKey || !('localStorage' in window)) return;
+                    const stored = window.localStorage.getItem(storageKey);
+                    if (stored === 'closed') {
+                        accordion.removeAttribute('open');
+                    } else if (stored === 'open') {
+                        accordion.setAttribute('open', '');
+                    }
+                };
+                const openAccordionForSection = (sectionId) => {
+                    const accordion = accordionForSection(sectionId);
+                    if (accordion && !accordion.open) {
+                        accordion.open = true;
+                    }
+                };
+                accordions.forEach((accordion) => {
+                    restoreAccordionState(accordion);
+                    accordion.addEventListener('toggle', () => {
+                        updateNavExpanded();
+                        const storageKey = accordion.getAttribute('data-accordion-storage');
+                        if (!storageKey || !('localStorage' in window)) return;
+                        window.localStorage.setItem(storageKey, accordion.open ? 'open' : 'closed');
+                    });
+                });
+                updateNavExpanded();
+                const hash = window.location.hash.replace(/^#/, '');
+                if (hash) {
+                    openAccordionForSection(hash);
+                    updateNavExpanded();
+                }
                 const highlight = (sectionId) => {
                     navLinks.forEach((link) => {
                         const target = link.getAttribute('data-target');
@@ -5292,6 +5410,7 @@ def _inject_dashboard_styles() -> None:
                             setTimeout(() => section.classList.remove('section-highlight'), 2000);
                         }
                     });
+                    updateNavExpanded();
                 };
                 navLinks.forEach((link) => {
                     link.addEventListener('click', (event) => {
@@ -5299,9 +5418,12 @@ def _inject_dashboard_styles() -> None:
                         if (!href || !href.startsWith('#')) return;
                         event.preventDefault();
                         const targetId = href.slice(1);
+                        openAccordionForSection(targetId);
                         const target = root.getElementById(targetId);
                         if (!target) return;
-                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        requestAnimationFrame(() => {
+                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        });
                         history.replaceState(null, '', '#' + targetId);
                         highlight(targetId);
                     });
@@ -5323,6 +5445,7 @@ def _inject_dashboard_styles() -> None:
                                             section.getAttribute('data-section-id') === sectionId
                                         );
                                     });
+                                    updateNavExpanded();
                                 });
                         },
                         { threshold: 0.4 }
@@ -6016,7 +6139,8 @@ def dashboard_page(user: Dict) -> None:
     toc_items = [
         ("kpi-lane", "KPI"),
         ("progress-lane", "進捗"),
-        ("analysis-lane", "ヒートマップ"),
+        ("review-lane", "復習"),
+        ("analysis-lane", "分析"),
         ("insight-lane", "洞察"),
     ]
     toc_html = "".join(
@@ -6098,15 +6222,22 @@ def dashboard_page(user: Dict) -> None:
         kpi_section_html = dedent(
             f"""
             <section class="dashboard-lane dashboard-lane--kpi" id="kpi-lane" data-section-id="kpi-lane" role="region" aria-labelledby="kpi-lane-title">
-                <header class="dashboard-lane__header">
-                    <h2 id="kpi-lane-title" class="dashboard-lane__title">KPIレーン</h2>
-                    <p class="dashboard-lane__subtitle">ポイントと連続学習の到達度をひと目で確認できます。</p>
-                </header>
-                <div class="dashboard-card card--tone-blue" role="group" aria-label="ポイントと連続学習の指標">
-                    <div class="kpi-tiles">
-                        {''.join(kpi_tiles_html)}
+                <details class="dashboard-lane__accordion" data-accordion-for="kpi-lane" data-accordion-storage="dashboard-accordion-kpi" open>
+                    <summary class="dashboard-lane__summary">
+                        <div class="dashboard-lane__header">
+                            <h2 id="kpi-lane-title" class="dashboard-lane__title">KPIレーン</h2>
+                            <p class="dashboard-lane__subtitle">ポイントと連続学習の到達度をひと目で確認できます。</p>
+                        </div>
+                        <span class="dashboard-lane__summary-indicator" aria-hidden="true">▾</span>
+                    </summary>
+                    <div class="dashboard-lane__content">
+                        <div class="dashboard-card card--tone-blue" role="group" aria-label="ポイントと連続学習の指標">
+                            <div class="kpi-tiles">
+                                {''.join(kpi_tiles_html)}
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </details>
             </section>
             """
         )
@@ -6169,25 +6300,29 @@ def dashboard_page(user: Dict) -> None:
             ).strip()
             for card in metric_cards
         )
-        progress_section_html = dedent(
+        progress_section_open = dedent(
             """
             <section class="dashboard-lane" id="progress-lane" data-section-id="progress-lane" role="region" aria-labelledby="progress-lane-title">
-                <header class="dashboard-lane__header">
-                    <h2 id="progress-lane-title" class="dashboard-lane__title">進捗レーン</h2>
-                    <p class="dashboard-lane__subtitle">主要指標の進捗と履歴を一覧できます。</p>
-                </header>
-                <div class="dashboard-card card--tone-green" role="group" aria-label="進捗バー群">
-                    <div class="progress-grid">
-                        {progress_bars_html}
-                    </div>
-                    <div class="metric-grid">
-                        {metric_chips_html}
-                    </div>
-                </div>
-            </section>
+                <details class="dashboard-lane__accordion" data-accordion-for="progress-lane" data-accordion-storage="dashboard-accordion-progress" open>
+                    <summary class="dashboard-lane__summary">
+                        <div class="dashboard-lane__header">
+                            <h2 id="progress-lane-title" class="dashboard-lane__title">進捗レーン</h2>
+                            <p class="dashboard-lane__subtitle">主要指標の進捗と履歴を一覧できます。</p>
+                        </div>
+                        <span class="dashboard-lane__summary-indicator" aria-hidden="true">▾</span>
+                    </summary>
+                    <div class="dashboard-lane__content">
+                        <div class="dashboard-card card--tone-green" role="group" aria-label="進捗バー群">
+                            <div class="progress-grid">
+                                {progress_bars_html}
+                            </div>
+                            <div class="metric-grid">
+                                {metric_chips_html}
+                            </div>
+                        </div>
             """
         )
-        st.markdown(progress_section_html, unsafe_allow_html=True)
+        st.markdown(progress_section_open, unsafe_allow_html=True)
 
         if timeline_events:
             timeline_items_html = "".join(
@@ -6227,20 +6362,25 @@ def dashboard_page(user: Dict) -> None:
                 unsafe_allow_html=True,
             )
 
-        review_card_header = dedent(
-            """
-            <section class="dashboard-lane" role="region" aria-labelledby="review-lane-title">
-                <header class="dashboard-lane__header">
-                    <h2 id="review-lane-title" class="dashboard-lane__title">復習スケジュール</h2>
-                    <p class="dashboard-lane__subtitle">間隔反復で優先度の高い復習を提示します。</p>
-                </header>
+        st.markdown("</div></details></section>", unsafe_allow_html=True)
+
+        review_open_attr = " open" if (due_review_count or upcoming_reviews) else ""
+        review_section_open = dedent(
+            f"""
+            <section class="dashboard-lane" id="review-lane" data-section-id="review-lane" role="region" aria-labelledby="review-lane-title">
+                <details class="dashboard-lane__accordion" data-accordion-for="review-lane" data-accordion-storage="dashboard-accordion-review"{review_open_attr}>
+                    <summary class="dashboard-lane__summary">
+                        <div class="dashboard-lane__header">
+                            <h2 id="review-lane-title" class="dashboard-lane__title">復習スケジュール</h2>
+                            <p class="dashboard-lane__subtitle">間隔反復で優先度の高い復習を提示します。</p>
+                        </div>
+                        <span class="dashboard-lane__summary-indicator" aria-hidden="true">▾</span>
+                    </summary>
+                    <div class="dashboard-lane__content">
+                        <div class='dashboard-card card--tone-blue review-card'>
             """
         )
-        st.markdown(review_card_header, unsafe_allow_html=True)
-        st.markdown(
-            "<div class='dashboard-card card--tone-blue review-card'>",
-            unsafe_allow_html=True,
-        )
+        st.markdown(review_section_open, unsafe_allow_html=True)
         if due_review_count:
             st.markdown(
                 f"<p class='timeline-filter__label'>⏳ {due_review_count}件の復習が期限到来または超過しています。優先的に取り組みましょう。</p>",
@@ -6269,15 +6409,27 @@ def dashboard_page(user: Dict) -> None:
             st.caption("演習結果に応じて次回の復習タイミングを自動で提案します。")
         else:
             st.info("演習データが蓄積されると復習スケジュールが表示されます。")
-        st.markdown("</div></section>", unsafe_allow_html=True)
+        st.markdown("</div></div></details></section>", unsafe_allow_html=True)
 
+        has_case_chart = not dashboard_analysis["case_chart_source"].empty
+        has_question_heatmap = not dashboard_analysis["question_source"].empty
+        has_keyword_heatmap = not dashboard_analysis["keyword_source"].empty
+        analysis_has_content = bool(
+            heatmap_context or has_case_chart or has_question_heatmap or has_keyword_heatmap
+        )
+        analysis_open_attr = " open" if analysis_has_content else ""
         analysis_section_open = dedent(
-            """
+            f"""
             <section class="dashboard-lane dashboard-lane--analysis" id="analysis-lane" data-section-id="analysis-lane" role="region" aria-labelledby="analysis-lane-title">
-                <header class="dashboard-lane__header">
-                    <h2 id="analysis-lane-title" class="dashboard-lane__title">分析レーン</h2>
-                    <p class="dashboard-lane__subtitle">試験委員の専門×事例ヒートマップと実績分析を確認できます。</p>
-                </header>
+                <details class="dashboard-lane__accordion" data-accordion-for="analysis-lane" data-accordion-storage="dashboard-accordion-analysis"{analysis_open_attr}>
+                    <summary class="dashboard-lane__summary">
+                        <div class="dashboard-lane__header">
+                            <h2 id="analysis-lane-title" class="dashboard-lane__title">分析レーン</h2>
+                            <p class="dashboard-lane__subtitle">試験委員の専門×事例ヒートマップと実績分析を確認できます。</p>
+                        </div>
+                        <span class="dashboard-lane__summary-indicator" aria-hidden="true">▾</span>
+                    </summary>
+                    <div class="dashboard-lane__content">
             """
         )
         st.markdown(analysis_section_open, unsafe_allow_html=True)
@@ -6384,10 +6536,6 @@ def dashboard_page(user: Dict) -> None:
                 else:
                     st.info("演習データが蓄積すると事例別の分析が表示されます。")
             st.markdown("</div>", unsafe_allow_html=True)
-
-        has_case_chart = not dashboard_analysis["case_chart_source"].empty
-        has_question_heatmap = not dashboard_analysis["question_source"].empty
-        has_keyword_heatmap = not dashboard_analysis["keyword_source"].empty
 
         if has_case_chart or has_question_heatmap or has_keyword_heatmap:
             st.markdown(
@@ -6510,15 +6658,20 @@ def dashboard_page(user: Dict) -> None:
                 st.caption("特に網羅率が低いテーマは早期に補強しましょう。")
 
             st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</section>", unsafe_allow_html=True)
+        st.markdown("</div></details></section>", unsafe_allow_html=True)
 
         insight_section_open = dedent(
             """
             <section class="dashboard-lane dashboard-lane--insight" id="insight-lane" data-section-id="insight-lane" role="region" aria-labelledby="insight-lane-title">
-                <header class="dashboard-lane__header">
-                    <h2 id="insight-lane-title" class="dashboard-lane__title">洞察レーン</h2>
-                    <p class="dashboard-lane__subtitle">強み・推奨テーマ・アクションプランを表示します。</p>
-                </header>
+                <details class="dashboard-lane__accordion" data-accordion-for="insight-lane" data-accordion-storage="dashboard-accordion-insight" open>
+                    <summary class="dashboard-lane__summary">
+                        <div class="dashboard-lane__header">
+                            <h2 id="insight-lane-title" class="dashboard-lane__title">洞察レーン</h2>
+                            <p class="dashboard-lane__subtitle">強み・推奨テーマ・アクションプランを表示します。</p>
+                        </div>
+                        <span class="dashboard-lane__summary-indicator" aria-hidden="true">▾</span>
+                    </summary>
+                    <div class="dashboard-lane__content">
             """
         )
         st.markdown(insight_section_open, unsafe_allow_html=True)
@@ -6766,7 +6919,7 @@ def dashboard_page(user: Dict) -> None:
             unsafe_allow_html=True,
         )
 
-        st.markdown("</section>", unsafe_allow_html=True)
+        st.markdown("</div></details></section>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     _render_study_planner(user)
