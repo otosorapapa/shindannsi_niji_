@@ -12,6 +12,7 @@ import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
+import logging
 from pathlib import Path
 from threading import Lock
 from functools import lru_cache
@@ -22,6 +23,9 @@ SEED_PATH = Path("data/seed_problems.json")
 
 _INITIALIZE_LOCK = Lock()
 _DATABASE_INITIALISED = False
+
+
+logger = logging.getLogger(__name__)
 
 
 def _clear_problem_caches() -> None:
@@ -984,19 +988,25 @@ def list_due_reviews(
     rows = cur.fetchall()
     conn.close()
 
-    return [
-        {
-            "problem_id": row["problem_id"],
-            "year": row["year"],
-            "case_label": row["case_label"],
-            "title": row["title"],
-            "due_at": datetime.fromisoformat(row["due_at"]),
-            "interval_days": row["interval_days"],
-            "last_score_ratio": row["last_score_ratio"],
-            "streak": row["streak"],
-        }
-        for row in rows
-    ]
+    items: List[Dict] = []
+    for row in rows:
+        due_at = _parse_iso_datetime(row["due_at"], field="spaced_reviews.due_at")
+        if due_at is None:
+            continue
+        items.append(
+            {
+                "problem_id": row["problem_id"],
+                "year": row["year"],
+                "case_label": row["case_label"],
+                "title": row["title"],
+                "due_at": due_at,
+                "interval_days": row["interval_days"],
+                "last_score_ratio": row["last_score_ratio"],
+                "streak": row["streak"],
+            }
+        )
+
+    return items
 
 
 def list_upcoming_reviews(user_id: int, *, limit: int = 6) -> List[Dict]:
@@ -1018,19 +1028,25 @@ def list_upcoming_reviews(user_id: int, *, limit: int = 6) -> List[Dict]:
     rows = cur.fetchall()
     conn.close()
 
-    return [
-        {
-            "problem_id": row["problem_id"],
-            "year": row["year"],
-            "case_label": row["case_label"],
-            "title": row["title"],
-            "due_at": datetime.fromisoformat(row["due_at"]),
-            "interval_days": row["interval_days"],
-            "last_score_ratio": row["last_score_ratio"],
-            "streak": row["streak"],
-        }
-        for row in rows
-    ]
+    items: List[Dict] = []
+    for row in rows:
+        due_at = _parse_iso_datetime(row["due_at"], field="spaced_reviews.due_at")
+        if due_at is None:
+            continue
+        items.append(
+            {
+                "problem_id": row["problem_id"],
+                "year": row["year"],
+                "case_label": row["case_label"],
+                "title": row["title"],
+                "due_at": due_at,
+                "interval_days": row["interval_days"],
+                "last_score_ratio": row["last_score_ratio"],
+                "streak": row["streak"],
+            }
+        )
+
+    return items
 
 
 def count_due_reviews(user_id: int, *, reference: Optional[datetime] = None) -> int:
@@ -1067,16 +1083,29 @@ def get_spaced_review(user_id: int, problem_id: int) -> Optional[Dict]:
     if not row:
         return None
 
+    due_at = _parse_iso_datetime(row["due_at"], field="spaced_reviews.due_at")
+    last_reviewed = _parse_iso_datetime(
+        row["last_reviewed_at"], field="spaced_reviews.last_reviewed_at"
+    )
+
+    if due_at is None or last_reviewed is None:
+        logger.warning(
+            "Skipping spaced review %s for user %s due to invalid timestamps",
+            row["problem_id"],
+            user_id,
+        )
+        return None
+
     return {
         "problem_id": row["problem_id"],
         "year": row["year"],
         "case_label": row["case_label"],
         "title": row["title"],
-        "due_at": datetime.fromisoformat(row["due_at"]),
+        "due_at": due_at,
         "interval_days": row["interval_days"],
         "last_score_ratio": row["last_score_ratio"],
         "streak": row["streak"],
-        "last_reviewed_at": datetime.fromisoformat(row["last_reviewed_at"]),
+        "last_reviewed_at": last_reviewed,
     }
 
 
@@ -1826,3 +1855,33 @@ def _default_seed_payload() -> Dict:
             },
         ]
     }
+
+
+def _parse_iso_datetime(value: Any, *, field: str) -> Optional[datetime]:
+    """Best-effort parsing of ISO formatted timestamps with graceful fallback."""
+
+    if value is None:
+        return None
+
+    if isinstance(value, datetime):
+        return value
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    candidates = [text]
+    if text.endswith("Z"):
+        candidates.append(f"{text[:-1]}+00:00")
+        candidates.append(text[:-1])
+    if "T" not in text and " " in text:
+        candidates.append(text.replace(" ", "T", 1))
+
+    for candidate in candidates:
+        try:
+            return datetime.fromisoformat(candidate)
+        except ValueError:
+            continue
+
+    logger.warning("Failed to parse %s value '%s' as ISO timestamp", field, text)
+    return None
