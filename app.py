@@ -8925,14 +8925,12 @@ def practice_page(user: Dict) -> None:
             .practice-tree .tree-level {
                 margin-bottom: 0.75rem;
             }
-            .practice-tree .tree-level .stRadio > div[role="radiogroup"] {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.5rem;
+            .practice-tree .tree-level .stSelectbox > label {
+                font-weight: 600;
+                font-size: 0.95rem;
             }
-            .practice-tree .tree-level .stRadio > div[role="radiogroup"] label {
-                padding-left: 0.5rem;
-                padding-right: 0.5rem;
+            .practice-tree .tree-level .stSelectbox [data-baseweb="select"] {
+                border-radius: 0.75rem;
             }
             </style>
             """
@@ -8944,24 +8942,25 @@ def practice_page(user: Dict) -> None:
     selected_case: Optional[str] = None
     selected_year: Optional[str] = None
     selected_question: Optional[Dict[str, Any]] = None
+    question_lookup: Dict[int, Dict[str, Any]] = {}
+    question_options: List[int] = []
+    problem_id: Optional[int] = None
 
     tree_col, insight_col = st.columns([0.42, 0.58], gap="large")
 
     with tree_col:
         st.markdown('<div class="practice-tree">', unsafe_allow_html=True)
         st.markdown("#### 出題ナビゲーション")
-        st.caption("事例→年度→設問の順にクリックすると、右側に要点が即時表示されます。")
+        st.caption("ドロップダウンから年度と設問を選択すると、右側に要点が即時表示されます。")
 
         case_key = "practice_tree_case"
         if case_key not in st.session_state or st.session_state[case_key] not in case_options:
             st.session_state[case_key] = case_options[0]
         st.markdown('<div class="tree-level tree-level-case">', unsafe_allow_html=True)
-        selected_case = st.radio(
+        selected_case = st.selectbox(
             "事例I〜IV",
             case_options,
             key=case_key,
-            label_visibility="collapsed",
-            horizontal=True,
         )
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -8970,7 +8969,7 @@ def practice_page(user: Dict) -> None:
             key=_year_sort_key,
             reverse=True,
         )
-        year_key = "practice_tree_year"
+        year_key = f"practice_tree_year_{selected_case}"
         problem_id: Optional[int] = None
         question_lookup: Dict[int, Dict[str, Any]] = {}
         question_options: List[int] = []
@@ -8981,13 +8980,12 @@ def practice_page(user: Dict) -> None:
             if year_key not in st.session_state or st.session_state[year_key] not in year_options:
                 st.session_state[year_key] = year_options[0]
             st.markdown('<div class="tree-level tree-level-year">', unsafe_allow_html=True)
-            selected_year = st.radio(
+            selected_year = st.selectbox(
                 "↳ 年度 (R6/R5/R4…)",
                 year_options,
                 key=year_key,
                 format_func=_format_reiwa_label,
                 label_visibility="collapsed",
-                horizontal=True,
             )
             st.markdown("</div>", unsafe_allow_html=True)
 
@@ -9008,16 +9006,32 @@ def practice_page(user: Dict) -> None:
                 question = question_lookup.get(question_id)
                 if not question:
                     return "設問"
-                return f"設問{question['order']}"
+                prompt = _normalize_text_block(
+                    _select_first(
+                        question,
+                        ["prompt", "設問文", "問題文", "question_text", "body"],
+                    )
+                ) or ""
+                preview = prompt.splitlines()[0] if prompt else ""
+                if len(preview) > 24:
+                    preview = preview[:24] + "…"
+                label_year = _format_reiwa_label(selected_year) if selected_year else ""
+                parts = [
+                    part
+                    for part in [label_year, selected_case, f"設問{question['order']}"]
+                    if part
+                ]
+                if preview:
+                    return f"{' '.join(parts)}：{preview}"
+                return " ".join(parts)
 
             st.markdown('<div class="tree-level tree-level-question">', unsafe_allow_html=True)
-            selected_question_id = st.radio(
+            selected_question_id = st.selectbox(
                 "↳ 設問1〜",
                 question_options,
                 key=question_key,
                 format_func=_format_question_option,
                 label_visibility="collapsed",
-                horizontal=True,
             )
             st.markdown("</div>", unsafe_allow_html=True)
             selected_question = question_lookup.get(selected_question_id)
@@ -9027,7 +9041,7 @@ def practice_page(user: Dict) -> None:
         st.markdown("</div>", unsafe_allow_html=True)
 
     with insight_col:
-        st.markdown("#### 設問インサイト")
+        st.markdown("#### 設問ビュー")
         if selected_case and selected_year:
             st.markdown(f"**{selected_case} / {_format_reiwa_label(selected_year)}**")
         if problem:
@@ -9046,25 +9060,56 @@ def practice_page(user: Dict) -> None:
             st.markdown(
                 f"**設問{selected_question['order']}：{selected_question['prompt']}**"
             )
-            insight_text = _resolve_question_insight(selected_question)
-            if insight_text:
-                st.markdown("##### 設問インサイト")
-                _render_question_insight_block(insight_text)
-            full_question_text = _normalize_text_block(
-                _select_first(
-                    selected_question,
-                    ["設問文", "問題文", "question_text", "body"],
+            insight_tab, answer_tab = st.tabs(["インサイト", "模範解答"])
+
+            with insight_tab:
+                insight_text = _resolve_question_insight(selected_question)
+                if insight_text:
+                    st.markdown("##### 設問インサイト")
+                    _render_question_insight_block(insight_text)
+                full_question_text = _normalize_text_block(
+                    _select_first(
+                        selected_question,
+                        ["設問文", "問題文", "question_text", "body"],
+                    )
                 )
-            )
-            if full_question_text:
-                st.markdown("##### 設問文")
-                st.write(full_question_text)
-            st.markdown("##### 設問の狙い")
-            st.write(_infer_question_aim(selected_question))
-            st.markdown("##### 必要アウトプット形式")
-            st.write(_describe_output_requirements(selected_question))
-            st.markdown("##### 定番解法プロンプト")
-            st.write(_suggest_solution_prompt(selected_question))
+                if full_question_text:
+                    st.markdown("##### 設問文")
+                    st.write(full_question_text)
+                st.markdown("##### 設問の狙い")
+                st.write(_infer_question_aim(selected_question))
+                st.markdown("##### 必要アウトプット形式")
+                st.write(_describe_output_requirements(selected_question))
+                st.markdown("##### 定番解法プロンプト")
+                st.write(_suggest_solution_prompt(selected_question))
+
+            with answer_tab:
+                if selected_question.get("keywords"):
+                    st.markdown("##### キーワード評価")
+                    st.write("、".join(selected_question["keywords"]))
+                model_answer_text = _normalize_text_block(
+                    selected_question.get("model_answer")
+                )
+                if model_answer_text:
+                    model_answer_length_value = _compute_fullwidth_length(
+                        model_answer_text.replace("\n", "")
+                    )
+                    model_answer_length = _format_fullwidth_length(
+                        model_answer_length_value
+                    )
+                    st.markdown("##### 模範解答")
+                    st.caption(f"想定文字数: {model_answer_length}字")
+                    st.write(model_answer_text)
+                else:
+                    st.caption("模範解答が登録されていません。")
+
+                explanation_text = _normalize_text_block(
+                    selected_question.get("explanation")
+                    or selected_question.get("解説")
+                )
+                if explanation_text:
+                    st.markdown("##### 解説")
+                    st.write(explanation_text)
         else:
             st.caption("設問を選択すると狙いや解法テンプレートを表示します。")
 
