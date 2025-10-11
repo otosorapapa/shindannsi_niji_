@@ -1736,17 +1736,32 @@ def _inject_context_column_styles() -> None:
             """
             <style>
             @media (min-width: 1100px) {
-                [data-testid="column"]:has(.context-sticky-anchor) {
+                .context-sticky-panel {
                     position: sticky;
                     top: 4.5rem;
-                    align-self: flex-start;
-                    z-index: 5;
+                    max-height: calc(100vh - 5rem);
+                    overflow-y: auto;
+                    padding-right: 0.4rem;
+                    scrollbar-gutter: stable;
                 }
             }
             @media (max-width: 1099px) {
-                [data-testid="column"]:has(.context-sticky-anchor) {
+                .context-sticky-panel {
                     position: static;
+                    max-height: none;
+                    overflow: visible;
+                    padding-right: 0;
                 }
+            }
+            .context-sticky-panel::-webkit-scrollbar {
+                width: 0.45rem;
+            }
+            .context-sticky-panel::-webkit-scrollbar-thumb {
+                background-color: rgba(100, 116, 139, 0.55);
+                border-radius: 999px;
+            }
+            .context-sticky-panel::-webkit-scrollbar-track {
+                background-color: transparent;
             }
             </style>
             """
@@ -5508,9 +5523,10 @@ def practice_page(user: Dict) -> None:
         context_col, main_col = layout_container.columns([0.42, 0.58], gap="large")
         with context_col:
             _inject_context_column_styles()
-            st.markdown('<div class="context-sticky-anchor"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="context-sticky-panel">', unsafe_allow_html=True)
             st.markdown("### 与件文")
             _render_problem_context_block(problem_context)
+            st.markdown('</div>', unsafe_allow_html=True)
     else:
         main_col = layout_container
 
