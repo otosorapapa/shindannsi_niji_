@@ -18,6 +18,14 @@ import pandas as pd
 import database
 
 
+SELF_EVALUATION_PENALTIES = {
+    "手応えあり": 0.0,
+    "概ねOK": 0.25,
+    "やや不安": 0.6,
+    "難しかった": 0.85,
+}
+
+
 @dataclass
 class RecommendationContext:
     """Metadata describing how the recommendation set was produced."""
@@ -418,7 +426,25 @@ def _derive_question_recommendations(
         if total_keywords:
             coverage_ratio = sum(1 for hit in keyword_hits.values() if hit) / total_keywords
 
-        weakness_score = _calculate_question_weakness(score_ratio, coverage_ratio)
+        duration_minutes = None
+        duration_seconds = record.get("duration_seconds")
+        if duration_seconds is not None:
+            try:
+                duration_minutes = float(duration_seconds) / 60.0
+            except (TypeError, ValueError):
+                duration_minutes = None
+
+        self_eval_label = record.get("self_evaluation")
+        self_eval_penalty = None
+        if self_eval_label in SELF_EVALUATION_PENALTIES:
+            self_eval_penalty = SELF_EVALUATION_PENALTIES[self_eval_label]
+
+        weakness_score = _calculate_question_weakness(
+            score_ratio,
+            coverage_ratio,
+            self_eval_penalty,
+            duration_minutes,
+        )
         if weakness_score <= 0:
             continue
 
@@ -434,7 +460,14 @@ def _derive_question_recommendations(
                     "score_ratio": score_ratio,
                     "coverage_ratio": coverage_ratio,
                     "missing_keywords": missing_keywords,
-                    "reason": _format_question_reason(score_ratio, coverage_ratio),
+                    "self_evaluation": self_eval_label,
+                    "duration_minutes": duration_minutes,
+                    "reason": _format_question_reason(
+                        score_ratio,
+                        coverage_ratio,
+                        self_eval_label,
+                        duration_minutes,
+                    ),
                 },
             )
         )
@@ -463,26 +496,41 @@ def _derive_question_recommendations(
 
 
 def _calculate_question_weakness(
-    score_ratio: Optional[float], coverage_ratio: Optional[float]
+    score_ratio: Optional[float],
+    coverage_ratio: Optional[float],
+    self_eval_penalty: Optional[float],
+    duration_minutes: Optional[float],
 ) -> float:
     values: List[float] = []
     if score_ratio is not None:
         values.append(1.0 - max(0.0, min(1.0, score_ratio)))
     if coverage_ratio is not None:
         values.append(1.0 - max(0.0, min(1.0, coverage_ratio)))
+    if self_eval_penalty is not None:
+        values.append(max(0.0, min(1.0, self_eval_penalty)))
+    if duration_minutes is not None:
+        duration_penalty = min(max(duration_minutes / 10.0, 0.0), 1.0)
+        values.append(duration_penalty)
     if not values:
         return 0.0
     return sum(values) / len(values)
 
 
 def _format_question_reason(
-    score_ratio: Optional[float], coverage_ratio: Optional[float]
+    score_ratio: Optional[float],
+    coverage_ratio: Optional[float],
+    self_eval_label: Optional[str],
+    duration_minutes: Optional[float],
 ) -> str:
     parts: List[str] = []
     if score_ratio is not None:
         parts.append(f"得点率 {score_ratio * 100:.0f}%")
     if coverage_ratio is not None:
         parts.append(f"キーワード網羅 {coverage_ratio * 100:.0f}%")
+    if self_eval_label:
+        parts.append(f"自己評価 {self_eval_label}")
+    if duration_minutes is not None:
+        parts.append(f"時間 {duration_minutes:.1f}分")
     return " / ".join(parts) if parts else "復習推奨"
 
 

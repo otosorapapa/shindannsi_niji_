@@ -42,6 +42,7 @@ st.set_page_config(
 
 import committee_analysis
 import database
+import export_utils
 import mock_exam
 import personalized_recommendation
 import scoring
@@ -236,6 +237,32 @@ CASE_FRAME_SHORTCUTS = {
         }
     ],
 }
+
+
+SELF_EVALUATION_DEFAULT = "未評価"
+SELF_EVALUATION_OPTIONS = [
+    ("手応えあり", 0.0),
+    ("概ねOK", 0.25),
+    ("やや不安", 0.6),
+    ("難しかった", 0.85),
+]
+SELF_EVALUATION_LABELS = [SELF_EVALUATION_DEFAULT] + [label for label, _ in SELF_EVALUATION_OPTIONS]
+SELF_EVALUATION_SCORE_MAP = {label: score for label, score in SELF_EVALUATION_OPTIONS}
+
+
+def _self_evaluation_score(label: Optional[str]) -> Optional[float]:
+    if not label:
+        return None
+    return SELF_EVALUATION_SCORE_MAP.get(label)
+
+
+def _self_evaluation_label(score: Optional[float]) -> str:
+    if score is None:
+        return SELF_EVALUATION_DEFAULT
+    for label, threshold in reversed(SELF_EVALUATION_OPTIONS):
+        if score >= threshold - 1e-6:
+            return label
+    return SELF_EVALUATION_OPTIONS[0][0]
 
 
 PAST_EXAM_TEMPLATE_PATH = Path(__file__).resolve().parent / "data" / "past_exam_template.csv"
@@ -539,6 +566,23 @@ def _auto_parse_exam_document(file_bytes: bytes, filename: str) -> Tuple[pd.Data
         df = pd.read_csv(buffer)
     elif name_lower.endswith(".xlsx") or name_lower.endswith(".xls"):
         df = pd.read_excel(buffer)
+    elif name_lower.endswith(".json"):
+        try:
+            text = file_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            text = file_bytes.decode("utf-8", errors="ignore")
+        payload = json.loads(text or "{}")
+        if isinstance(payload, list):
+            df = pd.DataFrame(payload)
+        elif isinstance(payload, dict):
+            for key in ("records", "entries", "items", "questions"):
+                if key in payload and isinstance(payload[key], list):
+                    df = pd.DataFrame(payload[key])
+                    break
+            else:
+                df = pd.DataFrame([payload])
+        else:
+            raise ValueError("JSONの形式を解釈できませんでした。配列または records/items キーを持つオブジェクトを指定してください。")
     else:
         raise ValueError("サポートされていないファイル形式です")
 
@@ -9376,6 +9420,17 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
         matched_keywords = [kw for kw, hit in keyword_hits.items() if hit]
         missing_keywords = [kw for kw, hit in keyword_hits.items() if not hit]
 
+        duration_seconds = record.get("duration_seconds")
+        try:
+            duration_minutes = (
+                float(duration_seconds) / 60.0 if duration_seconds is not None else None
+            )
+        except (TypeError, ValueError):
+            duration_minutes = None
+
+        self_eval_label = record.get("self_evaluation") or SELF_EVALUATION_DEFAULT
+        self_eval_score = _self_evaluation_score(record.get("self_evaluation"))
+
         answer_rows.append(
             {
                 "attempt_id": record["attempt_id"],
@@ -9389,6 +9444,8 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
                 "含まれたキーワード": matched_keywords,
                 "不足キーワード": missing_keywords,
                 "モード": _mode_label(record.get("mode", "practice")),
+                "自己評価": self_eval_label,
+                "所要時間(分)": duration_minutes,
             }
         )
 
@@ -9401,6 +9458,8 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
                     "cases": set(),
                     "years": set(),
                     "examples": [],
+                    "durations": [],
+                    "self_eval_scores": [],
                 },
             )
             stat["attempts"] += 1
@@ -9418,6 +9477,9 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
                         "hit": hit,
                     }
                 )
+            stat["durations"].append(duration_minutes)
+            if self_eval_score is not None:
+                stat["self_eval_scores"].append(self_eval_score)
 
     answers_df = pd.DataFrame(answer_rows)
     if not answers_df.empty:
@@ -9432,10 +9494,18 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
     summary_rows: List[Dict[str, Any]] = []
     recommendations: List[Dict[str, Any]] = []
 
+    def _mean(values: Iterable[Optional[float]]) -> Optional[float]:
+        filtered = [float(v) for v in values if v is not None]
+        if not filtered:
+            return None
+        return sum(filtered) / len(filtered)
+
     for keyword, stat in keyword_stats.items():
         attempts = stat["attempts"]
         hits = stat["hits"]
         hit_rate = hits / attempts if attempts else 0.0
+        avg_duration = _mean(stat.get("durations", []))
+        avg_eval_score = _mean(stat.get("self_eval_scores", []))
         summary_rows.append(
             {
                 "キーワード": keyword,
@@ -9443,10 +9513,24 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
                 "達成率(%)": hit_rate * 100,
                 "主な事例": "、".join(sorted(stat["cases"])) if stat["cases"] else "-",
                 "出題年度": "、".join(sorted(stat["years"])) if stat["years"] else "-",
+                "平均所要時間(分)": round(avg_duration, 1) if avg_duration is not None else None,
+                "自己評価傾向": _self_evaluation_label(avg_eval_score),
             }
         )
 
+        reasons: List[str] = []
+        needs_focus = False
         if attempts >= 1 and hit_rate < 0.6:
+            needs_focus = True
+            reasons.append("キーワード達成率が60%未満")
+        if avg_eval_score is not None and avg_eval_score >= 0.6:
+            needs_focus = True
+            reasons.append("自己評価が不安寄り")
+        if avg_duration is not None and avg_duration >= 8:
+            needs_focus = True
+            reasons.append(f"平均所要時間 {avg_duration:.1f}分")
+
+        if needs_focus:
             example_entry = next((ex for ex in stat["examples"] if not ex["hit"]), None)
             if example_entry is None and stat["examples"]:
                 example_entry = stat["examples"][0]
@@ -9461,6 +9545,7 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
                     "hit_rate": hit_rate,
                     "attempts": attempts,
                     "example": example_text,
+                    "reason": " / ".join(reasons) if reasons else None,
                 }
             )
 
@@ -11394,6 +11479,37 @@ def render_attempt_results(attempt_id: int) -> None:
     attempt = detail["attempt"]
     answers = detail["answers"]
 
+    problem = database.fetch_problem(attempt["problem_id"])
+    export_payload = export_utils.build_attempt_export_payload(
+        attempt,
+        answers,
+        problem or {},
+    )
+    attempt_csv_data = export_utils.attempt_csv_bytes(export_payload)
+    attempt_json_data = export_utils.attempt_json_bytes(export_payload)
+    attempt_pdf_data = export_utils.attempt_pdf_bytes(export_payload)
+    printable_html = export_utils.build_printable_html(export_payload)
+    scoring_logs = database.fetch_scoring_logs_for_attempts([attempt_id])
+    scoring_csv_data = (
+        export_utils.scoring_logs_csv_bytes(scoring_logs) if scoring_logs else None
+    )
+    scoring_json_data = (
+        export_utils.scoring_logs_json_bytes(scoring_logs) if scoring_logs else None
+    )
+    scoring_pdf_data = (
+        export_utils.scoring_logs_pdf_bytes(scoring_logs) if scoring_logs else None
+    )
+
+    def _handle_self_eval_update(log_id: Optional[int], state_key: str) -> None:
+        if not log_id:
+            return
+        selected = st.session_state.get(state_key, SELF_EVALUATION_DEFAULT)
+        if selected == SELF_EVALUATION_DEFAULT:
+            database.update_scoring_log_self_evaluation(log_id, None)
+        else:
+            database.update_scoring_log_self_evaluation(log_id, selected)
+        st.session_state[f"{state_key}_saved"] = selected
+
     st.subheader("採点結果")
     total_score = attempt["total_score"] or 0
     total_max = attempt["total_max_score"] or 0
@@ -11445,6 +11561,81 @@ def render_attempt_results(attempt_id: int) -> None:
         )
         st.caption("各設問の得点とキーワード達成状況を整理しました。弱点分析に活用してください。")
 
+    export_col1, export_col2, export_col3 = st.columns(3)
+    with export_col1:
+        st.download_button(
+            "答案をCSVでダウンロード",
+            data=attempt_csv_data,
+            file_name=f"attempt_{attempt_id}_answers.csv",
+            mime="text/csv",
+        )
+    with export_col2:
+        st.download_button(
+            "答案をJSONでダウンロード",
+            data=attempt_json_data,
+            file_name=f"attempt_{attempt_id}_answers.json",
+            mime="application/json",
+        )
+    with export_col3:
+        st.download_button(
+            "答案をPDFでダウンロード",
+            data=attempt_pdf_data,
+            file_name=f"attempt_{attempt_id}_summary.pdf",
+            mime="application/pdf",
+        )
+    st.caption("PDF/CSV/JSONで答案と講評を保存し、外部共有やポートフォリオ作成に活用できます。")
+
+    if scoring_logs:
+        log_col1, log_col2, log_col3 = st.columns(3)
+        with log_col1:
+            st.download_button(
+                "採点ログCSV",
+                data=scoring_csv_data,
+                file_name=f"attempt_{attempt_id}_scoring_logs.csv",
+                mime="text/csv",
+            )
+        with log_col2:
+            st.download_button(
+                "採点ログJSON",
+                data=scoring_json_data,
+                file_name=f"attempt_{attempt_id}_scoring_logs.json",
+                mime="application/json",
+            )
+        with log_col3:
+            st.download_button(
+                "採点ログPDF",
+                data=scoring_pdf_data,
+                file_name=f"attempt_{attempt_id}_scoring_logs.pdf",
+                mime="application/pdf",
+            )
+        log_rows = []
+        for entry in scoring_logs:
+            duration_minutes = None
+            if entry.get("duration_seconds") is not None:
+                try:
+                    duration_minutes = float(entry.get("duration_seconds")) / 60.0
+                except (TypeError, ValueError):
+                    duration_minutes = None
+            coverage_pct = (
+                entry.get("keyword_coverage") * 100 if entry.get("keyword_coverage") is not None else None
+            )
+            log_rows.append(
+                {
+                    "設問": entry.get("question_order"),
+                    "得点": entry.get("score"),
+                    "満点": entry.get("max_score"),
+                    "キーワード網羅率(%)": round(coverage_pct, 1) if coverage_pct is not None else None,
+                    "所要時間(分)": round(duration_minutes, 1) if duration_minutes is not None else None,
+                    "自己評価": entry.get("self_evaluation") or SELF_EVALUATION_DEFAULT,
+                }
+            )
+        log_df = pd.DataFrame(log_rows)
+        st.data_editor(log_df, hide_index=True, use_container_width=True, disabled=True)
+        st.caption("採点ログは時系列に蓄積され、復習提案の精度向上に利用されます。CSV/JSON/PDFでのバックアップも可能です。")
+
+    with st.expander("印刷ビュー（与件＋解答＋講評を1ページに集約）", expanded=False):
+        components.html(printable_html, height=900, scrolling=True)
+
     activities = database.fetch_attempt_activity(attempt_id)
     if activities:
         _render_time_allocation_heatmap(attempt, activities)
@@ -11458,6 +11649,17 @@ def render_attempt_results(attempt_id: int) -> None:
     for idx, answer in enumerate(answers, start=1):
         with st.expander(f"設問{idx}の結果", expanded=True):
             st.write(f"**得点:** {answer['score']} / {answer['max_score']}")
+            duration_minutes = None
+            if answer.get("duration_seconds") is not None:
+                try:
+                    duration_minutes = float(answer.get("duration_seconds")) / 60.0
+                except (TypeError, ValueError):
+                    duration_minutes = None
+            duration_label = (
+                f"{duration_minutes:.1f}分" if duration_minutes is not None else "-"
+            )
+            st.write(f"**所要時間:** {duration_label}")
+            st.write(f"**自己評価:** {answer.get('self_evaluation') or SELF_EVALUATION_DEFAULT}")
             st.write("**フィードバック**")
             st.markdown(f"<pre>{answer['feedback']}</pre>", unsafe_allow_html=True)
             keyword_hits = answer.get("keyword_hits") or {}
@@ -11476,6 +11678,23 @@ def render_attempt_results(attempt_id: int) -> None:
                     columns=["キーワード", "判定"],
                 )
                 st.table(keyword_df)
+            log_id = answer.get("scoring_log_id")
+            if log_id:
+                state_key = f"self_eval_select_{attempt_id}_{log_id}"
+                if state_key not in st.session_state:
+                    st.session_state[state_key] = answer.get("self_evaluation") or SELF_EVALUATION_DEFAULT
+                st.selectbox(
+                    "自己評価を記録",
+                    SELF_EVALUATION_LABELS,
+                    key=state_key,
+                    on_change=_handle_self_eval_update,
+                    args=(log_id, state_key),
+                    help="選択した手応えは採点ログに保存され、次回の提案調整に活用されます。",
+                )
+                saved_value = st.session_state.get(f"{state_key}_saved", st.session_state[state_key])
+                st.caption(f"保存済みの評価: {saved_value}")
+            else:
+                st.caption("自己評価ログはこの設問でまだ作成されていません。")
             with st.expander("模範解答と解説", expanded=False):
                 _render_model_answer_section(
                     model_answer=answer["model_answer"],
@@ -12693,6 +12912,8 @@ def history_page(user: Dict) -> None:
                         "モード",
                         "キーワード網羅率",
                         "得点率",
+                        "自己評価",
+                        "所要時間(分)",
                         "含まれたキーワード表示",
                         "不足キーワード表示",
                     ]
@@ -12702,6 +12923,9 @@ def history_page(user: Dict) -> None:
                 )
                 detail_df["得点率"] = detail_df["得点率"].map(
                     lambda v: f"{v:.0f}%" if pd.notna(v) else "-"
+                )
+                detail_df["所要時間(分)"] = detail_df["所要時間(分)"].map(
+                    lambda v: f"{v:.1f}" if pd.notna(v) else "-"
                 )
                 st.data_editor(detail_df, hide_index=True, use_container_width=True, disabled=True)
                 st.caption("各設問の到達状況と不足キーワードを一覧化しました。学習計画に反映してください。")
@@ -12716,6 +12940,39 @@ def history_page(user: Dict) -> None:
             file_name="history.csv",
             mime="text/csv",
         )
+
+        attempt_ids = [
+            int(value)
+            for value in filtered_df.get("attempt_id", pd.Series(dtype=int)).dropna().unique()
+        ]
+        scoring_logs = database.fetch_scoring_logs_for_attempts(attempt_ids)
+        if scoring_logs:
+            log_csv = export_utils.scoring_logs_csv_bytes(scoring_logs)
+            log_json = export_utils.scoring_logs_json_bytes(scoring_logs)
+            log_pdf = export_utils.scoring_logs_pdf_bytes(scoring_logs)
+            log_col1, log_col2, log_col3 = st.columns(3)
+            with log_col1:
+                st.download_button(
+                    "採点ログCSV",
+                    data=log_csv,
+                    file_name="scoring_logs.csv",
+                    mime="text/csv",
+                )
+            with log_col2:
+                st.download_button(
+                    "採点ログJSON",
+                    data=log_json,
+                    file_name="scoring_logs.json",
+                    mime="application/json",
+                )
+            with log_col3:
+                st.download_button(
+                    "採点ログPDF",
+                    data=log_pdf,
+                    file_name="scoring_logs.pdf",
+                    mime="application/pdf",
+                )
+            st.caption("フィルタ済みの採点ログを一括出力できます。復習計画や分析ツールへの取り込みにご利用ください。")
 
         recent_history = filtered_df.dropna(subset=["日付"]).sort_values("日付", ascending=False)
         if recent_history.empty:
@@ -12848,12 +13105,12 @@ def settings_page(user: Dict) -> None:
 
         st.markdown("#### 過去問データ（与件文・設問文を含む）")
         uploaded_file = st.file_uploader(
-            "過去問データファイルをアップロード (CSV/Excel/PDF)",
-            type=["csv", "xlsx", "xls", "pdf"],
+            "過去問データファイルをアップロード (CSV/Excel/PDF/JSON)",
+            type=["csv", "xlsx", "xls", "pdf", "json"],
             key="past_exam_uploader",
         )
         st.caption(
-            "R6/R5 事例III原紙テンプレートを同梱し、自動分解の精度を高めています。PDFアップロードにも対応しています。"
+            "R6/R5 事例III原紙テンプレートを同梱し、自動分解の精度を高めています。PDFとJSONアップロードにも対応しています。"
         )
         try:
             template_bytes = _load_past_exam_template_bytes()
