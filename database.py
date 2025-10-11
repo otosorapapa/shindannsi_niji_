@@ -18,6 +18,7 @@ from functools import lru_cache
 from pathlib import Path
 from threading import Lock
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from uuid import uuid4
 
 DB_PATH = Path("data/app.db")
 SEED_PATH = Path("data/seed_problems.json")
@@ -388,6 +389,23 @@ def initialize_database(*, force: bool = False) -> None:
             created_at TEXT NOT NULL,
             UNIQUE(goal_id, session_date, start_time)
         );
+
+        CREATE TABLE IF NOT EXISTS workspaces (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            description TEXT,
+            invite_code TEXT UNIQUE NOT NULL,
+            created_at TEXT NOT NULL,
+            created_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS workspace_members (
+            workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            role TEXT NOT NULL DEFAULT 'member',
+            joined_at TEXT NOT NULL,
+            PRIMARY KEY (workspace_id, user_id)
+        );
         """
             )
 
@@ -722,6 +740,215 @@ def update_user_plan(user_id: int, plan: str) -> None:
     cur.execute("UPDATE users SET plan = ? WHERE id = ?", (plan, user_id))
     conn.commit()
     conn.close()
+
+
+def _generate_invite_code(cur: sqlite3.Cursor) -> str:
+    """Return a unique invite code for a workspace."""
+
+    for _ in range(8):
+        candidate = uuid4().hex[:8].upper()
+        cur.execute("SELECT 1 FROM workspaces WHERE invite_code = ?", (candidate,))
+        if cur.fetchone() is None:
+            return candidate
+    raise RuntimeError("Failed to generate unique workspace invite code")
+
+
+def create_workspace(
+    name: str,
+    *,
+    created_by: int,
+    description: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Create a workspace and register the creator as its owner."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    created_at = datetime.utcnow().isoformat()
+    invite_code = _generate_invite_code(cur)
+
+    cur.execute(
+        """
+        INSERT INTO workspaces (name, description, invite_code, created_at, created_by)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (name, description, invite_code, created_at, created_by),
+    )
+    workspace_id = cur.lastrowid
+
+    cur.execute(
+        """
+        INSERT INTO workspace_members (workspace_id, user_id, role, joined_at)
+        VALUES (?, ?, 'owner', ?)
+        """,
+        (workspace_id, created_by, created_at),
+    )
+
+    conn.commit()
+    cur.execute("SELECT * FROM workspaces WHERE id = ?", (workspace_id,))
+    workspace = dict(cur.fetchone())
+    conn.close()
+    workspace["member_count"] = 1
+    workspace["role"] = "owner"
+    workspace["joined_at"] = created_at
+    return workspace
+
+
+def list_user_workspaces(user_id: int) -> List[Dict[str, Any]]:
+    """Return workspaces joined by the given user."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            w.id,
+            w.name,
+            w.description,
+            w.invite_code,
+            w.created_at,
+            w.created_by,
+            wm.role,
+            wm.joined_at,
+            (
+                SELECT COUNT(*)
+                FROM workspace_members m
+                WHERE m.workspace_id = w.id
+            ) AS member_count
+        FROM workspaces w
+        JOIN workspace_members wm ON wm.workspace_id = w.id
+        WHERE wm.user_id = ?
+        ORDER BY w.created_at
+        """,
+        (user_id,),
+    )
+    rows = [dict(row) for row in cur.fetchall()]
+    conn.close()
+    return rows
+
+
+def ensure_default_workspace_for_user(
+    user_id: int,
+    *,
+    user_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Ensure the user belongs to at least one workspace and return it."""
+
+    workspaces = list_user_workspaces(user_id)
+    if workspaces:
+        return workspaces[0]
+
+    default_name = f"{user_name or 'マイ'}ワークスペース"
+    return create_workspace(default_name, created_by=user_id)
+
+
+def join_workspace_by_code(
+    user_id: int,
+    invite_code: str,
+) -> Optional[Dict[str, Any]]:
+    """Join a workspace specified by invite code. Returns workspace info."""
+
+    cleaned_code = invite_code.strip().upper()
+    if not cleaned_code:
+        return None
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT * FROM workspaces WHERE UPPER(invite_code) = ?",
+        (cleaned_code,),
+    )
+    workspace_row = cur.fetchone()
+    if not workspace_row:
+        conn.close()
+        return None
+
+    workspace_id = workspace_row["id"]
+    cur.execute(
+        """
+        SELECT role FROM workspace_members
+        WHERE workspace_id = ? AND user_id = ?
+        """,
+        (workspace_id, user_id),
+    )
+    membership = cur.fetchone()
+    joined = False
+    if membership is None:
+        joined_at = datetime.utcnow().isoformat()
+        cur.execute(
+            """
+            INSERT INTO workspace_members (workspace_id, user_id, role, joined_at)
+            VALUES (?, ?, 'member', ?)
+            """,
+            (workspace_id, user_id, joined_at),
+        )
+        joined = True
+        conn.commit()
+    else:
+        conn.commit()
+
+    cur.execute(
+        "SELECT role, joined_at FROM workspace_members WHERE workspace_id = ? AND user_id = ?",
+        (workspace_id, user_id),
+    )
+    membership_row = cur.fetchone()
+
+    cur.execute(
+        """
+        SELECT
+            w.id,
+            w.name,
+            w.description,
+            w.invite_code,
+            w.created_at,
+            w.created_by,
+            (
+                SELECT COUNT(*)
+                FROM workspace_members m
+                WHERE m.workspace_id = w.id
+            ) AS member_count
+        FROM workspaces w
+        WHERE w.id = ?
+        """,
+        (workspace_id,),
+    )
+    workspace = dict(cur.fetchone())
+    conn.close()
+    workspace["joined"] = joined
+    if membership_row:
+        workspace["role"] = membership_row["role"]
+        workspace["joined_at"] = membership_row["joined_at"]
+    return workspace
+
+
+def get_workspace_leaderboard(workspace_id: int) -> List[Dict[str, Any]]:
+    """Return aggregated attempt statistics for members of a workspace."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            u.id AS user_id,
+            u.name,
+            wm.role,
+            wm.joined_at,
+            COALESCE(SUM(CASE WHEN a.submitted_at IS NOT NULL THEN a.total_score ELSE 0 END), 0) AS total_points,
+            COALESCE(SUM(CASE WHEN a.submitted_at IS NOT NULL THEN a.total_max_score ELSE 0 END), 0) AS total_max_score,
+            COALESCE(SUM(CASE WHEN a.submitted_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS attempt_count,
+            MAX(a.submitted_at) AS last_attempt_at
+        FROM workspace_members wm
+        JOIN users u ON u.id = wm.user_id
+        LEFT JOIN attempts a ON a.user_id = wm.user_id
+        WHERE wm.workspace_id = ?
+        GROUP BY u.id, u.name, wm.role, wm.joined_at
+        ORDER BY total_points DESC, attempt_count DESC, last_attempt_at DESC
+        """,
+        (workspace_id,),
+    )
+    rows = [dict(row) for row in cur.fetchall()]
+    conn.close()
+    return rows
 
 
 def list_problems() -> List[Dict[str, Any]]:

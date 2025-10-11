@@ -1300,6 +1300,11 @@ def _init_session_state() -> None:
     if "user" not in st.session_state:
         guest = database.get_or_create_guest_user()
         st.session_state.user = dict(guest)
+    user = st.session_state.user
+    default_workspace = database.ensure_default_workspace_for_user(
+        user_id=user["id"], user_name=user.get("name")
+    )
+    st.session_state.setdefault("selected_workspace_id", default_workspace["id"])
     st.session_state.setdefault("page", "ホーム")
     st.session_state.setdefault("drafts", {})
     st.session_state.setdefault("saved_answers", {})
@@ -1316,6 +1321,7 @@ def _init_session_state() -> None:
     st.session_state.setdefault("flashcard_states", {})
     st.session_state.setdefault("flashcard_progress", {})
     st.session_state.setdefault("ui_theme", "システム設定に合わせる")
+    st.session_state.setdefault("workspace_feedback", None)
     st.session_state.setdefault("_intent_card_styles_injected", False)
     st.session_state.setdefault("_question_card_styles_injected", False)
     st.session_state.setdefault("_timeline_styles_injected", False)
@@ -4987,6 +4993,173 @@ def _inject_dashboard_styles() -> None:
                     left: -1.15rem;
                 }
             }
+            .workspace-card {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+                padding: clamp(1rem, 1.8vw, 1.35rem) clamp(1rem, 1.6vw, 1.45rem);
+            }
+            .workspace-card__heading {
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+            }
+            .workspace-card__title {
+                margin: 0;
+                font-size: clamp(1.05rem, 1.5vw, 1.25rem);
+                font-weight: 700;
+                color: var(--text-body);
+            }
+            .workspace-card__meta {
+                margin: 0;
+                font-size: 0.92rem;
+                color: var(--text-muted);
+            }
+            .workspace-card__meta code {
+                background: rgba(37, 99, 235, 0.12);
+                color: var(--brand-strong);
+                padding: 0.15rem 0.45rem;
+                border-radius: 6px;
+                font-size: 0.85em;
+            }
+            .workspace-leaderboard__table-wrapper {
+                overflow-x: auto;
+            }
+            .workspace-leaderboard {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .workspace-leaderboard thead th {
+                text-align: left;
+                font-size: 0.78rem;
+                letter-spacing: 0.02em;
+                padding: 0.4rem 0.55rem;
+                color: var(--text-muted);
+                border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+                white-space: nowrap;
+            }
+            .workspace-leaderboard tbody td {
+                padding: 0.65rem 0.55rem;
+                border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+                font-size: 0.9rem;
+                color: var(--text-body);
+                vertical-align: middle;
+            }
+            .workspace-leaderboard__row:nth-child(odd) {
+                background: rgba(37, 99, 235, 0.04);
+            }
+            .workspace-leaderboard__row.is-self {
+                background: rgba(37, 99, 235, 0.12);
+            }
+            .workspace-leaderboard__row[data-rank="1"] .workspace-leaderboard__rank {
+                color: var(--brand-strong);
+                font-weight: 700;
+            }
+            .workspace-leaderboard__member {
+                display: flex;
+                flex-direction: column;
+                gap: 0.18rem;
+            }
+            .workspace-leaderboard__name {
+                font-weight: 600;
+                font-size: 0.95rem;
+            }
+            .workspace-leaderboard__role {
+                font-size: 0.78rem;
+                color: var(--text-muted);
+            }
+            .workspace-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+                border-radius: 999px;
+                padding: 0.25rem 0.65rem;
+                font-size: 0.78rem;
+                font-weight: 600;
+                background: rgba(37, 99, 235, 0.14);
+                color: var(--brand-strong);
+                border: 1px solid rgba(37, 99, 235, 0.2);
+                margin: 0 0.3rem 0.35rem 0;
+                white-space: nowrap;
+            }
+            .workspace-badge__icon {
+                font-size: 0.95rem;
+                line-height: 1;
+            }
+            .workspace-badge--empty {
+                background: rgba(148, 163, 184, 0.18);
+                border-color: rgba(148, 163, 184, 0.28);
+                color: var(--text-muted);
+            }
+            .workspace-summary-card {
+                display: flex;
+                flex-direction: column;
+                gap: 0.9rem;
+                padding: clamp(1rem, 1.6vw, 1.3rem) clamp(1rem, 1.5vw, 1.3rem);
+            }
+            .workspace-summary-card__title {
+                margin: 0;
+                font-size: 1.05rem;
+                font-weight: 700;
+                color: var(--text-body);
+            }
+            .workspace-summary__grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 0.75rem;
+            }
+            .workspace-summary__item {
+                background: rgba(148, 163, 184, 0.16);
+                border-radius: 12px;
+                padding: 0.55rem 0.75rem;
+            }
+            .workspace-summary__item dt {
+                font-size: 0.78rem;
+                color: var(--text-muted);
+                margin: 0 0 0.2rem;
+            }
+            .workspace-summary__item dd {
+                margin: 0;
+                font-size: 0.95rem;
+                font-weight: 600;
+                color: var(--text-body);
+            }
+            .workspace-summary-card__note,
+            .workspace-summary-card__code,
+            .workspace-summary-card__help {
+                margin: 0;
+                font-size: 0.85rem;
+            }
+            .workspace-summary-card__note {
+                color: var(--text-muted);
+            }
+            .workspace-summary-card__code {
+                color: var(--brand-strong);
+            }
+            .workspace-summary-card__code code {
+                background: rgba(37, 99, 235, 0.12);
+                padding: 0.15rem 0.45rem;
+                border-radius: 6px;
+            }
+            .workspace-summary-card__help {
+                color: var(--text-muted);
+            }
+            @media (max-width: 1024px) {
+                .workspace-summary__grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+            }
+            @media (max-width: 768px) {
+                .workspace-summary__grid {
+                    grid-template-columns: minmax(0, 1fr);
+                }
+                .workspace-leaderboard__row:nth-child(odd) {
+                    background: rgba(37, 99, 235, 0.06);
+                }
+                .workspace-leaderboard__row.is-self {
+                    background: rgba(37, 99, 235, 0.16);
+                }
+            }
             </style>
             <script>
             (function () {
@@ -5548,11 +5721,428 @@ def _render_study_goal_panel(
         st.info("学習時間目標を設定すると日々の予定が自動生成されます。")
 
 
+WORKSPACE_ATTEMPT_BADGES: List[Dict[str, object]] = [
+    {
+        "code": "starter",
+        "threshold": 1,
+        "label": "スターター",
+        "icon": "🌱",
+        "description": "初めて模擬試験または演習を完了しました。",
+    },
+    {
+        "code": "steady",
+        "threshold": 5,
+        "label": "チャレンジャー",
+        "icon": "🥉",
+        "description": "演習・模試を5回クリアしました。",
+    },
+    {
+        "code": "veteran",
+        "threshold": 10,
+        "label": "コンスタント",
+        "icon": "🥈",
+        "description": "演習・模試を10回積み上げています。",
+    },
+    {
+        "code": "expert",
+        "threshold": 25,
+        "label": "エキスパート",
+        "icon": "🥇",
+        "description": "25回以上の演習で経験を重ねています。",
+    },
+    {
+        "code": "legend",
+        "threshold": 50,
+        "label": "レジェンド",
+        "icon": "🏆",
+        "description": "継続学習で50回以上の演習を達成しました。",
+    },
+]
+
+WORKSPACE_SPECIAL_BADGES: List[Dict[str, object]] = [
+    {
+        "code": "avg_80",
+        "metric": "average_score",
+        "threshold": 80.0,
+        "min_attempts": 3,
+        "label": "ハイスコア80+",
+        "icon": "🎯",
+        "description": "平均得点が80点を超えています。",
+    },
+    {
+        "code": "completion_90",
+        "metric": "completion_rate",
+        "threshold": 0.9,
+        "min_attempts": 3,
+        "label": "達成率90%",
+        "icon": "🔥",
+        "description": "得点達成率が90%以上を維持しています。",
+    },
+]
+
+
+def _resolve_workspace_badges(entry: Dict[str, Any]) -> List[Dict[str, object]]:
+    badges: List[Dict[str, object]] = []
+    attempts = int(entry.get("attempt_count") or 0)
+
+    for badge in WORKSPACE_ATTEMPT_BADGES:
+        if attempts >= int(badge["threshold"]):
+            badges.append({key: badge[key] for key in ("code", "label", "icon", "description")})
+
+    average_score = float(entry.get("average_score") or 0.0)
+    completion_rate = float(entry.get("completion_rate") or 0.0)
+
+    for badge in WORKSPACE_SPECIAL_BADGES:
+        metric = badge["metric"]
+        threshold = float(badge["threshold"])
+        min_attempts = int(badge.get("min_attempts", 0))
+        if attempts < min_attempts:
+            continue
+        value = average_score if metric == "average_score" else completion_rate
+        if value >= threshold:
+            badges.append({key: badge[key] for key in ("code", "label", "icon", "description")})
+
+    return badges
+
+
+def _workspace_leaderboard_html(
+    workspace: Dict[str, Any],
+    entries: List[Dict[str, Any]],
+    *,
+    current_user_id: int,
+) -> str:
+    rows_html_parts: List[str] = []
+    for entry in entries:
+        role = entry.get("role") or "member"
+        role_label = "オーナー" if role == "owner" else "メンバー"
+        badges = entry.get("badges") or []
+        badges_html = "".join(
+            dedent(
+                f"""
+                <span class=\"workspace-badge\" data-code=\"{html.escape(str(badge['code']))}\" title=\"{html.escape(str(badge['description']))}\">
+                    <span class=\"workspace-badge__icon\">{badge['icon']}</span>
+                    <span class=\"workspace-badge__label\">{html.escape(str(badge['label']))}</span>
+                </span>
+                """
+            ).strip()
+            for badge in badges
+        )
+        if not badges_html:
+            badges_html = "<span class=\"workspace-badge workspace-badge--empty\">バッジなし</span>"
+
+        member_html = (
+            f"<span class=\"workspace-leaderboard__name\">{html.escape(str(entry['name']))}</span>"
+            f"<span class=\"workspace-leaderboard__role\">{role_label}</span>"
+        )
+        row_classes = ["workspace-leaderboard__row"]
+        if entry.get("user_id") == current_user_id:
+            row_classes.append("is-self")
+
+        rows_html_parts.append(
+            dedent(
+                f"""
+                <tr class=\"{' '.join(row_classes)}\" data-rank=\"{entry['rank']}\">
+                    <td class=\"workspace-leaderboard__rank\">{entry['rank']}</td>
+                    <td class=\"workspace-leaderboard__member\">{member_html}</td>
+                    <td class=\"workspace-leaderboard__points\">{entry['points_label']}</td>
+                    <td class=\"workspace-leaderboard__average\">{entry['average_label']}</td>
+                    <td class=\"workspace-leaderboard__attempts\">{entry['attempts_label']}</td>
+                    <td class=\"workspace-leaderboard__updated\">{entry['last_attempt_label']}</td>
+                    <td class=\"workspace-leaderboard__badges\">{badges_html}</td>
+                </tr>
+                """
+            ).strip()
+        )
+
+    if not rows_html_parts:
+        rows_html_parts.append(
+            "<tr class=\"workspace-leaderboard__row\"><td colspan=\"7\">データがまだありません。</td></tr>"
+        )
+
+    member_count = workspace.get("member_count")
+    if member_count is None:
+        member_count = len(entries)
+
+    return (
+        dedent(
+            f"""
+            <div class=\"dashboard-card workspace-card\" role=\"group\" aria-label=\"ワークスペースランキング\">
+                <div class=\"workspace-card__heading\">
+                    <p class=\"workspace-card__title\">「{html.escape(str(workspace['name']))}」ランキング</p>
+                    <p class=\"workspace-card__meta\">メンバー {member_count} 名 / 招待コード: <code>{html.escape(str(workspace.get('invite_code', '')))}</code></p>
+                </div>
+                <div class=\"workspace-leaderboard__table-wrapper\">
+                    <table class=\"workspace-leaderboard\" role=\"table\">
+                        <thead>
+                            <tr>
+                                <th scope=\"col\">順位</th>
+                                <th scope=\"col\">メンバー</th>
+                                <th scope=\"col\">ポイント</th>
+                                <th scope=\"col\">平均得点</th>
+                                <th scope=\"col\">演習数</th>
+                                <th scope=\"col\">最終更新</th>
+                                <th scope=\"col\">バッジ</th>
+                            </tr>
+                        </thead>
+                        <tbody>{''.join(rows_html_parts)}</tbody>
+                    </table>
+                </div>
+            </div>
+            """
+        ).strip()
+    )
+
+
+def _workspace_summary_html(
+    workspace: Dict[str, Any],
+    summary: Dict[str, Any],
+    *,
+    current_role: str,
+) -> str:
+    total_points = float(summary.get("total_points") or 0.0)
+    total_attempts = int(summary.get("total_attempts") or 0)
+    active_members = int(summary.get("active_members") or 0)
+    last_activity = summary.get("last_activity")
+
+    role_label = "オーナー" if current_role == "owner" else "メンバー"
+    last_activity_label = _format_datetime_label(last_activity)
+
+    return (
+        dedent(
+            f"""
+            <div class=\"dashboard-card workspace-summary-card\" role=\"group\" aria-label=\"ワークスペースサマリ\">
+                <h3 class=\"workspace-summary-card__title\">チームサマリ</h3>
+                <dl class=\"workspace-summary__grid\">
+                    <div class=\"workspace-summary__item\">
+                        <dt>総ポイント</dt>
+                        <dd>{total_points:.0f} pt</dd>
+                    </div>
+                    <div class=\"workspace-summary__item\">
+                        <dt>累計演習数</dt>
+                        <dd>{total_attempts} 回</dd>
+                    </div>
+                    <div class=\"workspace-summary__item\">
+                        <dt>アクティブメンバー</dt>
+                        <dd>{active_members} 名</dd>
+                    </div>
+                    <div class=\"workspace-summary__item\">
+                        <dt>メンバー数</dt>
+                        <dd>{workspace.get('member_count', active_members)} 名</dd>
+                    </div>
+                    <div class=\"workspace-summary__item\">
+                        <dt>最新更新日</dt>
+                        <dd>{last_activity_label}</dd>
+                    </div>
+                </dl>
+                <p class=\"workspace-summary-card__note\">あなたの権限: {role_label}</p>
+                <p class=\"workspace-summary-card__code\">参加コード: <code>{html.escape(str(workspace.get('invite_code', '')))}</code></p>
+                <p class=\"workspace-summary-card__help\">企業研修や受験仲間とワークスペース単位で進捗を共有できます。</p>
+            </div>
+            """
+        ).strip()
+    )
+
+
+def _render_workspace_competition_section(user: Dict) -> None:
+    feedback = st.session_state.get("workspace_feedback")
+    if feedback:
+        level, message = feedback
+        if level == "success":
+            st.success(message)
+        elif level == "info":
+            st.info(message)
+        elif level == "warning":
+            st.warning(message)
+        else:
+            st.write(message)
+        st.session_state.workspace_feedback = None
+
+    workspaces = database.list_user_workspaces(user["id"])
+    if not workspaces:
+        database.ensure_default_workspace_for_user(
+            user_id=user["id"], user_name=user.get("name")
+        )
+        workspaces = database.list_user_workspaces(user["id"])
+
+    if not workspaces:
+        return
+
+    workspace_map = {workspace["id"]: workspace for workspace in workspaces}
+    selected_workspace_id = st.session_state.get("selected_workspace_id")
+    if selected_workspace_id not in workspace_map:
+        selected_workspace_id = workspaces[0]["id"]
+        st.session_state.selected_workspace_id = selected_workspace_id
+
+    header_html = dedent(
+        """
+        <section class=\"dashboard-lane\" id=\"workspace-lane\" data-section-id=\"workspace-lane\" role=\"region\" aria-labelledby=\"workspace-lane-title\">
+            <header class=\"dashboard-lane__header\">
+                <h2 id=\"workspace-lane-title\" class=\"dashboard-lane__title\">グループ学習レーン</h2>
+                <p class=\"dashboard-lane__subtitle\">模擬試験の結果や累計ポイントをチームで共有し、ランキングとバッジで競争力を高めましょう。</p>
+            </header>
+        </section>
+        """
+    )
+    st.markdown(header_html, unsafe_allow_html=True)
+
+    summary_data: Dict[str, Any] = {
+        "total_points": 0.0,
+        "total_attempts": 0,
+        "active_members": 0,
+        "last_activity": None,
+    }
+    leaderboard_entries: List[Dict[str, Any]] = []
+    selected_workspace = workspace_map[selected_workspace_id]
+
+    col_main, col_side = st.columns((2.6, 1.4))
+    with col_main:
+        workspace_ids = list(workspace_map.keys())
+        default_index = workspace_ids.index(selected_workspace_id)
+        selected_workspace_id = st.selectbox(
+            "共有中のワークスペース",
+            workspace_ids,
+            index=default_index,
+            format_func=lambda wid: f"{workspace_map[wid]['name']}（{workspace_map[wid]['member_count']}名）",
+            key="workspace_selectbox",
+        )
+        st.session_state.selected_workspace_id = selected_workspace_id
+        selected_workspace = workspace_map[selected_workspace_id]
+
+        leaderboard_rows = database.get_workspace_leaderboard(selected_workspace_id)
+        for rank, row in enumerate(leaderboard_rows, start=1):
+            attempt_count = int(row.get("attempt_count") or 0)
+            total_points = float(row.get("total_points") or 0.0)
+            total_max = float(row.get("total_max_score") or 0.0)
+            average_score = total_points / attempt_count if attempt_count else 0.0
+            completion_rate = total_points / total_max if total_max else 0.0
+            last_attempt = row.get("last_attempt_at")
+
+            entry = {
+                "rank": rank,
+                "user_id": row.get("user_id"),
+                "name": row.get("name", ""),
+                "role": row.get("role", "member"),
+                "attempt_count": attempt_count,
+                "total_points": total_points,
+                "total_max_score": total_max,
+                "average_score": average_score,
+                "completion_rate": completion_rate,
+                "last_attempt_at": last_attempt,
+            }
+            entry["badges"] = _resolve_workspace_badges(entry)
+            entry["points_label"] = f"{total_points:.0f} pt"
+            entry["average_label"] = f"{average_score:.1f} 点" if attempt_count else "―"
+            entry["attempts_label"] = f"{attempt_count}回"
+            entry["last_attempt_label"] = _format_datetime_label(last_attempt)
+            leaderboard_entries.append(entry)
+
+        if not leaderboard_entries:
+            leaderboard_entries.append(
+                {
+                    "rank": 1,
+                    "user_id": user["id"],
+                    "name": user.get("name", ""),
+                    "role": "owner" if selected_workspace.get("role") == "owner" else "member",
+                    "attempt_count": 0,
+                    "total_points": 0.0,
+                    "total_max_score": 0.0,
+                    "average_score": 0.0,
+                    "completion_rate": 0.0,
+                    "last_attempt_at": None,
+                    "badges": [],
+                    "points_label": "0 pt",
+                    "average_label": "―",
+                    "attempts_label": "0回",
+                    "last_attempt_label": "記録なし",
+                }
+            )
+
+        summary_data = {
+            "total_points": sum(entry["total_points"] for entry in leaderboard_entries),
+            "total_attempts": sum(entry["attempt_count"] for entry in leaderboard_entries),
+            "active_members": sum(1 for entry in leaderboard_entries if entry["attempt_count"] > 0),
+            "last_activity": max(
+                (
+                    entry["last_attempt_at"]
+                    for entry in leaderboard_entries
+                    if entry.get("last_attempt_at")
+                ),
+                default=None,
+            ),
+        }
+
+        leaderboard_html = _workspace_leaderboard_html(
+            selected_workspace, leaderboard_entries, current_user_id=user["id"]
+        )
+        st.markdown(leaderboard_html, unsafe_allow_html=True)
+
+    with col_side:
+        summary_html = _workspace_summary_html(
+            selected_workspace,
+            summary_data,
+            current_role=selected_workspace.get("role", "member"),
+        )
+        st.markdown(summary_html, unsafe_allow_html=True)
+
+        with st.expander("ワークスペースを作成・参加する", expanded=False):
+            st.markdown("#### 新規ワークスペースの作成")
+            with st.form("workspace_create_form"):
+                default_name = f"{user.get('name', '学習者')}の学習チーム"
+                workspace_name = st.text_input("ワークスペース名", value=default_name)
+                workspace_description = st.text_area("共有メモ (任意)", value="", height=80)
+                create_submit = st.form_submit_button("作成する", use_container_width=True)
+
+            if create_submit:
+                if workspace_name.strip():
+                    workspace = database.create_workspace(
+                        workspace_name.strip(),
+                        created_by=user["id"],
+                        description=workspace_description.strip() or None,
+                    )
+                    st.session_state.selected_workspace_id = workspace["id"]
+                    st.session_state.workspace_feedback = (
+                        "success",
+                        f"ワークスペース『{workspace['name']}』を作成しました。参加コード: {workspace['invite_code']}",
+                    )
+                    st.experimental_rerun()
+                else:
+                    st.error("ワークスペース名を入力してください。")
+
+            st.markdown("#### 参加コードで参加")
+            with st.form("workspace_join_form"):
+                join_code = st.text_input("参加コード", value="")
+                join_submit = st.form_submit_button("参加する", use_container_width=True)
+
+            if join_submit:
+                cleaned_code = join_code.strip()
+                if not cleaned_code:
+                    st.error("参加コードを入力してください。")
+                else:
+                    workspace = database.join_workspace_by_code(user["id"], cleaned_code)
+                    if not workspace:
+                        st.error("参加コードが見つかりませんでした。")
+                    else:
+                        st.session_state.selected_workspace_id = workspace["id"]
+                        if workspace.get("joined"):
+                            st.session_state.workspace_feedback = (
+                                "success",
+                                f"ワークスペース『{workspace['name']}』に参加しました。",
+                            )
+                        else:
+                            st.session_state.workspace_feedback = (
+                                "info",
+                                f"すでに『{workspace['name']}』のメンバーとして登録されています。",
+                            )
+                        st.experimental_rerun()
+
+
 def dashboard_page(user: Dict) -> None:
     _inject_dashboard_styles()
 
     st.title("ホームダッシュボード")
     st.caption("学習状況のサマリと機能へのショートカット")
+
+    _render_workspace_competition_section(user)
 
     attempts = database.list_attempts(user_id=user["id"])
     gamification = _calculate_gamification(attempts)
