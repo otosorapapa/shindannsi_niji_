@@ -9348,16 +9348,62 @@ def _prepare_dashboard_analysis_data(records: List[Dict[str, Any]]) -> Dict[str,
     }
 
 
+def _suggest_review_interval(hit_rate: float, attempts: int) -> int:
+    """Return a recommended review interval (in days) based on performance."""
+
+    if attempts <= 1:
+        return 2
+    if hit_rate < 0.3:
+        return 2
+    if hit_rate < 0.6:
+        return 3
+    if hit_rate < 0.8:
+        return 4
+    return 5
+
+
+def _compose_keyword_comment(
+    *,
+    hit_rate: float,
+    attempts: int,
+    primary_case: Optional[str],
+) -> str:
+    rate_pct = hit_rate * 100
+    case_phrase = f"{primary_case}で" if primary_case else ""
+
+    if rate_pct < 30:
+        return (
+            f"{case_phrase}平均達成率{rate_pct:.0f}%と大きく伸び悩んでいます。答案構成を振り返り、"
+            "短い間隔での反復演習を行いましょう。"
+        )
+    if rate_pct < 50:
+        return (
+            f"{case_phrase}平均達成率{rate_pct:.0f}%です。頻出論点なので、模範解答とのギャップを分析しながら"
+            "復習サイクルを密にして定着を図りましょう。"
+        )
+    if rate_pct < 70:
+        return (
+            f"{case_phrase}平均達成率{rate_pct:.0f}%で安定まであと一歩です。キーワードの抜け漏れをチェックし、"
+            "関連論点の過去問にも触れて精度を高めましょう。"
+        )
+    return (
+        f"{case_phrase}平均達成率{rate_pct:.0f}%で仕上がりつつあります。間隔を少し空けながら、"
+        "要点を確認するライトな復習を継続しましょう。"
+    )
+
+
 def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
     if not records:
         return {
             "answers": pd.DataFrame(),
             "summary": pd.DataFrame(),
             "recommendations": [],
+            "insights": {},
         }
 
     answer_rows: List[Dict[str, Any]] = []
     keyword_stats: Dict[str, Dict[str, Any]] = {}
+    case_stats: Dict[str, Dict[str, Any]] = {}
 
     for record in records:
         keyword_hits: Dict[str, bool] = record.get("keyword_hits") or {}
@@ -9376,6 +9422,8 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
         matched_keywords = [kw for kw, hit in keyword_hits.items() if hit]
         missing_keywords = [kw for kw, hit in keyword_hits.items() if not hit]
 
+        submitted_at = pd.to_datetime(record.get("submitted_at"), errors="coerce")
+
         answer_rows.append(
             {
                 "attempt_id": record["attempt_id"],
@@ -9392,6 +9440,20 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
             }
         )
 
+        case_stat = case_stats.setdefault(
+            record["case_label"],
+            {
+                "keyword_attempts": 0,
+                "keyword_hits": 0,
+                "question_attempts": 0,
+                "coverage_sum": 0.0,
+                "coverage_count": 0,
+                "score_sum": 0.0,
+                "score_count": 0,
+                "last_attempt_at": None,
+            },
+        )
+
         for keyword, hit in keyword_hits.items():
             stat = keyword_stats.setdefault(
                 keyword,
@@ -9401,6 +9463,8 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
                     "cases": set(),
                     "years": set(),
                     "examples": [],
+                    "case_counts": defaultdict(int),
+                    "latest_attempt": None,
                 },
             )
             stat["attempts"] += 1
@@ -9408,6 +9472,11 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
                 stat["hits"] += 1
             stat["cases"].add(record["case_label"])
             stat["years"].add(record["year"])
+            stat["case_counts"][record["case_label"]] += 1
+            if submitted_at is not None:
+                latest = stat["latest_attempt"]
+                if latest is None or submitted_at > latest:
+                    stat["latest_attempt"] = submitted_at
             if len(stat["examples"]) < 3:
                 stat["examples"].append(
                     {
@@ -9418,6 +9487,22 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
                         "hit": hit,
                     }
                 )
+
+            case_stat["keyword_attempts"] += 1
+            if hit:
+                case_stat["keyword_hits"] += 1
+
+        case_stat["question_attempts"] += 1
+        if coverage_ratio is not None:
+            case_stat["coverage_sum"] += coverage_ratio
+            case_stat["coverage_count"] += 1
+        if score_ratio is not None:
+            case_stat["score_sum"] += score_ratio
+            case_stat["score_count"] += 1
+        if submitted_at is not None:
+            last_attempt = case_stat["last_attempt_at"]
+            if last_attempt is None or submitted_at > last_attempt:
+                case_stat["last_attempt_at"] = submitted_at
 
     answers_df = pd.DataFrame(answer_rows)
     if not answers_df.empty:
@@ -9432,10 +9517,15 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
     summary_rows: List[Dict[str, Any]] = []
     recommendations: List[Dict[str, Any]] = []
 
+    total_keyword_attempts = 0
+    total_keyword_hits = 0
+
     for keyword, stat in keyword_stats.items():
         attempts = stat["attempts"]
         hits = stat["hits"]
         hit_rate = hits / attempts if attempts else 0.0
+        total_keyword_attempts += attempts
+        total_keyword_hits += hits
         summary_rows.append(
             {
                 "キーワード": keyword,
@@ -9455,12 +9545,29 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
                 example_text = (
                     f"{example_entry['year']} {example_entry['case_label']}『{example_entry['title']}』"
                 )
+            primary_case: Optional[str] = None
+            if stat["case_counts"]:
+                primary_case = max(stat["case_counts"].items(), key=lambda item: item[1])[0]
+            review_interval = _suggest_review_interval(hit_rate, attempts)
+            comment = _compose_keyword_comment(
+                hit_rate=hit_rate,
+                attempts=attempts,
+                primary_case=primary_case,
+            )
+            last_attempt = stat.get("latest_attempt")
+            last_attempt_str = (
+                last_attempt.strftime("%Y-%m-%d") if isinstance(last_attempt, pd.Timestamp) else None
+            )
             recommendations.append(
                 {
                     "keyword": keyword,
                     "hit_rate": hit_rate,
                     "attempts": attempts,
                     "example": example_text,
+                    "primary_case": primary_case,
+                    "review_interval_days": review_interval,
+                    "comment": comment,
+                    "last_attempt_at": last_attempt_str,
                 }
             )
 
@@ -9470,10 +9577,80 @@ def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
 
     recommendations.sort(key=lambda item: (item["hit_rate"], -item["attempts"]))
 
+    overall_hit_rate = (
+        (total_keyword_hits / total_keyword_attempts)
+        if total_keyword_attempts > 0
+        else None
+    )
+
+    case_summary_rows: List[Dict[str, Any]] = []
+    for case_label, stat in case_stats.items():
+        coverage_avg = (
+            (stat["coverage_sum"] / stat["coverage_count"])
+            if stat["coverage_count"]
+            else None
+        )
+        score_avg = (
+            (stat["score_sum"] / stat["score_count"])
+            if stat["score_count"]
+            else None
+        )
+        keyword_hit_rate = (
+            (stat["keyword_hits"] / stat["keyword_attempts"])
+            if stat["keyword_attempts"]
+            else None
+        )
+        last_attempt = stat["last_attempt_at"]
+        case_summary_rows.append(
+            {
+                "case_label": case_label,
+                "question_attempts": stat["question_attempts"],
+                "avg_coverage": coverage_avg,
+                "avg_score": score_avg,
+                "keyword_hit_rate": keyword_hit_rate,
+                "last_attempt_at": (
+                    last_attempt.strftime("%Y-%m-%d")
+                    if isinstance(last_attempt, pd.Timestamp)
+                    else None
+                ),
+            }
+        )
+
+    case_summary_rows.sort(
+        key=lambda item: (
+            item["avg_coverage"] if item["avg_coverage"] is not None else 1.0,
+            item["question_attempts"],
+        )
+    )
+    focus_case_entry = next(
+        (item for item in case_summary_rows if item["avg_coverage"] is not None),
+        None,
+    )
+
+    insight_message = None
+    if focus_case_entry and focus_case_entry["avg_coverage"] is not None:
+        insight_message = (
+            f"平均達成率{focus_case_entry['avg_coverage'] * 100:.0f}%の"
+            f"{focus_case_entry['case_label']}を重点的に底上げしましょう。"
+        )
+    elif overall_hit_rate is not None:
+        insight_message = (
+            f"全体の平均達成率は{overall_hit_rate * 100:.0f}%です。"
+            "弱点となるキーワードを中心に復習計画を立てましょう。"
+        )
+
+    insights = {
+        "overall_hit_rate": overall_hit_rate,
+        "case_summaries": case_summary_rows,
+        "focus_case": focus_case_entry,
+        "message": insight_message,
+    }
+
     return {
         "answers": answers_df,
         "summary": summary_df,
         "recommendations": recommendations,
+        "insights": insights,
     }
 
 
@@ -12612,6 +12789,7 @@ def history_page(user: Dict) -> None:
         answers_df = keyword_analysis["answers"]
         summary_df = keyword_analysis["summary"]
         recommendations = keyword_analysis["recommendations"]
+        keyword_insights = keyword_analysis.get("insights") or {}
 
         if answers_df.empty and summary_df.empty:
             st.info("キーワード採点の記録がまだありません。演習を重ねると分析が表示されます。")
@@ -12665,6 +12843,37 @@ def history_page(user: Dict) -> None:
                 )
                 st.caption("出題頻度が高いキーワードほど上位に表示されます。達成率が低いキーワードは計画的に復習しましょう。")
 
+            insight_message = keyword_insights.get("message")
+            if insight_message:
+                st.markdown("#### AI改善提案")
+                st.info(insight_message)
+                case_summaries = keyword_insights.get("case_summaries") or []
+                if case_summaries:
+                    summary_df = pd.DataFrame(case_summaries)
+                    if not summary_df.empty:
+                        display_df = summary_df.copy()
+                        display_df.rename(
+                            columns={
+                                "case_label": "事例",
+                                "question_attempts": "演習数",
+                                "avg_coverage": "平均達成率",
+                                "avg_score": "平均得点率",
+                                "keyword_hit_rate": "キーワード達成率",
+                                "last_attempt_at": "直近演習",
+                            },
+                            inplace=True,
+                        )
+                        for column in ["平均達成率", "平均得点率", "キーワード達成率"]:
+                            if column in display_df.columns:
+                                display_df[column] = display_df[column].map(
+                                    lambda v: f"{v * 100:.0f}%" if pd.notna(v) else "-"
+                                )
+                        st.dataframe(
+                            display_df,
+                            hide_index=True,
+                            use_container_width=True,
+                        )
+
             if recommendations:
                 st.markdown("#### 優先して復習したいテーマ")
                 for recommendation in recommendations[:5]:
@@ -12672,12 +12881,24 @@ def history_page(user: Dict) -> None:
                     hit_rate = recommendation["hit_rate"] * 100
                     attempts = recommendation["attempts"]
                     example = recommendation.get("example")
+                    primary_case = recommendation.get("primary_case")
+                    review_interval = recommendation.get("review_interval_days")
+                    comment = recommendation.get("comment")
+                    last_attempt_at = recommendation.get("last_attempt_at")
                     resources = KEYWORD_RESOURCE_MAP.get(keyword, DEFAULT_KEYWORD_RESOURCES)
                     lines = [
                         f"- **{keyword}** — 達成率 {hit_rate:.0f}% / 出題 {attempts}回",
                     ]
                     if example:
                         lines.append(f"    - 出題例: {example}")
+                    if primary_case:
+                        lines.append(f"    - 主な出題: {primary_case}")
+                    if comment:
+                        lines.append(f"    - コメント: {comment}")
+                    if review_interval:
+                        lines.append(f"    - 復習目安: {review_interval}日ごとにキーワード確認")
+                    if last_attempt_at:
+                        lines.append(f"    - 直近演習: {last_attempt_at}")
                     for resource in resources:
                         lines.append(f"    - [参考資料]({resource['url']}): {resource['label']}")
                     st.markdown("\n".join(lines))
