@@ -4687,7 +4687,7 @@ def main_view() -> None:
                     display: flex;
                     justify-content: space-between;
                     align-items: stretch;
-                    gap: 0.25rem;
+                    gap: 0.5rem;
                 }
                 .mobile-bottom-nav label[data-baseweb="radio"] {
                     flex: 1 1 0;
@@ -4698,8 +4698,9 @@ def main_view() -> None:
                 .mobile-bottom-nav label[data-baseweb="radio"] > div:last-child {
                     border-radius: 14px;
                     border: 1px solid transparent;
-                    padding: 0.45rem 0.35rem 0.4rem;
-                    font-size: 0.78rem;
+                    padding: 0.65rem 0.5rem;
+                    min-height: 3.25rem;
+                    font-size: 0.9rem;
                     font-weight: 600;
                     text-align: center;
                     color: var(--text-muted);
@@ -4809,23 +4810,26 @@ def _inject_dashboard_styles() -> None:
                 background: linear-gradient(180deg, #fdfdfc 0%, #f7f9ff 48%, #ffffff 100%);
             }
             .block-container {
-                padding: 1.25rem 1.8rem 3rem;
-                max-width: var(--dashboard-max-width);
+                padding: 1rem 1.1rem calc(4.5rem + env(safe-area-inset-bottom, 0px));
+                max-width: 100%;
             }
             .dashboard-toc {
-                display: flex;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
                 gap: 0.75rem;
-                flex-wrap: wrap;
-                align-items: center;
-                margin: 1.5rem 0 2rem;
+                align-items: stretch;
+                margin: 1rem 0 1.5rem;
             }
             .dashboard-toc__link {
                 display: inline-flex;
                 align-items: center;
-                gap: 0.35rem;
+                justify-content: center;
+                gap: 0.4rem;
                 border-radius: 999px;
-                padding: 0.45rem 0.95rem;
-                font-size: 0.88rem;
+                padding: 0.75rem 1rem;
+                min-height: 3.25rem;
+                width: 100%;
+                font-size: 0.95rem;
                 font-weight: 600;
                 background: rgba(37, 99, 235, 0.08);
                 color: var(--brand-strong);
@@ -4846,8 +4850,8 @@ def _inject_dashboard_styles() -> None:
                 box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
             }
             .dashboard-grid {
-                display: grid;
-                grid-template-columns: repeat(12, minmax(0, 1fr));
+                display: flex;
+                flex-direction: column;
                 gap: var(--grid-gap);
                 width: 100%;
             }
@@ -4875,7 +4879,7 @@ def _inject_dashboard_styles() -> None:
             }
             .dashboard-card {
                 border-radius: 20px;
-                padding: clamp(1rem, 1.6vw, 1.35rem) clamp(1.05rem, 1.8vw, 1.6rem);
+                padding: clamp(1rem, 1.8vw, 1.35rem) clamp(1rem, 2.2vw, 1.6rem);
                 background: #ffffff;
                 border: 1px solid rgba(148, 163, 184, 0.35);
                 box-shadow: var(--shadow-card);
@@ -4907,8 +4911,8 @@ def _inject_dashboard_styles() -> None:
             }
             .kpi-tiles {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-                gap: clamp(1rem, 1.8vw, 1.5rem);
+                grid-template-columns: 1fr;
+                gap: clamp(0.9rem, 2vw, 1.5rem);
             }
             .kpi-tile {
                 position: relative;
@@ -4985,9 +4989,34 @@ def _inject_dashboard_styles() -> None:
             }
             .metric-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                grid-template-columns: 1fr;
                 gap: 1rem;
                 margin-top: 1rem;
+            }
+            @media (min-width: 768px) {
+                .kpi-tiles {
+                    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                }
+                .metric-grid {
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                }
+            }
+            @media (min-width: 960px) {
+                .block-container {
+                    padding: 1.25rem 1.8rem 3rem;
+                    max-width: var(--dashboard-max-width);
+                }
+                .dashboard-grid {
+                    display: grid;
+                    grid-template-columns: repeat(12, minmax(0, 1fr));
+                }
+                .dashboard-toc {
+                    margin: 1.5rem 0 2rem;
+                }
+                .dashboard-toc__link {
+                    font-size: 0.9rem;
+                    min-height: 3rem;
+                }
             }
             .metric-chip {
                 border-radius: 16px;
@@ -5636,7 +5665,7 @@ def _get_committee_heatmap_context(default_year: str = "令和7年度") -> Optio
         .mark_rect(stroke="#1d4ed8", strokeWidth=2, fillOpacity=0)
         .encode(x="事例:N", y="専門カテゴリ:N")
     )
-    chart = base_chart + text_layer_weight + text_layer_members + highlight_layer
+    chart = (base_chart + text_layer_weight + text_layer_members + highlight_layer).interactive()
 
     primary_focus = committee_analysis.identify_primary_focus(dataset, summary_df)
     recommendations = committee_analysis.focus_recommendations(summary_df, limit=5)
@@ -6380,7 +6409,8 @@ def dashboard_page(user: Dict) -> None:
                         .mark_rule(color="#f97316", strokeDash=[6, 4])
                         .encode(x="ベンチマーク:Q")
                     )
-                    st.altair_chart(bar + target_line, use_container_width=True)
+                    combined_chart = (bar + target_line).interactive()
+                    st.altair_chart(combined_chart, use_container_width=True)
                 else:
                     st.info("演習データが蓄積すると事例別の分析が表示されます。")
             st.markdown("</div>", unsafe_allow_html=True)
@@ -6416,7 +6446,7 @@ def dashboard_page(user: Dict) -> None:
                         )
                         .properties(height=320)
                     )
-                    st.altair_chart(radar_chart, use_container_width=True)
+                    st.altair_chart(radar_chart.interactive(), use_container_width=True)
                     improvement_low, improvement_high = dashboard_analysis["improvement_range"]
                     st.caption(
                         f"フェルミ推定では弱点分析を踏まえた学習時間の再配分により平均得点が"
@@ -6474,12 +6504,12 @@ def dashboard_page(user: Dict) -> None:
                     if score_heatmap.data.empty:
                         st.info("得点率ヒートマップを表示するには得点データが必要です。")
                     else:
-                        st.altair_chart(score_heatmap, use_container_width=True)
+                        st.altair_chart(score_heatmap.interactive(), use_container_width=True)
                 with heatmap_col2:
                     if coverage_heatmap.data.empty:
                         st.info("キーワード網羅率ヒートマップを表示するには判定データが必要です。")
                     else:
-                        st.altair_chart(coverage_heatmap, use_container_width=True)
+                        st.altair_chart(coverage_heatmap.interactive(), use_container_width=True)
                 st.caption("濃淡が薄いセルは優先復習したい設問を示します。")
 
             if has_keyword_heatmap:
@@ -6506,7 +6536,7 @@ def dashboard_page(user: Dict) -> None:
                     )
                     .properties(height=260)
                 )
-                st.altair_chart(keyword_heatmap, use_container_width=True)
+                st.altair_chart(keyword_heatmap.interactive(), use_container_width=True)
                 st.caption("特に網羅率が低いテーマは早期に補強しましょう。")
 
             st.markdown("</div>", unsafe_allow_html=True)
@@ -10557,7 +10587,7 @@ def _render_axis_breakdown(axis_breakdown: Dict[str, Dict[str, object]]) -> None
         )
     )
 
-    chart = (area + points + labels).properties(height=320)
+    chart = (area + points + labels).properties(height=320).interactive()
     st.altair_chart(chart, use_container_width=True)
 
     detail_df = pd.DataFrame(display_rows)
@@ -10602,7 +10632,7 @@ def _render_case_bundle_feedback(evaluation: scoring.BundleEvaluation) -> None:
                 )
                 .properties(height=180)
             )
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart.interactive(), use_container_width=True)
 
     st.markdown("**観点別コメント**")
     for row in criteria_df.itertuples():
@@ -11287,12 +11317,14 @@ def history_page(user: Dict) -> None:
                     tooltip=["日付", "年度", "事例", "得点", "満点", "モード"],
                 )
                 .properties(height=320)
-            )
+            ).interactive()
             st.altair_chart(line_chart, use_container_width=True)
 
             avg_df = score_history.groupby("事例", as_index=False)["得点"].mean()
             st.subheader("事例別平均点")
-            bar_chart = alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="得点:Q")
+            bar_chart = (
+                alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="得点:Q").interactive()
+            )
             st.altair_chart(bar_chart, use_container_width=True)
 
     with report_tab:
@@ -11378,6 +11410,7 @@ def history_page(user: Dict) -> None:
                                 "演習回数",
                             ],
                         )
+                        .interactive()
                     )
                     st.altair_chart(score_chart, use_container_width=True)
 
@@ -11399,6 +11432,7 @@ def history_page(user: Dict) -> None:
                                 "演習回数",
                             ],
                         )
+                        .interactive()
                     )
                     st.altair_chart(time_chart, use_container_width=True)
 
@@ -11463,6 +11497,7 @@ def history_page(user: Dict) -> None:
                                 "演習回数",
                             ],
                         )
+                        .interactive()
                     )
                     st.altair_chart(weekly_score_chart, use_container_width=True)
 
@@ -11484,6 +11519,7 @@ def history_page(user: Dict) -> None:
                                 "演習回数",
                             ],
                         )
+                        .interactive()
                     )
                     st.altair_chart(weekly_time_chart, use_container_width=True)
 
@@ -11578,6 +11614,7 @@ def history_page(user: Dict) -> None:
                                 "不足キーワード表示",
                             ],
                         )
+                        .interactive()
                     )
                     st.subheader("キーワード網羅率と得点率の相関")
                     st.altair_chart(scatter_chart, use_container_width=True)
