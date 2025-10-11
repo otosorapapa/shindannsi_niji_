@@ -38,6 +38,7 @@
         --font-heading-lg: clamp(1.45rem, 1.3rem + 0.3vw, 1.6rem);
         --font-heading-md: clamp(1.2rem, 1.12rem + 0.2vw, 1.32rem);
         font-size: 16px;
+        --toolbar-height: 104px;
       }
 
       @media (prefers-color-scheme: dark) {
@@ -74,6 +75,152 @@
         color: var(--color-text);
         line-height: 1.6;
         text-rendering: optimizeLegibility;
+        padding-top: calc(var(--toolbar-height) + var(--spacing-sm));
+      }
+
+      .global-toolbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 20;
+        background-color: var(--color-surface);
+        border-bottom: 1px solid var(--color-border);
+        box-shadow: 0 6px 18px rgba(16, 24, 40, 0.08);
+        backdrop-filter: blur(12px);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .global-toolbar {
+          background-color: rgba(18, 26, 44, 0.92);
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+        }
+      }
+
+      .global-toolbar__inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+        display: grid;
+        grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+        gap: var(--spacing-md) var(--spacing-lg);
+      }
+
+      @media (max-width: 960px) {
+        .global-toolbar__inner {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .global-toolbar__search {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-xs);
+      }
+
+      .global-toolbar__label {
+        font-weight: 600;
+        color: var(--color-text-muted);
+        letter-spacing: 0.02em;
+      }
+
+      .global-toolbar__input {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        padding: 12px 16px;
+        border-radius: 999px;
+        border: 1px solid var(--color-border);
+        background-color: var(--color-bg);
+        color: inherit;
+        font-size: 1rem;
+        transition: border-color var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease,
+          background-color var(--transition-duration) ease;
+      }
+
+      .global-toolbar__input:focus {
+        outline: none;
+        border-color: var(--color-chip-active);
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
+        background-color: var(--color-surface);
+      }
+
+      .global-toolbar__filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-md);
+        align-items: flex-start;
+      }
+
+      .filter-group {
+        flex: 1 1 240px;
+        min-width: 220px;
+        margin: 0;
+        padding: var(--spacing-sm) var(--spacing-md);
+        border: 1px solid var(--color-border);
+        border-radius: 16px;
+        background-color: var(--color-bg);
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-xs);
+      }
+
+      .filter-group legend {
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--color-text-strong);
+        margin-bottom: var(--spacing-xs);
+      }
+
+      .filter-group__options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-xs);
+      }
+
+      .filter-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--color-border);
+        background-color: var(--color-surface);
+        font-size: 0.88rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color var(--transition-duration) ease,
+          background-color var(--transition-duration) ease,
+          color var(--transition-duration) ease;
+      }
+
+      .filter-chip input {
+        accent-color: var(--color-chip-active);
+      }
+
+      .filter-chip:hover,
+      .filter-chip:focus-within {
+        border-color: var(--color-chip-active);
+        background-color: color-mix(in srgb, var(--color-chip-active) 12%, transparent);
+      }
+
+      @media (max-width: 600px) {
+        :root {
+          --toolbar-height: 168px;
+        }
+
+        body {
+          padding-top: calc(var(--toolbar-height) + var(--spacing-sm));
+        }
+
+        .global-toolbar__inner {
+          padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-md);
+        }
+
+        .filter-group {
+          flex-basis: 100%;
+        }
       }
 
       h1,
@@ -631,6 +778,83 @@
     </style>
   </head>
   <body>
+    <header class="global-toolbar" role="banner">
+      <div class="global-toolbar__inner">
+        <div class="global-toolbar__search">
+          <label class="global-toolbar__label" for="global-search"
+            >キーワードで探す</label
+          >
+          <input
+            id="global-search"
+            type="search"
+            class="global-toolbar__input"
+            placeholder="事例・テーマ・キーワードを入力"
+            aria-label="演習問題を検索"
+          />
+        </div>
+        <div class="global-toolbar__filters" aria-label="フィルタ">
+          <fieldset class="filter-group">
+            <legend>事例区分</legend>
+            <div class="filter-group__options">
+              <label class="filter-chip">
+                <input type="checkbox" name="case" value="I" checked />
+                事例I
+              </label>
+              <label class="filter-chip">
+                <input type="checkbox" name="case" value="II" />
+                事例II
+              </label>
+              <label class="filter-chip">
+                <input type="checkbox" name="case" value="III" />
+                事例III
+              </label>
+              <label class="filter-chip">
+                <input type="checkbox" name="case" value="IV" />
+                事例IV
+              </label>
+            </div>
+          </fieldset>
+          <fieldset class="filter-group">
+            <legend>出題年度</legend>
+            <div class="filter-group__options">
+              <label class="filter-chip">
+                <input type="radio" name="year" value="R6" checked />
+                令和6年
+              </label>
+              <label class="filter-chip">
+                <input type="radio" name="year" value="R5" />
+                令和5年
+              </label>
+              <label class="filter-chip">
+                <input type="radio" name="year" value="R4" />
+                令和4年
+              </label>
+              <label class="filter-chip">
+                <input type="radio" name="year" value="R3" />
+                令和3年
+              </label>
+            </div>
+          </fieldset>
+          <fieldset class="filter-group">
+            <legend>難易度</legend>
+            <div class="filter-group__options">
+              <label class="filter-chip">
+                <input type="checkbox" name="level" value="beginner" checked />
+                基礎
+              </label>
+              <label class="filter-chip">
+                <input type="checkbox" name="level" value="standard" checked />
+                標準
+              </label>
+              <label class="filter-chip">
+                <input type="checkbox" name="level" value="advanced" />
+                応用
+              </label>
+            </div>
+          </fieldset>
+        </div>
+      </div>
+    </header>
     <div class="layout">
       <aside
         class="context-pane"
