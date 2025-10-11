@@ -1,8 +1,9 @@
 """Scoring utilities for the Streamlit application."""
 from __future__ import annotations
 
+import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Mapping, Optional, Sequence
 
 import numpy as np
@@ -25,6 +26,28 @@ class ScoreResult:
     score: float
     feedback: str
     keyword_hits: Dict[str, bool]
+    axis_breakdown: Dict[str, Dict[str, object]] = field(default_factory=dict)
+
+
+EVALUATION_AXES: List[Dict[str, object]] = [
+    {
+        "label": "キーワード含有率",
+        "weight": 0.5,
+        "description": "採点対象キーワードがどれだけ盛り込まれているかを評価します。",
+    },
+    {
+        "label": "構成の論理性",
+        "weight": 0.35,
+        "description": "模範解答との方向性と論理接続語の使い方を指標化しています。",
+    },
+    {
+        "label": "表現の明快さ",
+        "weight": 0.15,
+        "description": "文の長さや冗長さから読みやすさを推定しています。",
+    },
+]
+
+_AXIS_LOOKUP = {axis["label"]: axis for axis in EVALUATION_AXES}
 
 
 @dataclass
@@ -74,19 +97,88 @@ def cosine_similarity_score(answer: str, reference: str) -> float:
     return numerator / denominator
 
 
+def _estimate_logic_score(answer: str, similarity: float) -> Dict[str, object]:
+    connectors = [
+        "ため",
+        "ので",
+        "結果",
+        "したがって",
+        "よって",
+        "さらに",
+        "まず",
+        "次に",
+        "一方",
+        "そのため",
+        "その結果",
+    ]
+    sentences = [segment for segment in re.split(r"[。\.!?！？]\s*", answer) if segment.strip()]
+    sentence_count = max(len(sentences), 1)
+    connector_hits = 0
+    lowered = answer
+    for connector in connectors:
+        if connector in lowered:
+            connector_hits += lowered.count(connector)
+    connector_ratio = min(1.0, connector_hits / sentence_count)
+    logic_score = max(0.0, min(1.0, 0.7 * similarity + 0.3 * connector_ratio))
+    detail = (
+        f"類似度{similarity:.2f}、論理接続語{connector_hits}件（{sentence_count}文中）を検出しました。"
+    )
+    return {"score": logic_score, "detail": detail}
+
+
+def _estimate_clarity_score(answer: str) -> Dict[str, object]:
+    sentences = [segment for segment in re.split(r"[。\.!?！？]\s*", answer) if segment.strip()]
+    sentence_count = max(len(sentences), 1)
+    char_count = len(answer.strip())
+    avg_length = char_count / sentence_count if sentence_count else char_count
+    if avg_length <= 0:
+        clarity_score = 0.0
+    else:
+        clarity_score = math.exp(-((avg_length - 45.0) / 30.0) ** 2)
+        clarity_score = max(0.0, min(1.0, clarity_score))
+    detail = f"平均文長は{avg_length:.1f}文字（全体{char_count}文字）でした。"
+    return {"score": clarity_score, "detail": detail}
+
+
 def score_answer(answer: str, question: QuestionSpec) -> ScoreResult:
     """Score a single answer using heuristics that mimic the AI workflow."""
     answer = answer.strip()
     if not answer:
-        return ScoreResult(score=0.0, feedback="回答が入力されていません。", keyword_hits={})
+        return ScoreResult(
+            score=0.0,
+            feedback="回答が入力されていません。",
+            keyword_hits={},
+            axis_breakdown={},
+        )
 
     keyword_hits = keyword_match_score(answer, question.keywords)
     keyword_ratio = sum(keyword_hits.values()) / max(len(keyword_hits), 1)
 
     similarity = cosine_similarity_score(answer, question.model_answer)
 
-    # Combine keyword ratio and similarity with simple weighting.
-    raw_score = (0.6 * keyword_ratio + 0.4 * similarity) * question.max_score
+    logic_axis = _estimate_logic_score(answer, similarity)
+    clarity_axis = _estimate_clarity_score(answer)
+
+    axis_breakdown = {
+        "キーワード含有率": {
+            "score": keyword_ratio,
+            "detail": (
+                f"{sum(keyword_hits.values())} / {max(len(keyword_hits), 1)} 件の採点キーワードを含みました。"
+            ),
+        },
+        "構成の論理性": logic_axis,
+        "表現の明快さ": clarity_axis,
+    }
+
+    raw_score_ratio = 0.0
+    for axis in EVALUATION_AXES:
+        label = axis["label"]
+        weight = float(axis["weight"])
+        breakdown = axis_breakdown.get(label, {})
+        axis_score = float(breakdown.get("score") or 0.0)
+        raw_score_ratio += weight * axis_score
+
+    raw_score = raw_score_ratio * question.max_score
     score = round(min(question.max_score, max(0.0, raw_score)), 2)
 
     missing_keywords = [kw for kw, hit in keyword_hits.items() if not hit]
@@ -123,8 +215,17 @@ def score_answer(answer: str, question: QuestionSpec) -> ScoreResult:
 
     improvement_suggestion = "設問文から与件企業の課題・強みを抜き出し、キーワードを盛り込んだうえで因果を意識して記述しましょう。"
 
+    axis_lines = []
+    for axis in EVALUATION_AXES:
+        label = axis["label"]
+        breakdown = axis_breakdown.get(label, {})
+        score_value = float(breakdown.get("score") or 0.0)
+        detail = breakdown.get("detail") or ""
+        axis_lines.append(f"- {label}: {score_value:.2f} ({detail})")
+
     feedback_sections = [
-        f"【得点サマリー】類似度: {similarity:.2f} / キーワード網羅率: {keyword_ratio:.2f}",
+        f"【得点サマリー】総合スコア比率: {raw_score_ratio:.2f} (類似度: {similarity:.2f} / キーワード網羅率: {keyword_ratio:.2f})",
+        "【観点別スコア】\n" + "\n".join(axis_lines),
         "【良かった点】\n" + "\n".join(f"- {point}" for point in positive_points),
         "【改善が必要な点】\n" + "\n".join(f"- {point}" for point in improvement_points),
         "【学習すべきキーワード】\n" + "\n".join(f"- {kw}" for kw in study_keywords) if study_keywords else "",
@@ -132,7 +233,12 @@ def score_answer(answer: str, question: QuestionSpec) -> ScoreResult:
     ]
 
     feedback = "\n\n".join(section for section in feedback_sections if section)
-    return ScoreResult(score=score, feedback=feedback, keyword_hits=keyword_hits)
+    return ScoreResult(
+        score=score,
+        feedback=feedback,
+        keyword_hits=keyword_hits,
+        axis_breakdown=axis_breakdown,
+    )
 
 
 def evaluate_case_bundle(
