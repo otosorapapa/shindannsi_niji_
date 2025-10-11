@@ -1727,6 +1727,35 @@ def _inject_context_highlight_styles() -> None:
     st.session_state["_context_highlight_styles_injected"] = True
 
 
+def _inject_context_column_styles() -> None:
+    if st.session_state.get("_context_column_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            @media (min-width: 1100px) {
+                [data-testid="column"]:has(.context-sticky-anchor) {
+                    position: sticky;
+                    top: 4.5rem;
+                    align-self: flex-start;
+                    z-index: 5;
+                }
+            }
+            @media (max-width: 1099px) {
+                [data-testid="column"]:has(.context-sticky-anchor) {
+                    position: static;
+                }
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_context_column_styles_injected"] = True
+
+
 def _render_question_context_block(context_value: Any) -> None:
     context_text = _normalize_text_block(context_value)
     if not context_text:
@@ -1780,7 +1809,7 @@ def _render_problem_context_block(context_text: str) -> None:
     element_id = f"problem-context-{uuid.uuid4().hex}"
     toolbar_id = f"{element_id}-toolbar"
     total_lines = sum(block.count("<br/>") + 1 for block in blocks)
-    estimated_height = max(260, min(900, 130 + total_lines * 28))
+    estimated_height = max(620, min(1200, 260 + total_lines * 30))
 
     highlight_html = dedent(
         f"""
@@ -1823,6 +1852,14 @@ def _render_problem_context_block(context_text: str) -> None:
                 display: flex;
                 flex-direction: column;
                 gap: 0.65rem;
+                min-height: min(85vh, 880px);
+                height: 100%;
+            }}
+            @media (max-width: 1099px) {{
+                .problem-context-root {{
+                    height: auto;
+                    min-height: auto;
+                }}
             }}
             .context-toolbar {{
                 display: flex;
@@ -1962,7 +1999,10 @@ def _render_problem_context_block(context_text: str) -> None:
                 font-size: 0.96rem;
                 outline: none;
                 overflow-y: auto;
+                flex: 1 1 auto;
+                min-height: 320px;
                 max-height: 100%;
+                scrollbar-gutter: stable both-edges;
                 user-select: text;
             }}
             .problem-context-block p {{
@@ -5407,176 +5447,186 @@ def practice_page(user: Dict) -> None:
         st.subheader(problem["title"])
     st.write(problem["overview"])
 
+    layout_container = st.container()
     problem_context = _collect_problem_context_text(problem)
     if problem_context:
-        st.markdown("### 与件文")
-        _render_problem_context_block(problem_context)
-
-    st.markdown(
-        dedent(
-            """
-            <div class="practice-quick-nav">
-                <a href="#practice-answers"><button type="button">質問へ移動</button></a>
-                <a href="#practice-actions"><button type="button">下へスクロール</button></a>
-            </div>
-            """
-        ).strip(),
-        unsafe_allow_html=True,
-    )
-
-    question_overview = pd.DataFrame(
-        [
-            {
-                "設問": idx + 1,
-                "配点": q["max_score"],
-                "キーワード": "、".join(q["keywords"]) if q["keywords"] else "-",
-                "評価したい力": "・".join(
-                    card.get("label", "") for card in q.get("intent_cards", []) if card.get("label")
-                )
-                or "-",
-            }
-            for idx, q in enumerate(problem["questions"])
-        ]
-    )
-    st.data_editor(
-        question_overview,
-        hide_index=True,
-        use_container_width=True,
-        disabled=True,
-        column_config={
-            "キーワード": st.column_config.TextColumn(help="採点で評価される重要ポイント"),
-            "評価したい力": st.column_config.TextColumn(help="設問趣旨から読み取れる評価観点"),
-        },
-    )
-    st.caption("採点の観点を事前に確認してから回答に取り組みましょう。")
-
-    _render_retrieval_flashcards(problem)
-
-    if not st.session_state.practice_started:
-        st.session_state.practice_started = datetime.utcnow()
+        context_col, main_col = layout_container.columns([0.42, 0.58], gap="large")
+        with context_col:
+            _inject_context_column_styles()
+            st.markdown('<div class="context-sticky-anchor"></div>', unsafe_allow_html=True)
+            st.markdown("### 与件文")
+            _render_problem_context_block(problem_context)
+    else:
+        main_col = layout_container
 
     answers: List[RecordedAnswer] = []
     question_specs: List[QuestionSpec] = []
-    st.markdown('<div id="practice-answers"></div>', unsafe_allow_html=True)
+    submitted = False
 
-    _inject_guideline_styles()
-
-    for question in problem["questions"]:
-        text = _question_input(
-            problem["id"],
-            question,
-            case_label=problem.get("case_label") or problem.get("case"),
+    with main_col:
+        st.markdown(
+            dedent(
+                """
+                <div class="practice-quick-nav">
+                    <a href="#practice-answers"><button type="button">質問へ移動</button></a>
+                    <a href="#practice-actions"><button type="button">下へスクロール</button></a>
+                </div>
+                """
+            ).strip(),
+            unsafe_allow_html=True,
         )
-        question_specs.append(
-            QuestionSpec(
-                id=question["id"],
-                prompt=question["prompt"],
-                max_score=question["max_score"],
-                model_answer=question["model_answer"],
-                keywords=question["keywords"],
-            )
+
+        question_overview = pd.DataFrame(
+            [
+                {
+                    "設問": idx + 1,
+                    "配点": q["max_score"],
+                    "キーワード": "、".join(q["keywords"]) if q["keywords"] else "-",
+                    "評価したい力": "・".join(
+                        card.get("label", "") for card in q.get("intent_cards", []) if card.get("label")
+                    )
+                    or "-",
+                }
+                for idx, q in enumerate(problem["questions"])
+            ]
         )
-        visibility_key = _guideline_visibility_key(problem["id"], question["id"])
-        if visibility_key not in st.session_state:
-            st.session_state[visibility_key] = True
-        show_guideline = st.checkbox(
-            "模範解答・採点ガイドラインを表示",
-            key=visibility_key,
-            help="模範解答全文と採点時に確認されるポイントを必要なときに開閉できます。",
+        st.data_editor(
+            question_overview,
+            hide_index=True,
+            use_container_width=True,
+            disabled=True,
+            column_config={
+                "キーワード": st.column_config.TextColumn(help="採点で評価される重要ポイント"),
+                "評価したい力": st.column_config.TextColumn(help="設問趣旨から読み取れる評価観点"),
+            },
         )
-        if show_guideline:
-            rows: List[str] = []
-            if question["keywords"]:
-                keywords_text = "、".join(question["keywords"])
-                rows.append(
-                    dedent(
-                        f"""
-                        <tr>
-                            <th scope=\"row\">
-                                <div class=\"guideline-label\">
-                                    <span class=\"guideline-icon\" data-icon=\"KW\"></span>
-                                    <span>キーワード評価</span>
-                                </div>
-                            </th>
-                            <td>
-                                <div class=\"guideline-body\">{html.escape(keywords_text)} を含めると加点対象です。</div>
-                            </td>
-                        </tr>
-                        """
-                    ).strip()
-                )
+        st.caption("採点の観点を事前に確認してから回答に取り組みましょう。")
 
-            model_answer_text = _normalize_text_block(question.get("model_answer"))
-            if model_answer_text:
-                model_answer_html = html.escape(model_answer_text).replace("\n", "<br>")
-                model_answer_length_value = _compute_fullwidth_length(
-                    model_answer_text.replace("\n", "")
-                )
-                model_answer_length = _format_fullwidth_length(model_answer_length_value)
-                rows.append(
-                    dedent(
-                        f"""
-                        <tr>
-                            <th scope=\"row\">
-                                <div class=\"guideline-label\">
-                                    <span class=\"guideline-icon\" data-icon=\"模\"></span>
-                                    <span>模範解答</span>
-                                </div>
-                            </th>
-                            <td>
-                                <div class=\"guideline-body\">
-                                    <span class=\"guideline-meta\">文字数: {model_answer_length}字</span>
-                                    {model_answer_html}
-                                </div>
-                            </td>
-                        </tr>
-                        """
-                    ).strip()
-                )
+        _render_retrieval_flashcards(problem)
 
-            explanation_text = _normalize_text_block(
-                question.get("explanation") or question.get("解説")
+        if not st.session_state.practice_started:
+            st.session_state.practice_started = datetime.utcnow()
+
+        st.markdown('<div id="practice-answers"></div>', unsafe_allow_html=True)
+
+        _inject_guideline_styles()
+
+        for question in problem["questions"]:
+            text = _question_input(
+                problem["id"],
+                question,
+                case_label=problem.get("case_label") or problem.get("case"),
             )
-            if explanation_text:
-                explanation_html = html.escape(explanation_text).replace("\n", "<br>")
-                rows.append(
-                    dedent(
-                        f"""
-                        <tr>
-                            <th scope=\"row\">
-                                <div class=\"guideline-label\">
-                                    <span class=\"guideline-icon\" data-icon=\"解\"></span>
-                                    <span>模範解答の解説</span>
-                                </div>
-                            </th>
-                            <td>
-                                <div class=\"guideline-body\">{explanation_html}</div>
-                            </td>
-                        </tr>
-                        """
-                    ).strip()
+            question_specs.append(
+                QuestionSpec(
+                    id=question["id"],
+                    prompt=question["prompt"],
+                    max_score=question["max_score"],
+                    model_answer=question["model_answer"],
+                    keywords=question["keywords"],
                 )
-
-            if rows:
-                st.markdown(
-                    """
-                    <div class="guideline-card">
-                        <table class="guideline-table">
-                            <tbody>
-                                {rows}
-                            </tbody>
-                        </table>
-                    </div>
-                    """.format(rows="".join(rows)),
-                    unsafe_allow_html=True,
-                )
-            st.caption(
-                "模範解答は構成や論理展開の参考例です。キーワードを押さえつつ自分の言葉で表現しましょう。"
             )
+            visibility_key = _guideline_visibility_key(problem["id"], question["id"])
+            if visibility_key not in st.session_state:
+                st.session_state[visibility_key] = True
+            show_guideline = st.checkbox(
+                "模範解答・採点ガイドラインを表示",
+                key=visibility_key,
+                help="模範解答全文と採点時に確認されるポイントを必要なときに開閉できます。",
+            )
+            if show_guideline:
+                rows: List[str] = []
+                if question["keywords"]:
+                    keywords_text = "、".join(question["keywords"])
+                    rows.append(
+                        dedent(
+                            f"""
+                            <tr>
+                                <th scope=\"row\">
+                                    <div class=\"guideline-label\">
+                                        <span class=\"guideline-icon\" data-icon=\"KW\"></span>
+                                        <span>キーワード評価</span>
+                                    </div>
+                                </th>
+                                <td>
+                                    <div class=\"guideline-body\">{html.escape(keywords_text)} を含めると加点対象です。</div>
+                                </td>
+                            </tr>
+                            """
+                        ).strip()
+                    )
 
-    st.markdown('<div id="practice-actions"></div>', unsafe_allow_html=True)
+                model_answer_text = _normalize_text_block(question.get("model_answer"))
+                if model_answer_text:
+                    model_answer_html = html.escape(model_answer_text).replace("\n", "<br>")
+                    model_answer_length_value = _compute_fullwidth_length(
+                        model_answer_text.replace("\n", "")
+                    )
+                    model_answer_length = _format_fullwidth_length(model_answer_length_value)
+                    rows.append(
+                        dedent(
+                            f"""
+                            <tr>
+                                <th scope=\"row\">
+                                    <div class=\"guideline-label\">
+                                        <span class=\"guideline-icon\" data-icon=\"模\"></span>
+                                        <span>模範解答</span>
+                                    </div>
+                                </th>
+                                <td>
+                                    <div class=\"guideline-body\">
+                                        <span class=\"guideline-meta\">文字数: {model_answer_length}字</span>
+                                        {model_answer_html}
+                                    </div>
+                                </td>
+                            </tr>
+                            """
+                        ).strip()
+                    )
 
-    submitted = st.button("AI採点に送信", type="primary")
+                explanation_text = _normalize_text_block(
+                    question.get("explanation") or question.get("解説")
+                )
+                if explanation_text:
+                    explanation_html = html.escape(explanation_text).replace("\n", "<br>")
+                    rows.append(
+                        dedent(
+                            f"""
+                            <tr>
+                                <th scope=\"row\">
+                                    <div class=\"guideline-label\">
+                                        <span class=\"guideline-icon\" data-icon=\"解\"></span>
+                                        <span>模範解答の解説</span>
+                                    </div>
+                                </th>
+                                <td>
+                                    <div class=\"guideline-body\">{explanation_html}</div>
+                                </td>
+                            </tr>
+                            """
+                        ).strip()
+                    )
+
+                if rows:
+                    st.markdown(
+                        """
+                        <div class="guideline-card">
+                            <table class="guideline-table">
+                                <tbody>
+                                    {rows}
+                                </tbody>
+                            </table>
+                        </div>
+                        """.format(rows="".join(rows)),
+                        unsafe_allow_html=True,
+                    )
+                st.caption(
+                    "模範解答は構成や論理展開の参考例です。キーワードを押さえつつ自分の言葉で表現しましょう。"
+                )
+
+        st.markdown('<div id="practice-actions"></div>', unsafe_allow_html=True)
+
+        submitted = st.button("AI採点に送信", type="primary")
 
     if submitted:
         answers = []
