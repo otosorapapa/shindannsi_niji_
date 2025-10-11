@@ -1868,6 +1868,85 @@ def _inject_question_card_styles() -> None:
     st.session_state["_question_card_styles_injected"] = True
 
 
+def _inject_question_insight_styles() -> None:
+    if st.session_state.get("_question_insight_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .question-insight-card {
+                position: relative;
+                border-radius: 18px;
+                padding: 1.4rem 1.6rem;
+                margin: 0.8rem 0 1.3rem;
+                background: linear-gradient(135deg, rgba(224, 242, 254, 0.85), rgba(237, 233, 254, 0.92));
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                box-shadow: 0 18px 32px rgba(15, 23, 42, 0.08);
+            }
+            .question-insight-card::after {
+                content: "";
+                position: absolute;
+                inset: 10px;
+                border-radius: 14px;
+                border: 1px dashed rgba(99, 102, 241, 0.35);
+                pointer-events: none;
+            }
+            .question-insight-header {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                margin-bottom: 1rem;
+            }
+            .question-insight-eyebrow {
+                font-size: 0.75rem;
+                letter-spacing: 0.12em;
+                font-weight: 700;
+                color: #4338ca;
+                text-transform: uppercase;
+            }
+            .question-insight-divider {
+                flex: 1;
+                height: 1px;
+                background: linear-gradient(90deg, rgba(59, 130, 246, 0.35), rgba(59, 130, 246, 0));
+            }
+            .question-insight-body {
+                font-size: 0.98rem;
+                line-height: 1.8;
+                color: #0f172a;
+                white-space: pre-wrap;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_question_insight_styles_injected"] = True
+
+
+def _render_question_insight_block(text: str) -> None:
+    if not text:
+        return
+
+    _inject_question_insight_styles()
+    insight_html = html.escape(text).replace("\n", "<br />")
+    st.markdown(
+        dedent(
+            f"""
+            <div class="question-insight-card">
+                <div class="question-insight-header">
+                    <span class="question-insight-eyebrow">INSIGHT</span>
+                    <div class="question-insight-divider"></div>
+                </div>
+                <div class="question-insight-body">{insight_html}</div>
+            </div>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+
+
 def _inject_context_highlight_styles() -> None:
     if st.session_state.get("_context_highlight_styles_injected"):
         return
@@ -6415,7 +6494,7 @@ def practice_page(user: Dict) -> None:
             insight_text = _resolve_question_insight(selected_question)
             if insight_text:
                 st.markdown("##### 設問インサイト")
-                st.write(insight_text)
+                _render_question_insight_block(insight_text)
             full_question_text = _normalize_text_block(
                 _select_first(
                     selected_question,
@@ -7136,7 +7215,7 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             insight_text = _resolve_question_insight(insight_question)
             if insight_text:
                 st.markdown("##### 設問インサイト")
-                st.write(insight_text)
+                _render_question_insight_block(insight_text)
             full_question_text = question_body_text
             if full_question_text:
                 st.markdown("##### 設問文")
