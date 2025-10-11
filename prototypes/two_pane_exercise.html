@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>診断士二次 演習UIプロトタイプ</title>
+    <style>
+      :root {
+        /* カラーと余白のカスタムプロパティ */
+        --color-bg: #f9fafb;
+        --color-text: #1f2933;
+        --color-border: rgba(31, 41, 51, 0.16);
+        --color-chip-bg: rgba(31, 41, 51, 0.08);
+        --color-chip-active: #2563eb;
+        --color-chip-active-text: #ffffff;
+        --color-warning: #dc2626;
+        --color-card-a: #e6f1ff;
+        --color-card-b: #e9f9f1;
+        --color-card-c: #fff6e5;
+        --color-card-d: #ffe9f3;
+        --shadow-focus: 0 0 0 2px rgba(37, 99, 235, 0.45);
+        --radius-card: 16px;
+        --spacing-lg: 32px;
+        --spacing-md: 16px;
+        --spacing-sm: 12px;
+        --spacing-xs: 8px;
+        --transition-duration: 200ms;
+        font-size: 16px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --color-bg: #111827;
+          --color-text: #f3f4f6;
+          --color-border: rgba(243, 244, 246, 0.25);
+          --color-chip-bg: rgba(243, 244, 246, 0.12);
+          --color-chip-active: #60a5fa;
+          --color-chip-active-text: #0b1120;
+          --color-card-a: rgba(96, 165, 250, 0.24);
+          --color-card-b: rgba(52, 211, 153, 0.24);
+          --color-card-c: rgba(251, 191, 36, 0.24);
+          --color-card-d: rgba(248, 113, 113, 0.24);
+          --shadow-focus: 0 0 0 2px rgba(96, 165, 250, 0.65);
+        }
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Noto Sans JP", system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        background-color: var(--color-bg);
+        color: var(--color-text);
+        line-height: 1.6;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      a:focus-visible,
+      button:focus-visible,
+      textarea:focus-visible,
+      [role="button"]:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
+        border-radius: 8px;
+      }
+
+      .layout {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--spacing-lg);
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: var(--spacing-lg) var(--spacing-md) calc(var(--spacing-lg) * 2);
+      }
+
+      .context-pane {
+        position: sticky;
+        top: var(--spacing-lg);
+        max-height: calc(100vh - var(--spacing-lg) * 2);
+        overflow-y: auto;
+        flex: 0 0 380px;
+        padding: var(--spacing-lg) var(--spacing-md);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-card);
+        background-color: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(4px);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .context-pane {
+          background-color: rgba(17, 24, 39, 0.82);
+        }
+      }
+
+      .context-pane__header {
+        margin-bottom: var(--spacing-md);
+      }
+
+      .context-pane__meta {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--spacing-xs) var(--spacing-sm);
+        font-size: 0.88rem;
+      }
+
+      .context-pane__meta dt {
+        font-weight: 600;
+      }
+
+      .context-pane__body {
+        font-size: 0.96rem;
+        white-space: pre-line;
+      }
+
+      .exercise {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-lg);
+        min-width: 0;
+      }
+
+      .exercise__toc {
+        position: sticky;
+        top: var(--spacing-lg);
+        z-index: 5;
+        background: linear-gradient(to bottom, var(--color-bg) 80%, transparent);
+        padding: var(--spacing-md) var(--spacing-md) var(--spacing-sm);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-card);
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+      }
+
+      .toc__link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: 999px;
+        background-color: var(--color-chip-bg);
+        font-size: 0.9rem;
+        border: 1px solid transparent;
+        transition: background-color var(--transition-duration) ease,
+          color var(--transition-duration) ease,
+          border-color var(--transition-duration) ease;
+        text-decoration: none;
+      }
+
+      .toc__link:hover,
+      .toc__link:focus-visible {
+        border-color: var(--color-chip-active);
+      }
+
+      .toc__link--active {
+        background-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
+      }
+
+      .exercise__questions {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-lg);
+      }
+
+      .question-card {
+        position: relative;
+        padding: var(--spacing-lg);
+        border-radius: var(--radius-card);
+        border: 1px solid var(--color-border);
+        background-color: var(--color-card-a);
+        box-shadow: none;
+        transition: box-shadow var(--transition-duration) ease,
+          transform var(--transition-duration) ease;
+      }
+
+      .question-card:nth-of-type(4n + 2) {
+        background-color: var(--color-card-b);
+      }
+
+      .question-card:nth-of-type(4n + 3) {
+        background-color: var(--color-card-c);
+      }
+
+      .question-card:nth-of-type(4n + 4) {
+        background-color: var(--color-card-d);
+      }
+
+      .question-card:hover,
+      .question-card:focus-within {
+        box-shadow: 0 12px 32px rgba(31, 41, 51, 0.12);
+        transform: translateY(-2px);
+      }
+
+      .question-card__header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing-md);
+      }
+
+      .question-card__badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        background-color: rgba(31, 41, 51, 0.85);
+        color: #ffffff;
+        font-weight: 700;
+      }
+
+      .question-card__title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin: 0;
+      }
+
+      .question-card__meta {
+        margin-left: auto;
+        display: flex;
+        gap: var(--spacing-sm);
+        font-size: 0.9rem;
+      }
+
+      .question-card__body {
+        margin-bottom: var(--spacing-md);
+      }
+
+      .question-card__input {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-xs);
+      }
+
+      .question-card__textarea {
+        width: 100%;
+        min-height: 160px;
+        padding: var(--spacing-sm);
+        border-radius: 12px;
+        border: 1px solid rgba(31, 41, 51, 0.2);
+        background-color: rgba(255, 255, 255, 0.82);
+        color: inherit;
+        font-size: 1rem;
+        resize: vertical;
+        transition: border-color var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .question-card__textarea {
+          background-color: rgba(17, 24, 39, 0.7);
+          border-color: rgba(243, 244, 246, 0.24);
+        }
+      }
+
+      .question-card__textarea:focus {
+        border-color: var(--color-chip-active);
+      }
+
+      .char-counter {
+        align-self: flex-end;
+        font-size: 0.85rem;
+      }
+
+      .char-counter--limit {
+        color: var(--color-warning);
+        font-weight: 600;
+      }
+
+      .support-block {
+        border-top: 1px solid var(--color-border);
+        padding-top: var(--spacing-sm);
+        margin-top: var(--spacing-md);
+        font-size: 0.9rem;
+      }
+
+      .support-block__toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        background: none;
+        border: none;
+        padding: 0;
+        font: inherit;
+        color: inherit;
+      }
+
+      .support-block__content {
+        margin-top: var(--spacing-xs);
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: 8px;
+        background-color: rgba(255, 255, 255, 0.55);
+      }
+
+      .support-block__content[hidden] {
+        display: none;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .support-block__content {
+          background-color: rgba(17, 24, 39, 0.55);
+        }
+      }
+
+      .question-card--active::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        border: 2px solid var(--color-chip-active);
+        pointer-events: none;
+        animation: activePulse 2s ease;
+      }
+
+      @keyframes activePulse {
+        0% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      @media (max-width: 1024px) {
+        .context-pane {
+          flex-basis: 320px;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .layout {
+          flex-direction: column;
+        }
+
+        .context-pane {
+          position: relative;
+          top: auto;
+          max-height: none;
+          width: 100%;
+          flex: 1 1 auto;
+        }
+
+        .exercise__toc {
+          position: sticky;
+          top: 0;
+        }
+      }
+
+      @media (max-width: 600px) {
+        .layout {
+          padding: var(--spacing-md);
+        }
+
+        .context-pane__miniheader {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          display: flex;
+          flex-wrap: wrap;
+          gap: var(--spacing-xs);
+          align-items: center;
+          padding: var(--spacing-xs) 0;
+          background-color: var(--color-bg);
+        }
+
+        .context-pane__miniheader a {
+          color: var(--color-chip-active);
+          font-size: 0.85rem;
+          text-decoration: underline;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside
+        class="context-pane"
+        role="region"
+        aria-labelledby="context-heading"
+      >
+        <header class="context-pane__header">
+          <div class="context-pane__miniheader">
+            <strong>事例I 令和6年</strong>
+            <a href="#question-1">設問一覧へジャンプ</a>
+          </div>
+          <h1 id="context-heading">B製造業 与件文</h1>
+          <dl class="context-pane__meta">
+            <dt>業種</dt>
+            <dd>精密機器製造</dd>
+            <dt>従業員</dt>
+            <dd>220名</dd>
+            <dt>売上規模</dt>
+            <dd>58億円</dd>
+            <dt>キーワード</dt>
+            <dd>技能伝承 / 開発連携</dd>
+          </dl>
+        </header>
+        <div class="context-pane__body">
+          <!-- 与件文を常時参照できるよう縦スクロール可能に配置 -->
+          A社は創業40年の精密機器メーカーである。創業者の引退を契機に、
+          2代目社長は設計部門のDX化と熟練技術者の技能伝承を最優先テーマ
+          と定めた。設計BOMと生産BOMが分断されており、製品立ち上げ時の
+          手戻りが多発している。また、顧客ニーズの高度化に伴い、多品種小
+          ロットかつ短納期での開発対応が求められている。
+
+          現状、設計段階での顧客折衝は営業部門が単独で担っており、設計の
+          観点が十分に反映されていない。生産部門ではベテラン技能者の高齢
+          化が進み、暗黙知の形式知化が急務となっている。社長は部門横断で
+          の情報共有と意思決定スピードの改善を目指し、試験的にデジタル・
+          コラボレーション基盤を導入した。
+
+          今後は、設計段階からの顧客共創、外部パートナーとの連携強化、そ
+          れに伴う評価制度の再設計が検討課題である。
+        </div>
+      </aside>
+
+      <main class="exercise" role="main" aria-labelledby="exercise-heading">
+        <h2 id="exercise-heading" class="sr-only">演習と設問</h2>
+        <nav class="exercise__toc" aria-label="設問目次">
+          <!-- TOCチップで現在の設問位置を可視化 -->
+          <a class="toc__link" href="#question-1">設問1</a>
+          <a class="toc__link" href="#question-2">設問2</a>
+          <a class="toc__link" href="#question-3">設問3</a>
+          <a class="toc__link" href="#question-4">設問4</a>
+        </nav>
+        <section class="exercise__questions" aria-live="polite">
+          <article
+            id="question-1"
+            class="question-card"
+            role="region"
+            aria-labelledby="question-1-title"
+            data-max-length="120"
+          >
+            <header class="question-card__header">
+              <span class="question-card__badge">1</span>
+              <h3 id="question-1-title" class="question-card__title">
+                経営課題の整理
+              </h3>
+              <div class="question-card__meta">
+                <span>配点 20点</span>
+                <span>120字以内</span>
+              </div>
+            </header>
+            <div class="question-card__body">
+              A社が直面している主要な経営課題を、設計・生産・人材の観点
+              から整理し、優先度の高い順に二点述べよ。
+            </div>
+            <div class="question-card__input">
+              <label class="sr-only" for="answer-1">設問1回答欄</label>
+              <textarea
+                id="answer-1"
+                class="question-card__textarea"
+                maxlength="300"
+                aria-describedby="counter-1"
+                data-max-length="120"
+              ></textarea>
+              <div id="counter-1" class="char-counter" aria-live="polite">
+                0 / 120 字
+              </div>
+            </div>
+            <div class="support-block">
+              <button
+                class="support-block__toggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="support-1"
+                data-support-id="support-1"
+              >
+                💡 思考補助
+              </button>
+              <div id="support-1" class="support-block__content" hidden>
+                設計部門のDX化、BOM連携、技能伝承、人材評価の整合性など、
+                与件文から直接引用できる語を起点に因果で整理する。
+              </div>
+            </div>
+          </article>
+
+          <article
+            id="question-2"
+            class="question-card"
+            role="region"
+            aria-labelledby="question-2-title"
+            data-max-length="160"
+          >
+            <header class="question-card__header">
+              <span class="question-card__badge">2</span>
+              <h3 id="question-2-title" class="question-card__title">
+                顧客共創の提案
+              </h3>
+              <div class="question-card__meta">
+                <span>配点 30点</span>
+                <span>160字以内</span>
+              </div>
+            </header>
+            <div class="question-card__body">
+              A社が顧客との共同開発を推進するための施策を、営業・設計・
+              生産の連携の仕組みとして提案せよ。
+            </div>
+            <div class="question-card__input">
+              <label class="sr-only" for="answer-2">設問2回答欄</label>
+              <textarea
+                id="answer-2"
+                class="question-card__textarea"
+                maxlength="400"
+                aria-describedby="counter-2"
+                data-max-length="160"
+              ></textarea>
+              <div id="counter-2" class="char-counter" aria-live="polite">
+                0 / 160 字
+              </div>
+            </div>
+            <div class="support-block">
+              <button
+                class="support-block__toggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="support-2"
+                data-support-id="support-2"
+              >
+                📌 注意事項
+              </button>
+              <div id="support-2" class="support-block__content" hidden>
+                顧客接点の情報共有タイミング、設計部門の早期参画、試作段
+                階でのフィードバックループを盛り込む。
+              </div>
+            </div>
+          </article>
+
+          <article
+            id="question-3"
+            class="question-card"
+            role="region"
+            aria-labelledby="question-3-title"
+            data-max-length="160"
+          >
+            <header class="question-card__header">
+              <span class="question-card__badge">3</span>
+              <h3 id="question-3-title" class="question-card__title">
+                技能伝承の仕組み
+              </h3>
+              <div class="question-card__meta">
+                <span>配点 25点</span>
+                <span>160字以内</span>
+              </div>
+            </header>
+            <div class="question-card__body">
+              熟練技能の形式知化と継承を加速するための施策を、教育体系と
+              デジタル活用の両面から述べよ。
+            </div>
+            <div class="question-card__input">
+              <label class="sr-only" for="answer-3">設問3回答欄</label>
+              <textarea
+                id="answer-3"
+                class="question-card__textarea"
+                maxlength="400"
+                aria-describedby="counter-3"
+                data-max-length="160"
+              ></textarea>
+              <div id="counter-3" class="char-counter" aria-live="polite">
+                0 / 160 字
+              </div>
+            </div>
+            <div class="support-block">
+              <button
+                class="support-block__toggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="support-3"
+                data-support-id="support-3"
+              >
+                🗂 Tips
+              </button>
+              <div id="support-3" class="support-block__content" hidden>
+                指導員制度、ペアワーク、動画記録、工程別のナレッジカード
+                など複数手段を組み合わせ、習熟度指標を定義する。
+              </div>
+            </div>
+          </article>
+
+          <article
+            id="question-4"
+            class="question-card"
+            role="region"
+            aria-labelledby="question-4-title"
+            data-max-length="200"
+          >
+            <header class="question-card__header">
+              <span class="question-card__badge">4</span>
+              <h3 id="question-4-title" class="question-card__title">
+                評価制度の再設計
+              </h3>
+              <div class="question-card__meta">
+                <span>配点 25点</span>
+                <span>200字以内</span>
+              </div>
+            </header>
+            <div class="question-card__body">
+              DX推進と技能伝承を両立させる評価制度・報酬制度の改善策を、
+              期待する行動指標を含めて述べよ。
+            </div>
+            <div class="question-card__input">
+              <label class="sr-only" for="answer-4">設問4回答欄</label>
+              <textarea
+                id="answer-4"
+                class="question-card__textarea"
+                maxlength="500"
+                aria-describedby="counter-4"
+                data-max-length="200"
+              ></textarea>
+              <div id="counter-4" class="char-counter" aria-live="polite">
+                0 / 200 字
+              </div>
+            </div>
+            <div class="support-block">
+              <button
+                class="support-block__toggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="support-4"
+                data-support-id="support-4"
+              >
+                ✅ ゴール像
+              </button>
+              <div id="support-4" class="support-block__content" hidden>
+                DXで創出した知見の共有や後進育成を評価指標に組み込み、成
+                果とプロセスを両面評価する基準づくりを意識する。
+              </div>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      // 現在の設問位置とTOCの同期、スムーススクロール、ハイライト
+      const tocLinks = document.querySelectorAll('.toc__link');
+      const questionCards = document.querySelectorAll('.question-card');
+
+      const activateCard = (card) => {
+        questionCards.forEach((c) => c.classList.remove('question-card--active'));
+        if (!card) return;
+        card.classList.add('question-card--active');
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          card.classList.remove('question-card--active');
+        } else {
+          setTimeout(() => {
+            card.classList.remove('question-card--active');
+          }, 2000);
+        }
+      };
+
+      tocLinks.forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          const targetId = link.getAttribute('href').substring(1);
+          const target = document.getElementById(targetId);
+          target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          if (target?.focus) {
+            try {
+              target.focus({ preventScroll: true });
+            } catch (error) {
+              target.focus();
+            }
+          }
+          activateCard(target);
+        });
+      });
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              const id = entry.target.getAttribute('id');
+              tocLinks.forEach((link) => {
+                link.classList.toggle(
+                  'toc__link--active',
+                  link.getAttribute('href') === `#${id}`
+                );
+              });
+            }
+          });
+        },
+        {
+          rootMargin: '-40% 0px -45% 0px',
+          threshold: 0.1,
+        }
+      );
+
+      questionCards.forEach((card) => {
+        card.setAttribute('tabindex', '-1');
+        observer.observe(card);
+      });
+
+      // 字数カウンタ：上限超過時は警告色を適用
+      const updateCounter = (textarea, counter) => {
+        const max = Number(textarea.dataset.maxLength);
+        const length = textarea.value.length;
+        const remaining = `${length} / ${max} 字`;
+        counter.textContent = remaining;
+        counter.classList.toggle('char-counter--limit', length > max);
+      };
+
+      document.querySelectorAll('.question-card__textarea').forEach((textarea) => {
+        const counter = document.getElementById(
+          textarea.getAttribute('aria-describedby')
+        );
+        updateCounter(textarea, counter);
+        textarea.addEventListener('input', () => updateCounter(textarea, counter));
+      });
+
+      // 折りたたみ補助情報：ローカルストレージで既読状態を保持
+      const supportToggles = document.querySelectorAll('.support-block__toggle');
+      const storageKey = 'exercise-support-state-v1';
+      let storedState = {};
+
+      try {
+        storedState = JSON.parse(localStorage.getItem(storageKey) || '{}');
+      } catch (error) {
+        storedState = {};
+      }
+
+      supportToggles.forEach((toggle) => {
+        const supportId = toggle.dataset.supportId;
+        const content = document.getElementById(supportId);
+        const isOpen = storedState[supportId];
+
+        if (isOpen) {
+          toggle.setAttribute('aria-expanded', 'true');
+          content.hidden = false;
+        }
+
+        toggle.addEventListener('click', () => {
+          const expanded = toggle.getAttribute('aria-expanded') === 'true';
+          toggle.setAttribute('aria-expanded', String(!expanded));
+          content.hidden = expanded;
+          storedState[supportId] = !expanded;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(storedState));
+          } catch (error) {
+            // ストレージ未対応環境では静かにフォールバック
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
