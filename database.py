@@ -1562,6 +1562,36 @@ def list_attempts(user_id: int) -> List[Dict[str, Any]]:
     return rows
 
 
+def fetch_all_attempt_scores() -> List[Dict[str, Any]]:
+    """Return attempt scores for all users for collaborative analysis."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            a.user_id,
+            a.problem_id,
+            a.total_score,
+            a.total_max_score,
+            a.mode,
+            a.started_at,
+            a.submitted_at,
+            a.duration_seconds,
+            p.year,
+            p.case_label,
+            p.title
+        FROM attempts a
+        JOIN problems p ON p.id = a.problem_id
+        WHERE a.total_score IS NOT NULL AND a.total_max_score IS NOT NULL
+        ORDER BY a.submitted_at
+        """,
+    )
+    rows = [dict(row) for row in cur.fetchall()]
+    conn.close()
+    return rows
+
+
 def fetch_learning_history(user_id: int) -> List[Dict]:
     """Return simplified attempt records for analytics on the history page."""
 
@@ -1650,6 +1680,7 @@ def fetch_keyword_performance(user_id: int) -> List[Dict]:
             p.year,
             p.case_label,
             p.title,
+            q.id AS question_id,
             q.prompt,
             q.max_score
         FROM attempt_answers aa
@@ -1679,6 +1710,7 @@ def fetch_keyword_performance(user_id: int) -> List[Dict]:
                 "year": row["year"],
                 "case_label": row["case_label"],
                 "title": row["title"],
+                "question_id": row["question_id"],
                 "prompt": row["prompt"],
                 "max_score": row["max_score"],
             }
