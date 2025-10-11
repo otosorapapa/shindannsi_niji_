@@ -8571,6 +8571,7 @@ def practice_page(user: Dict) -> None:
                     score=result.score,
                     feedback=result.feedback,
                     keyword_hits=result.keyword_hits,
+                    axis_breakdown=result.axis_breakdown,
                 )
             )
 
@@ -9556,6 +9557,10 @@ def render_attempt_results(attempt_id: int) -> None:
             st.write(f"**得点:** {answer['score']} / {answer['max_score']}")
             st.write("**フィードバック**")
             st.markdown(f"<pre>{answer['feedback']}</pre>", unsafe_allow_html=True)
+            axis_breakdown = answer.get("axis_breakdown") or {}
+            if axis_breakdown:
+                st.markdown("**観点別スコアの内訳**")
+                _render_axis_breakdown(axis_breakdown)
             if answer["keyword_hits"]:
                 keyword_df = pd.DataFrame(
                     [[kw, "○" if hit else "×"] for kw, hit in answer["keyword_hits"].items()],
@@ -9578,6 +9583,84 @@ def render_attempt_results(attempt_id: int) -> None:
                 st.caption("採点基準: 模範解答の論点とキーワードが盛り込まれているかを中心に評価しています。")
 
     st.info("学習履歴ページから過去の答案をいつでも振り返ることができます。")
+
+
+def _render_axis_breakdown(axis_breakdown: Dict[str, Dict[str, object]]) -> None:
+    axis_order = [axis["label"] for axis in scoring.EVALUATION_AXES]
+    if not axis_breakdown or not axis_order:
+        return
+
+    display_rows = []
+    chart_points = []
+    for idx, metadata in enumerate(scoring.EVALUATION_AXES):
+        label = metadata["label"]
+        breakdown = axis_breakdown.get(label) or {}
+        score_value = float(breakdown.get("score") or 0.0)
+        detail = str(breakdown.get("detail") or metadata.get("description") or "")
+        weight_pct = float(metadata.get("weight", 0.0)) * 100
+        display_rows.append(
+            {
+                "観点": label,
+                "スコア(%)": round(score_value * 100, 1),
+                "配点比重(%)": round(weight_pct, 1),
+                "評価コメント": detail,
+            }
+        )
+        chart_points.append({"観点": label, "スコア": score_value, "order": idx})
+
+    if not chart_points:
+        return
+
+    chart_df = pd.DataFrame(chart_points)
+    if len(chart_df) > 1:
+        chart_df = pd.concat([chart_df, chart_df.iloc[[0]]], ignore_index=True)
+        chart_df.loc[chart_df.index[-1], "order"] = len(chart_points)
+    chart_df["角度"] = chart_df["order"] / max(len(chart_points), 1) * 2 * math.pi
+
+    area = (
+        alt.Chart(chart_df)
+        .mark_area(line={"color": "#0F6AB2"}, color="rgba(15, 106, 178, 0.25)")
+        .encode(
+            theta=alt.Theta("角度:Q", stack=None),
+            radius=alt.Radius("スコア:Q", scale=alt.Scale(domain=[0, 1.05], nice=False)),
+            tooltip=[
+                alt.Tooltip("観点:N", title="観点"),
+                alt.Tooltip("スコア:Q", title="スコア", format=".0%"),
+            ],
+        )
+    )
+    points = (
+        alt.Chart(chart_df)
+        .mark_point(size=90, color="#0F6AB2")
+        .encode(
+            theta=alt.Theta("角度:Q", stack=None),
+            radius=alt.Radius("スコア:Q", scale=alt.Scale(domain=[0, 1.05], nice=False)),
+        )
+    )
+
+    label_df = pd.DataFrame(
+        {
+            "観点": [metadata["label"] for metadata in scoring.EVALUATION_AXES],
+            "角度": [idx / max(len(axis_order), 1) * 2 * math.pi for idx in range(len(axis_order))],
+            "radius": [1.08 for _ in axis_order],
+        }
+    )
+    labels = (
+        alt.Chart(label_df)
+        .mark_text(fontWeight="bold", color="#0F6AB2")
+        .encode(
+            theta=alt.Theta("角度:Q", stack=None),
+            radius=alt.Radius("radius:Q", scale=alt.Scale(domain=[0, 1.1], nice=False)),
+            text="観点:N",
+        )
+    )
+
+    chart = (area + points + labels).properties(height=320)
+    st.altair_chart(chart, use_container_width=True)
+
+    detail_df = pd.DataFrame(display_rows)
+    st.dataframe(detail_df, hide_index=True, use_container_width=True)
+    st.caption("レーダーチャートは各観点の0〜100%スコアを示し、配点比重は総合得点への寄与度を表します。")
 
 
 def _render_case_bundle_feedback(evaluation: scoring.BundleEvaluation) -> None:
@@ -9952,6 +10035,7 @@ def mock_exam_page(user: Dict) -> None:
                         score=result.score,
                         feedback=result.feedback,
                         keyword_hits=result.keyword_hits,
+                        axis_breakdown=result.axis_breakdown,
                     )
                 )
                 case_question_results.append({"question": question, "answer": text, "result": result})

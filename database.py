@@ -337,7 +337,8 @@ def initialize_database(*, force: bool = False) -> None:
             answer_text TEXT NOT NULL,
             score REAL,
             feedback TEXT,
-            keyword_hits_json TEXT
+            keyword_hits_json TEXT,
+            axis_breakdown_json TEXT
         );
 
         CREATE TABLE IF NOT EXISTS reminders (
@@ -411,6 +412,7 @@ def initialize_database(*, force: bool = False) -> None:
 
             _ensure_question_multimedia_columns(conn)
             _ensure_problem_context_columns(conn)
+            _ensure_attempt_answer_axis_column(conn)
 
             _seed_problems(conn, seed_payload)
         finally:
@@ -669,6 +671,18 @@ def _ensure_problem_context_columns(conn: sqlite3.Connection) -> None:
 
     if "context_text" not in columns:
         cursor.execute("ALTER TABLE problems ADD COLUMN context_text TEXT")
+        conn.commit()
+
+
+def _ensure_attempt_answer_axis_column(conn: sqlite3.Connection) -> None:
+    """Ensure attempt_answers table can store観点別スコアの詳細。"""
+
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(attempt_answers)")
+    columns = {row[1] for row in cursor.fetchall()}
+
+    if "axis_breakdown_json" not in columns:
+        cursor.execute("ALTER TABLE attempt_answers ADD COLUMN axis_breakdown_json TEXT")
         conn.commit()
 
 
@@ -1006,6 +1020,7 @@ class RecordedAnswer:
     score: float
     feedback: str
     keyword_hits: Dict[str, bool]
+    axis_breakdown: Dict[str, Dict[str, object]]
 
 
 def record_attempt(
@@ -1053,8 +1068,9 @@ def record_attempt(
         cur.execute(
             """
             INSERT INTO attempt_answers (
-                attempt_id, question_id, answer_text, score, feedback, keyword_hits_json
-            ) VALUES (?, ?, ?, ?, ?, ?)
+                attempt_id, question_id, answer_text, score, feedback,
+                keyword_hits_json, axis_breakdown_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 attempt_id,
@@ -1063,6 +1079,7 @@ def record_attempt(
                 answer.score,
                 answer.feedback,
                 json.dumps(answer.keyword_hits, ensure_ascii=False),
+                json.dumps(answer.axis_breakdown, ensure_ascii=False),
             ),
         )
 
@@ -1645,6 +1662,7 @@ def fetch_keyword_performance(user_id: int) -> List[Dict]:
             aa.score,
             aa.feedback,
             aa.keyword_hits_json,
+            aa.axis_breakdown_json,
             a.mode,
             a.submitted_at,
             p.year,
@@ -1675,6 +1693,7 @@ def fetch_keyword_performance(user_id: int) -> List[Dict]:
                 "score": row["score"],
                 "feedback": row["feedback"],
                 "keyword_hits": json.loads(row["keyword_hits_json"]) if row["keyword_hits_json"] else {},
+                "axis_breakdown": json.loads(row["axis_breakdown_json"]) if row["axis_breakdown_json"] else {},
                 "mode": row["mode"],
                 "submitted_at": row["submitted_at"],
                 "year": row["year"],
@@ -1787,6 +1806,7 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
                 "model_answer": row["model_answer"],
                 "explanation": row["explanation"],
                 "keyword_hits": json.loads(row["keyword_hits_json"]) if row["keyword_hits_json"] else {},
+                "axis_breakdown": json.loads(row["axis_breakdown_json"]) if row["axis_breakdown_json"] else {},
                 "intent_cards": json.loads(row["intent_cards_json"]) if row["intent_cards_json"] else [],
                 "video_url": row["video_url"],
                 "diagram_path": row["diagram_path"],
