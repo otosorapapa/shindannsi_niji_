@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from functools import lru_cache
 import copy
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
@@ -989,6 +990,127 @@ def _format_reiwa_label(year_label: str) -> str:
     return year_label
 
 
+@lru_cache(maxsize=1)
+def _question_type_lookup() -> Dict[Tuple[str, str, int], str]:
+    mapping: Dict[Tuple[str, str, int], str] = {}
+    if not QUESTION_TYPE_HISTORY_PATH.exists():
+        return mapping
+    try:
+        df = pd.read_csv(QUESTION_TYPE_HISTORY_PATH)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logging.warning("Failed to load question_type_history.csv: %s", exc)
+        return mapping
+
+    for row in df.itertuples(index=False):
+        try:
+            year_value = str(getattr(row, "year"))
+            question_no = int(getattr(row, "question_no"))
+        except (AttributeError, TypeError, ValueError):
+            continue
+        case_value = _normalize_case_label(getattr(row, "case", None) or "")
+        if not year_value or not case_value:
+            continue
+        question_type = str(getattr(row, "question_type", "")).strip()
+        if not question_type:
+            continue
+        normalized_years = {year_value}
+        formatted = _format_reiwa_label(year_value)
+        if formatted:
+            normalized_years.add(formatted)
+        for normalized_year in normalized_years:
+            mapping[(normalized_year, case_value, question_no)] = question_type
+    return mapping
+
+
+def _resolve_question_type(
+    year_label: Optional[str], case_label: Optional[str], question_number: Optional[int]
+) -> Optional[str]:
+    if question_number is None or not case_label:
+        return None
+    normalized_case = _normalize_case_label(case_label)
+    if not normalized_case:
+        return None
+    keys: List[Tuple[str, str, int]] = []
+    if year_label:
+        year_label = str(year_label)
+        keys.append((year_label, normalized_case, int(question_number)))
+        formatted = _format_reiwa_label(year_label)
+        if formatted:
+            keys.append((formatted, normalized_case, int(question_number)))
+    else:
+        keys.append(("", normalized_case, int(question_number)))
+    lookup = _question_type_lookup()
+    for key in keys:
+        if key in lookup:
+            return lookup[key]
+    return None
+
+
+def _normalize_keywords(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        tokens = re.split(r"[、,;\n]", value)
+        return [token.strip() for token in tokens if token.strip()]
+    if isinstance(value, Iterable):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return []
+
+
+def _derive_question_tags(
+    question: Dict[str, Any],
+    *,
+    year_label: Optional[str] = None,
+    case_label: Optional[str] = None,
+) -> Tuple[str, List[str]]:
+    order_value = question.get("order") or question.get("設問番号")
+    normalized_order = _normalize_question_number(order_value)
+    if normalized_order is None:
+        try:
+            normalized_order = int(order_value)
+        except (TypeError, ValueError):
+            normalized_order = None
+    if normalized_order is not None:
+        q_chip = f"Q{int(normalized_order)}"
+    else:
+        q_chip = "Q?"
+
+    question_type = question.get("question_type") or _resolve_question_type(
+        year_label, case_label, normalized_order
+    )
+    prompt_text = _normalize_text_block(
+        question.get("prompt")
+        or question.get("設問見出し")
+        or question.get("設問文")
+        or question.get("問題文")
+    )
+    base_text = " ".join(filter(None, [question_type, prompt_text]))
+
+    def _matches(keywords: Iterable[str]) -> bool:
+        return any(keyword in base_text for keyword in keywords if keyword)
+
+    tags: List[str] = []
+    if question_type or prompt_text:
+        if _matches(["分析", "要因", "課題", "現状", "把握", "評価"]):
+            tags.append("分析系")
+        if _matches(["提案", "施策", "戦略", "改善", "提言", "計画", "方針"]):
+            tags.append("提言系")
+        if _matches(["組織", "人事", "内部", "オペレーション", "生産", "従業員", "業務", "体制"]):
+            tags.append("内部")
+        if _matches(["市場", "顧客", "外部", "販売", "マーケ", "連携", "競合", "チャネル", "需要"]):
+            tags.append("外部")
+
+    seen: Set[str] = set()
+    ordered_tags: List[str] = []
+    for candidate in ["分析系", "提言系", "内部", "外部"]:
+        if candidate in tags and candidate not in seen:
+            ordered_tags.append(candidate)
+            seen.add(candidate)
+    for tag in tags:
+        if tag not in seen:
+            ordered_tags.append(tag)
+            seen.add(tag)
+    return q_chip, ordered_tags
 def _year_sort_key(year_label: str) -> int:
     match = re.search(r"令和(\d+)年", year_label)
     if match:
@@ -1554,6 +1676,43 @@ def _inject_practice_question_styles() -> None:
                 font-weight: 700;
                 color: var(--practice-text-strong);
             }
+            .practice-question-title-block {
+                display: flex;
+                flex-direction: column;
+                gap: 0.45rem;
+            }
+            .practice-question-badges {
+                display: inline-flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 0.4rem;
+            }
+            .practice-question-qchip {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0.22rem 0.55rem 0.2rem;
+                border-radius: 999px;
+                font-size: 0.72rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                background: rgba(37, 99, 235, 0.12);
+                color: #1d4ed8;
+                border: 1px solid rgba(37, 99, 235, 0.24);
+            }
+            .practice-question-tag {
+                display: inline-flex;
+                align-items: center;
+                padding: 0.22rem 0.55rem 0.18rem;
+                border-radius: 999px;
+                font-size: 0.72rem;
+                font-weight: 600;
+                letter-spacing: 0.02em;
+                background: rgba(14, 165, 233, 0.12);
+                color: #0369a1;
+                border: 1px solid rgba(14, 165, 233, 0.24);
+            }
             .practice-question-header-meta {
                 display: flex;
                 flex-direction: column;
@@ -1603,6 +1762,30 @@ def _inject_practice_question_styles() -> None:
                 background: rgba(59, 130, 246, 0.12);
                 color: #1d4ed8;
                 border: 1px solid rgba(59, 130, 246, 0.28);
+            }
+            .practice-question-back {
+                position: absolute;
+                top: 1rem;
+                right: 1.2rem;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.3rem;
+                padding: 0.25rem 0.55rem;
+                border-radius: 999px;
+                font-size: 0.75rem;
+                font-weight: 600;
+                color: #1d4ed8;
+                background: rgba(59, 130, 246, 0.08);
+                border: 1px solid rgba(59, 130, 246, 0.24);
+                text-decoration: none;
+                transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+            }
+            .practice-question-back:hover,
+            .practice-question-back:focus-visible {
+                color: #1d4ed8;
+                background: rgba(191, 219, 254, 0.65);
+                box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+                text-decoration: none;
             }
             .practice-floating-buttons {
                 position: fixed;
@@ -4098,6 +4281,154 @@ def _render_problem_context_block(
     return total_matches
 
 
+def _summarize_question_intent(
+    question: Dict[str, Any]
+) -> Tuple[Optional[str], List[str]]:
+    candidates = [
+        question.get("question_aim"),
+        question.get("uploaded_question_aim"),
+        question.get("設問の狙い"),
+        question.get("aim"),
+    ]
+    summary_text = ""
+    for candidate in candidates:
+        normalized = _normalize_text_block(candidate)
+        if normalized:
+            summary_text = normalized
+            break
+    if not summary_text:
+        summary_text = _normalize_text_block(_infer_question_aim(question))
+
+    expected_elements: List[str] = []
+    for card in question.get("intent_cards", []) or []:
+        if not isinstance(card, dict):
+            continue
+        label = _normalize_text_block(card.get("label"))
+        if label:
+            expected_elements.append(label)
+            continue
+        example = _normalize_text_block(card.get("example"))
+        if example:
+            expected_elements.append(_format_preview_text(example, 36))
+    if not expected_elements:
+        keywords = _normalize_keywords(
+            question.get("keywords") or question.get("キーワード")
+        )
+        expected_elements.extend(keywords[:3])
+    scoring_points = question.get("scoring") or question.get("score_points")
+    if not expected_elements and isinstance(scoring_points, Iterable):
+        for point in scoring_points:
+            normalized_point = _normalize_text_block(point)
+            if normalized_point:
+                expected_elements.append(_format_preview_text(normalized_point, 36))
+    trimmed_elements = []
+    for element in expected_elements:
+        if element and element not in trimmed_elements:
+            trimmed_elements.append(element)
+        if len(trimmed_elements) >= 3:
+            break
+    return summary_text or None, trimmed_elements
+
+
+def _inject_question_intent_pin_styles() -> None:
+    if st.session_state.get("_question_intent_pin_styles_injected"):
+        return
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .question-intent-pin {
+                position: relative;
+                border-radius: 16px;
+                padding: 1.1rem 1.25rem 1.2rem;
+                margin-bottom: 1.2rem;
+                background: linear-gradient(135deg, rgba(244, 248, 255, 0.95), rgba(236, 253, 245, 0.92));
+                border: 1px solid rgba(148, 163, 184, 0.3);
+                box-shadow: 0 18px 30px rgba(15, 23, 42, 0.08);
+            }
+            .question-intent-pin::after {
+                content: "";
+                position: absolute;
+                inset: 10px;
+                border-radius: 12px;
+                border: 1px dashed rgba(59, 130, 246, 0.28);
+                pointer-events: none;
+            }
+            .question-intent-pin__label {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+                font-size: 0.78rem;
+                letter-spacing: 0.08em;
+                font-weight: 700;
+                text-transform: uppercase;
+                color: #1d4ed8;
+                margin-bottom: 0.35rem;
+            }
+            .question-intent-pin__body {
+                font-size: 0.94rem;
+                line-height: 1.7;
+                margin-bottom: 0.6rem;
+                color: #0f172a;
+            }
+            .question-intent-pin__list {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 0.4rem 0.75rem;
+                padding: 0;
+                margin: 0;
+                list-style: none;
+            }
+            .question-intent-pin__item {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+                padding: 0.4rem 0.55rem;
+                border-radius: 10px;
+                background: rgba(37, 99, 235, 0.08);
+                color: #1d4ed8;
+                font-size: 0.82rem;
+                border: 1px solid rgba(37, 99, 235, 0.18);
+            }
+            .question-intent-pin__item::before {
+                content: "★";
+                font-size: 0.7rem;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_question_intent_pin_styles_injected"] = True
+
+
+def _render_question_intent_pin(question: Dict[str, Any]) -> None:
+    summary, expected = _summarize_question_intent(question)
+    if not summary and not expected:
+        return
+    _inject_question_intent_pin_styles()
+    summary_html = html.escape(summary) if summary else ""
+    expected_html = "".join(
+        f"<li class=\"question-intent-pin__item\">{html.escape(item)}</li>"
+        for item in expected
+    )
+    st.markdown(
+        dedent(
+            f"""
+            <section class=\"question-intent-pin\">
+                <div class=\"question-intent-pin__label\">出題の趣旨（要約）</div>
+                {f'<div class="question-intent-pin__body">{summary_html}</div>' if summary_html else ''}
+                <div class=\"question-intent-pin__label\">期待される要素</div>
+                <ul class=\"question-intent-pin__list\">
+                    {expected_html or '<li class="question-intent-pin__item">明確な要素はデータ未登録</li>'}
+                </ul>
+            </section>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+
+
 def _render_question_overview_card(
     question: Dict[str, Any],
     *,
@@ -4105,6 +4436,8 @@ def _render_question_overview_card(
     source_label: Optional[str] = None,
     anchor_id: Optional[str] = None,
     header_id: Optional[str] = None,
+    year_label: Optional[str] = None,
+    back_target: Optional[str] = None,
 ) -> None:
     if not question:
         return
@@ -4127,6 +4460,11 @@ def _render_question_overview_card(
         f"設問{numeric_order}"
         if numeric_order is not None
         else f"設問{order}" if order is not None else "設問"
+    )
+    q_chip, tag_labels = _derive_question_tags(
+        question,
+        year_label=year_label or question.get("year"),
+        case_label=case_label or question.get("case_label"),
     )
 
     limit = question.get("character_limit") or question.get("制限字数")
@@ -4158,29 +4496,46 @@ def _render_question_overview_card(
     frame_labels = [frame.get("label") for frame in frames[:4] if frame.get("label")]
 
     meta_html = "".join(
-        f"<span class=\"practice-question-meta-item\">{html.escape(str(item))}</span>"
+        f'<span class="practice-question-meta-item">{html.escape(str(item))}</span>'
         for item in meta_items
         if item
     )
     chips_html = "".join(
-        f"<span class=\"practice-question-chip\">{html.escape(label)}</span>"
+        f'<span class="practice-question-chip">{html.escape(label)}</span>'
         for label in frame_labels
+    )
+    tag_html = "".join(
+        f'<span class="practice-question-tag">{html.escape(label)}</span>'
+        for label in tag_labels
+    )
+    badges_html = (
+        f'<div class="practice-question-badges">'
+        f'<span class="practice-question-qchip">{html.escape(q_chip)}</span>'
+        f"{tag_html}"
+        "</div>"
     )
 
     header_attributes = f' id="{html.escape(header_id)}"' if header_id else ""
+    back_link_html = ""
+    if back_target:
+        back_link_html = (
+            '<a class="practice-question-back" href="{target}" role="button" aria-label="前のステップに戻る">'
+            '<span aria-hidden="true">⟵</span><span>戻る</span></a>'
+        ).format(target=html.escape(back_target))
 
     st.markdown(
         dedent(
             f"""
-            <div class=\"question-mini-card practice-question-card\" data-theme=\"{theme}\">
-                <header class=\"practice-question-header\"{header_attributes}>
-                    <div class=\"practice-question-header-main\">
-                        <span class=\"practice-question-number\">{html.escape(order_label)}</span>
-                        <h3 class=\"practice-question-title\">{prompt}</h3>
+            <div class="question-mini-card practice-question-card" data-theme="{theme}">"
+                <header class="practice-question-header"{header_attributes}>
+                    <div class="practice-question-header-main">
+                        <span class="practice-question-number">{html.escape(order_label)}</span>
+                        <div class="practice-question-title-block">{badges_html}<h3 class="practice-question-title">{prompt}</h3></div>
                     </div>
-                    <div class=\"practice-question-header-meta\">
-                        <div class=\"practice-question-meta-items\">{meta_html}</div>
+                    <div class="practice-question-header-meta">
+                        <div class="practice-question-meta-items">{meta_html}</div>
                     </div>
+                    {back_link_html}
                 </header>
                 {f'<p class="practice-question-summary">{aim_html}</p>' if aim_html else ''}
                 {f'<div class="practice-question-chips">{chips_html}</div>' if chips_html else ''}
@@ -4711,7 +5066,9 @@ def main_view() -> None:
         "ホーム": dashboard_page,
         "過去問演習": practice_page,
         "模擬試験": mock_exam_page,
-        "学習履歴": history_page,
+        "採点・復習": review_page,
+        "弱点ドリル": drill_page,
+        "データ（成績・時間配分）": data_page,
         "設定": settings_page,
     }
 
@@ -7786,6 +8143,7 @@ def _question_input(
     question_index: Optional[int] = None,
     anchor_id: Optional[str] = None,
     header_id: Optional[str] = None,
+    year_label: Optional[str] = None,
 ) -> str:
     _inject_practice_question_styles()
     key = _draft_key(problem_id, question["id"])
@@ -7823,7 +8181,10 @@ def _question_input(
         case_label=case_label,
         anchor_id=anchor_id,
         header_id=header_id,
+        year_label=year_label,
+        back_target="#practice-selection",
     )
+    _render_question_intent_pin(question_overview)
 
     context_candidates = [
         question.get("context"),
@@ -9315,11 +9676,124 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
     return cloned
 
 
+
+
+def _inject_practice_flow_styles() -> None:
+    if st.session_state.get("_practice_flow_styles_injected"):
+        return
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .practice-flow-stepper {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                gap: 0.75rem;
+                padding: 0;
+                margin: 1.2rem 0 1.4rem;
+                list-style: none;
+            }
+            .practice-flow-step {
+                position: relative;
+                border-radius: 16px;
+                padding: 0.85rem 0.9rem 0.8rem;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: rgba(255, 255, 255, 0.82);
+                box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+                display: flex;
+                flex-direction: column;
+                gap: 0.3rem;
+                min-height: 82px;
+            }
+            .practice-flow-step::before {
+                content: "";
+                position: absolute;
+                inset: 10px;
+                border-radius: 12px;
+                border: 1px dashed rgba(148, 163, 184, 0.22);
+                pointer-events: none;
+            }
+            .practice-flow-step__index {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 1.6rem;
+                height: 1.6rem;
+                border-radius: 999px;
+                font-size: 0.78rem;
+                font-weight: 700;
+                background: rgba(59, 130, 246, 0.12);
+                color: #1d4ed8;
+            }
+            .practice-flow-step__label {
+                font-size: 0.9rem;
+                font-weight: 700;
+                color: #0f172a;
+            }
+            .practice-flow-step__status {
+                font-size: 0.74rem;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: #64748b;
+            }
+            .practice-flow-step--done {
+                border-color: rgba(34, 197, 94, 0.42);
+                background: rgba(220, 252, 231, 0.72);
+            }
+            .practice-flow-step--done .practice-flow-step__status {
+                color: #15803d;
+            }
+            .practice-flow-step--current {
+                border-color: rgba(59, 130, 246, 0.55);
+                box-shadow: 0 16px 30px rgba(37, 99, 235, 0.18);
+            }
+            .practice-flow-step--current .practice-flow-step__status {
+                color: #2563eb;
+            }
+            @media (max-width: 640px) {
+                .practice-flow-stepper {
+                    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                }
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_practice_flow_styles_injected"] = True
+
+
+def _render_practice_flow_stepper(steps: List[Dict[str, str]]) -> None:
+    if not steps:
+        return
+    _inject_practice_flow_styles()
+    items_html = []
+    for index, step in enumerate(steps, start=1):
+        label = html.escape(step.get("label") or "")
+        status = step.get("status") or "todo"
+        status_text = step.get("status_text") or ("完了" if status == "done" else "進行中" if status == "current" else "準備中")
+        items_html.append(
+            """
+            <li class="practice-flow-step practice-flow-step--{status}">
+                <span class="practice-flow-step__index">{index}</span>
+                <span class="practice-flow-step__label">{label}</span>
+                <span class="practice-flow-step__status">{status_text}</span>
+            </li>
+            """.format(status=status, index=index, label=label, status_text=html.escape(status_text))
+        )
+    st.markdown(
+        f'<ol class="practice-flow-stepper" role="list">{"".join(items_html)}</ol>',
+        unsafe_allow_html=True,
+    )
+
 def practice_page(user: Dict) -> None:
+    st.markdown('<div id="practice-flow-start"></div>', unsafe_allow_html=True)
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。与件ハイライトと詳細解説で復習効果を高めましょう。")
 
     _inject_practice_navigation_styles()
+
+    stepper_placeholder = st.empty()
 
     past_data_df = st.session_state.get("past_data")
     signature = _problem_data_signature()
@@ -9420,6 +9894,7 @@ def practice_page(user: Dict) -> None:
     tree_col, insight_col = st.columns([0.42, 0.58], gap="large")
 
     with tree_col:
+        st.markdown('<div id="practice-selection"></div>', unsafe_allow_html=True)
         st.markdown('<div class="practice-tree">', unsafe_allow_html=True)
         st.markdown("#### 出題ナビゲーション")
         st.caption("ドロップダウンから年度と設問を選択すると、右側に要点が即時表示されます。")
@@ -9510,6 +9985,41 @@ def practice_page(user: Dict) -> None:
             st.info("この事例の設問データが見つかりません。設定ページから追加してください。", icon="ℹ️")
 
         st.markdown("</div>", unsafe_allow_html=True)
+
+    attempt_id = st.session_state.get("practice_last_attempt_id")
+    attempt_problem_id = st.session_state.get("practice_last_problem_id")
+    attempt_done = bool(problem and attempt_id and attempt_problem_id == problem.get("id"))
+    review_plan = (
+        database.get_spaced_review(user["id"], problem["id"])
+        if problem
+        else None
+    )
+    step_labels = ["年度", "事例", "与件", "設問1-4", "採点", "復習カード"]
+    step_done = [
+        bool(selected_year),
+        bool(selected_case),
+        bool(problem),
+        attempt_done,
+        attempt_done,
+        bool(review_plan),
+    ]
+    flow_steps: List[Dict[str, str]] = []
+    for label, done in zip(step_labels, step_done):
+        status = "done" if done else "todo"
+        flow_steps.append({"label": label, "status": status})
+    if flow_steps:
+        try:
+            current_index = next(i for i, done in enumerate(step_done) if not done)
+        except StopIteration:
+            current_index = len(flow_steps) - 1
+        if 0 <= current_index < len(flow_steps) and not step_done[current_index]:
+            flow_steps[current_index]["status"] = "current"
+            flow_steps[current_index]["status_text"] = "進行中"
+        for idx, done in enumerate(step_done):
+            if done:
+                flow_steps[idx].setdefault("status_text", "完了")
+        with stepper_placeholder:
+            _render_practice_flow_stepper(flow_steps)
 
     with insight_col:
         st.markdown("#### 設問ビュー")
@@ -9836,6 +10346,7 @@ def practice_page(user: Dict) -> None:
                 question_index=idx,
                 anchor_id=anchor_value,
                 header_id=header_value,
+                year_label=problem.get("year"),
             )
             question_specs.append(
                 QuestionSpec(
@@ -10016,6 +10527,8 @@ def practice_page(user: Dict) -> None:
             reviewed_at=submitted_at,
         )
         st.session_state.practice_started = None
+        st.session_state.practice_last_attempt_id = attempt_id
+        st.session_state.practice_last_problem_id = problem["id"]
 
         st.success("採点が完了しました。結果を確認してください。")
         render_attempt_results(attempt_id)
@@ -10514,7 +11027,10 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         overview_question,
         case_label=selected_case,
         source_label=f"{selected_year} {selected_case}",
+        year_label=selected_year,
+        back_target="#practice-selection",
     )
+    _render_question_intent_pin(overview_question)
 
     context_candidates = [
         selected_question.get("与件文全体"),
@@ -11005,7 +11521,7 @@ def render_attempt_results(attempt_id: int) -> None:
                 )
                 st.caption("採点基準: 模範解答の論点とキーワードが盛り込まれているかを中心に評価しています。")
 
-    st.info("学習履歴ページから過去の答案をいつでも振り返ることができます。")
+    st.info("データ（成績・時間配分）ページから過去の答案をいつでも振り返ることができます。")
 
 
 def _render_axis_breakdown(axis_breakdown: Dict[str, Dict[str, object]]) -> None:
@@ -11420,6 +11936,7 @@ def mock_exam_page(user: Dict) -> None:
                     widget_prefix="mock_textarea_",
                     case_label=problem.get("case_label") or problem.get("case"),
                     question_index=idx,
+                    year_label=problem.get("year"),
                 )
                 st.markdown("</section>", unsafe_allow_html=True)
                 if idx < question_total:
@@ -11498,9 +12015,197 @@ def mock_exam_page(user: Dict) -> None:
                 st.caption("特筆すべき弱点は検出されませんでした。")
 
 
-def history_page(user: Dict) -> None:
-    st.title("学習履歴")
-    st.caption("演習記録・得点推移・エクスポートを確認します。")
+
+def review_page(user: Dict) -> None:
+    st.title("採点・復習")
+    st.caption("AI採点の結果と復習カードをまとめて確認し、次のアクションにつなげましょう。")
+
+    history_records = database.fetch_learning_history(user["id"])
+    if not history_records:
+        st.info("まだ演習結果がありません。『過去問演習』から学習を開始しましょう。")
+        return
+
+    history_df = pd.DataFrame(history_records)
+    history_df["日付"] = pd.to_datetime(history_df["日付"], errors="coerce")
+    if "学習時間(分)" in history_df.columns:
+        history_df["学習時間(分)"] = pd.to_numeric(
+            history_df["学習時間(分)"], errors="coerce"
+        ).fillna(0.0)
+    else:
+        history_df["学習時間(分)"] = 0.0
+    history_df.sort_values("日付", inplace=True)
+
+    stats = _compute_learning_stats(history_df)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("累計演習", f"{stats['total_sessions']}回")
+    average_display = (
+        f"{stats['recent_average']:.1f}点" if stats["recent_average"] is not None else "ー"
+    )
+    col2.metric("直近5回平均", average_display)
+    col3.metric("連続学習日数", f"{stats['streak_days']}日")
+
+    review_schedule = database.list_upcoming_reviews(user_id=user["id"], limit=6)
+    due_reviews = database.count_due_reviews(user_id=user["id"])
+
+    st.subheader("復習カード")
+    if review_schedule:
+        if due_reviews:
+            st.warning(
+                f"復習ハブで {due_reviews}件の期限が到来しています。優先タスクから着手しましょう。",
+                icon="⏱️",
+            )
+        cards = st.container()
+        with cards:
+            for item in review_schedule:
+                due_label = item["due_at"].strftime("%Y-%m-%d")
+                lines = [
+                    f"- **{due_label}** / {item['year']} {item['case_label']} — {item['title']}",
+                    f"    - 推奨: {item['recommended_items']}問・約{item['recommended_minutes']}分",
+                    f"    - 達成度: {(item['last_score_ratio'] or 0) * 100:.0f}%",
+                ]
+                st.markdown("\n".join(lines))
+    else:
+        st.info("復習カードはまだありません。演習を採点すると自動的に提案されます。")
+
+    st.divider()
+
+    attempt_rows = history_df.dropna(subset=["attempt_id", "日付"]).sort_values(
+        "日付", ascending=False
+    )
+    if attempt_rows.empty:
+        st.info("採点結果がまだありません。まずは演習を提出してみましょう。")
+        return
+
+    options = []
+    label_map = {}
+    for _, row in attempt_rows.head(8).iterrows():
+        try:
+            attempt_id = int(row["attempt_id"])
+        except (TypeError, ValueError):
+            continue
+        timestamp = row["日付"]
+        if pd.isna(timestamp):
+            continue
+        title = row.get("タイトル") or ""
+        label = f"{timestamp.strftime('%Y-%m-%d %H:%M')} / {row.get('年度', '')} {row.get('事例', '')} {title}".strip()
+        options.append(attempt_id)
+        label_map[attempt_id] = label
+
+    if not options:
+        st.info("採点結果が選択できませんでした。もう一度演習を提出してみましょう。")
+        return
+
+    selected_attempt = st.selectbox(
+        "採点結果を振り返る",
+        options,
+        format_func=lambda attempt_id: label_map.get(attempt_id, str(attempt_id)),
+    )
+    render_attempt_results(selected_attempt)
+
+
+def drill_page(user: Dict) -> None:
+    st.title("弱点ドリル")
+    st.caption("キーワード網羅率と出題タグから弱点を特訓できます。推奨テーマを確認して演習計画をブラッシュアップしましょう。")
+
+    keyword_records = database.fetch_keyword_performance(user["id"])
+    if not keyword_records:
+        st.info("キーワード採点の記録がまだありません。採点付き演習を行うと分析が表示されます。")
+        return
+
+    analysis = _analyze_keyword_records(keyword_records)
+    answers_df = analysis["answers"]
+    summary_df = analysis["summary"]
+    recommendations = analysis["recommendations"]
+
+    if not answers_df.empty:
+        scatter_source = answers_df.dropna(subset=["キーワード網羅率", "得点率"])
+        if not scatter_source.empty:
+            scatter_chart = (
+                alt.Chart(scatter_source)
+                .mark_circle(size=90, opacity=0.75)
+                .encode(
+                    x=alt.X(
+                        "キーワード網羅率:Q",
+                        title="キーワード網羅率 (%)",
+                        scale=alt.Scale(domain=[0, 100]),
+                    ),
+                    y=alt.Y(
+                        "得点率:Q",
+                        title="設問得点率 (%)",
+                        scale=alt.Scale(domain=[0, 100]),
+                    ),
+                    color="事例:N",
+                    tooltip=[
+                        "年度",
+                        "事例",
+                        "タイトル",
+                        "設問",
+                        alt.Tooltip("キーワード網羅率:Q", format=".1f"),
+                        alt.Tooltip("得点率:Q", format=".1f"),
+                        "不足キーワード表示",
+                    ],
+                )
+            )
+            st.subheader("設問別の網羅率×得点率")
+            st.altair_chart(scatter_chart, use_container_width=True)
+        else:
+            st.info("網羅率と得点率の両方が記録された設問がまだありません。")
+    else:
+        st.info("キーワード判定の付いた答案がまだありません。演習を重ねましょう。")
+
+    if not summary_df.empty:
+        st.subheader("頻出キーワードの到達状況")
+        display = summary_df.copy()
+        if "達成率(%)" in display.columns:
+            display["達成率(%)"] = display["達成率(%)"].map(
+                lambda v: f"{v:.0f}%" if pd.notna(v) else "-"
+            )
+        st.data_editor(display, hide_index=True, use_container_width=True, disabled=True)
+    else:
+        st.info("キーワード別の集計がまだありません。")
+
+    if recommendations:
+        st.subheader("優先して鍛えたいテーマ")
+        for item in recommendations[:5]:
+            keyword = item.get("keyword")
+            hit_rate = (item.get("hit_rate") or 0) * 100
+            attempts = item.get("attempts")
+            example = item.get("example")
+            lines = [
+                f"- **{keyword}** — 達成率 {hit_rate:.0f}% / 出題 {attempts}回",
+            ]
+            if example:
+                lines.append(f"    - 出題例: {example}")
+            st.markdown("\n".join(lines))
+    else:
+        st.info("優先テーマの提案はまだありません。データが集まると表示されます。")
+
+    if not answers_df.empty:
+        st.subheader("設問別キーワード判定一覧")
+        detail = answers_df[
+            [
+                "年度",
+                "事例",
+                "タイトル",
+                "設問",
+                "モード",
+                "キーワード網羅率",
+                "得点率",
+                "不足キーワード表示",
+            ]
+        ].copy()
+        detail["キーワード網羅率"] = detail["キーワード網羅率"].map(
+            lambda v: f"{v:.0f}%" if pd.notna(v) else "-"
+        )
+        detail["得点率"] = detail["得点率"].map(
+            lambda v: f"{v:.0f}%" if pd.notna(v) else "-"
+        )
+        st.data_editor(detail, hide_index=True, use_container_width=True, disabled=True)
+
+
+def data_page(user: Dict) -> None:
+    st.title("データ（成績・時間配分）")
+    st.caption("演習ログや時間配分を分析し、学習計画の意思決定に活用します。")
 
     history_records = database.fetch_learning_history(user["id"])
     if not history_records:
