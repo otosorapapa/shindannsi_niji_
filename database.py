@@ -1501,6 +1501,134 @@ def list_due_reviews(
     return items
 
 
+def get_question_progress_summary(user_id: int, *, recent_limit: int = 5) -> Dict[str, Any]:
+    """Return coverage information for question-level practice progress."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT COUNT(*) AS total FROM questions")
+    total_row = cur.fetchone()
+    total_questions = int(total_row["total"]) if total_row and total_row["total"] else 0
+
+    cur.execute(
+        """
+        SELECT COUNT(DISTINCT aa.question_id) AS studied
+        FROM attempt_answers aa
+        JOIN attempts a ON a.id = aa.attempt_id
+        WHERE a.user_id = ?
+        """,
+        (user_id,),
+    )
+    studied_row = cur.fetchone()
+    studied_questions = int(studied_row["studied"]) if studied_row and studied_row["studied"] else 0
+
+    cur.execute(
+        """
+        SELECT
+            q.id AS question_id,
+            q.question_order,
+            q.prompt,
+            p.id AS problem_id,
+            p.year,
+            p.case_label,
+            p.title,
+            MAX(COALESCE(a.submitted_at, a.started_at)) AS last_practiced_at,
+            MAX(sr.due_at) AS due_at
+        FROM attempt_answers aa
+        JOIN attempts a ON a.id = aa.attempt_id AND a.user_id = ?
+        JOIN questions q ON q.id = aa.question_id
+        JOIN problems p ON p.id = q.problem_id
+        LEFT JOIN spaced_reviews sr
+            ON sr.user_id = a.user_id AND sr.problem_id = p.id
+        GROUP BY q.id, q.question_order, q.prompt, p.id, p.year, p.case_label, p.title
+        ORDER BY last_practiced_at DESC
+        LIMIT ?
+        """,
+        (user_id, recent_limit),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    recent_questions: List[Dict[str, Any]] = []
+    for row in rows:
+        last_practiced = _parse_iso_datetime(
+            row["last_practiced_at"], field="attempts.submitted_at"
+        )
+        due_at = (
+            _parse_iso_datetime(row["due_at"], field="spaced_reviews.due_at")
+            if row["due_at"]
+            else None
+        )
+        recent_questions.append(
+            {
+                "question_id": row["question_id"],
+                "question_order": row["question_order"],
+                "prompt": row["prompt"],
+                "problem_id": row["problem_id"],
+                "year": row["year"],
+                "case_label": row["case_label"],
+                "title": row["title"],
+                "last_practiced_at": last_practiced,
+                "due_at": due_at,
+            }
+        )
+
+    progress_ratio = (studied_questions / total_questions) if total_questions else 0.0
+
+    return {
+        "total_questions": total_questions,
+        "studied_questions": studied_questions,
+        "progress_ratio": progress_ratio,
+        "recent_questions": recent_questions,
+    }
+
+
+def list_unattempted_questions(user_id: int, *, limit: int = 5) -> List[Dict[str, Any]]:
+    """Return questions the user has not attempted yet (or has no saved answers)."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            q.id AS question_id,
+            q.question_order,
+            q.prompt,
+            p.id AS problem_id,
+            p.year,
+            p.case_label,
+            p.title
+        FROM questions q
+        JOIN problems p ON p.id = q.problem_id
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM attempt_answers aa
+            JOIN attempts a ON a.id = aa.attempt_id
+            WHERE a.user_id = ? AND aa.question_id = q.id
+        )
+        ORDER BY p.year DESC, q.question_order ASC
+        LIMIT ?
+        """,
+        (user_id, limit),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    return [
+        {
+            "question_id": row["question_id"],
+            "question_order": row["question_order"],
+            "prompt": row["prompt"],
+            "problem_id": row["problem_id"],
+            "year": row["year"],
+            "case_label": row["case_label"],
+            "title": row["title"],
+        }
+        for row in rows
+    ]
+
+
 def list_upcoming_reviews(user_id: int, *, limit: int = 6) -> List[Dict]:
     """Return upcoming spaced repetition entries ordered by due date."""
 
