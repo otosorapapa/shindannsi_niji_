@@ -8855,6 +8855,144 @@ def _prepare_export_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return export_df
 
 
+def _prepare_history_log_export(history_df: pd.DataFrame) -> pd.DataFrame:
+    export_df = history_df.copy()
+    if "日付" in export_df.columns:
+        export_df["日付"] = pd.to_datetime(export_df["日付"], errors="coerce")
+    score_rate: List[Optional[float]] = []
+    if "得点" in export_df.columns and "満点" in export_df.columns:
+        scores = pd.to_numeric(export_df["得点"], errors="coerce")
+        max_scores = pd.to_numeric(export_df["満点"], errors="coerce")
+        for score_value, max_value in zip(scores, max_scores):
+            if pd.isna(score_value) or pd.isna(max_value) or not max_value:
+                score_rate.append(None)
+            else:
+                try:
+                    rate_value = round(float(score_value) / float(max_value) * 100, 1)
+                except ZeroDivisionError:
+                    rate_value = None
+                score_rate.append(rate_value)
+        if score_rate:
+            export_df["得点率(%)"] = score_rate
+    if "学習時間(分)" in export_df.columns:
+        export_df["学習時間(分)"] = export_df["学習時間(分)"].map(
+            lambda v: round(float(v), 1) if pd.notna(v) else v
+        )
+    if "日付" in export_df.columns:
+        export_df.sort_values("日付", inplace=True)
+        export_df["日付"] = export_df["日付"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    preferred_columns = [
+        "attempt_id",
+        "日付",
+        "年度",
+        "事例",
+        "タイトル",
+        "得点",
+        "満点",
+        "得点率(%)",
+        "学習時間(分)",
+        "モード",
+    ]
+    ordered_columns = [col for col in preferred_columns if col in export_df.columns]
+    remaining_columns = [col for col in export_df.columns if col not in ordered_columns]
+    export_df = export_df[ordered_columns + remaining_columns]
+    return export_df
+
+
+def _prepare_answer_log_export(keyword_records: List[Dict[str, Any]]) -> pd.DataFrame:
+    rows: List[Dict[str, Any]] = []
+    for record in keyword_records:
+        keyword_hits = record.get("keyword_hits") or {}
+        matched_keywords = [kw for kw, hit in keyword_hits.items() if hit]
+        missing_keywords = [kw for kw, hit in keyword_hits.items() if not hit]
+        score = record.get("score")
+        max_score = record.get("max_score")
+        score_ratio = None
+        if score is not None and max_score:
+            try:
+                score_ratio = round(float(score) / float(max_score) * 100, 1)
+            except ZeroDivisionError:
+                score_ratio = None
+        keyword_coverage = record.get("keyword_coverage")
+        coverage_pct = None
+        if keyword_coverage is not None:
+            try:
+                coverage_pct = round(float(keyword_coverage) * 100, 1)
+            except (TypeError, ValueError):
+                coverage_pct = None
+        duration_seconds = record.get("duration_seconds")
+        duration_minutes = None
+        if duration_seconds is not None:
+            try:
+                duration_minutes = round(float(duration_seconds) / 60.0, 1)
+            except (TypeError, ValueError):
+                duration_minutes = None
+        mode_label = "模試" if record.get("mode") == "mock" else "演習"
+        rows.append(
+            {
+                "attempt_id": record.get("attempt_id"),
+                "日付": record.get("submitted_at"),
+                "年度": record.get("year"),
+                "事例": record.get("case_label"),
+                "タイトル": record.get("title"),
+                "設問": record.get("question_order"),
+                "問題文": record.get("prompt"),
+                "解答": record.get("answer_text"),
+                "得点": score,
+                "満点": max_score,
+                "得点率(%)": score_ratio,
+                "自己評価": record.get("self_evaluation"),
+                "モード": mode_label,
+                "所要時間(分)": duration_minutes,
+                "キーワード網羅率(%)": coverage_pct,
+                "含まれたキーワード": "、".join(matched_keywords) if matched_keywords else "-",
+                "不足キーワード": "、".join(missing_keywords) if missing_keywords else "-",
+                "フィードバック": record.get("feedback"),
+            }
+        )
+    export_df = pd.DataFrame(rows)
+    if export_df.empty:
+        return export_df
+    export_df["日付"] = pd.to_datetime(export_df["日付"], errors="coerce")
+    export_df.sort_values(["日付", "年度", "事例", "設問"], inplace=True)
+    export_df["日付"] = export_df["日付"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    export_df["設問"] = pd.to_numeric(export_df["設問"], errors="coerce")
+    preferred_columns = [
+        "attempt_id",
+        "日付",
+        "年度",
+        "事例",
+        "タイトル",
+        "設問",
+        "問題文",
+        "解答",
+        "得点",
+        "満点",
+        "得点率(%)",
+        "キーワード網羅率(%)",
+        "自己評価",
+        "所要時間(分)",
+        "モード",
+        "含まれたキーワード",
+        "不足キーワード",
+        "フィードバック",
+    ]
+    ordered_columns = [col for col in preferred_columns if col in export_df.columns]
+    remaining_columns = [col for col in export_df.columns if col not in ordered_columns]
+    export_df = export_df[ordered_columns + remaining_columns]
+    return export_df
+
+
+def _build_learning_log_archive(score_csv: bytes, answer_csv: Optional[bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("score_history.csv", score_csv)
+        if answer_csv is not None:
+            archive.writestr("answer_history.csv", answer_csv)
+    buffer.seek(0)
+    return buffer.read()
+
+
 def _generate_pdca_insights(
     module_summary: pd.DataFrame,
     weekly_summary: pd.DataFrame,
@@ -12269,6 +12407,45 @@ def history_page(user: Dict) -> None:
             st.session_state.history_focus_from_notification = False
 
     keyword_records = database.fetch_keyword_performance(user["id"])
+    score_history_export = _prepare_history_log_export(history_df)
+    answer_history_export = _prepare_answer_log_export(keyword_records)
+    score_csv_bytes = score_history_export.to_csv(index=False).encode("utf-8-sig")
+    answer_csv_bytes = (
+        answer_history_export.to_csv(index=False).encode("utf-8-sig")
+        if not answer_history_export.empty
+        else None
+    )
+    archive_bytes = _build_learning_log_archive(score_csv_bytes, answer_csv_bytes)
+
+    st.subheader("学習ログのエクスポート")
+    st.caption(
+        "演習の得点推移と設問別の回答ログをダウンロードし、自己分析や講師との共有に活用できます。"
+    )
+    export_col1, export_col2, export_col3 = st.columns(3)
+    with export_col1:
+        st.download_button(
+            "得点推移CSVをダウンロード",
+            data=score_csv_bytes,
+            file_name="score_history.csv",
+            mime="text/csv",
+        )
+    with export_col2:
+        st.download_button(
+            "解答ログCSVをダウンロード",
+            data=answer_csv_bytes or b"",
+            file_name="answer_history.csv",
+            mime="text/csv",
+            disabled=answer_csv_bytes is None,
+        )
+        if answer_csv_bytes is None:
+            st.caption("採点済みの設問データがまだありません。演習を進めると自動で記録されます。")
+    with export_col3:
+        st.download_button(
+            "学習ログ一括ZIP",
+            data=archive_bytes,
+            file_name="learning_logs.zip",
+            mime="application/zip",
+        )
 
     stats = _compute_learning_stats(history_df)
     progress_overview = _compute_progress_overview(history_df)
