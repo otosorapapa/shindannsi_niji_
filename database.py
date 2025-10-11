@@ -8,14 +8,15 @@ scores.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import sqlite3
+import zlib
 from dataclasses import dataclass
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
-import logging
+from functools import lru_cache
 from pathlib import Path
 from threading import Lock
-from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 DB_PATH = Path("data/app.db")
@@ -28,8 +29,13 @@ _DATABASE_INITIALISED = False
 logger = logging.getLogger(__name__)
 
 
+_SEED_ONLY_ID_LOOKUP: Dict[int, Tuple[str, str]] = {}
+
+
 def _clear_problem_caches() -> None:
     """Reset memoized problem lookups after mutations or seeding."""
+
+    _SEED_ONLY_ID_LOOKUP.clear()
 
     for func_name in (
         "list_problems",
@@ -140,6 +146,114 @@ def _load_seed_problem_lookup(signature: Optional[float] = None) -> Dict[Tuple[s
     if signature is None:
         signature = _seed_file_signature()
     return _load_seed_problem_lookup_cached(signature)
+
+
+def _make_seed_problem_id(year: str, case_label: str) -> int:
+    """Return a stable negative identifier for seed-only problems."""
+
+    key_bytes = f"{year}::{case_label}".encode("utf-8")
+    # crc32 returns unsigned int, ensure negative identifier and avoid zero
+    return -(zlib.crc32(key_bytes) + 1)
+
+
+def _register_seed_only_problem(year: str, case_label: str) -> int:
+    """Return a deterministic ID for the given seed problem and cache the mapping."""
+
+    seed_id = _make_seed_problem_id(year, case_label)
+    _SEED_ONLY_ID_LOOKUP[seed_id] = (year, case_label)
+    return seed_id
+
+
+def _resolve_seed_problem_by_id(
+    problem_id: int, seed_lookup: Dict[Tuple[str, str], Dict[str, Any]]
+) -> Optional[Tuple[str, str, Dict[str, Any]]]:
+    """Return the seed problem metadata for the given identifier if available."""
+
+    mapping = _SEED_ONLY_ID_LOOKUP.get(problem_id)
+    if mapping:
+        year, case_label = mapping
+        seed_problem = seed_lookup.get((year, case_label))
+        if seed_problem:
+            return year, case_label, seed_problem
+
+    for (year, case_label), seed_problem in seed_lookup.items():
+        if _make_seed_problem_id(year, case_label) == problem_id:
+            _SEED_ONLY_ID_LOOKUP[problem_id] = (year, case_label)
+            return year, case_label, seed_problem
+
+    return None
+
+
+def _build_problem_from_seed(
+    *, problem_id: int, year: str, case_label: str, seed_problem: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Return a problem dictionary using only seed data."""
+
+    context_text = seed_problem.get("context") or seed_problem.get("context_text")
+    title = seed_problem.get("title", "")
+    overview = seed_problem.get("overview", "")
+
+    questions: List[Dict[str, Any]] = []
+    for idx, seed_question in enumerate(seed_problem.get("questions", []), start=1):
+        order = (
+            seed_question.get("order")
+            or seed_question.get("question_order")
+            or seed_question.get("設問番号")
+            or idx
+        )
+        keywords = seed_question.get("keywords") or []
+        if not isinstance(keywords, list):
+            keywords = [str(keywords)]
+        keywords = [str(item) for item in keywords]
+
+        intent_cards = seed_question.get("intent_cards") or []
+        normalized_cards: List[Dict[str, Any]] = []
+        if isinstance(intent_cards, list):
+            for card in intent_cards:
+                if isinstance(card, dict):
+                    normalized_cards.append(dict(card))
+                elif card is not None:
+                    normalized_cards.append({"label": str(card)})
+
+        question_entry: Dict[str, Any] = {
+            "id": None,
+            "prompt": seed_question.get("prompt", ""),
+            "character_limit": seed_question.get("character_limit"),
+            "max_score": seed_question.get("max_score"),
+            "model_answer": seed_question.get("model_answer", ""),
+            "explanation": seed_question.get("explanation", ""),
+            "keywords": keywords,
+            "order": order,
+            "question_order": order,
+            "intent_cards": normalized_cards,
+            "video_url": seed_question.get("video_url"),
+            "diagram_path": seed_question.get("diagram_path"),
+            "diagram_caption": seed_question.get("diagram_caption"),
+        }
+
+        for extra_key in (
+            "question_text",
+            "body",
+            "detailed_explanation",
+            "question_intent",
+            "問題文",
+            "設問文",
+        ):
+            if seed_question.get(extra_key):
+                question_entry[extra_key] = seed_question[extra_key]
+
+        questions.append(question_entry)
+
+    return {
+        "id": problem_id,
+        "year": year,
+        "case_label": case_label,
+        "title": title,
+        "overview": overview,
+        "context_text": context_text,
+        "context": context_text,
+        "questions": questions,
+    }
 
 
 def get_connection() -> sqlite3.Connection:
@@ -623,8 +737,10 @@ def _list_problems_impl(seed_signature: float) -> List[Dict[str, Any]]:
     conn.close()
 
     seed_lookup = _load_seed_problem_lookup_cached(seed_signature)
+    existing_keys = set()
     for row in rows:
         seed_problem = seed_lookup.get((row["year"], row["case_label"]))
+        existing_keys.add((row["year"], row["case_label"]))
         if not seed_problem:
             continue
         if seed_problem.get("title"):
@@ -635,21 +751,51 @@ def _list_problems_impl(seed_signature: float) -> List[Dict[str, Any]]:
         if context_text:
             row["context_text"] = context_text
 
+    _SEED_ONLY_ID_LOOKUP.clear()
+    for (year, case_label), seed_problem in seed_lookup.items():
+        seed_id = _register_seed_only_problem(year, case_label)
+        if (year, case_label) in existing_keys:
+            continue
+        rows.append(
+            {
+                "id": seed_id,
+                "year": year,
+                "case_label": case_label,
+                "title": seed_problem.get("title", ""),
+                "overview": seed_problem.get("overview", ""),
+                "context_text": seed_problem.get("context")
+                or seed_problem.get("context_text"),
+            }
+        )
+
+    rows.sort(key=lambda item: item.get("case_label", ""))
+    rows.sort(key=lambda item: item.get("year", ""), reverse=True)
     return rows
 
 
 @lru_cache(maxsize=1)
 def list_problem_years() -> List[str]:
+    return _list_problem_years_impl(_seed_file_signature())
+
+
+@lru_cache(maxsize=1)
+def _list_problem_years_impl(seed_signature: float) -> List[str]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT DISTINCT year FROM problems ORDER BY year DESC")
     years = [row[0] for row in cur.fetchall()]
     conn.close()
-    return years
+    seed_years = {year for (year, _case) in _load_seed_problem_lookup_cached(seed_signature).keys()}
+    merged_years = sorted(set(years) | seed_years, reverse=True)
+    return merged_years
+
+
+def list_problem_cases(year: str) -> List[str]:
+    return _list_problem_cases_impl(year, _seed_file_signature())
 
 
 @lru_cache(maxsize=None)
-def list_problem_cases(year: str) -> List[str]:
+def _list_problem_cases_impl(year: str, seed_signature: float) -> List[str]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -658,7 +804,14 @@ def list_problem_cases(year: str) -> List[str]:
     )
     cases = [row[0] for row in cur.fetchall()]
     conn.close()
-    return cases
+    seed_lookup = _load_seed_problem_lookup_cached(seed_signature)
+    seed_cases = [
+        case_label
+        for seed_year, case_label in seed_lookup.keys()
+        if seed_year == year
+    ]
+    merged_cases = sorted(set(cases) | set(seed_cases))
+    return merged_cases
 
 
 def fetch_problem(problem_id: int) -> Optional[Dict]:
@@ -667,13 +820,36 @@ def fetch_problem(problem_id: int) -> Optional[Dict]:
 
 @lru_cache(maxsize=None)
 def _fetch_problem_impl(problem_id: int, seed_signature: float) -> Optional[Dict]:
+    if problem_id <= 0:
+        seed_lookup = _load_seed_problem_lookup_cached(seed_signature)
+        resolved = _resolve_seed_problem_by_id(problem_id, seed_lookup)
+        if not resolved:
+            return None
+        year, case_label, seed_problem = resolved
+        return _build_problem_from_seed(
+            problem_id=problem_id,
+            year=year,
+            case_label=case_label,
+            seed_problem=seed_problem,
+        )
+
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM problems WHERE id = ?", (problem_id,))
     problem_row = cur.fetchone()
     if not problem_row:
         conn.close()
-        return None
+        seed_lookup = _load_seed_problem_lookup_cached(seed_signature)
+        resolved = _resolve_seed_problem_by_id(problem_id, seed_lookup)
+        if not resolved:
+            return None
+        year, case_label, seed_problem = resolved
+        return _build_problem_from_seed(
+            problem_id=problem_id,
+            year=year,
+            case_label=case_label,
+            seed_problem=seed_problem,
+        )
 
     cur.execute(
         "SELECT * FROM questions WHERE problem_id = ? ORDER BY question_order",
@@ -807,9 +983,20 @@ def _fetch_problem_by_year_case_impl(
     )
     row = cur.fetchone()
     conn.close()
-    if not row:
+    if row:
+        return _fetch_problem_impl(row["id"], seed_signature)
+
+    seed_lookup = _load_seed_problem_lookup_cached(seed_signature)
+    seed_problem = seed_lookup.get((year, case_label))
+    if not seed_problem:
         return None
-    return _fetch_problem_impl(row["id"], seed_signature)
+    seed_id = _register_seed_only_problem(year, case_label)
+    return _build_problem_from_seed(
+        problem_id=seed_id,
+        year=year,
+        case_label=case_label,
+        seed_problem=seed_problem,
+    )
 
 
 @dataclass
