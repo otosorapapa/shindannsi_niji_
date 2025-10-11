@@ -1088,32 +1088,45 @@ def record_attempt(
     return attempt_id
 
 
-def _next_review_interval(
-    *, previous_interval: Optional[int], score_ratio: float
+def _next_review_plan(
+    *, previous_interval: Optional[int], previous_streak: Optional[int], score_ratio: float
 ) -> tuple[int, int]:
-    """Return (interval_days, streak_increment) for spaced repetition scheduling."""
+    """Return the next interval (days) and updated streak for spaced repetition.
+
+    The logic loosely follows SM-2 style spacing where 高正答率の継続で間隔を伸ばし、
+    取りこぼしが出た場合は間隔を短縮して復習頻度を高める。
+    """
 
     try:
         score_ratio = float(score_ratio)
     except (TypeError, ValueError):  # pragma: no cover - defensive conversion
         score_ratio = 0.0
-    score_ratio = max(0.0, min(score_ratio, 1.0))
-    previous_interval = previous_interval or 0
 
-    if score_ratio >= 0.85:
-        base = previous_interval if previous_interval else 3
-        next_interval = max(base * 2, base + 1)
-        streak_increment = 1
+    score_ratio = max(0.0, min(score_ratio, 1.0))
+    previous_interval = max(0, previous_interval or 0)
+    previous_streak = max(0, previous_streak or 0)
+
+    if score_ratio >= 0.9:
+        ease_factor = 2.4 + min(previous_streak, 5) * 0.15
+        base_interval = previous_interval if previous_interval else 3
+        next_interval = max(base_interval * ease_factor, base_interval + 1)
+        new_streak = previous_streak + 1
+    elif score_ratio >= 0.75:
+        ease_factor = 1.7 + min(previous_streak, 5) * 0.1
+        base_interval = previous_interval if previous_interval else 2
+        next_interval = max(base_interval * ease_factor, base_interval + 1)
+        new_streak = max(previous_streak, 1)
     elif score_ratio >= 0.6:
-        base = previous_interval if previous_interval else 2
-        next_interval = max(int(round(base * 1.5)), base + 1, 2)
-        streak_increment = 0
+        ease_factor = 1.2
+        base_interval = previous_interval if previous_interval else 1
+        next_interval = max(base_interval * ease_factor, 1)
+        new_streak = 0
     else:
         next_interval = 1
-        streak_increment = 0
+        new_streak = 0
 
-    next_interval = int(max(1, min(next_interval, 45)))
-    return next_interval, streak_increment
+    next_interval = int(max(1, min(round(next_interval), 90)))
+    return next_interval, new_streak
 
 
 def update_spaced_review(
@@ -1136,13 +1149,14 @@ def update_spaced_review(
     previous_interval = row["interval_days"] if row else None
     previous_streak = row["streak"] if row else 0
 
-    interval_days, streak_increment = _next_review_interval(
-        previous_interval=previous_interval, score_ratio=score_ratio
+    interval_days, new_streak = _next_review_plan(
+        previous_interval=previous_interval,
+        previous_streak=previous_streak,
+        score_ratio=score_ratio,
     )
     next_due = reviewed_at + timedelta(days=interval_days)
 
     if row:
-        new_streak = previous_streak + streak_increment if streak_increment else 0
         cur.execute(
             """
             UPDATE spaced_reviews
@@ -1160,7 +1174,6 @@ def update_spaced_review(
             ),
         )
     else:
-        new_streak = streak_increment
         cur.execute(
             """
             INSERT INTO spaced_reviews (
@@ -1181,6 +1194,41 @@ def update_spaced_review(
 
     conn.commit()
     conn.close()
+
+
+def _estimate_study_load(
+    *, interval_days: Optional[int], score_ratio: Optional[float], streak: Optional[int]
+) -> Dict[str, int]:
+    """Estimate recommended number of similar problems and study minutes."""
+
+    try:
+        score_ratio = float(score_ratio) if score_ratio is not None else 0.0
+    except (TypeError, ValueError):  # pragma: no cover - defensive conversion
+        score_ratio = 0.0
+
+    score_ratio = max(0.0, min(score_ratio, 1.0))
+    interval_days = interval_days or 0
+    streak = max(0, streak or 0)
+
+    if score_ratio >= 0.9:
+        base_items = 1
+    elif score_ratio >= 0.75:
+        base_items = 2
+    elif score_ratio >= 0.6:
+        base_items = 3
+    else:
+        base_items = 4
+
+    # shorter intervals and 未確立の習慣は追加の演習を推奨
+    if interval_days <= 3:
+        base_items += 1
+    if streak < 2:
+        base_items += 1
+
+    recommended_items = max(1, min(base_items, 6))
+    estimated_minutes = recommended_items * 30  # 1ケース ≒30分想定
+
+    return {"items": recommended_items, "minutes": estimated_minutes}
 
 
 def list_due_reviews(
@@ -1213,6 +1261,11 @@ def list_due_reviews(
         due_at = _parse_iso_datetime(row["due_at"], field="spaced_reviews.due_at")
         if due_at is None:
             continue
+        recommendation = _estimate_study_load(
+            interval_days=row["interval_days"],
+            score_ratio=row["last_score_ratio"],
+            streak=row["streak"],
+        )
         items.append(
             {
                 "problem_id": row["problem_id"],
@@ -1223,6 +1276,8 @@ def list_due_reviews(
                 "interval_days": row["interval_days"],
                 "last_score_ratio": row["last_score_ratio"],
                 "streak": row["streak"],
+                "recommended_items": recommendation["items"],
+                "recommended_minutes": recommendation["minutes"],
             }
         )
 
@@ -1253,6 +1308,11 @@ def list_upcoming_reviews(user_id: int, *, limit: int = 6) -> List[Dict]:
         due_at = _parse_iso_datetime(row["due_at"], field="spaced_reviews.due_at")
         if due_at is None:
             continue
+        recommendation = _estimate_study_load(
+            interval_days=row["interval_days"],
+            score_ratio=row["last_score_ratio"],
+            streak=row["streak"],
+        )
         items.append(
             {
                 "problem_id": row["problem_id"],
@@ -1263,6 +1323,8 @@ def list_upcoming_reviews(user_id: int, *, limit: int = 6) -> List[Dict]:
                 "interval_days": row["interval_days"],
                 "last_score_ratio": row["last_score_ratio"],
                 "streak": row["streak"],
+                "recommended_items": recommendation["items"],
+                "recommended_minutes": recommendation["minutes"],
             }
         )
 
@@ -1316,6 +1378,12 @@ def get_spaced_review(user_id: int, problem_id: int) -> Optional[Dict]:
         )
         return None
 
+    recommendation = _estimate_study_load(
+        interval_days=row["interval_days"],
+        score_ratio=row["last_score_ratio"],
+        streak=row["streak"],
+    )
+
     return {
         "problem_id": row["problem_id"],
         "year": row["year"],
@@ -1326,6 +1394,8 @@ def get_spaced_review(user_id: int, problem_id: int) -> Optional[Dict]:
         "last_score_ratio": row["last_score_ratio"],
         "streak": row["streak"],
         "last_reviewed_at": last_reviewed,
+        "recommended_items": recommendation["items"],
+        "recommended_minutes": recommendation["minutes"],
     }
 
 

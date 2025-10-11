@@ -6333,15 +6333,29 @@ def dashboard_page(user: Dict) -> None:
                 unsafe_allow_html=True,
             )
         if upcoming_reviews:
+            now = datetime.utcnow()
             schedule_df = pd.DataFrame(
                 [
                     {
-                        "次回予定": review["due_at"].strftime("%Y-%m-%d"),
+                        "次回実施日": review["due_at"].strftime("%Y-%m-%d"),
                         "事例": f"{review['year']} {review['case_label']}",
                         "タイトル": review["title"],
                         "前回達成度": f"{(review['last_score_ratio'] or 0) * 100:.0f}%",
+                        "推奨学習量": (
+                            f"{review['recommended_items']}問 / 約{review['recommended_minutes']}分"
+                        ),
+                        "復習アクション": (
+                            f"今日中に復習（推奨 {review['recommended_items']}問・約{review['recommended_minutes']}分）"
+                            if review["due_at"] <= now
+                            else (
+                                "次回 {date} に復習（推奨 {items}問・約{minutes}分)".format(
+                                    date=review["due_at"].strftime("%Y-%m-%d"),
+                                    items=review["recommended_items"],
+                                    minutes=review["recommended_minutes"],
+                                )
+                            )
+                        ),
                         "間隔": f"{review['interval_days']}日",
-                        "ステータス": "要復習" if review["due_at"] <= datetime.utcnow() else "予定",
                     }
                     for review in upcoming_reviews
                 ]
@@ -10504,14 +10518,19 @@ def render_attempt_results(attempt_id: int) -> None:
     if review_plan:
         due_at = review_plan["due_at"]
         interval = review_plan["interval_days"]
+        recommendation_label = (
+            f"推奨: 類題{review_plan['recommended_items']}問 / 約{review_plan['recommended_minutes']}分"
+        )
         if due_at <= datetime.utcnow():
             st.warning(
-                f"この事例の復習期限が到来しています。推奨: {due_at.strftime('%Y-%m-%d %H:%M')} (間隔 {interval}日)",
+                f"この事例の復習期限が到来しています。次回目安 {due_at.strftime('%Y-%m-%d %H:%M')}"
+                f" (間隔 {interval}日, {recommendation_label})",
                 icon="🔁",
             )
         else:
             st.info(
-                f"次回の復習目安は {due_at.strftime('%Y-%m-%d %H:%M')} ごろです (推奨間隔 {interval}日)",
+                f"次回の復習目安は {due_at.strftime('%Y-%m-%d %H:%M')} ごろです"
+                f" (推奨間隔 {interval}日, {recommendation_label})",
                 icon="🔁",
             )
     if attempt["mode"] == "mock" and total_max:
@@ -11141,10 +11160,24 @@ def history_page(user: Dict) -> None:
         review_df = pd.DataFrame(
             [
                 {
-                    "次回予定": item["due_at"].strftime("%Y-%m-%d"),
+                    "次回実施日": item["due_at"].strftime("%Y-%m-%d"),
                     "事例": f"{item['year']} {item['case_label']}",
                     "タイトル": item["title"],
                     "達成度": f"{(item['last_score_ratio'] or 0) * 100:.0f}%",
+                    "推奨学習量": (
+                        f"{item['recommended_items']}問 / 約{item['recommended_minutes']}分"
+                    ),
+                    "復習アクション": (
+                        f"今日中に復習（推奨 {item['recommended_items']}問・約{item['recommended_minutes']}分）"
+                        if item["due_at"] <= datetime.utcnow()
+                        else (
+                            "次回 {date} に復習（推奨 {items}問・約{minutes}分)".format(
+                                date=item["due_at"].strftime("%Y-%m-%d"),
+                                items=item["recommended_items"],
+                                minutes=item["recommended_minutes"],
+                            )
+                        )
+                    ),
                     "間隔": f"{item['interval_days']}日",
                 }
                 for item in review_schedule
