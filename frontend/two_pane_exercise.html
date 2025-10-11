@@ -969,6 +969,9 @@
       const questionCards = Array.from(
         document.querySelectorAll('.question-card')
       );
+      const answerTextareas = document.querySelectorAll(
+        '.question-card__textarea'
+      );
 
       const activateCard = (card) => {
         questionCards.forEach((c) => c.classList.remove('question-card--active'));
@@ -1119,12 +1122,78 @@
         counter.classList.toggle('char-counter--limit', length > max);
       };
 
-      document.querySelectorAll('.question-card__textarea').forEach((textarea) => {
+      const answerStorageKey = 'exercise-answer-drafts-v1';
+      let answerDrafts = {};
+
+      try {
+        answerDrafts = JSON.parse(localStorage.getItem(answerStorageKey) || '{}');
+      } catch (error) {
+        answerDrafts = {};
+      }
+
+      const persistDrafts = () => {
+        try {
+          const hasDrafts = Object.keys(answerDrafts).length > 0;
+          if (hasDrafts) {
+            localStorage.setItem(
+              answerStorageKey,
+              JSON.stringify(answerDrafts)
+            );
+          } else {
+            localStorage.removeItem(answerStorageKey);
+          }
+        } catch (error) {
+          // ストレージ未対応環境では静かにフォールバック
+        }
+      };
+
+      answerTextareas.forEach((textarea) => {
         const counter = document.getElementById(
           textarea.getAttribute('aria-describedby')
         );
-        updateCounter(textarea, counter);
-        textarea.addEventListener('input', () => updateCounter(textarea, counter));
+        const textareaId = textarea.id;
+        const savedDraft =
+          textareaId && answerDrafts[textareaId]
+            ? answerDrafts[textareaId]
+            : null;
+
+        if (savedDraft && typeof savedDraft.value === 'string') {
+          textarea.value = savedDraft.value;
+        }
+
+        if (counter) {
+          updateCounter(textarea, counter);
+        }
+
+        let saveTimer;
+
+        const saveDraft = () => {
+          if (!textareaId) return;
+          if (textarea.value === '') {
+            delete answerDrafts[textareaId];
+          } else {
+            answerDrafts[textareaId] = {
+              value: textarea.value,
+              savedAt: new Date().toISOString(),
+            };
+          }
+          persistDrafts();
+        };
+
+        const scheduleSave = () => {
+          clearTimeout(saveTimer);
+          saveTimer = window.setTimeout(saveDraft, 300);
+        };
+
+        textarea.addEventListener('input', () => {
+          if (counter) {
+            updateCounter(textarea, counter);
+          }
+          scheduleSave();
+        });
+
+        textarea.addEventListener('blur', saveDraft);
+        window.addEventListener('beforeunload', saveDraft);
       });
 
       // 折りたたみ補助情報：ローカルストレージで既読状態を保持
