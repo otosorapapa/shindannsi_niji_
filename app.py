@@ -1327,6 +1327,11 @@ def _init_session_state() -> None:
     st.session_state.setdefault("model_answer_slots", {})
     st.session_state.setdefault("history_focus_attempt", None)
     st.session_state.setdefault("history_focus_from_notification", False)
+    st.session_state.setdefault("_autosave_loaded", False)
+    st.session_state.setdefault("_autosave_buffer", {})
+    st.session_state.setdefault("_autosave_last_saved", {})
+    st.session_state.setdefault("_manual_save_queue", [])
+    st.session_state.setdefault("_question_timer_start", {})
 
     query_params = st.query_params
     nav_targets = query_params.get("nav")
@@ -2301,7 +2306,7 @@ def _inject_context_column_styles() -> None:
             """
             <style>
             :root {
-                --context-panel-offset: 72px;
+                --context-panel-offset: 88px;
             }
             html {
                 scroll-behavior: smooth;
@@ -3466,6 +3471,116 @@ def _inject_practice_navigation_script() -> None:
         ),
         unsafe_allow_html=True,
     )
+
+
+def _inject_practice_shortcuts(question_entries: List[Dict[str, str]]) -> None:
+    if not question_entries:
+        return
+
+    anchors = [entry.get("anchor") for entry in question_entries if entry.get("anchor")]
+    draft_map = {
+        entry.get("anchor"): entry.get("draft_key")
+        for entry in question_entries
+        if entry.get("anchor") and entry.get("draft_key")
+    }
+
+    script = dedent(
+        """
+        <script>
+        (function() {
+            const win = window.parent || window;
+            if (!win) {
+                return;
+            }
+            win.__practiceShortcutAnchors = __ANCHORS__;
+            win.__practiceShortcutDrafts = __DRAFTS__;
+            if (win.__practiceShortcutsSetup) {
+                return;
+            }
+            win.__practiceShortcutsSetup = true;
+            const doc = win.document;
+            if (!doc) {
+                return;
+            }
+
+            const scrollToAnchor = (anchor) => {
+                if (!anchor) {
+                    return;
+                }
+                const section = doc.querySelector(`section.practice-question-block[data-anchor-id="${anchor}"]`);
+                if (!section) {
+                    return;
+                }
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const textarea = section.querySelector('textarea');
+                if (textarea) {
+                    textarea.focus({ preventScroll: true });
+                }
+            };
+
+            const triggerSave = (section) => {
+                if (!section) {
+                    return;
+                }
+                const draftKey = section.dataset.draftKey;
+                if (!draftKey) {
+                    return;
+                }
+                const button = doc.querySelector(`button.practice-force-save-button[data-draft-key="${draftKey}"]`);
+                if (button) {
+                    button.click();
+                }
+            };
+
+            doc.addEventListener('keydown', (event) => {
+                const anchors = win.__practiceShortcutAnchors || [];
+                if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key === 'Enter') {
+                    const active = doc.activeElement;
+                    if (active && active.tagName === 'TEXTAREA') {
+                        event.preventDefault();
+                        const section = active.closest('.practice-question-block');
+                        triggerSave(section);
+                    }
+                    return;
+                }
+
+                if (!event.altKey || event.ctrlKey || event.metaKey) {
+                    return;
+                }
+
+                if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+                    event.preventDefault();
+                    const activeSection = doc.querySelector('.practice-question-block.is-active') || doc.querySelector('.practice-question-block');
+                    const activeAnchor = activeSection ? activeSection.dataset.anchorId : null;
+                    let index = anchors.indexOf(activeAnchor);
+                    if (index < 0) {
+                        index = 0;
+                    }
+                    index += event.key === 'ArrowRight' ? 1 : -1;
+                    index = Math.max(0, Math.min(anchors.length - 1, index));
+                    scrollToAnchor(anchors[index]);
+                    return;
+                }
+
+                if (/^[1-9]$/.test(event.key)) {
+                    const targetIndex = parseInt(event.key, 10) - 1;
+                    if (targetIndex < anchors.length) {
+                        event.preventDefault();
+                        scrollToAnchor(anchors[targetIndex]);
+                    }
+                }
+            });
+        })();
+        </script>
+        """
+    ).strip()
+
+    script = script.replace("__ANCHORS__", json.dumps(anchors)).replace(
+        "__DRAFTS__", json.dumps(draft_map)
+    )
+
+    st.markdown(script, unsafe_allow_html=True)
+
 
 def _render_question_context_block(context_value: Any) -> None:
     context_text = _normalize_text_block(context_value)
@@ -7272,6 +7387,161 @@ def _format_fullwidth_length(value: float) -> str:
     return f"{rounded:.1f}"
 
 
+AUTOSAVE_PATH = Path("data/autosave_state.json")
+
+
+@st.cache_data(show_spinner=False)
+def _load_autosave_state(user_key: str) -> Dict[str, Dict[str, Any]]:
+    if not AUTOSAVE_PATH.exists():
+        return {}
+    try:
+        payload = json.loads(AUTOSAVE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    entry = payload.get(user_key)
+    if isinstance(entry, dict):
+        return entry
+    return {}
+
+
+def _write_autosave_state(user_key: str, drafts: Dict[str, Dict[str, Any]]) -> None:
+    try:
+        if AUTOSAVE_PATH.exists():
+            payload = json.loads(AUTOSAVE_PATH.read_text(encoding="utf-8"))
+        else:
+            payload = {}
+    except (OSError, json.JSONDecodeError):
+        payload = {}
+
+    if not isinstance(payload, dict):
+        payload = {}
+
+    payload[user_key] = drafts
+    AUTOSAVE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    AUTOSAVE_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    _load_autosave_state.clear()
+
+
+def _record_autosave_entry(user_key: str, draft_key: str, text: str) -> datetime:
+    current = dict(_load_autosave_state(user_key))
+    timestamp = datetime.now().astimezone()
+    current[draft_key] = {"text": text, "saved_at": timestamp.isoformat()}
+    _write_autosave_state(user_key, current)
+    return timestamp
+
+
+def _parse_autosave_timestamp(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _format_autosave_status(value: Optional[str]) -> Optional[str]:
+    parsed = _parse_autosave_timestamp(value)
+    if not parsed:
+        return None
+    local_dt = parsed.astimezone()
+    return local_dt.strftime("%H:%M:%S 保存")
+
+
+def _enqueue_manual_save(draft_key: str) -> None:
+    queue = st.session_state.setdefault("_manual_save_queue", [])
+    queue.append(draft_key)
+
+
+def _consume_manual_save_requests(draft_key: str) -> bool:
+    queue = st.session_state.get("_manual_save_queue", [])
+    if not queue:
+        return False
+    triggered = False
+    remaining: List[str] = []
+    for item in queue:
+        if not triggered and item == draft_key:
+            triggered = True
+            continue
+        remaining.append(item)
+    st.session_state["_manual_save_queue"] = remaining
+    return triggered
+
+
+def _register_hidden_save_button(label: str, draft_key: str) -> None:
+    script = dedent(
+        """
+        <script>
+        (function() {
+            const win = window.parent;
+            if (!win) {
+                return;
+            }
+            const doc = win.document;
+            const targetLabel = __LABEL__;
+            const attach = () => {
+                const buttons = Array.from(doc.querySelectorAll('button'));
+                buttons.forEach((btn) => {
+                    if (btn.innerText.trim() === targetLabel) {
+                        if (btn.dataset.draftKey === __KEY__) {
+                            return;
+                        }
+                        btn.dataset.draftKey = __KEY__;
+                        btn.classList.add('practice-force-save-button');
+                    }
+                });
+            };
+            attach();
+            setTimeout(attach, 50);
+            setTimeout(attach, 150);
+        })();
+        </script>
+        """
+    ).strip()
+    script = script.replace("__LABEL__", json.dumps(label)).replace(
+        "__KEY__", json.dumps(draft_key)
+    )
+    st.markdown(script, unsafe_allow_html=True)
+
+
+def _question_time_limit_seconds(
+    case_label: Optional[str], total_questions: Optional[int]
+) -> int:
+    base_minutes = 80
+    if case_label in {"事例IV"}:
+        base_minutes = 80
+    if total_questions and total_questions > 0:
+        per_question = max(base_minutes / float(total_questions), 1.0)
+    else:
+        per_question = base_minutes
+    return int(per_question * 60)
+
+
+def _render_question_timer(
+    draft_key: str, case_label: Optional[str], total_questions: Optional[int]
+) -> None:
+    limit_seconds = _question_time_limit_seconds(case_label, total_questions)
+    if limit_seconds <= 0:
+        return
+    timer_store = st.session_state.setdefault("_question_timer_start", {})
+    start_ts = timer_store.get(draft_key)
+    now = datetime.utcnow().timestamp()
+    if start_ts is None:
+        timer_store[draft_key] = now
+        start_ts = now
+    elapsed = max(0.0, now - start_ts)
+    remaining = max(0.0, limit_seconds - elapsed)
+    ratio = 0.0
+    if limit_seconds > 0:
+        ratio = max(0.0, min(1.0, remaining / limit_seconds))
+    minutes = int(remaining // 60)
+    seconds = int(remaining % 60)
+    total_minutes = max(1, int(round(limit_seconds / 60)))
+    label = f"残り時間 {minutes:02d}:{seconds:02d} / {total_minutes}分配分"
+    st.progress(ratio, text=label)
+    if remaining <= 0:
+        st.warning("想定時間を超過しました。答案の仕上げに移りましょう。", icon="⏱️")
+
+
 def _ensure_character_meter_styles() -> None:
     if st.session_state.get("_char_meter_styles_injected"):
         return
@@ -7323,12 +7593,39 @@ def _ensure_character_meter_styles() -> None:
         .char-meter-wrapper[data-state="warn"] .char-meter-fill {
             background: linear-gradient(90deg, #facc15 0%, #fb923c 100%);
         }
-        .char-meter-caption {
+        .char-guide {
             display: flex;
             justify-content: space-between;
-            font-size: 0.78rem;
-            margin-top: 0.25rem;
-            color: #475569;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.82rem;
+            color: #1f2937;
+            margin-top: 0.45rem;
+        }
+        .char-guide small {
+            color: #64748b;
+            font-size: 0.75rem;
+        }
+        .char-guide-elements[data-state="warn"] {
+            color: #b45309;
+        }
+        .char-guide-elements[data-state="alert"] {
+            color: #dc2626;
+        }
+        .char-guide-toggle {
+            margin: 0.15rem 0 0.35rem;
+        }
+        .char-guide-toggle [data-baseweb="radio"] {
+            display: flex;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
+        .char-guide-toggle label {
+            font-weight: 600;
+            font-size: 0.82rem;
+        }
+        .practice-force-save-button {
+            display: none !important;
         }
         </style>
         """,
@@ -7371,48 +7668,75 @@ def _render_character_meter(current: float, limit: Optional[int]) -> None:
     meter_html.append("</div></div>")
     st.markdown("".join(meter_html), unsafe_allow_html=True)
 
-    formatted_current = _format_fullwidth_length(current)
-    if limit:
-        caption_left = f"全角換算 {formatted_current}字"
-        remaining = limit - current
-        if remaining >= 0:
-            caption_right = f"残り {_format_fullwidth_length(remaining)}字"
-        else:
-            caption_right = f"{_format_fullwidth_length(abs(remaining))}字オーバー"
-    else:
-        caption_left = f"全角換算 {formatted_current}字"
-        caption_right = "100字=2〜3文が目安"
-    st.markdown(
-        f'<div class="char-meter-caption"><span>{caption_left}</span><span title="100字は2〜3文が目安です。">{caption_right}</span></div>',
-        unsafe_allow_html=True,
-    )
+
+def _estimate_answer_elements(text: str) -> int:
+    normalized = text.replace("。", "\n")
+    chunks = [
+        segment.strip(" 　\t・-‐—")
+        for segment in re.split(r"[\n、,，・•;；]+", normalized)
+        if segment.strip(" 　\t・-‐—")
+    ]
+    return len(chunks)
 
 
-def _render_character_counter(text: str, limit: Optional[int]) -> None:
+def _render_character_counter(
+    text: str, limit: Optional[int], *, draft_key: Optional[str] = None
+) -> None:
     fullwidth_length = _compute_fullwidth_length(text)
-    if limit is None:
-        st.caption(
-            f"現在の文字数: {len(text)}字 ／ 全角換算: {_format_fullwidth_length(fullwidth_length)}字"
+    char_modes = [80, 100, 120]
+    mode_key = f"char_mode_{draft_key}" if draft_key else "char_mode_default"
+    stored_mode = st.session_state.get(mode_key, 100)
+    if stored_mode not in char_modes:
+        stored_mode = 100
+
+    with st.container():
+        st.markdown('<div class="char-guide-toggle">', unsafe_allow_html=True)
+        selected_mode = st.radio(
+            "文字数モード",
+            options=char_modes,
+            index=char_modes.index(stored_mode),
+            format_func=lambda value: f"{value}字モード",
+            key=mode_key,
+            horizontal=True,
+            label_visibility="collapsed",
         )
-        _render_character_meter(fullwidth_length, limit)
-        if fullwidth_length >= 120:
-            st.error("120字を超えています。要素を整理して因果の主軸を絞りましょう。")
-        return
+        st.markdown("</div>", unsafe_allow_html=True)
+    st.session_state[mode_key] = selected_mode
+    guide_limit = limit if limit is not None else selected_mode
 
-    remaining = limit - fullwidth_length
-    if remaining >= 0:
-        remaining_text = f"残り {_format_fullwidth_length(remaining)}字"
-    else:
-        remaining_text = f"{_format_fullwidth_length(abs(remaining))}字オーバー"
-    st.caption(
-        f"文字数: {_format_fullwidth_length(fullwidth_length)} / {limit}字（{remaining_text}）"
+    summary_parts = [
+        f"現在{_format_fullwidth_length(fullwidth_length)}字／上限{guide_limit}字",
+    ]
+
+    element_count = _estimate_answer_elements(text)
+    element_state = "ok"
+    if element_count == 0:
+        element_state = "warn"
+    elif element_count < 2 or element_count > 3:
+        element_state = "warn" if element_count <= 4 else "alert"
+
+    summary_html = (
+        '<div class="char-guide">'
+        f'<span class="char-guide-count">{summary_parts[0]}</span>'
+        f'<span class="char-guide-elements" data-state="{element_state}">' \
+        f'要素カウント（2〜3点）: {element_count}</span>'
+        "</div>"
     )
-    if remaining < 0:
-        st.error("文字数が上限を超えています。赤字の警告に従い削減しましょう。")
-    elif fullwidth_length >= 120 and limit > 120:
-        st.error("120字を超えると冗長になりやすいです。重要語に絞りましょう。")
+    st.markdown(summary_html, unsafe_allow_html=True)
 
-    _render_character_meter(fullwidth_length, limit)
+    _render_character_meter(fullwidth_length, guide_limit)
+
+    if limit is not None:
+        remaining = guide_limit - fullwidth_length
+        if remaining < 0:
+            st.error("文字数が上限を超えています。赤字の警告に従い削減しましょう。")
+        elif fullwidth_length >= 120 and guide_limit > 120:
+            st.error("120字を超えると冗長になりやすいです。重要語に絞りましょう。")
+    else:
+        if fullwidth_length > guide_limit:
+            st.warning(
+                f"目安の{guide_limit}字を超えました。重要度の高い要素に絞り込みましょう。"
+            )
 
 
 TOKEN_PATTERN = re.compile(r"[ぁ-んァ-ヶ一-龥ａ-ｚＡ-Ｚa-zA-Z0-9]+")
@@ -7778,21 +8102,18 @@ def _render_mece_causal_scanner(text: str, analysis: Optional[Dict[str, Any]] = 
 
 def _question_input(
     problem_id: int,
-    question: Dict,
+    question: Dict[str, Any],
     *,
     disabled: bool = False,
-    widget_prefix: str = "textarea_",
+    widget_prefix: str = "",
     case_label: Optional[str] = None,
     question_index: Optional[int] = None,
+    total_questions: Optional[int] = None,
     anchor_id: Optional[str] = None,
     header_id: Optional[str] = None,
 ) -> str:
     _inject_practice_question_styles()
     key = _draft_key(problem_id, question["id"])
-    if key not in st.session_state.drafts:
-        saved_default = st.session_state.saved_answers.get(key, "")
-        st.session_state.drafts[key] = saved_default
-
     textarea_state_key = f"{widget_prefix}{key}"
 
     if not anchor_id:
@@ -7814,6 +8135,28 @@ def _question_input(
             f"<div id=\"{html.escape(anchor_id)}\" class=\"practice-question-anchor\" aria-hidden=\"true\"></div>",
             unsafe_allow_html=True,
         )
+
+    user_info = st.session_state.get("user", {})
+    user_identifier = str(user_info.get("id") or "guest")
+    if not st.session_state._autosave_loaded:
+        loaded_buffer = _load_autosave_state(user_identifier)
+        st.session_state._autosave_buffer = loaded_buffer
+        for draft_key, entry in loaded_buffer.items():
+            if not isinstance(entry, dict):
+                continue
+            parsed = _parse_autosave_timestamp(entry.get("saved_at"))
+            if parsed and draft_key not in st.session_state._autosave_last_saved:
+                st.session_state._autosave_last_saved[draft_key] = parsed.timestamp()
+        st.session_state._autosave_loaded = True
+
+    autosave_entry = st.session_state._autosave_buffer.get(key, {})
+    if key not in st.session_state.drafts or not st.session_state.drafts[key]:
+        saved_default = st.session_state.saved_answers.get(key, "")
+        if not saved_default and isinstance(autosave_entry, dict):
+            saved_default = autosave_entry.get("text", "") or ""
+            if saved_default:
+                st.session_state.saved_answers[key] = saved_default
+        st.session_state.drafts[key] = saved_default
 
     question_overview = dict(question)
     question_overview.setdefault("order", question.get("order"))
@@ -7853,6 +8196,8 @@ def _question_input(
     if case_label == "事例IV":
         _render_case_iv_bridge(key)
 
+    _render_question_timer(key, case_label, total_questions)
+
     notice = st.session_state.get("_intent_card_notice")
     if notice and notice.get("draft_key") == key:
         st.success(f"「{notice['label']}」の例示表現を挿入しました。", icon="✍️")
@@ -7866,7 +8211,7 @@ def _question_input(
     value = st.session_state.drafts.get(key, "")
     help_text = f"文字数目安: {question['character_limit']}字" if question["character_limit"] else ""
     st.markdown(
-        "<p class=\"practice-autosave-caption\">入力内容は自動保存されます。</p>",
+        "<p class=\"practice-autosave-caption\">入力内容は5秒ごとに自動保存されます。</p>",
         unsafe_allow_html=True,
     )
     text = st.text_area(
@@ -7877,25 +8222,60 @@ def _question_input(
         help=help_text,
         disabled=disabled,
     )
-    _render_character_counter(text, question.get("character_limit"))
+    _render_character_counter(text, question.get("character_limit"), draft_key=key)
     analysis = _render_mece_status_labels(text)
     with st.expander("MECE/因果スキャナ", expanded=bool(text.strip())):
         _render_mece_causal_scanner(text, analysis=analysis)
     st.session_state.drafts[key] = text
-    st.session_state.saved_answers.setdefault(key, value)
+
+    autosave_entry = st.session_state._autosave_buffer.get(key, {})
+    saved_label = _format_autosave_status(autosave_entry.get("saved_at") if isinstance(autosave_entry, dict) else None)
     status_placeholder = st.empty()
-    saved_text = st.session_state.saved_answers.get(key)
-    restore_disabled = not saved_text
-    if restore_disabled:
-        status_placeholder.caption("復元できる下書きはまだありません。")
-    if st.button(
-        "下書きを復元",
-        key=f"restore_{key}",
-        disabled=restore_disabled,
-    ):
-        st.session_state.drafts[key] = saved_text
-        st.session_state[textarea_state_key] = saved_text
-        status_placeholder.info("保存済みの下書きを復元しました。")
+    if saved_label:
+        status_placeholder.caption(f"自動保存: {saved_label}")
+    else:
+        status_placeholder.caption("自動保存待機中（5秒ごとに保存）")
+
+    forced_save = _consume_manual_save_requests(key)
+    autosave_tracker = st.session_state._autosave_last_saved
+    now_ts = datetime.now().astimezone().timestamp()
+    last_saved_ts = autosave_tracker.get(key)
+    last_saved_text = (
+        autosave_entry.get("text")
+        if isinstance(autosave_entry, dict)
+        else st.session_state.saved_answers.get(key, "")
+    )
+
+    should_save = False
+    if forced_save:
+        should_save = True
+    elif last_saved_ts is None:
+        should_save = True
+    elif now_ts - last_saved_ts >= 5:
+        should_save = True
+
+    if should_save and (forced_save or text != last_saved_text):
+        saved_at = _record_autosave_entry(user_identifier, key, text)
+        st.session_state._autosave_buffer[key] = {"text": text, "saved_at": saved_at.isoformat()}
+        autosave_tracker[key] = saved_at.timestamp()
+        st.session_state.saved_answers[key] = text
+        status_placeholder.caption(
+            f"自動保存: {saved_at.astimezone().strftime('%H:%M:%S 保存')}"
+        )
+    elif saved_label:
+        status_placeholder.caption(f"自動保存: {saved_label}")
+    else:
+        status_placeholder.caption("自動保存待機中（5秒ごとに保存）")
+
+    trigger_label = f"保存トリガー:{key}"
+    st.button(
+        trigger_label,
+        key=f"force_save_button_{textarea_state_key}",
+        help="Ctrl+Enterで即時保存",
+        on_click=_enqueue_manual_save,
+        args=(key,),
+    )
+    _register_hidden_save_button(trigger_label, key)
 
     st.divider()
     _render_intent_cards(question, key, textarea_state_key)
@@ -9681,6 +10061,7 @@ def practice_page(user: Dict) -> None:
             preview_text = _format_preview_text(raw_prompt, 24) if raw_prompt else "概要未登録"
             label = f"設問{idx}"
             stepper_label = f"{label}：{preview_text}" if preview_text else label
+            draft_key = _draft_key(problem["id"], q["id"])
             question_entries.append(
                 {
                     "anchor": anchor_id,
@@ -9689,6 +10070,7 @@ def practice_page(user: Dict) -> None:
                     "preview": preview_text,
                     "title": raw_prompt or label,
                     "stepper": stepper_label,
+                    "draft_key": draft_key,
                 }
             )
 
@@ -9819,12 +10201,14 @@ def practice_page(user: Dict) -> None:
             anchor_value = entry["anchor"] if entry else f"question-q{idx}"
             header_value = entry["header_id"] if entry else f"question-q{idx}-header"
             label_value = entry["stepper"] if entry else f"設問{idx}"
+            draft_key = _draft_key(problem["id"], question["id"])
             st.markdown(
                 (
                     f'<section class="practice-question-block" data-tone="{tone}" '
                     f'data-anchor-id="{html.escape(anchor_value)}" '
                     f'data-index="{idx}" '
                     f'data-label="{html.escape(label_value)}" '
+                    f'data-draft-key="{html.escape(draft_key)}" '
                     f'role="region" aria-labelledby="{html.escape(header_value)}">'
                 ),
                 unsafe_allow_html=True,
@@ -9834,6 +10218,7 @@ def practice_page(user: Dict) -> None:
                 question,
                 case_label=problem.get("case_label") or problem.get("case"),
                 question_index=idx,
+                total_questions=question_count,
                 anchor_id=anchor_value,
                 header_id=header_value,
             )
@@ -9970,6 +10355,7 @@ def practice_page(user: Dict) -> None:
                 unsafe_allow_html=True,
             )
             _inject_practice_navigation_script()
+            _inject_practice_shortcuts(question_entries)
 
         st.markdown('<div id="practice-actions"></div>', unsafe_allow_html=True)
 
@@ -10552,7 +10938,7 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
     )
     answer_key = f"uploaded_answer_{selected_year}_{selected_case}_{answer_fragment}"
     user_answer = st.text_area("回答を入力", key=answer_key)
-    _render_character_counter(user_answer, max_chars)
+    _render_character_counter(user_answer, max_chars, draft_key=answer_key)
 
     if limit_int is not None:
         with st.expander("文字数スライサー"):
@@ -11410,8 +11796,10 @@ def mock_exam_page(user: Dict) -> None:
             question_total = len(problem["questions"])
             for idx, question in enumerate(problem["questions"], start=1):
                 tone = _practice_tone_for_index(idx)
+                draft_key = _draft_key(problem_id, question["id"])
                 st.markdown(
-                    f'<section class="practice-question-block" data-tone="{tone}">',
+                    f'<section class="practice-question-block" data-tone="{tone}" '
+                    f'data-draft-key="{html.escape(draft_key)}">',
                     unsafe_allow_html=True,
                 )
                 _question_input(
@@ -11420,6 +11808,7 @@ def mock_exam_page(user: Dict) -> None:
                     widget_prefix="mock_textarea_",
                     case_label=problem.get("case_label") or problem.get("case"),
                     question_index=idx,
+                    total_questions=question_total,
                 )
                 st.markdown("</section>", unsafe_allow_html=True)
                 if idx < question_total:
