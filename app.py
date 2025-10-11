@@ -5794,10 +5794,6 @@ def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。与件ハイライトと詳細解説で復習効果を高めましょう。")
 
-    st.info(
-        "左側のセレクターで年度・事例を切り替え、下部の解答欄から回答を入力してください。与件ハイライトを読み込みながら構成を練りましょう。"
-    )
-
     due_reviews = database.list_due_reviews(user["id"], limit=3)
     if due_reviews:
         st.warning(
