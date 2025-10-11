@@ -1322,6 +1322,7 @@ def _init_session_state() -> None:
     st.session_state.setdefault("uploaded_question_metadata", {})
     st.session_state.setdefault("pending_model_answer_slot_upload", None)
     st.session_state.setdefault("flashcard_states", {})
+    st.session_state.setdefault("flashcard_progress", {})
     st.session_state.setdefault("ui_theme", "システム設定に合わせる")
     st.session_state.setdefault("_intent_card_styles_injected", False)
     st.session_state.setdefault("_question_card_styles_injected", False)
@@ -4356,6 +4357,9 @@ def _reset_flashcard_state(problem_id: int, size: int) -> Dict[str, Any]:
     random.shuffle(order)
     state = {"order": order, "index": 0, "revealed": False, "size": size}
     st.session_state.flashcard_states[str(problem_id)] = state
+    result_prefix = f"flashcard_result::{problem_id}::"
+    for key in [key for key in st.session_state.keys() if key.startswith(result_prefix)]:
+        st.session_state.pop(key, None)
     return state
 
 
@@ -4365,6 +4369,90 @@ def _get_flashcard_state(problem_id: int, size: int) -> Dict[str, Any]:
     if not state or state.get("size") != size:
         state = _reset_flashcard_state(problem_id, size)
     return state
+
+
+def _normalize_keyword_for_matching(text: str) -> str:
+    normalized = unicodedata.normalize("NFKC", str(text or "").strip())
+    normalized = re.sub(r"[\s\u3000]+", "", normalized)
+    normalized = normalized.replace("・", "")
+    return normalized
+
+
+def _evaluate_flashcard_guess(
+    problem_id: int, card_index: int, keywords: Iterable[str], guess_text: str
+) -> Dict[str, Any]:
+    keyword_pairs: List[Tuple[str, str]] = []
+    for keyword in keywords:
+        normalized = _normalize_keyword_for_matching(keyword)
+        if not normalized:
+            continue
+        keyword_pairs.append((keyword, normalized))
+
+    raw_entries = [part.strip() for part in re.split(r"[\n,、/]+", guess_text or "") if part.strip()]
+    entry_pairs: List[Tuple[str, str]] = []
+    seen_entries: Set[str] = set()
+    for entry in raw_entries:
+        normalized = _normalize_keyword_for_matching(entry)
+        if not normalized or normalized in seen_entries:
+            continue
+        seen_entries.add(normalized)
+        entry_pairs.append((entry, normalized))
+
+    remaining_indices: List[int] = list(range(len(keyword_pairs)))
+    matched_keywords: List[str] = []
+    extra_inputs: List[str] = []
+
+    for entry, normalized in entry_pairs:
+        matched_index: Optional[int] = None
+        for idx in remaining_indices:
+            if keyword_pairs[idx][1] == normalized:
+                matched_index = idx
+                break
+        if matched_index is None:
+            extra_inputs.append(entry)
+            continue
+        matched_keywords.append(keyword_pairs[matched_index][0])
+        remaining_indices.remove(matched_index)
+
+    missed_keywords = [keyword_pairs[idx][0] for idx in remaining_indices]
+
+    matched_count = len(matched_keywords)
+    total_keywords = len(keyword_pairs)
+    accuracy = matched_count / total_keywords if total_keywords else 0.0
+
+    progress_root = st.session_state.setdefault("flashcard_progress", {})
+    problem_progress = progress_root.setdefault(str(problem_id), {})
+    card_key = str(card_index)
+    entry = problem_progress.setdefault(
+        card_key,
+        {
+            "attempts": 0,
+            "keyword_count": total_keywords,
+            "best_accuracy": 0.0,
+            "last_correct": 0,
+            "last_accuracy": 0.0,
+        },
+    )
+    entry["attempts"] += 1
+    entry["keyword_count"] = total_keywords
+    prev_best = float(entry.get("best_accuracy", 0.0))
+    improved = accuracy > prev_best + 1e-6
+    entry["best_accuracy"] = max(prev_best, accuracy)
+    entry["last_correct"] = matched_count
+    entry["last_accuracy"] = accuracy
+    entry["last_attempted_at"] = datetime.now().isoformat()
+    entry["last_improved"] = improved
+
+    return {
+        "matched": matched_keywords,
+        "missed": missed_keywords,
+        "extras": extra_inputs,
+        "matched_count": matched_count,
+        "total_keywords": total_keywords,
+        "accuracy": accuracy,
+        "improved": improved,
+        "attempts": entry["attempts"],
+    }
 
 
 def _render_retrieval_flashcards(problem: Dict) -> None:
@@ -4391,7 +4479,40 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
         " 思い出しの練習（retrieval practice）は再読よりも記憶定着を高めるとされています。"
     )
 
+    st.session_state.setdefault("flashcard_progress", {})
+    problem_progress = st.session_state.flashcard_progress.setdefault(str(problem["id"]), {})
+
+    progress_container = st.container()
+
     state = _get_flashcard_state(problem["id"], len(flashcards))
+
+    completed_entries = [entry for entry in problem_progress.values() if entry.get("attempts", 0) > 0]
+    with progress_container:
+        if completed_entries:
+            total_keywords = sum(entry.get("keyword_count", 0) for entry in completed_entries)
+            total_recalled = sum(entry.get("last_correct", 0) for entry in completed_entries)
+            st.markdown("**想起状況サマリー**")
+            if total_keywords > 0:
+                overall_accuracy = total_recalled / total_keywords
+                st.progress(overall_accuracy)
+                st.caption(f"想起できたキーワード: {total_recalled} / {total_keywords}")
+            else:
+                st.caption("採点結果を記録するには、キーワードを入力して答え合わせを行いましょう。")
+            improvements = sum(1 for entry in completed_entries if entry.get("last_improved"))
+            if improvements:
+                st.success(f"前回より想起率が向上したカードが {improvements} 枚あります。", icon="🚀")
+            latest_iso = max(
+                (entry.get("last_attempted_at") for entry in completed_entries if entry.get("last_attempted_at")),
+                default=None,
+            )
+            if latest_iso:
+                try:
+                    latest_dt = datetime.fromisoformat(str(latest_iso))
+                    st.caption(f"最終トレーニング: {latest_dt.strftime('%Y/%m/%d %H:%M')}")
+                except ValueError:
+                    pass
+        else:
+            st.caption("カードごとにキーワードを書き出して想起力を測定しましょう。")
 
     card_placeholder = st.container()
     button_placeholder = st.container()
@@ -4417,6 +4538,10 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
     current_position = state["index"]
     card = flashcards[order[current_position]]
 
+    card_index = order[current_position]
+    result_state_key = f"flashcard_result::{problem['id']}::{card_index}"
+    guess_state_key = f"flashcard_guess::{problem['id']}::{card_index}"
+
     with card_placeholder:
         st.markdown(f"**カード {current_position + 1} / {len(flashcards)}**")
         st.write(card["title"])
@@ -4428,8 +4553,50 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
         </div>
         """
         st.markdown(card_html, unsafe_allow_html=True)
+
+        guess_text = st.text_area(
+            "思い出したキーワードを箇条書きで入力",
+            key=guess_state_key,
+            height=120,
+            placeholder="例: SWOT分析\nブランド認知向上\n外注管理",
+            help="Enterキーで改行し、思い出した単語を一行ずつ入力してください。",
+        )
+        st.caption("答えを見る前に、自分の言葉でキーワードを書き出してみましょう。")
+
+        evaluation = st.session_state.get(result_state_key)
+        if reveal_clicked:
+            evaluation = _evaluate_flashcard_guess(
+                problem["id"], card_index, card["keywords"], guess_text
+            )
+            st.session_state[result_state_key] = evaluation
+
         if state["revealed"]:
-            st.success("\n".join(f"・{keyword}" for keyword in card["keywords"]))
+            st.success("\n".join(f"・{keyword}" for keyword in card["keywords"]), icon="✅")
+            if evaluation is None:
+                evaluation = st.session_state.get(result_state_key)
+            if evaluation:
+                st.markdown("**自己採点結果**")
+                st.progress(evaluation["accuracy"])
+                st.caption(
+                    f"想起できたキーワード: {evaluation['matched_count']} / {evaluation['total_keywords']}"
+                )
+                if evaluation.get("improved") and evaluation.get("attempts", 0) > 1:
+                    st.success("前回より正答率がアップしました！", icon="🎉")
+                if evaluation.get("matched"):
+                    st.success(
+                        "\n".join(f"・{keyword}" for keyword in evaluation["matched"]),
+                        icon="🧠",
+                    )
+                if evaluation.get("missed"):
+                    st.warning(
+                        "思い出せなかったキーワード:\n" + "\n".join(f"・{kw}" for kw in evaluation["missed"]),
+                        icon="🔁",
+                    )
+                if evaluation.get("extras"):
+                    st.info(
+                        "リストにない入力:\n" + "\n".join(f"・{item}" for item in evaluation["extras"]),
+                        icon="✍️",
+                    )
         else:
             st.info("キーワードを思い出したら、上のボタンから答え合わせをしましょう。")
 
