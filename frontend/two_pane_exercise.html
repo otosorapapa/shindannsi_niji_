@@ -40,8 +40,26 @@
         font-size: 16px;
       }
 
+      :root[data-theme="dark"] {
+        --color-bg: #0d1424;
+        --color-surface: rgba(18, 26, 44, 0.88);
+        --color-text: #e7ecf5;
+        --color-text-strong: #f7f9ff;
+        --color-border: rgba(231, 236, 245, 0.2);
+        --color-chip-bg: rgba(231, 236, 245, 0.12);
+        --color-chip-active: #5a7edb;
+        --color-chip-active-text: #0d1424;
+        --color-warning: #f87171;
+        --color-text-muted: rgba(231, 236, 245, 0.76);
+        --color-card-i: rgba(248, 165, 200, 0.24);
+        --color-card-ii: rgba(190, 242, 145, 0.24);
+        --color-card-iii: rgba(147, 197, 253, 0.24);
+        --color-card-iv: rgba(129, 140, 248, 0.24);
+        --color-focus-ring: rgba(120, 150, 240, 0.65);
+      }
+
       @media (prefers-color-scheme: dark) {
-        :root {
+        :root:not([data-theme]) {
           --color-bg: #0d1424;
           --color-surface: rgba(18, 26, 44, 0.88);
           --color-text: #e7ecf5;
@@ -74,6 +92,58 @@
         color: var(--color-text);
         line-height: 1.6;
         text-rendering: optimizeLegibility;
+      }
+
+      .app-toolbar {
+        border-bottom: 1px solid var(--color-border);
+        background-color: var(--color-bg);
+      }
+
+      .app-toolbar__inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: var(--spacing-sm) var(--spacing-md);
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: var(--spacing-sm);
+      }
+
+      .theme-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        border-radius: 999px;
+        border: 1px solid var(--color-border);
+        background-color: var(--color-surface);
+        color: inherit;
+        padding: 6px 14px;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color var(--transition-duration) ease,
+          border-color var(--transition-duration) ease,
+          color var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease;
+      }
+
+      .theme-toggle:hover,
+      .theme-toggle:focus-visible {
+        border-color: var(--color-chip-active);
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
+      }
+
+      .theme-toggle[aria-pressed="true"] {
+        background-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
+      }
+
+      .theme-toggle__icon {
+        font-size: 1.1rem;
+      }
+
+      .theme-toggle__status {
+        font-weight: 700;
       }
 
       h1,
@@ -162,8 +232,12 @@
         box-shadow: 0 16px 32px rgba(16, 24, 40, 0.08);
       }
 
+      :root[data-theme="dark"] .context-pane {
+        background-color: var(--color-surface);
+      }
+
       @media (prefers-color-scheme: dark) {
-        .context-pane {
+        :root:not([data-theme]) .context-pane {
           background-color: var(--color-surface);
         }
       }
@@ -389,8 +463,13 @@
           box-shadow var(--transition-duration) ease;
       }
 
+      :root[data-theme="dark"] .question-card__textarea {
+        background-color: var(--color-surface);
+        border-color: var(--color-border);
+      }
+
       @media (prefers-color-scheme: dark) {
-        .question-card__textarea {
+        :root:not([data-theme]) .question-card__textarea {
           background-color: var(--color-surface);
           border-color: var(--color-border);
         }
@@ -453,8 +532,12 @@
         display: none;
       }
 
+      :root[data-theme="dark"] .support-block__content {
+        background-color: rgba(17, 24, 39, 0.55);
+      }
+
       @media (prefers-color-scheme: dark) {
-        .support-block__content {
+        :root:not([data-theme]) .support-block__content {
           background-color: rgba(17, 24, 39, 0.55);
         }
       }
@@ -500,13 +583,22 @@
         letter-spacing: 0.01em;
       }
 
+      :root[data-theme="dark"] .icon {
+        background-color: rgba(90, 126, 219, 0.28);
+        color: var(--color-chip-active-text);
+      }
+
+      :root[data-theme="dark"] .support-block__toggle .icon {
+        background-color: rgba(90, 126, 219, 0.32);
+      }
+
       @media (prefers-color-scheme: dark) {
-        .icon {
+        :root:not([data-theme]) .icon {
           background-color: rgba(90, 126, 219, 0.28);
           color: var(--color-chip-active-text);
         }
 
-        .support-block__toggle .icon {
+        :root:not([data-theme]) .support-block__toggle .icon {
           background-color: rgba(90, 126, 219, 0.32);
         }
       }
@@ -629,8 +721,40 @@
         }
       }
     </style>
+    <script>
+      (function () {
+        const storageKey = 'exercise-theme-preference-v1';
+        try {
+          const storedTheme = localStorage.getItem(storageKey);
+          if (storedTheme === 'dark' || storedTheme === 'light') {
+            document.documentElement.setAttribute('data-theme', storedTheme);
+          }
+        } catch (error) {
+          /* ローカルストレージ未対応環境では自動判定にフォールバック */
+        }
+      })();
+    </script>
   </head>
   <body>
+    <header class="app-toolbar" role="banner">
+      <div class="app-toolbar__inner">
+        <button
+          type="button"
+          class="theme-toggle"
+          id="theme-toggle"
+          aria-pressed="false"
+          aria-label="ダークモードに切り替える"
+          aria-describedby="theme-toggle-instruction"
+          title="クリックでダーク／ライト切替（Shift+クリックで自動設定に戻す）"
+        >
+          <span class="theme-toggle__icon" aria-hidden="true">🌞</span>
+          <span class="theme-toggle__status">ライトモード</span>
+          <span id="theme-toggle-instruction" class="sr-only">
+            クリックでテーマを切り替えます。Shiftキーを押しながらクリックするとOS設定に合わせます。
+          </span>
+        </button>
+      </div>
+    </header>
     <div class="layout">
       <aside
         class="context-pane"
@@ -960,6 +1084,97 @@
     </div>
 
     <script>
+      const themeToggle = document.getElementById('theme-toggle');
+      const themeIcon = themeToggle?.querySelector('.theme-toggle__icon');
+      const themeStatus = themeToggle?.querySelector('.theme-toggle__status');
+      const themeStorageKey = 'exercise-theme-preference-v1';
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+      const readStoredTheme = () => {
+        try {
+          const value = localStorage.getItem(themeStorageKey);
+          return value === 'dark' || value === 'light' ? value : null;
+        } catch (error) {
+          return null;
+        }
+      };
+
+      let storedTheme = readStoredTheme();
+
+      const applyTheme = (theme) => {
+        const root = document.documentElement;
+        if (theme === 'dark' || theme === 'light') {
+          root.setAttribute('data-theme', theme);
+        } else {
+          root.removeAttribute('data-theme');
+        }
+
+        const effectiveTheme =
+          theme === 'dark' || theme === 'light'
+            ? theme
+            : prefersDark.matches
+            ? 'dark'
+            : 'light';
+
+        if (themeToggle) {
+          themeToggle.setAttribute(
+            'aria-pressed',
+            String(effectiveTheme === 'dark')
+          );
+          themeToggle.setAttribute(
+            'aria-label',
+            effectiveTheme === 'dark'
+              ? 'ライトモードに切り替える'
+              : 'ダークモードに切り替える'
+          );
+        }
+
+        if (themeIcon) {
+          themeIcon.textContent = effectiveTheme === 'dark' ? '🌙' : '🌞';
+        }
+
+        if (themeStatus) {
+          themeStatus.textContent =
+            effectiveTheme === 'dark' ? 'ダークモード' : 'ライトモード';
+        }
+      };
+
+      applyTheme(storedTheme);
+
+      prefersDark.addEventListener('change', () => {
+        storedTheme = readStoredTheme();
+        if (storedTheme) {
+          return;
+        }
+        applyTheme(null);
+      });
+
+      themeToggle?.addEventListener('click', (event) => {
+        if (event.shiftKey) {
+          applyTheme(null);
+          try {
+            localStorage.removeItem(themeStorageKey);
+          } catch (error) {
+            /* 保存できない環境ではそのまま */
+          }
+          storedTheme = null;
+          return;
+        }
+
+        const currentTheme =
+          document.documentElement.getAttribute('data-theme') ||
+          storedTheme ||
+          (prefersDark.matches ? 'dark' : 'light');
+        const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        applyTheme(nextTheme);
+        try {
+          localStorage.setItem(themeStorageKey, nextTheme);
+        } catch (error) {
+          /* 保存できない環境ではそのまま */
+        }
+        storedTheme = nextTheme;
+      });
+
       // 現在の設問位置とタブ／CTAの同期、スムーススクロール、ハイライト
       const tabButtons = Array.from(
         document.querySelectorAll('.exercise-tab')
