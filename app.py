@@ -42,6 +42,7 @@ st.set_page_config(
 import committee_analysis
 import database
 import mock_exam
+import personalized_recommendation
 import scoring
 from database import RecordedAnswer
 from scoring import QuestionSpec
@@ -5947,6 +5948,14 @@ def dashboard_page(user: Dict) -> None:
 
     strength_tags = _calculate_strength_tags(stats)
 
+    personalized_bundle = personalized_recommendation.generate_personalised_learning_plan(
+        user_id=user["id"],
+        attempts=attempts,
+        problem_catalog=database.list_problems(),
+        keyword_resource_map=KEYWORD_RESOURCE_MAP,
+        default_resources=DEFAULT_KEYWORD_RESOURCES,
+    )
+
     latest_attempt = attempts[0] if attempts else None
     next_focus_card = {
         "icon": "target",
@@ -6625,6 +6634,108 @@ def dashboard_page(user: Dict) -> None:
                         <p class="timeline-filter__label">推奨テーマと横断候補</p>
                         <ul>{''.join(rec_html_parts) or '<li>推奨テーマは現在分析中です。</li>'}</ul>
                         <ul>{''.join(cross_html_parts)}</ul>
+                    </div>
+                    """
+                ),
+                unsafe_allow_html=True,
+            )
+
+        personalized_context = personalized_bundle.get("context")
+        problem_recs = personalized_bundle.get("problem_recommendations") or []
+        question_recs = personalized_bundle.get("question_recommendations") or []
+        resource_recs = personalized_bundle.get("resource_recommendations") or []
+
+        sections: List[str] = []
+
+        if problem_recs:
+            problem_items: List[str] = []
+            for rec in problem_recs:
+                summary = personalized_recommendation.format_recommendation_summary(rec)
+                reason = html.escape(rec.get("reason") or "")
+                problem_items.append(
+                    f"<li><strong>{summary}</strong><br><span class='achievement-timeline__meta'>{reason}</span></li>"
+                )
+            sections.append(
+                dedent(
+                    f"""
+                    <div class="personalized-section" role="group" aria-label="おすすめの事例">
+                        <p class="timeline-filter__label">おすすめの年度・事例</p>
+                        <ol>{''.join(problem_items)}</ol>
+                    </div>
+                    """
+                )
+            )
+
+        if question_recs:
+            question_items: List[str] = []
+            for rec in question_recs:
+                header = f"{html.escape(str(rec.get('year') or '―'))} {html.escape(str(rec.get('case_label') or ''))}".strip()
+                prompt = html.escape(rec.get("prompt") or "設問文を確認してください")
+                reason = html.escape(rec.get("reason") or "復習推奨")
+                missing = rec.get("missing_keywords") or []
+                missing_html = ""
+                if missing:
+                    missing_html = (
+                        "<br><span class='achievement-timeline__meta'>不足キーワード: "
+                        + " / ".join(html.escape(keyword) for keyword in missing[:4])
+                        + "</span>"
+                    )
+                question_items.append(
+                    "<li>"
+                    + (f"<strong>{header}</strong><br>" if header else "")
+                    + prompt
+                    + f"<br><span class='achievement-timeline__meta'>{reason}</span>"
+                    + missing_html
+                    + "</li>"
+                )
+            sections.append(
+                dedent(
+                    f"""
+                    <div class="personalized-section" role="group" aria-label="重点設問">
+                        <p class="timeline-filter__label">重点設問</p>
+                        <ol>{''.join(question_items)}</ol>
+                    </div>
+                    """
+                )
+            )
+
+        if resource_recs:
+            resource_items: List[str] = []
+            for resource in resource_recs:
+                label = html.escape(resource.get("label") or "参考資料")
+                url = html.escape(resource.get("url") or "#")
+                reason = html.escape(resource.get("reason") or "")
+                resource_items.append(
+                    "<li>"
+                    + f"<a href='{url}' target='_blank' rel='noopener noreferrer'>{label}</a>"
+                    + (f"<br><span class='achievement-timeline__meta'>{reason}</span>" if reason else "")
+                    + "</li>"
+                )
+            sections.append(
+                dedent(
+                    f"""
+                    <div class="personalized-section" role="group" aria-label="おすすめ教材">
+                        <p class="timeline-filter__label">おすすめ教材</p>
+                        <ol>{''.join(resource_items)}</ol>
+                    </div>
+                    """
+                )
+            )
+
+        message_text = getattr(personalized_context, "message", "") if personalized_context else ""
+        message_html = (
+            f"<p class='achievement-timeline__meta'>{html.escape(message_text)}</p>" if message_text else ""
+        )
+
+        if message_html or sections:
+            sections_html = "".join(sections) or "<p class='achievement-timeline__meta'>推奨項目を準備中です。</p>"
+            st.markdown(
+                dedent(
+                    f"""
+                    <div class="dashboard-card card--tone-blue" role="region" aria-label="パーソナライズ推薦">
+                        <p class="timeline-filter__label">パーソナライズ推薦</p>
+                        {message_html}
+                        {sections_html}
                     </div>
                     """
                 ),
