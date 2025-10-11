@@ -4171,156 +4171,160 @@ def _build_calendar_export(
         lines.append("END:VEVENT")
     lines.append("END:VCALENDAR")
     return "\r\n".join(lines).encode("utf-8")
-    def _render_committee_heatmap_section(default_year: str = "令和7年度") -> Dict[str, Any]:
-        result: Dict[str, Any] = {"recommendations": [], "primary_focus": None, "cross_focuses": []}
-        dataset = committee_analysis.load_committee_dataset()
-        if not dataset:
-            st.markdown(
-                "<p class='empty-state'>委員データがまだ登録されていません。</p>",
-                unsafe_allow_html=True,
-            )
-            return result
-        df = committee_analysis.flatten_profiles(dataset)
-        if df.empty:
-            st.markdown(
-                "<p class='empty-state'>委員プロフィールからヒートマップを生成できませんでした。</p>",
-                unsafe_allow_html=True,
-            )
-            return result
-        summary_df = committee_analysis.aggregate_heatmap(df)
-        if summary_df.empty:
-            st.markdown(
-                "<p class='empty-state'>ヒートマップ用の集計結果がありません。</p>",
-                unsafe_allow_html=True,
-            )
-            return result
-        year_label = dataset.get("year", default_year)
-        total_committees = int(df["委員"].nunique())
-        case_totals = summary_df.groupby("事例")["重み"].sum().sort_values(ascending=False)
-        domain_totals = summary_df.groupby("専門カテゴリ")["重み"].sum().sort_values(ascending=False)
-        top_case_label = case_totals.index[0] if not case_totals.empty else "-"
-        top_case_weight = float(case_totals.iloc[0]) if not case_totals.empty else 0.0
-        top_domain_label = domain_totals.index[0] if not domain_totals.empty else "-"
-        top_domain_weight = float(domain_totals.iloc[0]) if not domain_totals.empty else 0.0
-        stat_html = "".join(
-            dedent(
-                f"""
-                <div class="stat-chip">
-                    <dt>{html.escape(item['label'])}</dt>
-                    <dd>{html.escape(item['value'])}</dd>
-                </div>
-                """
-            ).strip()
-            for item in [
-                {"label": "対象年度", "value": f"{year_label}"},
-                {"label": "委員数", "value": f"{total_committees}名"},
-                {"label": "最注目の事例", "value": f"{top_case_label}（重み {top_case_weight:.1f}）" if top_case_label != '-' else 'データ不足'},
-                {"label": "強み領域", "value": f"{top_domain_label}（重み {top_domain_weight:.1f}）" if top_domain_label != '-' else 'データ不足'},
-            ]
-        )
+
+
+def _render_committee_heatmap_section(default_year: str = "令和7年度") -> Dict[str, Any]:
+    result: Dict[str, Any] = {"recommendations": [], "primary_focus": None, "cross_focuses": []}
+    dataset = committee_analysis.load_committee_dataset()
+    if not dataset:
         st.markdown(
-            dedent(
-                f"""
-                <div class="section-lead">委員の専門領域と担当事例を重み付きで可視化しています。色が濃いほど影響度が高く、セル内の数値は重みと担当委員数を示します。</div>
-                <dl class="stat-group">{stat_html}</dl>
-                """
-            ).strip(),
+            "<p class='empty-state'>委員データがまだ登録されていません。</p>",
             unsafe_allow_html=True,
         )
-        recommendations = committee_analysis.focus_recommendations(summary_df, limit=5)
-        cross_focuses = committee_analysis.cross_focus_highlights(dataset, limit=2)
-        result["primary_focus"] = committee_analysis.identify_primary_focus(dataset, summary_df)
-        result["recommendations"] = recommendations
-        result["cross_focuses"] = cross_focuses
-        legend_min = float(summary_df["重み"].min() or 0.0)
-        legend_median = float(summary_df["重み"].median() or 0.0)
-        legend_max = float(summary_df["重み"].max() or 0.0)
-        domain_order = committee_analysis.domain_order(summary_df)
-        chart_data = summary_df.copy()
-        max_weight = float(chart_data["重み"].max() or 1.0)
-        color_scale = alt.Scale(scheme="blues", domain=(0, max_weight if max_weight > 0 else 1), domainMin=0)
-        chart = (
-            alt.Chart(chart_data)
-            .mark_rect()
-            .encode(
-                x=alt.X("事例:N", sort=CASE_ORDER, title="事例"),
-                y=alt.Y("専門カテゴリ:N", sort=domain_order, title="専門領域"),
-                color=alt.Color("重み:Q", scale=color_scale, title="影響度"),
-                tooltip=[
-                    alt.Tooltip("専門カテゴリ:N", title="専門領域"),
-                    alt.Tooltip("事例:N", title="事例"),
-                    alt.Tooltip("重み:Q", title="重み", format=".2f"),
-                    alt.Tooltip("委員数:Q", title="担当委員数"),
-                    alt.Tooltip("重点テーマ:N", title="重点テーマ"),
-                ],
-            )
-            .properties(height=320)
+        return result
+    df = committee_analysis.flatten_profiles(dataset)
+    if df.empty:
+        st.markdown(
+            "<p class='empty-state'>委員プロフィールからヒートマップを生成できませんでした。</p>",
+            unsafe_allow_html=True,
         )
-        text_layer_weight = (
-            alt.Chart(chart_data)
-            .mark_text(color="#0f172a", fontSize=13, fontWeight="bold", dy=-6)
-            .encode(x="事例:N", y="専門カテゴリ:N", text=alt.Text("重み:Q", format=".1f"))
+        return result
+    summary_df = committee_analysis.aggregate_heatmap(df)
+    if summary_df.empty:
+        st.markdown(
+            "<p class='empty-state'>ヒートマップ用の集計結果がありません。</p>",
+            unsafe_allow_html=True,
         )
-        text_layer_members = (
-            alt.Chart(chart_data)
-            .mark_text(color="#334155", fontSize=11, dy=10)
-            .encode(x="事例:N", y="専門カテゴリ:N", text=alt.Text("委員数:Q", format=".0f"))
-        )
-        highlight_rows = chart_data.nlargest(3, "重み")
-        highlight_layer = (
-            alt.Chart(highlight_rows)
-            .mark_rect(stroke="#1d4ed8", strokeWidth=2, fillOpacity=0)
-            .encode(x="事例:N", y="専門カテゴリ:N")
-        )
-        st.altair_chart(chart + text_layer_weight + text_layer_members + highlight_layer, use_container_width=True)
-        legend_html = dedent(
+        return result
+    year_label = dataset.get("year", default_year)
+    total_committees = int(df["委員"].nunique())
+    case_totals = summary_df.groupby("事例")["重み"].sum().sort_values(ascending=False)
+    domain_totals = summary_df.groupby("専門カテゴリ")["重み"].sum().sort_values(ascending=False)
+    top_case_label = case_totals.index[0] if not case_totals.empty else "-"
+    top_case_weight = float(case_totals.iloc[0]) if not case_totals.empty else 0.0
+    top_domain_label = domain_totals.index[0] if not domain_totals.empty else "-"
+    top_domain_weight = float(domain_totals.iloc[0]) if not domain_totals.empty else 0.0
+    stat_html = "".join(
+        dedent(
             f"""
-            <div class="heatmap-legend">
-                <span>最小重み {legend_min:.1f}</span>
-                <span>中央値 {legend_median:.1f}</span>
-                <span>最大重み {legend_max:.1f}</span>
+            <div class="stat-chip">
+                <dt>{html.escape(item['label'])}</dt>
+                <dd>{html.escape(item['value'])}</dd>
             </div>
             """
         ).strip()
-        st.markdown(legend_html, unsafe_allow_html=True)
-        st.caption("セル上段は重み、下段は担当委員数を示します。青枠は影響度上位3組み合わせです。")
-        with st.expander("ヒートマップ数値を表形式で確認", expanded=False):
-            display_df = summary_df[["専門カテゴリ", "事例", "重み", "委員数", "重点テーマ"]].rename(
-                columns={"専門カテゴリ": "専門領域", "事例": "事例", "重み": "重み", "委員数": "委員数", "重点テーマ": "重点テーマ"}
-            )
-            st.dataframe(display_df, hide_index=True, use_container_width=True)
-        if recommendations:
-            st.markdown("**狙い撃ち予習リスト**")
-            bullets: List[str] = []
-            for item in recommendations[:3]:
-                label_parts = [item.get("case"), item.get("domain")]
-                label = " × ".join(part for part in label_parts if part)
-                if not label:
-                    label = "重点テーマ"
-                comment = item.get("comment")
-                entry = f"- **{label}**"
-                if comment:
-                    entry += f" — {comment}"
-                themes = item.get("themes") or []
-                if themes:
-                    entry += f" （推奨演習: {' / '.join(map(str, themes[:3]))}）"
-                bullets.append(entry)
-            st.markdown("\\n".join(bullets))
-        if cross_focuses:
-            st.markdown("**横断テーマ候補**")
-            notes: List[str] = []
-            for entry in cross_focuses:
-                label = entry.get("label") or "横断テーマ"
-                cases = entry.get("cases") or []
-                rationale = entry.get("rationale")
-                note = f"- 🔗 **{label}**"
-                if cases:
-                    note += f" ({'・'.join(map(str, cases))})"
-                if rationale:
-                    note += f" — {rationale}"
-                notes.append(note)
-            st.markdown("\\n".join(notes))
-        return result
+        for item in [
+            {"label": "対象年度", "value": f"{year_label}"},
+            {"label": "委員数", "value": f"{total_committees}名"},
+            {"label": "最注目の事例", "value": f"{top_case_label}（重み {top_case_weight:.1f}）" if top_case_label != '-' else 'データ不足'},
+            {"label": "強み領域", "value": f"{top_domain_label}（重み {top_domain_weight:.1f}）" if top_domain_label != '-' else 'データ不足'},
+        ]
+    )
+    st.markdown(
+        dedent(
+            f"""
+            <div class="section-lead">委員の専門領域と担当事例を重み付きで可視化しています。色が濃いほど影響度が高く、セル内の数値は重みと担当委員数を示します。</div>
+            <dl class="stat-group">{stat_html}</dl>
+            """
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+    recommendations = committee_analysis.focus_recommendations(summary_df, limit=5)
+    cross_focuses = committee_analysis.cross_focus_highlights(dataset, limit=2)
+    result["primary_focus"] = committee_analysis.identify_primary_focus(dataset, summary_df)
+    result["recommendations"] = recommendations
+    result["cross_focuses"] = cross_focuses
+    legend_min = float(summary_df["重み"].min() or 0.0)
+    legend_median = float(summary_df["重み"].median() or 0.0)
+    legend_max = float(summary_df["重み"].max() or 0.0)
+    domain_order = committee_analysis.domain_order(summary_df)
+    chart_data = summary_df.copy()
+    max_weight = float(chart_data["重み"].max() or 1.0)
+    color_scale = alt.Scale(scheme="blues", domain=(0, max_weight if max_weight > 0 else 1), domainMin=0)
+    chart = (
+        alt.Chart(chart_data)
+        .mark_rect()
+        .encode(
+            x=alt.X("事例:N", sort=CASE_ORDER, title="事例"),
+            y=alt.Y("専門カテゴリ:N", sort=domain_order, title="専門領域"),
+            color=alt.Color("重み:Q", scale=color_scale, title="影響度"),
+            tooltip=[
+                alt.Tooltip("専門カテゴリ:N", title="専門領域"),
+                alt.Tooltip("事例:N", title="事例"),
+                alt.Tooltip("重み:Q", title="重み", format=".2f"),
+                alt.Tooltip("委員数:Q", title="担当委員数"),
+                alt.Tooltip("重点テーマ:N", title="重点テーマ"),
+            ],
+        )
+        .properties(height=320)
+    )
+    text_layer_weight = (
+        alt.Chart(chart_data)
+        .mark_text(color="#0f172a", fontSize=13, fontWeight="bold", dy=-6)
+        .encode(x="事例:N", y="専門カテゴリ:N", text=alt.Text("重み:Q", format=".1f"))
+    )
+    text_layer_members = (
+        alt.Chart(chart_data)
+        .mark_text(color="#334155", fontSize=11, dy=10)
+        .encode(x="事例:N", y="専門カテゴリ:N", text=alt.Text("委員数:Q", format=".0f"))
+    )
+    highlight_rows = chart_data.nlargest(3, "重み")
+    highlight_layer = (
+        alt.Chart(highlight_rows)
+        .mark_rect(stroke="#1d4ed8", strokeWidth=2, fillOpacity=0)
+        .encode(x="事例:N", y="専門カテゴリ:N")
+    )
+    st.altair_chart(chart + text_layer_weight + text_layer_members + highlight_layer, use_container_width=True)
+    legend_html = dedent(
+        f"""
+        <div class="heatmap-legend">
+            <span>最小重み {legend_min:.1f}</span>
+            <span>中央値 {legend_median:.1f}</span>
+            <span>最大重み {legend_max:.1f}</span>
+        </div>
+        """
+    ).strip()
+    st.markdown(legend_html, unsafe_allow_html=True)
+    st.caption("セル上段は重み、下段は担当委員数を示します。青枠は影響度上位3組み合わせです。")
+    with st.expander("ヒートマップ数値を表形式で確認", expanded=False):
+        display_df = summary_df[["専門カテゴリ", "事例", "重み", "委員数", "重点テーマ"]].rename(
+            columns={"専門カテゴリ": "専門領域", "事例": "事例", "重み": "重み", "委員数": "委員数", "重点テーマ": "重点テーマ"}
+        )
+        st.dataframe(display_df, hide_index=True, use_container_width=True)
+    if recommendations:
+        st.markdown("**狙い撃ち予習リスト**")
+        bullets: List[str] = []
+        for item in recommendations[:3]:
+            label_parts = [item.get("case"), item.get("domain")]
+            label = " × ".join(part for part in label_parts if part)
+            if not label:
+                label = "重点テーマ"
+            comment = item.get("comment")
+            entry = f"- **{label}**"
+            if comment:
+                entry += f" — {comment}"
+            themes = item.get("themes") or []
+            if themes:
+                entry += f" （推奨演習: {' / '.join(map(str, themes[:3]))}）"
+            bullets.append(entry)
+        st.markdown("\\n".join(bullets))
+    if cross_focuses:
+        st.markdown("**横断テーマ候補**")
+        notes: List[str] = []
+        for entry in cross_focuses:
+            label = entry.get("label") or "横断テーマ"
+            cases = entry.get("cases") or []
+            rationale = entry.get("rationale")
+            note = f"- 🔗 **{label}**"
+            if cases:
+                note += f" ({'・'.join(map(str, cases))})"
+            if rationale:
+                note += f" — {rationale}"
+            notes.append(note)
+        st.markdown("\\n".join(notes))
+    return result
+
+
 def _render_study_planner(user: Dict) -> None:
     today = dt_date.today()
     st.subheader("スタディプランナー")
