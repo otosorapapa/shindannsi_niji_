@@ -26,6 +26,8 @@ import unicodedata
 
 import zipfile
 
+import time
+
 import altair as alt
 import pandas as pd
 import pdfplumber
@@ -47,6 +49,12 @@ import personalized_recommendation
 import scoring
 from database import RecordedAnswer
 from scoring import QuestionSpec
+
+
+AUTOSAVE_STORAGE_PATH = Path("data") / "practice_autosave.json"
+AUTOSAVE_INTERVAL_SECONDS = 5
+PRACTICE_DEFAULT_MINUTES = 80
+CHAR_MODE_OPTIONS: Tuple[int, int, int] = (80, 100, 120)
 
 
 MOCK_NOTICE_ITEMS = [
@@ -237,6 +245,113 @@ CASE_FRAME_SHORTCUTS = {
     ],
 }
 
+
+def _resolve_autosave_user_key(user: Optional[Mapping[str, Any]]) -> str:
+    if not user:
+        return "guest"
+    for field in ("id", "user_id", "email", "username"):
+        value = user.get(field) if isinstance(user, Mapping) else None
+        if value:
+            return str(value)
+    return "guest"
+
+
+@st.cache_data(show_spinner=False)
+def _load_practice_autosave_store(path: str) -> Dict[str, Any]:
+    file_path = Path(path)
+    if not file_path.exists():
+        return {}
+    try:
+        return json.loads(file_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _persist_practice_autosave_store(path: str, data: Dict[str, Any]) -> None:
+    file_path = Path(path)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    _load_practice_autosave_store.clear()
+
+
+def _get_autosaved_entry(user_key: str, draft_key: str) -> Optional[Dict[str, Any]]:
+    if not user_key:
+        return None
+    store = _load_practice_autosave_store(str(AUTOSAVE_STORAGE_PATH))
+    user_store = store.get(user_key)
+    if not user_store:
+        return None
+    entry = user_store.get(draft_key)
+    if not isinstance(entry, Mapping):
+        return None
+    return dict(entry)
+
+
+def _autosave_question_text(
+    user_key: str,
+    draft_key: str,
+    text: str,
+    mode: Optional[int],
+    *,
+    force: bool = False,
+) -> Optional[str]:
+    tracker = st.session_state.setdefault("autosave_tracker", {})
+    now = time.time()
+    last_entry = tracker.get(draft_key, {}) if isinstance(tracker.get(draft_key), Mapping) else {}
+    last_text = last_entry.get("text") if isinstance(last_entry, Mapping) else None
+    last_timestamp = float(last_entry.get("timestamp", 0.0)) if isinstance(last_entry, Mapping) else 0.0
+
+    if not force and last_text == text and (now - last_timestamp) < AUTOSAVE_INTERVAL_SECONDS:
+        return None
+
+    tracker[draft_key] = {"text": text, "timestamp": now}
+
+    store = copy.deepcopy(_load_practice_autosave_store(str(AUTOSAVE_STORAGE_PATH)))
+    user_store = store.setdefault(user_key or "guest", {})
+    iso_timestamp = datetime.utcnow().isoformat()
+    payload: Dict[str, Any] = {"text": text, "saved_at": iso_timestamp}
+    if mode:
+        try:
+            payload["mode"] = int(mode)
+        except (TypeError, ValueError):
+            pass
+    user_store[draft_key] = payload
+    _persist_practice_autosave_store(str(AUTOSAVE_STORAGE_PATH), store)
+
+    st.session_state.autosave_status[draft_key] = iso_timestamp
+    st.session_state.saved_answers[draft_key] = text
+    return iso_timestamp
+
+
+def _clear_autosave_entries(user_key: str, keys: Iterable[str]) -> None:
+    if not user_key:
+        return
+    store = copy.deepcopy(_load_practice_autosave_store(str(AUTOSAVE_STORAGE_PATH)))
+    user_store = store.get(user_key)
+    if not isinstance(user_store, dict):
+        return
+    removed = False
+    for key in keys:
+        if key in user_store:
+            user_store.pop(key, None)
+            removed = True
+        st.session_state.autosave_status.pop(key, None)
+        st.session_state.autosave_feedback.pop(key, None)
+    if not removed:
+        return
+    if not user_store:
+        store.pop(user_key, None)
+    _persist_practice_autosave_store(str(AUTOSAVE_STORAGE_PATH), store)
+
+
+def _format_saved_timestamp(iso_timestamp: Optional[str]) -> Optional[str]:
+    if not iso_timestamp:
+        return None
+    try:
+        saved_dt = datetime.fromisoformat(str(iso_timestamp))
+    except ValueError:
+        return None
+    return saved_dt.strftime("%H:%M:%S")
 
 PAST_EXAM_TEMPLATE_PATH = Path(__file__).resolve().parent / "data" / "past_exam_template.csv"
 CASE_CONTEXT_TEMPLATE_PATH = Path(__file__).resolve().parent / "data" / "case_context_template.csv"
@@ -1306,6 +1421,14 @@ def _init_session_state() -> None:
     st.session_state.setdefault("page", "ホーム")
     st.session_state.setdefault("drafts", {})
     st.session_state.setdefault("saved_answers", {})
+    st.session_state.setdefault(
+        "_autosave_user_key", _resolve_autosave_user_key(st.session_state.get("user"))
+    )
+    st.session_state.setdefault("autosave_tracker", {})
+    st.session_state.setdefault("autosave_status", {})
+    st.session_state.setdefault("autosave_feedback", {})
+    st.session_state.setdefault("autosave_modes", {})
+    st.session_state.setdefault("autosave_restored", {})
     st.session_state.setdefault("practice_started", None)
     st.session_state.setdefault("question_activity", {})
     st.session_state.setdefault("mock_session", None)
@@ -1324,10 +1447,12 @@ def _init_session_state() -> None:
     st.session_state.setdefault("_question_card_styles_injected", False)
     st.session_state.setdefault("_timeline_styles_injected", False)
     st.session_state.setdefault("_practice_question_styles_injected", False)
+    st.session_state.setdefault("_practice_timer_assets_injected", False)
     st.session_state.setdefault("_tag_styles_injected", False)
     st.session_state.setdefault("model_answer_slots", {})
     st.session_state.setdefault("history_focus_attempt", None)
     st.session_state.setdefault("history_focus_from_notification", False)
+    st.session_state.setdefault("question_timer_start", {})
 
     query_params = st.query_params
     nav_targets = query_params.get("nav")
@@ -1705,6 +1830,9 @@ def _inject_practice_question_styles() -> None:
             .practice-question-block .stButton > button:hover {
                 transform: translateY(-1px);
                 box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+            }
+            .practice-manual-save-button.is-active {
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25), 0 12px 22px rgba(37, 99, 235, 0.22);
             }
             .practice-question-divider {
                 height: 1px;
@@ -2302,239 +2430,148 @@ def _inject_context_column_styles() -> None:
             """
             <style>
             :root {
-                --context-panel-offset: 72px;
+                --practice-context-offset: calc(env(safe-area-inset-top, 0px) + 72px);
             }
-            html {
-                scroll-behavior: smooth;
+            .practice-two-pane {
+                display: flex;
+                align-items: flex-start;
+                gap: 2rem;
+                position: relative;
             }
-            .practice-context-column {
+            .practice-two-pane--single {
+                display: block;
+            }
+            .practice-context-pane {
                 position: sticky;
-                top: var(--context-panel-offset, 72px);
-                align-self: flex-start;
-                display: flex;
-                flex-direction: column;
-                min-height: var(
-                    --context-column-min-height,
-                    calc(100vh - var(--context-panel-offset, 72px) - 16px)
-                );
-                padding-bottom: 1rem;
-            }
-            .practice-context-inner {
-                display: flex;
-                flex-direction: column;
-                gap: 1rem;
-                flex: 1 1 auto;
-                min-height: 0;
-            }
-            .context-panel-mobile-bar {
-                display: none;
-            }
-            .context-panel-trigger {
-                display: none;
-                align-items: center;
-                justify-content: center;
-                gap: 0.4rem;
+                top: var(--practice-context-offset);
+                flex: 0 0 360px;
+                max-width: 360px;
                 width: 100%;
-                border-radius: 999px;
-                border: 1px solid #e5e7eb;
-                background: #ffffff;
-                color: #111827;
-                font-weight: 600;
-                font-size: 0.95rem;
-                padding: 0.65rem 1.1rem;
-                box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
-                cursor: pointer;
-                transition: transform 120ms ease, box-shadow 120ms ease;
-            }
-            .context-panel-trigger:hover {
-                transform: translateY(-1px);
-                box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
-            }
-            .context-panel-trigger:focus-visible,
-            .context-panel-close:focus-visible,
-            .context-panel-scroll:focus-visible {
-                outline: 3px solid rgba(59, 130, 246, 0.45);
-                outline-offset: 2px;
-            }
-            .context-panel-backdrop {
-                display: none;
-                position: fixed;
-                inset: 0;
-                background: rgba(15, 23, 42, 0.35);
-                z-index: 60;
-            }
-            .context-panel {
-                width: 100%;
-                background: #ffffff;
-                border: 1px solid #e5e7eb;
-                border-radius: 0.5rem;
-                padding: 1.25rem;
-                line-height: 1.7;
-                box-sizing: border-box;
-                margin-bottom: 1.5rem;
-                display: flex;
-                flex-direction: column;
-                gap: 0.75rem;
-                overflow: hidden;
-                transition: box-shadow 0.25s ease, transform 0.25s ease;
-            }
-            .context-panel.is-highlighted {
-                box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.28), 0 24px 48px rgba(13, 148, 136, 0.18);
-                transform: translateY(-1px);
-            }
-            .practice-context-inner > .context-panel {
-                flex: 1 1 auto;
-                min-height: 0;
-            }
-            .context-panel-inner {
-                display: flex;
-                flex-direction: column;
-                gap: 0.75rem;
-                flex: 1 1 auto;
-                min-height: 0;
-            }
-            .context-panel-header {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 0.75rem;
-            }
-            .context-panel-title {
-                margin: 0;
-                font-size: 1.1rem;
-                font-weight: 600;
-                color: #111827;
-            }
-            .context-panel-close {
-                display: none;
-                border: 1px solid #e5e7eb;
-                background: #f9fafb;
-                color: #374151;
-                border-radius: 999px;
-                padding: 0.35rem 0.9rem;
-                font-size: 0.85rem;
-                cursor: pointer;
-            }
-            .context-panel-scroll {
+                max-height: calc(100vh - var(--practice-context-offset) - 16px);
                 overflow-y: auto;
-                padding-right: calc(0.85rem + var(--context-scrollbar-compensation, 0px));
-                margin-right: calc(-1 * var(--context-scrollbar-compensation, 0px));
-                scrollbar-gutter: stable both-edges;
-                scrollbar-width: thin;
-                flex: 1 1 auto;
-                min-height: 0;
+                padding: 1.35rem 1.5rem;
+                border-radius: 18px;
+                border: 1px solid rgba(148, 163, 184, 0.38);
+                background: #ffffff;
+                box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+                line-height: 1.75;
+                transition: border-color 0.2s ease, box-shadow 0.3s ease;
             }
-            .context-panel-scroll::-webkit-scrollbar {
-                width: 0.5rem;
+            .practice-context-pane.is-highlighted {
+                border-color: rgba(59, 130, 246, 0.55);
+                box-shadow: 0 22px 44px rgba(37, 99, 235, 0.2);
             }
-            .context-panel-scroll::-webkit-scrollbar-thumb {
-                background-color: rgba(100, 116, 139, 0.55);
-                border-radius: 999px;
+            .practice-context-pane__header {
+                margin-bottom: 1.1rem;
             }
-            .context-panel-scroll::-webkit-scrollbar-track {
-                background-color: transparent;
+            .practice-context-pane__header h3 {
+                margin: 0;
+                font-size: 1.2rem;
+                font-weight: 700;
+                color: #0f172a;
             }
-            .context-search-control {
-                margin-bottom: 0.85rem;
-                padding: 0.75rem 0.85rem;
-                border-radius: 0.75rem;
-                border: 1px solid #e5e7eb;
-                background: rgba(248, 250, 252, 0.9);
+            .practice-context-pane__search {
+                margin-bottom: 1.1rem;
+                padding: 0.75rem 0.9rem;
+                border-radius: 0.85rem;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: rgba(248, 250, 252, 0.95);
             }
-            .context-search-control [data-testid="stTextInput"] {
-                margin-bottom: 0.35rem;
+            .practice-context-pane__search [data-testid=\"stTextInput\"] {
+                margin-bottom: 0.4rem;
             }
-            .context-search-control [data-testid="stTextInput"] > label {
+            .practice-context-pane__search [data-testid=\"stTextInput\"] > label {
                 font-weight: 600;
                 color: #1f2937;
                 font-size: 0.85rem;
                 margin-bottom: 0.35rem;
             }
-            .context-search-control [data-testid="stTextInput"] input {
-                border-radius: 0.5rem;
-                border: 1px solid #cbd5f5;
+            .practice-context-pane__search [data-testid=\"stTextInput\"] input {
+                border-radius: 0.55rem;
+                border: 1px solid rgba(148, 163, 184, 0.55);
                 padding: 0.45rem 0.75rem;
                 background: #ffffff;
-                box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+                box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
             }
-            .context-search-control [data-testid="stCaptionContainer"] {
+            .practice-context-pane__search [data-testid=\"stCaptionContainer\"] {
                 margin: 0.35rem 0 0;
                 color: #475569;
             }
-            @media (min-width: 901px) {
-                .practice-context-inner {
-                    max-height: calc(100vh - var(--context-panel-offset, 72px) - 16px);
-                    overflow: visible;
+            .practice-context-pane mark.context-search-hit {
+                background: rgba(59, 130, 246, 0.2);
+                border-radius: 4px;
+                padding: 0 2px;
+            }
+            .practice-context-pane .context-paragraph {
+                margin-bottom: 0.85rem;
+                padding: 0.65rem 0.85rem;
+                border-radius: 0.85rem;
+                border: 1px solid rgba(148, 163, 184, 0.28);
+                background: rgba(248, 250, 252, 0.65);
+                transition: border-color 0.2s ease, background 0.2s ease;
+            }
+            .practice-context-pane .context-paragraph:hover {
+                border-color: rgba(59, 130, 246, 0.4);
+                background: rgba(191, 219, 254, 0.35);
+            }
+            .practice-context-pane .context-paragraph p {
+                margin: 0;
+            }
+            .practice-context-pane::-webkit-scrollbar {
+                width: 6px;
+            }
+            .practice-context-pane::-webkit-scrollbar-thumb {
+                border-radius: 999px;
+                background: rgba(148, 163, 184, 0.45);
+            }
+            @media (max-width: 1200px) {
+                .practice-context-pane {
+                    flex-basis: 320px;
+                    max-width: 320px;
                 }
-                .practice-context-inner > .context-panel {
-                    position: sticky;
-                    top: var(--context-panel-offset, 72px);
-                    max-height: calc(100vh - var(--context-panel-offset, 72px) - 16px);
-                    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+            }
+            @media (max-width: 960px) {
+                .practice-two-pane {
+                    flex-direction: column;
+                    gap: 1.5rem;
                 }
-                .context-panel-inner {
+                .practice-context-pane {
+                    position: relative;
+                    top: auto;
                     flex: 1 1 auto;
-                    min-height: 0;
-                }
-                .context-panel-scroll {
+                    max-width: none;
                     max-height: none;
                 }
             }
-            @media (max-width: 900px) {
-                .practice-context-column {
-                    position: static;
-                    top: auto;
-                    min-height: 0;
-                    max-height: none;
-                    overflow: visible;
-                    display: block;
-                    padding-bottom: 0;
+            @media (prefers-color-scheme: dark) {
+                .practice-context-pane {
+                    background: rgba(17, 24, 39, 0.92);
+                    color: #e2e8f0;
+                    border-color: rgba(148, 163, 184, 0.35);
+                    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.28);
                 }
-                .context-panel-mobile-bar {
-                    display: block;
-                    position: sticky;
-                    top: var(--context-panel-offset, 72px);
-                    z-index: 65;
-                    padding: 0.25rem 0;
-                    margin-bottom: 0.75rem;
-                    background: linear-gradient(180deg, #ffffff 75%, rgba(255, 255, 255, 0));
+                .practice-context-pane__header h3 {
+                    color: #f8fafc;
                 }
-                .context-panel-trigger {
-                    display: inline-flex;
+                .practice-context-pane__search {
+                    background: rgba(30, 41, 59, 0.92);
+                    border-color: rgba(100, 116, 139, 0.45);
                 }
-                .context-panel {
-                    display: none;
-                    position: fixed;
-                    top: var(--context-panel-offset, 72px);
-                    left: 50%;
-                    transform: translateX(-50%);
-                    width: min(640px, 92vw);
-                    height: 85vh;
-                    max-height: 90vh;
-                    padding: 1.25rem;
-                    margin-bottom: 0;
-                    z-index: 70;
-                    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.25);
+                .practice-context-pane__search [data-testid=\"stTextInput\"] input {
+                    background: rgba(15, 23, 42, 0.92);
+                    color: #f8fafc;
+                    border-color: rgba(100, 116, 139, 0.55);
                 }
-                body.context-panel-open {
-                    overflow: hidden;
+                .practice-context-pane mark.context-search-hit {
+                    background: rgba(96, 165, 250, 0.35);
                 }
-                body.context-panel-open .context-panel {
-                    display: flex;
-                    flex-direction: column;
+                .practice-context-pane .context-paragraph {
+                    background: rgba(30, 41, 59, 0.75);
+                    border-color: rgba(100, 116, 139, 0.45);
                 }
-                body.context-panel-open .context-panel-backdrop {
-                    display: block;
-                }
-                .context-panel-close {
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: #ffffff;
-                }
-                .context-panel-scroll {
-                    flex: 1 1 auto;
-                    max-height: none;
+                .practice-context-pane .context-paragraph:hover {
+                    border-color: rgba(96, 165, 250, 0.45);
+                    background: rgba(59, 130, 246, 0.2);
                 }
             }
             </style>
@@ -2543,266 +2580,6 @@ def _inject_context_column_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_context_panel_styles_injected_v3"] = True
-
-
-def _inject_context_panel_behavior() -> None:
-    st.markdown(
-        dedent(
-            """
-            <script>
-            (() => {
-                const setupContextPanel = () => {
-                    const doc = window.document;
-                    const panel = doc.getElementById('context-panel');
-                    const scrollArea = panel ? panel.querySelector('.context-panel-scroll') : null;
-                    const column = panel ? panel.closest('.practice-context-column') : null;
-                    const mainColumn = doc.querySelector('.practice-main-column');
-                    const triggers = Array.from(doc.querySelectorAll('.context-panel-trigger'));
-                    let lastTrigger = null;
-
-                    if (panel && !panel.hasAttribute('aria-hidden')) {
-                        panel.setAttribute('aria-hidden', 'true');
-                    }
-
-                    const getPanelOffset = () => {
-                        const rootStyles = window.getComputedStyle(doc.documentElement);
-                        const rawOffset = rootStyles.getPropertyValue('--context-panel-offset');
-                        const parsed = parseFloat(rawOffset);
-                        return Number.isFinite(parsed) ? parsed : 72;
-                    };
-
-                    const updateScrollbarCompensation = () => {
-                        if (!panel || !scrollArea) {
-                            return;
-                        }
-                        const scrollbarWidth = Math.max(
-                            0,
-                            scrollArea.offsetWidth - scrollArea.clientWidth
-                        );
-                        panel.style.setProperty(
-                            '--context-scrollbar-compensation',
-                            `${scrollbarWidth}px`
-                        );
-                    };
-
-                    const syncColumnMinHeight = (mq) => {
-                        if (!column) {
-                            return;
-                        }
-                        column.style.removeProperty('--context-column-min-height');
-                        const media = mq || window.matchMedia('(max-width: 900px)');
-                        if (media.matches) {
-                            return;
-                        }
-                        const offset = getPanelOffset();
-                        const viewportHeight = Math.max(0, window.innerHeight - offset - 16);
-                        let mainHeight = 0;
-                        if (mainColumn) {
-                            const rect = mainColumn.getBoundingClientRect();
-                            mainHeight = rect.height;
-                        }
-                        const target = Math.max(viewportHeight, mainHeight);
-                        if (target > 0) {
-                            column.style.setProperty(
-                                '--context-column-min-height',
-                                `${Math.ceil(target)}px`
-                            );
-                        }
-                    };
-
-                    const setAriaExpanded = (open) => {
-                        triggers.forEach((button) => {
-                            button.setAttribute('aria-expanded', open ? 'true' : 'false');
-                        });
-                    };
-
-                    const setOpen = (open, options = {}) => {
-                        const {
-                            suppressFocus = false,
-                            skipReturnFocus = false,
-                            trigger = null,
-                            returnFocusTo = null,
-                        } = options;
-
-                        if (!doc.body) {
-                            return;
-                        }
-
-                        if (trigger) {
-                            lastTrigger = trigger;
-                        }
-
-                        doc.body.classList.toggle('context-panel-open', open);
-                        setAriaExpanded(open);
-
-                        if (panel) {
-                            panel.setAttribute('aria-hidden', open ? 'false' : 'true');
-                        }
-
-                        if (open) {
-                            window.requestAnimationFrame(updateScrollbarCompensation);
-                        } else {
-                            updateScrollbarCompensation();
-                        }
-
-                        if (open && scrollArea && !suppressFocus) {
-                            scrollArea.focus({ preventScroll: false });
-                        }
-
-                        if (!open && !skipReturnFocus) {
-                            const focusTarget = returnFocusTo || lastTrigger || triggers[0];
-                            if (focusTarget) {
-                                focusTarget.focus();
-                            }
-                        }
-                    };
-
-                    const handleTrigger = (button) => {
-                        setOpen(true, { trigger: button });
-                    };
-
-                    const handleClose = (options = {}) => {
-                        setOpen(false, options);
-                    };
-
-                    if (triggers.length) {
-                        triggers.forEach((button) => {
-                            if (button.dataset.bound === 'true') {
-                                return;
-                            }
-                            button.dataset.bound = 'true';
-                            button.setAttribute('aria-expanded', 'false');
-                        });
-                    }
-
-                    if (doc.body && doc.body.dataset.contextPanelDelegated !== 'true') {
-                        doc.body.dataset.contextPanelDelegated = 'true';
-
-                        doc.addEventListener(
-                            'click',
-                            (event) => {
-                                const triggerButton = event.target.closest('.context-panel-trigger');
-                                if (triggerButton) {
-                                    event.preventDefault();
-                                    handleTrigger(triggerButton);
-                                    return;
-                                }
-
-                                const closeButton = event.target.closest('.context-panel-close');
-                                if (closeButton) {
-                                    event.preventDefault();
-                                    handleClose();
-                                    return;
-                                }
-
-                                const backdrop = event.target.closest('.context-panel-backdrop');
-                                if (backdrop && event.target === backdrop) {
-                                    handleClose({ suppressFocus: true, skipReturnFocus: true });
-                                }
-                            },
-                            { passive: false }
-                        );
-
-                        doc.addEventListener(
-                            'keydown',
-                            (event) => {
-                                const triggerButton = event.target.closest('.context-panel-trigger');
-                                if (triggerButton && (event.key === 'Enter' || event.key === ' ')) {
-                                    event.preventDefault();
-                                    handleTrigger(triggerButton);
-                                    return;
-                                }
-
-                                const closeButton = event.target.closest('.context-panel-close');
-                                if (closeButton && (event.key === 'Enter' || event.key === ' ')) {
-                                    event.preventDefault();
-                                    handleClose();
-                                }
-                            },
-                            { passive: false }
-                        );
-                    }
-
-                    const mediaQuery = window.matchMedia('(max-width: 900px)');
-                    const syncForViewport = (mq) => {
-                        if (!panel) {
-                            return;
-                        }
-                        if (mq.matches) {
-                            handleClose({ suppressFocus: true, skipReturnFocus: true });
-                        } else {
-                            panel.setAttribute('aria-hidden', 'false');
-                            setAriaExpanded(true);
-                            if (doc.body) {
-                                doc.body.classList.remove('context-panel-open');
-                            }
-                        }
-                        syncColumnMinHeight(mq);
-                    };
-
-                    syncForViewport(mediaQuery);
-                    if (mediaQuery.addEventListener) {
-                        mediaQuery.addEventListener('change', syncForViewport);
-                    } else if (mediaQuery.addListener) {
-                        mediaQuery.addListener(syncForViewport);
-                    }
-
-                    updateScrollbarCompensation();
-                    syncColumnMinHeight(mediaQuery);
-
-                    if (scrollArea && typeof ResizeObserver !== 'undefined') {
-                        if (!scrollArea.__contextPanelResizeObserver) {
-                            scrollArea.__contextPanelResizeObserver = new ResizeObserver(
-                                updateScrollbarCompensation
-                            );
-                            scrollArea.__contextPanelResizeObserver.observe(scrollArea);
-                        }
-                    }
-
-                    if (mainColumn && typeof ResizeObserver !== 'undefined') {
-                        if (!mainColumn.__contextColumnResizeObserver) {
-                            mainColumn.__contextColumnResizeObserver = new ResizeObserver(() => {
-                                syncColumnMinHeight(mediaQuery);
-                            });
-                            mainColumn.__contextColumnResizeObserver.observe(mainColumn);
-                        }
-                    }
-
-                    if (doc.body && !doc.body.dataset.contextPanelResizeBound) {
-                        doc.body.dataset.contextPanelResizeBound = 'true';
-                        window.addEventListener(
-                            'resize',
-                            () => {
-                                updateScrollbarCompensation();
-                                syncColumnMinHeight(mediaQuery);
-                            },
-                            {
-                                passive: true,
-                            }
-                        );
-                    }
-
-                    if (doc.body && !doc.body.dataset.contextPanelEscapeBound) {
-                        doc.body.dataset.contextPanelEscapeBound = 'true';
-                        doc.addEventListener('keydown', (event) => {
-                            if (event.key === 'Escape') {
-                                handleClose({ suppressFocus: true });
-                            }
-                        });
-                    }
-                };
-
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', setupContextPanel);
-                } else {
-                    setupContextPanel();
-                }
-            })();
-            </script>
-            """
-        ),
-        unsafe_allow_html=True,
-    )
 
 
 def _inject_practice_navigation_styles() -> None:
@@ -2892,7 +2669,7 @@ def _inject_practice_navigation_styles() -> None:
             }
             .practice-toc {
                 position: sticky;
-                top: calc(var(--context-panel-offset, 72px) + 12px);
+                top: calc(var(--practice-context-offset, 72px) + 12px);
                 display: flex;
                 flex-direction: column;
                 gap: 0.6rem;
@@ -2937,91 +2714,114 @@ def _inject_practice_navigation_styles() -> None:
                 flex: 0 0 auto;
             }
             .practice-toc-link {
-                display: flex;
+                display: inline-flex;
                 flex-direction: column;
                 gap: 0.25rem;
-                min-width: 128px;
+                padding: 0.6rem 0.85rem;
+                border-radius: 16px;
+                border: 1px solid rgba(148, 163, 184, 0.4);
+                background: rgba(255, 255, 255, 0.94);
                 text-decoration: none;
-                border-radius: 999px;
-                border: 1px solid rgba(148, 163, 184, 0.38);
-                background: #ffffff;
-                color: #0f172a;
-                padding: 0.55rem 1rem;
-                box-shadow: 0 6px 12px rgba(15, 23, 42, 0.06);
-                transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+                color: #1e293b;
+                min-width: 140px;
+                transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
             }
             .practice-toc-link:hover {
-                border-color: rgba(37, 99, 235, 0.4);
-                box-shadow: 0 10px 20px rgba(37, 99, 235, 0.12);
+                border-color: rgba(59, 130, 246, 0.45);
+                box-shadow: 0 8px 18px rgba(59, 130, 246, 0.18);
+                background: rgba(239, 246, 255, 0.96);
             }
-            .practice-toc-link:focus-visible {
-                outline: 3px solid var(--practice-focus-ring-soft);
-                outline-offset: 3px;
-            }
-            .practice-toc-link[aria-current="location"] {
-                background: linear-gradient(135deg, #2563eb, #1d4ed8);
-                color: #ffffff;
-                border-color: rgba(37, 99, 235, 0.8);
-                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
-                font-weight: 700;
-            }
-            .practice-toc-link[aria-current="location"] .practice-toc-index {
-                color: rgba(255, 255, 255, 0.92);
+            .practice-toc-link[aria-current="location"],
+            .practice-toc-link.is-active {
+                border-color: rgba(37, 99, 235, 0.6);
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+                background: rgba(219, 234, 254, 0.96);
             }
             .practice-toc-index {
                 font-size: 0.75rem;
                 font-weight: 700;
                 letter-spacing: 0.08em;
-                text-transform: uppercase;
                 color: #1d4ed8;
+                text-transform: uppercase;
             }
             .practice-toc-text {
-                font-size: 0.8rem;
-                line-height: 1.3;
-                color: #1f2937;
+                font-size: 0.82rem;
+                color: #334155;
+                line-height: 1.5;
             }
-            .practice-toc-link[aria-current="location"] .practice-toc-text {
-                color: rgba(255, 255, 255, 0.92);
+            .practice-floating-buttons {
+                position: fixed;
+                right: 1.5rem;
+                bottom: 1.5rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                z-index: 55;
+            }
+            .practice-floating-buttons .is-hidden {
+                display: none !important;
+            }
+            .practice-return-button {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 0.55rem 1.15rem;
+                border-radius: 999px;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: rgba(255, 255, 255, 0.92);
+                color: #0f172a;
+                font-weight: 600;
+                font-size: 0.85rem;
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
+            }
+            .practice-return-button:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 14px 28px rgba(15, 23, 42, 0.2);
+            }
+            .practice-return-button:focus-visible {
+                outline: 3px solid rgba(37, 99, 235, 0.35);
+                outline-offset: 2px;
+            }
+            .practice-return-button-icon svg {
+                width: 18px;
+                height: 18px;
             }
             .practice-stepper {
                 position: sticky;
                 bottom: 1.5rem;
-                margin: 2.2rem 0 1.9rem;
+                margin: 2.5rem auto 0;
                 display: flex;
-                gap: 0.75rem;
-                align-items: center;
-                justify-content: space-between;
-                padding: 0.75rem 1rem;
+                gap: 1.5rem;
+                justify-content: center;
+                padding: 0.85rem 1.35rem;
                 border-radius: 18px;
-                border: 1px solid rgba(148, 163, 184, 0.38);
-                background: rgba(248, 250, 252, 0.92);
-                box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12);
-                backdrop-filter: blur(12px);
-                z-index: 14;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: rgba(255, 255, 255, 0.92);
+                box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
+                backdrop-filter: blur(6px);
             }
             .practice-stepper-button {
-                flex: 1 1 0;
                 display: flex;
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 0.2rem;
-                border: none;
-                border-radius: 12px;
-                padding: 0.65rem 1rem;
-                background: rgba(255, 255, 255, 0.85);
-                color: #0f172a;
+                min-width: 160px;
+                padding: 0.65rem 1.1rem;
+                border-radius: 14px;
+                border: 1px solid rgba(148, 163, 184, 0.4);
+                background: rgba(248, 250, 252, 0.95);
+                color: #1e293b;
                 font-weight: 600;
-                font-size: 0.92rem;
-                cursor: pointer;
-                transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+                text-align: left;
+                transition: transform 0.15s ease, box-shadow 0.15s ease;
             }
-            .practice-stepper-button:hover:not(:disabled) {
-                background: rgba(219, 234, 254, 0.65);
-                box-shadow: 0 8px 20px rgba(59, 130, 246, 0.18);
+            .practice-stepper-button:hover {
                 transform: translateY(-1px);
+                box-shadow: 0 12px 24px rgba(59, 130, 246, 0.16);
             }
             .practice-stepper-button:focus-visible {
-                outline: 3px solid var(--practice-focus-ring-soft);
+                outline: 3px solid rgba(37, 99, 235, 0.35);
                 outline-offset: 2px;
             }
             .practice-stepper-button:disabled,
@@ -3048,6 +2848,10 @@ def _inject_practice_navigation_styles() -> None:
                 .practice-toc {
                     position: static;
                     box-shadow: none;
+                }
+                .practice-floating-buttons {
+                    right: 1rem;
+                    bottom: 1rem;
                 }
             }
             @media (max-width: 768px) {
@@ -3164,7 +2968,7 @@ def _inject_practice_navigation_script() -> None:
                 const quickNav = doc.getElementById('practice-quick-nav');
                 const returnButton = doc.querySelector('.practice-return-nav-button');
                 const contextButton = doc.querySelector('.practice-return-context-button');
-                const contextPanel = doc.getElementById('context-panel');
+                const contextPanel = doc.getElementById('practice-context-pane');
 
                 const attachContextButton = () => {
                     if (!contextButton) {
@@ -3179,10 +2983,6 @@ def _inject_practice_navigation_script() -> None:
                         return;
                     }
 
-                    const triggers = Array.from(doc.querySelectorAll('.context-panel-trigger'));
-                    const scrollArea = contextPanel.querySelector('.context-panel-scroll');
-                    const mediaQuery = win.matchMedia('(max-width: 900px)');
-
                     const highlightPanel = () => {
                         contextPanel.classList.add('is-highlighted');
                         win.setTimeout(() => contextPanel.classList.remove('is-highlighted'), 1600);
@@ -3191,45 +2991,26 @@ def _inject_practice_navigation_script() -> None:
                     contextButton.dataset.enhanced = '1';
                     contextButton.addEventListener('click', (event) => {
                         event.preventDefault();
-                        if (!contextPanel) {
-                            return;
-                        }
-                        if (mediaQuery.matches && triggers.length) {
-                            const trigger =
-                                triggers.find((button) => button.offsetParent !== null) || triggers[0];
-                            if (trigger) {
-                                trigger.click();
-                                win.setTimeout(() => {
-                                    if (scrollArea) {
-                                        scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
-                                        scrollArea.focus({ preventScroll: true });
-                                    }
-                                    highlightPanel();
-                                }, 220);
-                            }
-                            return;
-                        }
                         contextPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        if (scrollArea) {
-                            scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
+                        if (contextPanel.scrollTo) {
+                            contextPanel.scrollTo({ top: 0, behavior: 'smooth' });
                         }
                         highlightPanel();
                     });
 
-                    const syncVisibility = () => {
-                        if (!doc.contains(contextPanel)) {
-                            contextButton.classList.add('is-hidden');
-                        } else {
-                            contextButton.classList.remove('is-hidden');
+                    if (typeof MutationObserver === 'function') {
+                        if (win.__practiceContextObserver) {
+                            win.__practiceContextObserver.disconnect();
                         }
-                    };
-
-                    syncVisibility();
-
-                    if (mediaQuery.addEventListener) {
-                        mediaQuery.addEventListener('change', syncVisibility);
-                    } else if (mediaQuery.addListener) {
-                        mediaQuery.addListener(syncVisibility);
+                        const observer = new MutationObserver(() => {
+                            if (!doc.contains(contextPanel)) {
+                                contextButton.classList.add('is-hidden');
+                            } else {
+                                contextButton.classList.remove('is-hidden');
+                            }
+                        });
+                        observer.observe(doc.body, { childList: true, subtree: true });
+                        win.__practiceContextObserver = observer;
                     }
                 };
 
@@ -3374,6 +3155,36 @@ def _inject_practice_navigation_script() -> None:
                     win.requestAnimationFrame(() => setActive(anchor, { scrollNav: true, forceUpdate: true }));
                 };
 
+                const findSectionByAnchor = (anchor) => {
+                    const data = sectionMap.get(anchor);
+                    return data ? data.section : null;
+                };
+
+                const triggerManualSave = () => {
+                    const section = findSectionByAnchor(activeAnchor);
+                    if (!section) {
+                        return false;
+                    }
+                    const button = section.querySelector('.practice-manual-save-button');
+                    if (!button) {
+                        return false;
+                    }
+                    button.classList.add('is-active');
+                    button.click();
+                    win.setTimeout(() => button.classList.remove('is-active'), 320);
+                    return true;
+                };
+
+                const jumpToIndex = (index) => {
+                    if (index < 0 || index >= sectionAnchors.length) {
+                        return;
+                    }
+                    const anchor = sectionAnchors[index];
+                    if (anchor) {
+                        scrollToAnchor(anchor, true);
+                    }
+                };
+
                 navLinks.forEach((link) => {
                     if (link.dataset.enhanced === '1') {
                         return;
@@ -3388,6 +3199,44 @@ def _inject_practice_navigation_script() -> None:
                         scrollToAnchor(anchor, true);
                     });
                 });
+
+                const handleShortcut = (event) => {
+                    const key = event.key;
+                    if (event.ctrlKey && !event.altKey && !event.metaKey && key === 'Enter') {
+                        const handled = triggerManualSave();
+                        if (handled) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        }
+                        return;
+                    }
+                    if (!event.altKey || event.ctrlKey || event.metaKey) {
+                        return;
+                    }
+                    if (key === 'ArrowLeft' || key === 'ArrowRight') {
+                        event.preventDefault();
+                        const currentIndex = sectionAnchors.indexOf(activeAnchor);
+                        if (key === 'ArrowLeft') {
+                            jumpToIndex(currentIndex - 1);
+                        } else {
+                            jumpToIndex(currentIndex + 1);
+                        }
+                        return;
+                    }
+                    if (/^[1-9]$/.test(key)) {
+                        const index = Number(key) - 1;
+                        if (index < sectionAnchors.length) {
+                            event.preventDefault();
+                            jumpToIndex(index);
+                        }
+                    }
+                };
+
+                if (win.__practiceShortcutHandler) {
+                    doc.removeEventListener('keydown', win.__practiceShortcutHandler);
+                }
+                doc.addEventListener('keydown', handleShortcut);
+                win.__practiceShortcutHandler = handleShortcut;
 
                 [prevButton, nextButton].forEach((button) => {
                     if (!button || button.dataset.enhanced === '1') {
@@ -3467,6 +3316,7 @@ def _inject_practice_navigation_script() -> None:
         ),
         unsafe_allow_html=True,
     )
+
 
 def _render_question_context_block(context_value: Any) -> None:
     context_text = _normalize_text_block(context_value)
@@ -7273,6 +7123,181 @@ def _format_fullwidth_length(value: float) -> str:
     return f"{rounded:.1f}"
 
 
+def _resolve_question_score(question: Mapping[str, Any]) -> Optional[int]:
+    if not isinstance(question, Mapping):
+        return None
+    for key in ("max_score", "配点", "score"):
+        value = question.get(key)
+        if value is None:
+            continue
+        if isinstance(value, float) and math.isnan(value):
+            continue
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _resolve_question_duration_seconds(
+    case_label: Optional[str],
+    question: Mapping[str, Any],
+    total_score: Optional[int],
+    question_count: Optional[int],
+) -> int:
+    base_minutes = PRACTICE_DEFAULT_MINUTES
+    total_seconds = max(int(base_minutes * 60), 60)
+    question_score = _resolve_question_score(question)
+    if total_score and total_score > 0 and question_score:
+        ratio = question_score / total_score
+        allocated = int(total_seconds * max(min(ratio, 1.0), 0.0))
+        return max(allocated, 60)
+    if question_count and question_count > 0:
+        return max(int(total_seconds / question_count), 60)
+    return total_seconds
+
+
+def _format_timer_display(seconds_remaining: float) -> str:
+    remaining = max(int(seconds_remaining), 0)
+    minutes = remaining // 60
+    seconds = remaining % 60
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def _inject_practice_timer_assets() -> None:
+    if st.session_state.get("_practice_timer_assets_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .practice-timer {
+                margin: 0.5rem 0 0.9rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+            }
+            .practice-timer__meta {
+                display: flex;
+                justify-content: space-between;
+                font-size: 0.85rem;
+                color: var(--practice-text-muted, #475569);
+            }
+            .practice-timer__value {
+                font-weight: 700;
+                color: var(--practice-text-strong, #0f172a);
+                letter-spacing: 0.03em;
+            }
+            .practice-timer__bar {
+                height: 8px;
+                width: 100%;
+                background: #e2e8f0;
+                border-radius: 999px;
+                overflow: hidden;
+            }
+            .practice-timer__progress {
+                height: 100%;
+                width: 0%;
+                border-radius: 999px;
+                background: linear-gradient(90deg, #38bdf8 0%, #6366f1 100%);
+                transition: width 0.35s ease;
+            }
+            .practice-timer[data-state="expired"] .practice-timer__progress {
+                background: linear-gradient(90deg, #f97316 0%, #dc2626 100%);
+            }
+            .practice-timer[data-state="expired"] .practice-timer__value {
+                color: #b91c1c;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        dedent(
+            """
+            <script>
+            (() => {
+                const win = window.parent || window;
+                const doc = win.document;
+                if (!doc) {
+                    return;
+                }
+
+                const updateTimers = () => {
+                    const now = Date.now() / 1000;
+                    const timers = Array.from(doc.querySelectorAll('.practice-timer'));
+                    timers.forEach((timer) => {
+                        const start = Number(timer.dataset.start || '0');
+                        const duration = Number(timer.dataset.duration || '0');
+                        if (!duration) {
+                            return;
+                        }
+                        const elapsed = Math.max(0, now - start);
+                        const remaining = Math.max(0, duration - elapsed);
+                        const progress = Math.min(1, elapsed / duration);
+                        const bar = timer.querySelector('.practice-timer__progress');
+                        if (bar) {
+                            bar.style.width = `${(progress * 100).toFixed(2)}%`;
+                        }
+                        const value = timer.querySelector('[data-role="value"]');
+                        if (value) {
+                            const minutes = Math.floor(remaining / 60);
+                            const seconds = Math.floor(remaining % 60);
+                            value.textContent = `${minutes.toString().padStart(2, '0')}:${seconds
+                                .toString()
+                                .padStart(2, '0')}`;
+                        }
+                        if (remaining <= 0.5) {
+                            timer.dataset.state = 'expired';
+                        } else {
+                            timer.dataset.state = '';
+                        }
+                    });
+                };
+
+                updateTimers();
+                if (!win.__practiceTimerInterval) {
+                    win.__practiceTimerInterval = win.setInterval(updateTimers, 1000);
+                }
+            })();
+            </script>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+
+    st.session_state["_practice_timer_assets_injected"] = True
+
+
+def _render_question_timer(draft_key: str, duration_seconds: int, start_timestamp: float) -> None:
+    _inject_practice_timer_assets()
+    safe_id = re.sub(r"[^0-9a-zA-Z_-]", "-", draft_key)
+    duration = max(int(duration_seconds), 1)
+    elapsed = max(0.0, time.time() - start_timestamp)
+    remaining = max(0.0, duration - elapsed)
+    progress = min(max(elapsed / duration, 0.0), 1.0)
+    current_display = _format_timer_display(remaining)
+    st.markdown(
+        dedent(
+            f"""
+            <div class="practice-timer" data-timer-id="{html.escape(safe_id)}" data-start="{start_timestamp:.4f}" data-duration="{duration}">
+                <div class="practice-timer__meta">
+                    <span class="practice-timer__label">残り時間</span>
+                    <span class="practice-timer__value" data-role="value">{current_display}</span>
+                </div>
+                <div class="practice-timer__bar">
+                    <div class="practice-timer__progress" style="width: {progress * 100:.2f}%;"></div>
+                </div>
+            </div>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+
+
 def _ensure_character_meter_styles() -> None:
     if st.session_state.get("_char_meter_styles_injected"):
         return
@@ -7389,31 +7414,88 @@ def _render_character_meter(current: float, limit: Optional[int]) -> None:
     )
 
 
-def _render_character_counter(text: str, limit: Optional[int]) -> None:
+def _count_answer_elements(text: str) -> int:
+    if not text:
+        return 0
+    normalized = str(text).replace("\r\n", "\n")
+    segments: List[str] = []
+    for line in normalized.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        stripped = stripped.lstrip("・-ー—−●○◎□・").strip()
+        if stripped:
+            segments.append(stripped)
+    if not segments:
+        segments = [normalized.replace("\n", " ").strip()]
+    tokens: List[str] = []
+    for segment in segments:
+        parts = [part.strip() for part in re.split(r"[。！？]+", segment) if part.strip()]
+        if parts:
+            tokens.extend(parts)
+        else:
+            tokens.append(segment)
+    return len(tokens)
+
+
+def _render_character_counter(
+    text: str,
+    limit: Optional[int],
+    *,
+    state_key: Optional[str] = None,
+    preset_mode: Optional[int] = None,
+) -> Dict[str, Any]:
     fullwidth_length = _compute_fullwidth_length(text)
-    if limit is None:
-        st.caption(
-            f"現在の文字数: {len(text)}字 ／ 全角換算: {_format_fullwidth_length(fullwidth_length)}字"
-        )
-        _render_character_meter(fullwidth_length, limit)
-        if fullwidth_length >= 120:
-            st.error("120字を超えています。要素を整理して因果の主軸を絞りましょう。")
-        return
-
-    remaining = limit - fullwidth_length
-    if remaining >= 0:
-        remaining_text = f"残り {_format_fullwidth_length(remaining)}字"
-    else:
-        remaining_text = f"{_format_fullwidth_length(abs(remaining))}字オーバー"
-    st.caption(
-        f"文字数: {_format_fullwidth_length(fullwidth_length)} / {limit}字（{remaining_text}）"
+    options = list(CHAR_MODE_OPTIONS)
+    default_mode = preset_mode if preset_mode in options else None
+    if default_mode is None and limit in options:
+        default_mode = limit
+    if default_mode is None:
+        default_mode = 100
+    try:
+        default_index = options.index(int(default_mode))
+    except (ValueError, TypeError):
+        default_index = options.index(100)
+    mode_state_key = f"char-mode::{state_key}" if state_key else "char-mode::default"
+    selected_mode = st.radio(
+        "文字数モード",
+        options,
+        index=default_index,
+        key=mode_state_key,
+        horizontal=True,
+        format_func=lambda value: f"{value}字",
     )
-    if remaining < 0:
-        st.error("文字数が上限を超えています。赤字の警告に従い削減しましょう。")
-    elif fullwidth_length >= 120 and limit > 120:
-        st.error("120字を超えると冗長になりやすいです。重要語に絞りましょう。")
 
-    _render_character_meter(fullwidth_length, limit)
+    target_limit = limit or selected_mode
+    if target_limit is None:
+        target_limit = selected_mode
+
+    limit_note = ""
+    if limit and limit != target_limit:
+        limit_note = f"（設問指定 {limit}字）"
+    caption_text = (
+        f"現在{_format_fullwidth_length(fullwidth_length)}字／上限{target_limit}字{limit_note}"
+    )
+    st.caption(caption_text)
+
+    remaining = target_limit - fullwidth_length if target_limit else 0
+    if limit and fullwidth_length > limit:
+        st.error("設問で指定された文字数を超えています。重要度の低い要素を削りましょう。")
+    elif target_limit and fullwidth_length > target_limit:
+        st.warning("選択中の文字数モードを超えています。メリハリをつけて整理しましょう。")
+
+    _render_character_meter(fullwidth_length, target_limit)
+
+    element_count = _count_answer_elements(text)
+    st.caption(f"要素カウント: {element_count}点（推奨: 2〜3点）")
+
+    result = {
+        "mode": selected_mode,
+        "char_count": fullwidth_length,
+        "limit": target_limit,
+        "element_count": element_count,
+    }
+    return result
 
 
 TOKEN_PATTERN = re.compile(r"[ぁ-んァ-ヶ一-龥ａ-ｚＡ-Ｚa-zA-Z0-9]+")
@@ -8091,12 +8173,37 @@ def _question_input(
     question_index: Optional[int] = None,
     anchor_id: Optional[str] = None,
     header_id: Optional[str] = None,
+    draft_key: Optional[str] = None,
+    question_total_score: Optional[int] = None,
+    question_count: Optional[int] = None,
 ) -> str:
     _inject_practice_question_styles()
-    key = _draft_key(problem_id, question["id"])
+    key = draft_key or _draft_key(problem_id, question["id"])
+    user_key = st.session_state.get("_autosave_user_key") or _resolve_autosave_user_key(
+        st.session_state.get("user")
+    )
+    autosave_entry = _get_autosaved_entry(user_key, key)
+    preset_mode = st.session_state.autosave_modes.get(key)
+    if preset_mode is None and autosave_entry and autosave_entry.get("mode"):
+        try:
+            preset_mode = int(autosave_entry.get("mode"))
+        except (TypeError, ValueError):
+            preset_mode = None
     if key not in st.session_state.drafts:
         saved_default = st.session_state.saved_answers.get(key, "")
+        if not saved_default and autosave_entry and autosave_entry.get("text"):
+            saved_default = str(autosave_entry.get("text") or "")
+            st.session_state.autosave_feedback[key] = {
+                "type": "restored",
+                "saved_at": autosave_entry.get("saved_at"),
+            }
         st.session_state.drafts[key] = saved_default
+    elif autosave_entry and autosave_entry.get("text") and not st.session_state.drafts.get(key):
+        st.session_state.drafts[key] = str(autosave_entry.get("text") or "")
+        st.session_state.autosave_feedback[key] = {
+            "type": "restored",
+            "saved_at": autosave_entry.get("saved_at"),
+        }
 
     textarea_state_key = f"{widget_prefix}{key}"
 
@@ -8158,6 +8265,18 @@ def _question_input(
     if case_label == "事例IV":
         _render_case_iv_bridge(key)
 
+    timer_state = st.session_state.question_timer_start
+    if key not in timer_state:
+        timer_state[key] = time.time()
+    start_timestamp = float(timer_state.get(key, time.time()))
+    duration_seconds = _resolve_question_duration_seconds(
+        case_label,
+        question,
+        question_total_score,
+        question_count,
+    )
+    _render_question_timer(key, duration_seconds, start_timestamp)
+
     notice = st.session_state.get("_intent_card_notice")
     if notice and notice.get("draft_key") == key:
         st.success(f"「{notice['label']}」の例示表現を挿入しました。", icon="✍️")
@@ -8169,7 +8288,8 @@ def _question_input(
         st.session_state.pop("_case_frame_notice", None)
 
     value = st.session_state.drafts.get(key, "")
-    help_text = f"文字数目安: {question['character_limit']}字" if question["character_limit"] else ""
+    limit_hint = question.get("character_limit")
+    help_text = f"文字数目安: {limit_hint}字" if limit_hint else ""
     st.markdown(
         "<p class=\"practice-autosave-caption\">入力内容は自動保存されます。</p>",
         unsafe_allow_html=True,
@@ -8182,7 +8302,18 @@ def _question_input(
         help=help_text,
         disabled=disabled,
     )
-    _render_character_counter(text, question.get("character_limit"))
+    counter_info = _render_character_counter(
+        text,
+        question.get("character_limit"),
+        state_key=key,
+        preset_mode=preset_mode,
+    )
+    selected_mode = counter_info.get("mode") if isinstance(counter_info, Mapping) else None
+    if selected_mode:
+        try:
+            st.session_state.autosave_modes[key] = int(selected_mode)
+        except (TypeError, ValueError):
+            pass
     _track_question_activity(key, text)
     keywords = _resolve_question_keywords(question)
     if keywords:
@@ -8194,20 +8325,73 @@ def _question_input(
     with st.expander("MECE/因果スキャナ", expanded=bool(text.strip())):
         _render_mece_causal_scanner(text, analysis=analysis)
     st.session_state.drafts[key] = text
-    st.session_state.saved_answers.setdefault(key, value)
+
+    manual_save_container = st.container()
+    with manual_save_container:
+        manual_save_clicked = st.button(
+            f"__autosave_button__{key}__",
+            key=f"manual_save::{key}",
+            help="Ctrl+Enterで現在の下書きを即時保存します。",
+        )
+        st.markdown(
+            dedent(
+                f"""
+                <script>
+                (() => {{
+                    const doc = window.parent ? window.parent.document : window.document;
+                    if (!doc) {{
+                        return;
+                    }}
+                    const buttons = Array.from(doc.querySelectorAll('button'));
+                    const existing = buttons.find((btn) => btn.dataset && btn.dataset.autosaveKey === '{key}');
+                    if (existing) {{
+                        return;
+                    }}
+                    const target = buttons.find((btn) => btn.innerText.trim() === '__autosave_button__{key}__');
+                    if (!target) {{
+                        return;
+                    }}
+                    target.dataset.autosaveKey = '{key}';
+                    target.classList.add('practice-manual-save-button');
+                }})();
+                </script>
+                """
+            ),
+            unsafe_allow_html=True,
+        )
+
+    saved_iso: Optional[str] = None
+    if manual_save_clicked:
+        saved_iso = _autosave_question_text(user_key, key, text, selected_mode, force=True)
+        if saved_iso:
+            st.session_state.autosave_feedback[key] = {"type": "manual", "saved_at": saved_iso}
+    else:
+        saved_iso = _autosave_question_text(user_key, key, text, selected_mode)
+        if saved_iso:
+            st.session_state.autosave_feedback[key] = {"type": "auto", "saved_at": saved_iso}
+
     status_placeholder = st.empty()
-    saved_text = st.session_state.saved_answers.get(key)
-    restore_disabled = not saved_text
-    if restore_disabled:
-        status_placeholder.caption("復元できる下書きはまだありません。")
-    if st.button(
-        "下書きを復元",
-        key=f"restore_{key}",
-        disabled=restore_disabled,
-    ):
-        st.session_state.drafts[key] = saved_text
-        st.session_state[textarea_state_key] = saved_text
-        status_placeholder.info("保存済みの下書きを復元しました。")
+    feedback = st.session_state.autosave_feedback.get(key)
+    if feedback and feedback.get("type") == "restored" and feedback.get("saved_at"):
+        restored_time = _format_saved_timestamp(feedback.get("saved_at"))
+        if restored_time:
+            status_placeholder.info(f"自動保存された下書きを復元（{restored_time}）")
+        else:
+            status_placeholder.info("自動保存された下書きを復元しました。")
+    elif feedback and feedback.get("saved_at"):
+        saved_time = _format_saved_timestamp(feedback.get("saved_at"))
+        if feedback.get("type") == "manual":
+            if saved_time:
+                status_placeholder.success(f"手動保存済み（{saved_time}）")
+            else:
+                status_placeholder.success("手動保存済みです。")
+        else:
+            if saved_time:
+                status_placeholder.caption(f"自動保存済み（{saved_time}）")
+            else:
+                status_placeholder.caption("自動保存済みです。")
+    else:
+        status_placeholder.caption("自動保存の準備が整いました。Ctrl+Enterでも保存できます。")
 
     st.divider()
     _render_intent_cards(question, key, textarea_state_key)
@@ -9631,6 +9815,8 @@ def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。与件ハイライトと詳細解説で復習効果を高めましょう。")
 
+    st.session_state["_autosave_user_key"] = _resolve_autosave_user_key(user)
+
     _inject_practice_navigation_styles()
 
     past_data_df = st.session_state.get("past_data")
@@ -9908,43 +10094,24 @@ def practice_page(user: Dict) -> None:
         st.subheader(problem["title"])
     st.write(problem["overview"])
 
-    layout_container = st.container()
     problem_context = _collect_problem_context_text(problem)
+    _inject_context_column_styles()
+    practice_wrapper_opened = False
     if problem_context:
-        _inject_context_column_styles()
-        st.markdown(
-            dedent(
-                """
-                <div class="context-panel-mobile-bar">
-                    <button type="button" class="context-panel-trigger" aria-expanded="false" aria-controls="context-panel">
-                        与件文を開く
-                    </button>
-                </div>
-                <div class="context-panel-backdrop" aria-hidden="true"></div>
-                """
-            ).strip(),
-            unsafe_allow_html=True,
-        )
-        context_col, main_col = layout_container.columns([0.42, 0.58], gap="large")
+        st.markdown('<div class="practice-two-pane" id="practice-layout">', unsafe_allow_html=True)
+        practice_wrapper_opened = True
+        context_col, main_col = st.columns([0.42, 0.58], gap="large")
         with context_col:
             st.markdown(
-                dedent(
-                    """
-                    <div class="practice-context-column">
-                        <div class="practice-context-inner">
-                            <section id="context-panel" class="context-panel" aria-labelledby="context-panel-heading" aria-hidden="false">
-                                <div class="context-panel-inner">
-                                    <div class="context-panel-header">
-                                        <h3 id="context-panel-heading" class="context-panel-title" aria-label="与件文">与件文</h3>
-                                        <button type="button" class="context-panel-close" aria-label="与件文を閉じる">閉じる</button>
-                                    </div>
-                                    <div class="context-panel-scroll" tabindex="-1">
-                    """
-                ).strip(),
+                '<aside id="practice-context-pane" class="practice-context-pane" aria-label="与件文">',
                 unsafe_allow_html=True,
             )
             st.markdown(
-                '<div class="context-search-control" role="search">',
+                '<header class="practice-context-pane__header"><h3>与件文</h3></header>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="practice-context-pane__search" role="search">',
                 unsafe_allow_html=True,
             )
             with st.container():
@@ -9974,14 +10141,16 @@ def practice_page(user: Dict) -> None:
             else:
                 search_feedback.empty()
 
-            st.markdown("</div></div></section></div></div>", unsafe_allow_html=True)
-            _inject_context_panel_behavior()
+            st.markdown("</aside>", unsafe_allow_html=True)
     else:
-        main_col = layout_container
+        st.markdown('<div class="practice-two-pane practice-two-pane--single" id="practice-layout">', unsafe_allow_html=True)
+        practice_wrapper_opened = True
+        main_col = st.container()
 
     answers: List[RecordedAnswer] = []
     question_specs: List[QuestionSpec] = []
     submitted = False
+    draft_keys: List[str] = []
 
     with main_col:
         st.markdown('<div class="practice-main-column">', unsafe_allow_html=True)
@@ -10005,6 +10174,9 @@ def practice_page(user: Dict) -> None:
             )
 
         question_count = len(question_entries)
+        total_question_score = sum(
+            (_resolve_question_score(q) or 0) for q in problem["questions"]
+        )
 
         if question_entries:
             tab_items = "".join(
@@ -10131,6 +10303,7 @@ def practice_page(user: Dict) -> None:
             anchor_value = entry["anchor"] if entry else f"question-q{idx}"
             header_value = entry["header_id"] if entry else f"question-q{idx}-header"
             label_value = entry["stepper"] if entry else f"設問{idx}"
+            draft_key = _draft_key(problem["id"], question["id"])
             st.markdown(
                 (
                     f'<section class="practice-question-block" data-tone="{tone}" '
@@ -10148,7 +10321,11 @@ def practice_page(user: Dict) -> None:
                 question_index=idx,
                 anchor_id=anchor_value,
                 header_id=header_value,
+                draft_key=draft_key,
+                question_total_score=total_question_score,
+                question_count=question_count,
             )
+            draft_keys.append(draft_key)
             question_specs.append(
                 QuestionSpec(
                     id=question["id"],
@@ -10289,6 +10466,9 @@ def practice_page(user: Dict) -> None:
 
         st.markdown('</div>', unsafe_allow_html=True)
 
+    if practice_wrapper_opened:
+        st.markdown('</div>', unsafe_allow_html=True)
+
     if submitted:
         submitted_at = datetime.utcnow()
         activity_summary = _summarise_question_activity(problem, submitted_at)
@@ -10329,6 +10509,17 @@ def practice_page(user: Dict) -> None:
             score_ratio=score_ratio,
             reviewed_at=submitted_at,
         )
+        autosave_user_key = st.session_state.get("_autosave_user_key") or _resolve_autosave_user_key(
+            user
+        )
+        _clear_autosave_entries(autosave_user_key, draft_keys)
+        for key in draft_keys:
+            st.session_state.drafts.pop(key, None)
+            st.session_state.saved_answers.pop(key, None)
+            st.session_state.autosave_tracker.pop(key, None)
+            st.session_state.autosave_modes.pop(key, None)
+            st.session_state.question_timer_start.pop(key, None)
+
         st.session_state.practice_started = None
         st.session_state.question_activity = {}
 
@@ -10867,7 +11058,7 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
     )
     answer_key = f"uploaded_answer_{selected_year}_{selected_case}_{answer_fragment}"
     user_answer = st.text_area("回答を入力", key=answer_key)
-    _render_character_counter(user_answer, max_chars)
+    _render_character_counter(user_answer, max_chars, state_key=answer_key)
 
     if limit_int is not None:
         with st.expander("文字数スライサー"):
