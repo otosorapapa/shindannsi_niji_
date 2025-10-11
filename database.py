@@ -1651,7 +1651,8 @@ def fetch_keyword_performance(user_id: int) -> List[Dict]:
             p.case_label,
             p.title,
             q.prompt,
-            q.max_score
+            q.max_score,
+            q.question_order
         FROM attempt_answers aa
         JOIN attempts a ON a.id = aa.attempt_id
         JOIN questions q ON q.id = aa.question_id
@@ -1681,6 +1682,7 @@ def fetch_keyword_performance(user_id: int) -> List[Dict]:
                 "title": row["title"],
                 "prompt": row["prompt"],
                 "max_score": row["max_score"],
+                "question_order": row["question_order"],
             }
         )
 
