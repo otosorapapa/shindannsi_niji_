@@ -709,175 +709,6 @@ def _collect_problem_context_text(problem: Dict[str, Any]) -> Optional[str]:
     return "\n\n".join(fragments)
 
 
-def _inject_yoken_styles() -> None:
-    if st.session_state.get("_yoken_styles_injected"):
-        return
-
-    st.markdown(
-        dedent(
-            """
-            <style>
-            .yoken-sticky {
-                position: -webkit-sticky;
-                position: sticky;
-                top: 72px;
-                z-index: 50;
-            }
-            .yoken-scroll {
-                max-height: calc(100vh - 96px);
-                overflow-y: auto;
-                background: #ffffff;
-                border: 1px solid #e5e7eb;
-                border-radius: 8px;
-                padding: 16px 20px 16px 16px;
-                line-height: 1.7;
-                box-sizing: border-box;
-                scrollbar-width: thin;
-                scrollbar-gutter: stable both-edges;
-            }
-            .yoken-scroll:focus-visible {
-                outline: 3px solid rgba(59, 130, 246, 0.45);
-                outline-offset: 2px;
-            }
-            .yoken-scroll::-webkit-scrollbar {
-                width: 8px;
-            }
-            .yoken-scroll::-webkit-scrollbar-thumb {
-                background-color: rgba(100, 116, 139, 0.55);
-                border-radius: 999px;
-            }
-            .yoken-scroll::-webkit-scrollbar-track {
-                background-color: transparent;
-            }
-            .yoken-heading {
-                margin: 0 0 0.75rem;
-                font-size: 1.05rem;
-                font-weight: 600;
-                color: #111827;
-            }
-            .yoken-expander {
-                display: none;
-            }
-            @media (max-width: 900px) {
-                .yoken-sticky {
-                    position: static;
-                    top: auto;
-                    display: none;
-                }
-                .yoken-scroll {
-                    max-height: unset;
-                }
-                .yoken-expander {
-                    display: block;
-                    position: -webkit-sticky;
-                    position: sticky;
-                    top: 72px;
-                    z-index: 70;
-                    margin-bottom: 1rem;
-                }
-                .yoken-expander .st-expander {
-                    border: 1px solid #e5e7eb;
-                    border-radius: 12px;
-                    background: #ffffff;
-                    box-shadow: 0 18px 38px rgba(15, 23, 42, 0.2);
-                }
-                .yoken-expander .st-expander > details {
-                    border-radius: 12px;
-                    overflow: hidden;
-                }
-                .yoken-expander .st-expander > details > summary {
-                    font-weight: 600;
-                    font-size: 1rem;
-                    color: #111827;
-                }
-                .yoken-expander .st-expander > details > summary:focus-visible {
-                    outline: 3px solid rgba(59, 130, 246, 0.45);
-                    outline-offset: 2px;
-                }
-                .yoken-expander .yoken-scroll {
-                    max-height: min(88vh, calc(100vh - 96px));
-                }
-            }
-            </style>
-            """
-        ).strip(),
-        unsafe_allow_html=True,
-    )
-    st.session_state["_yoken_styles_injected"] = True
-
-
-def render_yoken(yoken_md: str) -> None:
-    """Render the 与件文 column with sticky behaviour and mobile fallback."""
-
-    if not yoken_md:
-        return
-
-    _inject_yoken_styles()
-
-    st.markdown(
-        '<div class="yoken-sticky" role="complementary" aria-label="与件文">',
-        unsafe_allow_html=True,
-    )
-    st.markdown('<div class="yoken-scroll" tabindex="0">', unsafe_allow_html=True)
-    st.markdown(
-        '<h3 class="yoken-heading" aria-label="与件文">与件文</h3>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(yoken_md)
-    st.markdown("</div></div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="yoken-expander">', unsafe_allow_html=True)
-    with st.expander("与件文を開く", expanded=False):
-        st.markdown('<div class="yoken-scroll" tabindex="0">', unsafe_allow_html=True)
-        st.markdown(
-            '<h3 class="yoken-heading" aria-label="与件文">与件文</h3>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(yoken_md)
-        st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-def render_yoken_demo() -> None:
-    """Render a minimal demo showcasing the sticky 与件文 layout."""
-
-    st.markdown("### Sticky与件文レイアウト デモ")
-    st.caption(
-        "デスクトップでは左側に与件文が固定され、モバイルでは上部のトグルから展開できます。"
-    )
-
-    demo_left, demo_right = st.columns([1, 1.2], gap="large")
-
-    demo_yoken = dedent(
-        """
-        架空企業A社は創業40年の老舗菓子メーカー。地域密着型の直営店と卸売を組み合わせ、季節限定商品の開発力に強みがある。
-
-        直営店は観光地に立地し、顧客の約6割がリピーター。SNSでの口コミが集客に寄与している一方、若年層向けの新商品開発が課題。
-
-        製造部門では多能工化を進めつつ、熟練職人の技能伝承と設備更新の遅れがボトルネックになっている。
-        """
-    ).strip()
-
-    with demo_left:
-        render_yoken(demo_yoken)
-
-    long_prompt = dedent(
-        """
-        - 現状の強みと弱みを整理し、今後の方向性を200字程度で記述せよ。
-        - 製造部門の課題を人・設備・情報の観点から整理し、改善策を提案せよ。
-        - 若年層顧客の獲得に向けたマーケティング施策を、短期と中長期に分けて示せ。
-        - 施策実行後に期待される効果と留意点を、定量・定性の両面から述べよ。
-        """
-    ).strip()
-
-    with demo_right:
-        for idx in range(1, 5):
-            st.markdown(f"#### 設問{idx}")
-            st.write(long_prompt)
-
-    st.divider()
-
-
 def _coerce_points(value: Any) -> List[str]:
     if value is None:
         return []
@@ -5724,8 +5555,6 @@ def practice_page(user: Dict) -> None:
                 f" — 前回達成度 {ratio * 100:.0f}% / 推奨間隔 {review['interval_days']}日"
             )
 
-    render_yoken_demo()
-
     st.markdown(
         dedent(
             """
@@ -5984,9 +5813,39 @@ def practice_page(user: Dict) -> None:
     layout_container = st.container()
     problem_context = _collect_problem_context_text(problem)
     if problem_context:
+        _inject_context_column_styles()
+        st.markdown(
+            dedent(
+                """
+                <div class="context-panel-mobile-bar">
+                    <button type="button" class="context-panel-trigger" aria-expanded="false" aria-controls="context-panel">
+                        与件文を開く
+                    </button>
+                </div>
+                <div class="context-panel-backdrop" aria-hidden="true"></div>
+                """
+            ).strip(),
+            unsafe_allow_html=True,
+        )
         context_col, main_col = layout_container.columns([0.42, 0.58], gap="large")
         with context_col:
-            render_yoken(problem_context)
+            st.markdown(
+                dedent(
+                    """
+                    <section id="context-panel" class="context-panel" aria-labelledby="context-panel-heading" aria-hidden="false">
+                        <div class="context-panel-inner">
+                            <div class="context-panel-header">
+                                <h3 id="context-panel-heading" class="context-panel-title" aria-label="与件文">与件文</h3>
+                                <button type="button" class="context-panel-close" aria-label="与件文を閉じる">閉じる</button>
+                            </div>
+                            <div class="context-panel-scroll" tabindex="-1">
+                    """
+                ).strip(),
+                unsafe_allow_html=True,
+            )
+            _render_problem_context_block(problem_context)
+            st.markdown("</div></div></section>", unsafe_allow_html=True)
+            _inject_context_panel_behavior()
     else:
         main_col = layout_container
 
