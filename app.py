@@ -2167,7 +2167,10 @@ def _inject_context_column_styles() -> None:
                     overflow: visible;
                 }
                 .practice-context-inner > .context-panel {
-                    max-height: inherit;
+                    position: sticky;
+                    top: var(--context-panel-offset, 72px);
+                    max-height: calc(100vh - var(--context-panel-offset, 72px) - 16px);
+                    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
                 }
                 .context-panel-inner {
                     flex: 1 1 auto;
