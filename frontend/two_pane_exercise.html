@@ -12,13 +12,13 @@
     />
     <style>
       :root {
-        --color-bg: #f7f8fa;
+        --color-bg: #f5f6f8;
         --color-surface: #ffffff;
-        --color-text: #1f2937;
+        --color-text: #1f2933;
         --color-text-strong: #111827;
         --color-text-muted: #6b7280;
-        --color-border: #d1d5db;
-        --color-border-strong: #9ca3af;
+        --color-border: #d4d8e1;
+        --color-border-strong: #aab4c2;
         --color-accent: #2563eb;
         --color-accent-contrast: #ffffff;
         --color-danger: #b91c1c;
@@ -288,7 +288,7 @@
         width: 36px;
         height: 36px;
         border-radius: 50%;
-        border: 1px solid var(--color-border-strong);
+        border: 1px solid var(--color-border);
         color: var(--color-text-strong);
         font-weight: 600;
         font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
@@ -386,7 +386,7 @@
         justify-content: center;
         width: 22px;
         height: 22px;
-        border: 1px solid var(--color-border-strong);
+        border: 1px solid var(--color-border);
         border-radius: 50%;
         font-size: 0.75rem;
         font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
@@ -404,16 +404,6 @@
         border-radius: inherit;
         border: 2px solid rgba(37, 99, 235, 0.35);
         pointer-events: none;
-        animation: activePulse 1.6s ease;
-      }
-
-      @keyframes activePulse {
-        0% {
-          opacity: 1;
-        }
-        100% {
-          opacity: 0;
-        }
       }
 
       .exercise__footer {
