@@ -1394,6 +1394,14 @@ def _inject_guideline_styles() -> None:
             line-height: 1.7;
             font-size: 0.93rem;
         }
+        .guideline-meta {
+            display: block;
+            margin-bottom: 0.45rem;
+            color: #64748b;
+            font-size: 0.82rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
         .guideline-body p {
             margin: 0 0 0.35rem;
         }
@@ -5229,6 +5237,10 @@ def practice_page(user: Dict) -> None:
             model_answer_text = _normalize_text_block(question.get("model_answer"))
             if model_answer_text:
                 model_answer_html = html.escape(model_answer_text).replace("\n", "<br>")
+                model_answer_length_value = _compute_fullwidth_length(
+                    model_answer_text.replace("\n", "")
+                )
+                model_answer_length = _format_fullwidth_length(model_answer_length_value)
                 rows.append(
                     dedent(
                         f"""
@@ -5240,7 +5252,10 @@ def practice_page(user: Dict) -> None:
                                 </div>
                             </th>
                             <td>
-                                <div class=\"guideline-body\">{model_answer_html}</div>
+                                <div class=\"guideline-body\">
+                                    <span class=\"guideline-meta\">文字数: {model_answer_length}字</span>
+                                    {model_answer_html}
+                                </div>
                             </td>
                         </tr>
                         """
