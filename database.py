@@ -17,7 +17,7 @@ from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from functools import lru_cache
 from pathlib import Path
 from threading import Lock
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 DB_PATH = Path("data/app.db")
 SEED_PATH = Path("data/seed_problems.json")
@@ -340,6 +340,28 @@ def initialize_database(*, force: bool = False) -> None:
             keyword_hits_json TEXT,
             axis_breakdown_json TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS grading_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            attempt_id INTEGER NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
+            question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            problem_id INTEGER NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
+            recorded_at TEXT NOT NULL,
+            score REAL,
+            max_score REAL,
+            keyword_hit_ratio REAL,
+            keyword_hits_json TEXT,
+            duration_seconds INTEGER,
+            self_evaluation INTEGER,
+            notes TEXT
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_grading_logs_unique
+            ON grading_logs (attempt_id, question_id);
+
+        CREATE INDEX IF NOT EXISTS idx_grading_logs_user_time
+            ON grading_logs (user_id, recorded_at);
 
         CREATE TABLE IF NOT EXISTS reminders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1023,6 +1045,109 @@ class RecordedAnswer:
     axis_breakdown: Dict[str, Dict[str, object]]
 
 
+def _bulk_upsert_grading_logs(
+    conn: sqlite3.Connection,
+    *,
+    attempt_id: int,
+    answers: Sequence[RecordedAnswer],
+    user_id: int,
+    problem_id: int,
+    submitted_at: datetime,
+    duration_seconds: Optional[int],
+) -> None:
+    """Insert or update grading log snapshots for an attempt."""
+
+    if not answers:
+        return
+
+    question_ids = [answer.question_id for answer in answers if answer.question_id]
+    if not question_ids:
+        return
+
+    cur = conn.cursor()
+    placeholders = ",".join("?" for _ in question_ids)
+    cur.execute(
+        f"SELECT id, max_score FROM questions WHERE id IN ({placeholders})",
+        question_ids,
+    )
+    question_meta = {row["id"]: row for row in cur.fetchall()}
+
+    per_question_duration: Optional[int] = None
+    if duration_seconds is not None and len(answers) > 0:
+        try:
+            per_question_duration = max(
+                0, int(round(duration_seconds / max(len(answers), 1)))
+            )
+        except ZeroDivisionError:  # pragma: no cover - defensive
+            per_question_duration = None
+
+    for answer in answers:
+        question_id = answer.question_id
+        if not question_id:
+            continue
+
+        keyword_hits = dict(answer.keyword_hits or {})
+        total_keywords = len(keyword_hits)
+        keyword_hit_ratio: Optional[float] = None
+        if total_keywords:
+            keyword_hit_ratio = sum(1 for hit in keyword_hits.values() if hit) / total_keywords
+
+        keyword_hits_json = json.dumps(keyword_hits, ensure_ascii=False)
+        max_score = None
+        meta = question_meta.get(question_id)
+        if meta is not None:
+            max_score = meta.get("max_score")
+
+        cur.execute(
+            "SELECT 1 FROM grading_logs WHERE attempt_id = ? AND question_id = ?",
+            (attempt_id, question_id),
+        )
+        exists = cur.fetchone() is not None
+
+        if exists:
+            cur.execute(
+                """
+                UPDATE grading_logs
+                SET recorded_at = ?, score = ?, max_score = ?, keyword_hit_ratio = ?,
+                    keyword_hits_json = ?, duration_seconds = COALESCE(?, duration_seconds),
+                    user_id = ?, problem_id = ?
+                WHERE attempt_id = ? AND question_id = ?
+                """,
+                (
+                    submitted_at.isoformat(),
+                    answer.score,
+                    max_score,
+                    keyword_hit_ratio,
+                    keyword_hits_json,
+                    per_question_duration,
+                    user_id,
+                    problem_id,
+                    attempt_id,
+                    question_id,
+                ),
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO grading_logs (
+                    attempt_id, question_id, user_id, problem_id, recorded_at,
+                    score, max_score, keyword_hit_ratio, keyword_hits_json, duration_seconds
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    attempt_id,
+                    question_id,
+                    user_id,
+                    problem_id,
+                    submitted_at.isoformat(),
+                    answer.score,
+                    max_score,
+                    keyword_hit_ratio,
+                    keyword_hits_json,
+                    per_question_duration,
+                ),
+            )
+
 def record_attempt(
     user_id: int,
     problem_id: int,
@@ -1033,10 +1158,11 @@ def record_attempt(
     duration_seconds: Optional[int],
 ) -> int:
     """Persist an attempt with its answers."""
+    answer_list = list(answers)
     conn = get_connection()
     cur = conn.cursor()
 
-    total_score = sum(answer.score for answer in answers)
+    total_score = sum(answer.score for answer in answer_list)
 
     cur.execute(
         "SELECT SUM(max_score) as total FROM questions WHERE problem_id = ?",
@@ -1064,7 +1190,7 @@ def record_attempt(
     )
     attempt_id = cur.lastrowid
 
-    for answer in answers:
+    for answer in answer_list:
         cur.execute(
             """
             INSERT INTO attempt_answers (
@@ -1082,6 +1208,16 @@ def record_attempt(
                 json.dumps(answer.axis_breakdown, ensure_ascii=False),
             ),
         )
+
+    _bulk_upsert_grading_logs(
+        conn,
+        attempt_id=attempt_id,
+        answers=answer_list,
+        user_id=user_id,
+        problem_id=problem_id,
+        submitted_at=submitted_at,
+        duration_seconds=duration_seconds,
+    )
 
     conn.commit()
     conn.close()
@@ -1773,11 +1909,18 @@ def fetch_keyword_performance(user_id: int) -> List[Dict]:
             q.id AS question_id,
             q.prompt,
             q.max_score,
-            q.question_order
+            q.question_order,
+            gl.keyword_hit_ratio,
+            gl.self_evaluation,
+            gl.duration_seconds AS log_duration_seconds,
+            gl.recorded_at AS log_recorded_at,
+            gl.notes
         FROM attempt_answers aa
         JOIN attempts a ON a.id = aa.attempt_id
         JOIN questions q ON q.id = aa.question_id
         JOIN problems p ON p.id = a.problem_id
+        LEFT JOIN grading_logs gl
+            ON gl.attempt_id = aa.attempt_id AND gl.question_id = aa.question_id
         WHERE a.user_id = ? AND a.submitted_at IS NOT NULL
         ORDER BY a.submitted_at
         """,
@@ -1806,6 +1949,11 @@ def fetch_keyword_performance(user_id: int) -> List[Dict]:
                 "prompt": row["prompt"],
                 "max_score": row["max_score"],
                 "question_order": row["question_order"],
+                "keyword_hit_ratio": row["keyword_hit_ratio"],
+                "self_evaluation": row["self_evaluation"],
+                "log_duration_seconds": row["log_duration_seconds"],
+                "log_recorded_at": row["log_recorded_at"],
+                "notes": row["notes"],
             }
         )
 
@@ -1877,19 +2025,37 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM attempts WHERE id = ?", (attempt_id,))
-    attempt = cur.fetchone()
-    if not attempt:
+    attempt_row = cur.fetchone()
+    if not attempt_row:
         conn.close()
         raise ValueError("Attempt not found")
+
+    attempt = dict(attempt_row)
+
+    cur.execute(
+        "SELECT year, case_label, title, context_text FROM problems WHERE id = ?",
+        (attempt["problem_id"],),
+    )
+    problem_meta = cur.fetchone()
+    if problem_meta:
+        attempt.setdefault("year", problem_meta["year"])
+        attempt.setdefault("case_label", problem_meta["case_label"])
+        attempt.setdefault("title", problem_meta["title"])
+        attempt["context_text"] = problem_meta["context_text"]
 
     cur.execute(
         """
         SELECT aa.*, q.prompt, q.max_score, q.model_answer, q.explanation,
                q.keywords_json, q.intent_cards_json, q.video_url, q.diagram_path,
-               q.diagram_caption, q.question_order, p.year, p.case_label
+               q.diagram_caption, q.question_order, p.year, p.case_label,
+               gl.duration_seconds AS log_duration_seconds,
+               gl.self_evaluation, gl.notes, gl.keyword_hit_ratio,
+               gl.recorded_at AS log_recorded_at
         FROM attempt_answers aa
         JOIN questions q ON q.id = aa.question_id
         JOIN problems p ON p.id = q.problem_id
+        LEFT JOIN grading_logs gl
+            ON gl.attempt_id = aa.attempt_id AND gl.question_id = aa.question_id
         WHERE aa.attempt_id = ?
         ORDER BY q.question_order
         """,
@@ -1902,6 +2068,7 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
     for row in answers:
         formatted_answers.append(
             {
+                "question_id": row["question_id"],
                 "prompt": row["prompt"],
                 "answer_text": row["answer_text"],
                 "score": row["score"],
@@ -1918,6 +2085,11 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
                 "question_order": row["question_order"],
                 "year": row["year"],
                 "case_label": row["case_label"],
+                "log_duration_seconds": row["log_duration_seconds"],
+                "self_evaluation": row["self_evaluation"],
+                "notes": row["notes"],
+                "keyword_hit_ratio": row["keyword_hit_ratio"],
+                "log_recorded_at": row["log_recorded_at"],
             }
         )
 
@@ -1926,6 +2098,344 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
         "answers": formatted_answers,
     }
 
+
+def fetch_grading_logs(user_id: int) -> List[Dict[str, Any]]:
+    """Return grading log snapshots for the specified user."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT gl.*, p.year, p.case_label, p.title, q.prompt
+        FROM grading_logs gl
+        JOIN attempts a ON a.id = gl.attempt_id
+        JOIN problems p ON p.id = gl.problem_id
+        JOIN questions q ON q.id = gl.question_id
+        WHERE gl.user_id = ?
+        ORDER BY gl.recorded_at
+        """,
+        (user_id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    records: List[Dict[str, Any]] = []
+    for row in rows:
+        keyword_hits = {}
+        if row["keyword_hits_json"]:
+            try:
+                keyword_hits = json.loads(row["keyword_hits_json"])
+            except json.JSONDecodeError:
+                keyword_hits = {}
+        records.append(
+            {
+                "id": row["id"],
+                "attempt_id": row["attempt_id"],
+                "question_id": row["question_id"],
+                "user_id": row["user_id"],
+                "problem_id": row["problem_id"],
+                "recorded_at": row["recorded_at"],
+                "score": row["score"],
+                "max_score": row["max_score"],
+                "keyword_hit_ratio": row["keyword_hit_ratio"],
+                "keyword_hits": keyword_hits,
+                "duration_seconds": row["duration_seconds"],
+                "self_evaluation": row["self_evaluation"],
+                "notes": row["notes"],
+                "year": row["year"],
+                "case_label": row["case_label"],
+                "title": row["title"],
+                "prompt": row["prompt"],
+            }
+        )
+
+    return records
+
+
+def fetch_grading_log_summary(user_id: int) -> Dict[int, Dict[str, Optional[float]]]:
+    """Return aggregated grading log metrics keyed by attempt ID."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            attempt_id,
+            AVG(keyword_hit_ratio) AS avg_keyword_hit_ratio,
+            AVG(self_evaluation) AS avg_self_evaluation,
+            AVG(duration_seconds) AS avg_duration_seconds
+        FROM grading_logs
+        WHERE user_id = ?
+        GROUP BY attempt_id
+        """,
+        (user_id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    summary: Dict[int, Dict[str, Optional[float]]] = {}
+    for row in rows:
+        summary[int(row["attempt_id"])] = {
+            "avg_keyword_hit_ratio": row["avg_keyword_hit_ratio"],
+            "avg_self_evaluation": row["avg_self_evaluation"],
+            "avg_duration_seconds": row["avg_duration_seconds"],
+        }
+    return summary
+
+
+def import_grading_logs(
+    user_id: int, records: Sequence[Dict[str, Any]]
+) -> Tuple[int, int]:
+    """Import grading log rows from serialized records."""
+
+    if not records:
+        return (0, 0)
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    inserted = 0
+    updated = 0
+
+    for record in records:
+        attempt_id_raw = record.get("attempt_id")
+        question_id_raw = record.get("question_id")
+
+        try:
+            attempt_id = int(attempt_id_raw)
+            question_id = int(question_id_raw)
+        except (TypeError, ValueError):
+            continue
+
+        cur.execute(
+            "SELECT problem_id, user_id FROM attempts WHERE id = ?",
+            (attempt_id,),
+        )
+        attempt_row = cur.fetchone()
+        if not attempt_row or attempt_row["user_id"] != user_id:
+            continue
+
+        problem_id = attempt_row["problem_id"]
+
+        recorded_at = record.get("recorded_at")
+        if recorded_at:
+            recorded_at = str(recorded_at)
+            try:
+                datetime.fromisoformat(recorded_at)
+            except ValueError:
+                recorded_at = None
+        if not recorded_at:
+            recorded_at = datetime.utcnow().isoformat()
+
+        def _coerce_float(value: Any) -> Optional[float]:
+            if value is None or value == "":
+                return None
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+
+        def _coerce_int(value: Any) -> Optional[int]:
+            if value is None or value == "":
+                return None
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return None
+
+        score = _coerce_float(record.get("score"))
+        max_score = _coerce_float(record.get("max_score"))
+        duration_seconds = _coerce_int(
+            record.get("duration_seconds") or record.get("log_duration_seconds")
+        )
+        self_evaluation = _coerce_int(record.get("self_evaluation"))
+        if self_evaluation is not None:
+            self_evaluation = max(1, min(self_evaluation, 5))
+
+        notes = record.get("notes")
+        if notes is not None:
+            notes = str(notes).strip() or None
+
+        keyword_hits = record.get("keyword_hits")
+        if isinstance(keyword_hits, str):
+            try:
+                keyword_hits = json.loads(keyword_hits)
+            except json.JSONDecodeError:
+                keyword_hits = {}
+        if not isinstance(keyword_hits, dict):
+            keyword_hits = {}
+
+        keyword_hits_json = json.dumps(keyword_hits, ensure_ascii=False)
+
+        keyword_hit_ratio = record.get("keyword_hit_ratio")
+        if keyword_hit_ratio is not None and keyword_hit_ratio != "":
+            try:
+                keyword_hit_ratio = float(keyword_hit_ratio)
+            except (TypeError, ValueError):
+                keyword_hit_ratio = None
+        if keyword_hit_ratio is None and keyword_hits:
+            total_keywords = len(keyword_hits)
+            if total_keywords:
+                keyword_hit_ratio = sum(
+                    1 for hit in keyword_hits.values() if bool(hit)
+                ) / total_keywords
+
+        if score is None or max_score is None:
+            cur.execute(
+                """
+                SELECT aa.score, q.max_score, aa.keyword_hits_json
+                FROM attempt_answers aa
+                JOIN questions q ON q.id = aa.question_id
+                WHERE aa.attempt_id = ? AND aa.question_id = ?
+                """,
+                (attempt_id, question_id),
+            )
+            answer_row = cur.fetchone()
+            if answer_row:
+                if score is None:
+                    score = answer_row["score"]
+                if max_score is None:
+                    max_score = answer_row["max_score"]
+                if not keyword_hits and answer_row["keyword_hits_json"]:
+                    try:
+                        keyword_hits = json.loads(answer_row["keyword_hits_json"])
+                    except json.JSONDecodeError:
+                        keyword_hits = {}
+                    keyword_hits_json = json.dumps(keyword_hits, ensure_ascii=False)
+                    if keyword_hits and keyword_hit_ratio is None:
+                        total_keywords = len(keyword_hits)
+                        if total_keywords:
+                            keyword_hit_ratio = sum(
+                                1 for hit in keyword_hits.values() if bool(hit)
+                            ) / total_keywords
+
+        cur.execute(
+            "SELECT 1 FROM grading_logs WHERE attempt_id = ? AND question_id = ?",
+            (attempt_id, question_id),
+        )
+        exists = cur.fetchone() is not None
+
+        if exists:
+            cur.execute(
+                """
+                UPDATE grading_logs
+                SET recorded_at = ?, score = COALESCE(?, score),
+                    max_score = COALESCE(?, max_score), keyword_hit_ratio = COALESCE(?, keyword_hit_ratio),
+                    keyword_hits_json = COALESCE(?, keyword_hits_json),
+                    duration_seconds = COALESCE(?, duration_seconds),
+                    self_evaluation = COALESCE(?, self_evaluation),
+                    notes = COALESCE(?, notes),
+                    user_id = ?, problem_id = ?
+                WHERE attempt_id = ? AND question_id = ?
+                """,
+                (
+                    recorded_at,
+                    score,
+                    max_score,
+                    keyword_hit_ratio,
+                    keyword_hits_json,
+                    duration_seconds,
+                    self_evaluation,
+                    notes,
+                    user_id,
+                    problem_id,
+                    attempt_id,
+                    question_id,
+                ),
+            )
+            updated += 1
+        else:
+            cur.execute(
+                """
+                INSERT INTO grading_logs (
+                    attempt_id, question_id, user_id, problem_id, recorded_at,
+                    score, max_score, keyword_hit_ratio, keyword_hits_json,
+                    duration_seconds, self_evaluation, notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    attempt_id,
+                    question_id,
+                    user_id,
+                    problem_id,
+                    recorded_at,
+                    score,
+                    max_score,
+                    keyword_hit_ratio,
+                    keyword_hits_json,
+                    duration_seconds,
+                    self_evaluation,
+                    notes,
+                ),
+            )
+            inserted += 1
+
+    conn.commit()
+    conn.close()
+    return inserted, updated
+
+
+def update_grading_log_self_evaluation(
+    *,
+    attempt_id: int,
+    question_id: int,
+    user_id: int,
+    self_evaluation: Optional[int],
+    notes: Optional[str],
+) -> None:
+    """Update self-evaluation metadata for a grading log entry."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    normalized_notes = notes.strip() if isinstance(notes, str) else None
+    if normalized_notes == "":
+        normalized_notes = None
+
+    cur.execute(
+        """
+        UPDATE grading_logs
+        SET self_evaluation = ?, notes = ?, recorded_at = COALESCE(recorded_at, ?)
+        WHERE attempt_id = ? AND question_id = ? AND user_id = ?
+        """,
+        (
+            self_evaluation,
+            normalized_notes,
+            datetime.utcnow().isoformat(),
+            attempt_id,
+            question_id,
+            user_id,
+        ),
+    )
+
+    if cur.rowcount == 0:
+        cur.execute(
+            "SELECT problem_id FROM attempts WHERE id = ? AND user_id = ?",
+            (attempt_id, user_id),
+        )
+        attempt_row = cur.fetchone()
+        if attempt_row:
+            problem_id = attempt_row["problem_id"]
+            cur.execute(
+                """
+                INSERT OR IGNORE INTO grading_logs (
+                    attempt_id, question_id, user_id, problem_id, recorded_at,
+                    self_evaluation, notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    attempt_id,
+                    question_id,
+                    user_id,
+                    problem_id,
+                    datetime.utcnow().isoformat(),
+                    self_evaluation,
+                    normalized_notes,
+                ),
+            )
+
+    conn.commit()
+    conn.close()
 
 def aggregate_statistics(user_id: int) -> Dict[str, Dict[str, float]]:
     conn = get_connection()

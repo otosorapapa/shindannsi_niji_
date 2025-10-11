@@ -65,6 +65,7 @@ def generate_personalised_learning_plan(
 
     rating_records = database.fetch_all_attempt_scores()
     keyword_records = database.fetch_keyword_performance(user_id)
+    grading_summary = database.fetch_grading_log_summary(user_id)
 
     rating_df = _prepare_rating_frame(rating_records)
     user_attempt_df = rating_df[rating_df["user_id"] == user_id]
@@ -91,6 +92,7 @@ def generate_personalised_learning_plan(
         attempts,
         global_stats,
         catalog_lookup,
+        grading_summary=grading_summary,
         limit=top_problem_limit,
     )
 
@@ -312,6 +314,7 @@ def _extract_weak_attempts(
     global_stats: pd.DataFrame,
     catalog_lookup: Dict[Any, Dict[str, Any]],
     *,
+    grading_summary: Optional[Dict[int, Dict[str, Optional[float]]]] = None,
     limit: int,
 ) -> List[Dict[str, Any]]:
     if not attempts:
@@ -333,14 +336,29 @@ def _extract_weak_attempts(
         metadata = catalog_lookup.get(problem_id, {})
         row = global_stats.loc[global_stats["problem_id"] == problem_id]
         global_mean = float(row.iloc[0]["mean_ratio"]) if not row.empty else None
+        attempt_id = attempt.get("id")
+        summary = (grading_summary or {}).get(attempt_id) if attempt_id is not None else None
+
+        reason_details: List[str] = []
+        adjusted_ratio = ratio
+        if summary:
+            avg_hit = summary.get("avg_keyword_hit_ratio")
+            if avg_hit is not None:
+                adjusted_ratio = min(adjusted_ratio, float(avg_hit))
+                reason_details.append(f"要点達成率 {avg_hit * 100:.0f}%")
+            avg_self = summary.get("avg_self_evaluation")
+            if avg_self is not None:
+                normalized_self = max(0.0, min(float(avg_self) / 5.0, 1.0))
+                adjusted_ratio = min(adjusted_ratio, normalized_self)
+                reason_details.append(f"自己評価 {avg_self:.1f}/5")
         entry = {
             "problem_id": problem_id,
             "year": attempt.get("year") or metadata.get("year"),
             "case_label": attempt.get("case_label") or metadata.get("case_label"),
             "title": attempt.get("title") or metadata.get("title"),
-            "score_ratio": ratio,
+            "score_ratio": adjusted_ratio,
             "type": "review",
-            "reason": _format_review_reason(ratio, global_mean),
+            "reason": _format_review_reason(adjusted_ratio, global_mean, extras=reason_details),
         }
         attempt_entries.append((problem_id, ratio, entry))
 
@@ -359,11 +377,16 @@ def _extract_weak_attempts(
     return recommendations
 
 
-def _format_review_reason(ratio: float, global_mean: Optional[float]) -> str:
+def _format_review_reason(
+    ratio: float, global_mean: Optional[float], *, extras: Optional[Sequence[str]] = None
+) -> str:
     base = f"得点率 {ratio * 100:.0f}%"
-    if global_mean is None or math.isnan(global_mean):
-        return f"復習推奨: {base}"
-    return f"復習推奨: {base} / 全体平均 {global_mean * 100:.0f}%"
+    components = ["復習推奨: " + base]
+    if global_mean is not None and not math.isnan(global_mean):
+        components.append(f"全体平均 {global_mean * 100:.0f}%")
+    if extras:
+        components.extend(extras)
+    return " / ".join(components)
 
 
 def _merge_problem_recommendations(
@@ -418,11 +441,33 @@ def _derive_question_recommendations(
         if total_keywords:
             coverage_ratio = sum(1 for hit in keyword_hits.values() if hit) / total_keywords
 
+        log_ratio = record.get("keyword_hit_ratio")
+        if log_ratio is not None:
+            try:
+                coverage_ratio = float(log_ratio)
+            except (TypeError, ValueError):
+                pass
+
         weakness_score = _calculate_question_weakness(score_ratio, coverage_ratio)
+
+        self_eval = record.get("self_evaluation")
+        self_eval_ratio: Optional[float] = None
+        if self_eval is not None:
+            try:
+                self_eval_ratio = max(0.0, min(float(self_eval) / 5.0, 1.0))
+                weakness_score = max(weakness_score, 1.0 - self_eval_ratio)
+            except (TypeError, ValueError):
+                self_eval_ratio = None
+
         if weakness_score <= 0:
             continue
 
         missing_keywords = [kw for kw, hit in keyword_hits.items() if not hit]
+        reason = _format_question_reason(score_ratio, coverage_ratio)
+        if self_eval_ratio is not None:
+            self_reason = f"自己評価 {self_eval_ratio * 5:.1f}/5"
+            reason = f"{reason} / {self_reason}" if reason else self_reason
+
         candidates.append(
             (
                 weakness_score,
@@ -434,7 +479,7 @@ def _derive_question_recommendations(
                     "score_ratio": score_ratio,
                     "coverage_ratio": coverage_ratio,
                     "missing_keywords": missing_keywords,
-                    "reason": _format_question_reason(score_ratio, coverage_ratio),
+                    "reason": reason,
                 },
             )
         )

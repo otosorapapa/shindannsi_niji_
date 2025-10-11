@@ -5,11 +5,12 @@ import copy
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, Iterable, List, Optional, Pattern, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Pattern, Sequence, Set, Tuple
 from uuid import uuid4
 from urllib.parse import urlencode
 import logging
 
+import base64
 import html
 import io
 import json
@@ -29,6 +30,7 @@ import zipfile
 import altair as alt
 import pandas as pd
 import pdfplumber
+from fpdf import FPDF
 import streamlit as st
 import streamlit.components.v1 as components
 from xml.sax.saxutils import escape
@@ -497,6 +499,121 @@ def _apply_template_metadata(
     return questions
 
 
+def _parse_exam_json_payload(
+    payload: Any,
+    *,
+    default_year: Optional[str],
+    default_case: Optional[str],
+) -> pd.DataFrame:
+    """Normalise JSON payloads containing exam definitions into a DataFrame."""
+
+    def _iter_records(data: Any) -> Iterable[Dict[str, Any]]:
+        if isinstance(data, dict):
+            if "records" in data:
+                yield from _iter_records(data.get("records"))
+            elif "questions" in data:
+                problem_year = _normalize_text_block(data.get("year")) or default_year
+                problem_case = _normalize_text_block(
+                    data.get("case") or data.get("case_label")
+                ) or default_case
+                context_text = data.get("context") or data.get("context_text")
+                for question in data.get("questions", []):
+                    combined = dict(question)
+                    combined.setdefault("年度", problem_year)
+                    combined.setdefault("事例", problem_case)
+                    if context_text and "与件文" not in combined:
+                        combined["与件文"] = context_text
+                    yield combined
+            elif "problems" in data:
+                for problem in data.get("problems", []):
+                    problem_year = _normalize_text_block(problem.get("year")) or default_year
+                    problem_case = _normalize_text_block(
+                        problem.get("case") or problem.get("case_label")
+                    ) or default_case
+                    context_text = problem.get("context") or problem.get("context_text")
+                    for question in problem.get("questions", []):
+                        combined = dict(question)
+                        combined.setdefault("年度", problem_year)
+                        combined.setdefault("事例", problem_case)
+                        if context_text and "与件文" not in combined:
+                            combined["与件文"] = context_text
+                        yield combined
+            else:
+                yield data
+        elif isinstance(data, list):
+            for item in data:
+                yield from _iter_records(item)
+        else:
+            return
+
+    rows: List[Dict[str, Any]] = []
+    for raw in _iter_records(payload):
+        if not isinstance(raw, dict):
+            continue
+        year_value = _normalize_text_block(
+            raw.get("年度") or raw.get("year") or raw.get("年度ラベル")
+        )
+        if year_value:
+            year_label = _format_reiwa_label(str(year_value))
+        else:
+            year_label = default_year
+
+        case_value = _normalize_text_block(
+            raw.get("事例") or raw.get("case") or raw.get("case_label")
+        )
+        case_label = _normalize_case_label(case_value) if case_value else default_case
+
+        question_number = raw.get("設問番号") or raw.get("question_number")
+        question_number = question_number or raw.get("number") or raw.get("question")
+
+        keywords_value = raw.get("キーワード") or raw.get("keywords")
+        if keywords_value is not None:
+            keywords_value = _ensure_text(keywords_value)
+
+        row = {
+            "年度": year_label,
+            "事例": case_label,
+            "設問番号": question_number,
+            "問題文": raw.get("問題文")
+            or raw.get("prompt")
+            or raw.get("question_text"),
+            "配点": raw.get("配点") or raw.get("max_score") or raw.get("score"),
+            "模範解答": raw.get("模範解答") or raw.get("model_answer") or raw.get("answer"),
+            "解説": raw.get("解説")
+            or raw.get("explanation")
+            or raw.get("commentary"),
+            "詳細解説": raw.get("詳細解説") or raw.get("detailed_explanation"),
+            "設問見出し": raw.get("設問見出し")
+            or raw.get("headline")
+            or raw.get("title"),
+            "制限字数": raw.get("制限字数")
+            or raw.get("limit")
+            or raw.get("character_limit"),
+            "キーワード": keywords_value,
+            "与件文": raw.get("与件文")
+            or raw.get("context")
+            or raw.get("context_text"),
+            "設問の狙い": raw.get("設問の狙い")
+            or raw.get("question_aim")
+            or raw.get("aim"),
+            "必要アウトプット形式": raw.get("必要アウトプット形式")
+            or raw.get("output_format")
+            or raw.get("required_output"),
+            "定番解法プロンプト": raw.get("定番解法プロンプト")
+            or raw.get("solution_prompt"),
+            "設問インサイト": raw.get("設問インサイト")
+            or raw.get("question_insight")
+            or raw.get("insight"),
+        }
+
+        rows.append(row)
+
+    if not rows:
+        return pd.DataFrame(columns=["年度", "事例", "設問番号", "問題文", "配点", "模範解答", "解説"])
+
+    return pd.DataFrame(rows)
+
+
 def _auto_parse_exam_document(file_bytes: bytes, filename: str) -> Tuple[pd.DataFrame, List[pd.DataFrame]]:
     name_lower = filename.lower()
     default_year = None
@@ -533,6 +650,20 @@ def _auto_parse_exam_document(file_bytes: bytes, filename: str) -> Tuple[pd.Data
         normalized_case = _normalize_case_label(questions[0]["事例"]) if questions else default_case
         questions = _apply_template_metadata(questions, templates, normalized_year, normalized_case)
         return pd.DataFrame(questions), tables
+
+    if name_lower.endswith(".json"):
+        try:
+            payload = json.loads(file_bytes.decode("utf-8"))
+        except UnicodeDecodeError:
+            payload = json.loads(file_bytes.decode("utf-8-sig"))
+        df = _parse_exam_json_payload(
+            payload,
+            default_year=default_year,
+            default_case=default_case,
+        )
+        if df.empty:
+            return df, []
+        return df, []
 
     buffer = io.BytesIO(file_bytes)
     if name_lower.endswith(".csv"):
@@ -10914,6 +11045,380 @@ def _handle_model_answer_slot_upload(file_bytes: bytes, filename: str) -> bool:
     return True
 
 
+def _calculate_keyword_hit_ratio(
+    keyword_hits: Optional[Dict[str, bool]], explicit_ratio: Optional[float]
+) -> Optional[float]:
+    """Return the keyword coverage ratio for display and export."""
+
+    if explicit_ratio is not None:
+        try:
+            return float(explicit_ratio)
+        except (TypeError, ValueError):
+            return None
+
+    if not keyword_hits:
+        return None
+
+    total = len(keyword_hits)
+    if not total:
+        return None
+
+    return sum(1 for hit in keyword_hits.values() if hit) / total
+
+
+def _prepare_attempt_export_payload(
+    attempt: Dict[str, Any], answers: Sequence[Dict[str, Any]]
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Return tabular and JSON payloads for attempt exports."""
+
+    rows: List[Dict[str, Any]] = []
+    export_answers: List[Dict[str, Any]] = []
+
+    for idx, answer in enumerate(answers, start=1):
+        keyword_hits = answer.get("keyword_hits") or {}
+        hit_ratio = _calculate_keyword_hit_ratio(
+            keyword_hits, answer.get("keyword_hit_ratio")
+        )
+        hit_ratio_display = f"{hit_ratio * 100:.0f}%" if hit_ratio is not None else "-"
+        keyword_summary = ", ".join(
+            kw for kw, hit in keyword_hits.items() if hit
+        ) or "-"
+        rows.append(
+            {
+                "年度": attempt.get("year"),
+                "事例": attempt.get("case_label"),
+                "タイトル": attempt.get("title"),
+                "設問番号": idx,
+                "問題文": answer.get("prompt"),
+                "解答": answer.get("answer_text"),
+                "得点": answer.get("score"),
+                "満点": answer.get("max_score"),
+                "要点達成率": hit_ratio_display,
+                "自己評価": answer.get("self_evaluation"),
+                "講評": answer.get("feedback"),
+                "キーワード達成": keyword_summary,
+                "振り返りメモ": answer.get("notes"),
+            }
+        )
+        export_answers.append(
+            {
+                "index": idx,
+                "question_id": answer.get("question_id"),
+                "prompt": answer.get("prompt"),
+                "answer_text": answer.get("answer_text"),
+                "score": answer.get("score"),
+                "max_score": answer.get("max_score"),
+                "feedback": answer.get("feedback"),
+                "keyword_hits": keyword_hits,
+                "keyword_hit_ratio": hit_ratio,
+                "self_evaluation": answer.get("self_evaluation"),
+                "notes": answer.get("notes"),
+                "duration_seconds": answer.get("log_duration_seconds"),
+            }
+        )
+
+    csv_frame = pd.DataFrame(rows)
+
+    attempt_summary = {
+        "id": attempt.get("id"),
+        "user_id": attempt.get("user_id"),
+        "problem_id": attempt.get("problem_id"),
+        "mode": attempt.get("mode"),
+        "started_at": attempt.get("started_at"),
+        "submitted_at": attempt.get("submitted_at"),
+        "duration_seconds": attempt.get("duration_seconds"),
+        "total_score": attempt.get("total_score"),
+        "total_max_score": attempt.get("total_max_score"),
+        "year": attempt.get("year"),
+        "case_label": attempt.get("case_label"),
+        "title": attempt.get("title"),
+    }
+
+    json_payload = {
+        "attempt": attempt_summary,
+        "context": attempt.get("context_text"),
+        "answers": export_answers,
+    }
+
+    return csv_frame, json_payload
+
+
+def _generate_attempt_pdf(
+    attempt: Dict[str, Any], answers: Sequence[Dict[str, Any]]
+) -> bytes:
+    pdf = FPDF(format="A4")
+    pdf.set_auto_page_break(auto=True, margin=12)
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 14)
+
+    header = " ".join(
+        part
+        for part in (
+            _ensure_text(attempt.get("year")),
+            _ensure_text(attempt.get("case_label")),
+            _ensure_text(attempt.get("title")),
+        )
+        if part
+    ).strip()
+    pdf.multi_cell(0, 8, header or "採点レポート")
+
+    pdf.set_font("Helvetica", "", 9)
+    score_line = (
+        f"総合得点: {attempt.get('total_score', 0) or 0:.1f} / "
+        f"{attempt.get('total_max_score', 0) or 0:.1f}"
+    )
+    pdf.multi_cell(0, 5, score_line)
+    if attempt.get("submitted_at"):
+        pdf.multi_cell(0, 5, f"提出日時: {attempt.get('submitted_at')}")
+    if attempt.get("duration_seconds"):
+        minutes = (attempt.get("duration_seconds") or 0) / 60
+        pdf.multi_cell(0, 5, f"所要時間: {minutes:.1f}分")
+    pdf.ln(2)
+
+    context_text = _ensure_text(attempt.get("context_text"))
+    if context_text:
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.cell(0, 6, "与件文", ln=1)
+        pdf.set_font("Helvetica", "", 8)
+        for line in context_text.splitlines():
+            pdf.multi_cell(0, 4, line)
+        pdf.ln(1)
+
+    for idx, answer in enumerate(answers, start=1):
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.multi_cell(0, 6, f"設問{idx}: {_ensure_text(answer.get('prompt'))}")
+        pdf.set_font("Helvetica", "", 8)
+        pdf.multi_cell(0, 4, _ensure_text(answer.get("answer_text")))
+
+        parts: List[str] = []
+        parts.append(
+            f"得点 {answer.get('score', 0) or 0:.1f}/{answer.get('max_score', 0) or 0:.1f}"
+        )
+        hit_ratio = _calculate_keyword_hit_ratio(
+            answer.get("keyword_hits"), answer.get("keyword_hit_ratio")
+        )
+        if hit_ratio is not None:
+            parts.append(f"要点達成率 {hit_ratio * 100:.0f}%")
+        if answer.get("self_evaluation") is not None:
+            parts.append(f"自己評価 {answer['self_evaluation']}/5")
+        duration_seconds = answer.get("log_duration_seconds")
+        if duration_seconds:
+            parts.append(f"所要時間 {duration_seconds / 60:.1f}分")
+        pdf.multi_cell(0, 4, " / ".join(parts))
+
+        feedback = _ensure_text(answer.get("feedback"))
+        if feedback:
+            pdf.multi_cell(0, 4, "講評: " + feedback)
+        notes = _ensure_text(answer.get("notes"))
+        if notes:
+            pdf.multi_cell(0, 4, "振り返りメモ: " + notes)
+        pdf.ln(1)
+
+    pdf_output = pdf.output(dest="S")
+    if isinstance(pdf_output, str):
+        return pdf_output.encode("latin-1", "ignore")
+    return pdf_output
+
+
+def _build_attempt_print_html(
+    attempt: Dict[str, Any], answers: Sequence[Dict[str, Any]]
+) -> str:
+    """Return a printable HTML representation of an attempt."""
+
+    def _escape_text(value: Any) -> str:
+        return html.escape(_ensure_text(value))
+
+    context_html = ""
+    context_text = _ensure_text(attempt.get("context_text"))
+    if context_text:
+        context_html = "<section class=\"context\"><h2>与件文</h2><p>" + "<br>".join(
+            _escape_text(line) for line in context_text.splitlines()
+        ) + "</p></section>"
+
+    answer_sections: List[str] = []
+    for idx, answer in enumerate(answers, start=1):
+        hit_ratio = _calculate_keyword_hit_ratio(
+            answer.get("keyword_hits"), answer.get("keyword_hit_ratio")
+        )
+        stats = [
+            f"得点 {answer.get('score', 0) or 0:.1f}/{answer.get('max_score', 0) or 0:.1f}",
+        ]
+        if hit_ratio is not None:
+            stats.append(f"要点達成率 {hit_ratio * 100:.0f}%")
+        if answer.get("self_evaluation") is not None:
+            stats.append(f"自己評価 {answer['self_evaluation']}/5")
+        if answer.get("log_duration_seconds"):
+            stats.append(f"所要時間 {answer['log_duration_seconds'] / 60:.1f}分")
+        feedback = _escape_text(answer.get("feedback"))
+        notes = _escape_text(answer.get("notes"))
+        answer_sections.append(
+            """
+            <section class="answer">
+                <h3>設問{idx}</h3>
+                <p class="prompt">{prompt}</p>
+                <p class="stats">{stats}</p>
+                <p class="answer-text">{answer_text}</p>
+                <p class="feedback"><strong>講評:</strong> {feedback}</p>
+                {notes_block}
+            </section>
+            """.format(
+                idx=idx,
+                prompt=_escape_text(answer.get("prompt")),
+                stats=" / ".join(stats),
+                answer_text="<br>".join(
+                    _escape_text(line)
+                    for line in _ensure_text(answer.get("answer_text")).splitlines()
+                ),
+                feedback=feedback or "-",
+                notes_block=(
+                    f"<p class=\"notes\"><strong>振り返りメモ:</strong> {notes}</p>"
+                    if notes
+                    else ""
+                ),
+            )
+        )
+
+    header = " ".join(
+        part
+        for part in (
+            _ensure_text(attempt.get("year")),
+            _ensure_text(attempt.get("case_label")),
+            _ensure_text(attempt.get("title")),
+        )
+        if part
+    ).strip() or "採点レポート"
+
+    html_content = f"""
+    <!doctype html>
+    <html lang="ja">
+    <head>
+        <meta charset="utf-8" />
+        <title>{html.escape(header)}</title>
+        <style>
+            body {{ font-family: 'Noto Sans JP', sans-serif; margin: 12mm; color: #1f2933; }}
+            h1 {{ font-size: 18px; margin-bottom: 8px; }}
+            h2 {{ font-size: 14px; margin: 6px 0; }}
+            h3 {{ font-size: 13px; margin: 6px 0; }}
+            .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
+            .context, .answers {{ padding: 8px; border: 1px solid #CBD5E1; border-radius: 8px; }}
+            .context p {{ font-size: 11px; line-height: 1.4; }}
+            .answer {{ margin-bottom: 10px; page-break-inside: avoid; }}
+            .answer-text, .feedback, .notes {{ font-size: 11px; line-height: 1.45; }}
+            .prompt {{ font-size: 11px; font-weight: 600; }}
+            .stats {{ font-size: 10px; color: #475569; margin-bottom: 4px; }}
+            @media print {{ body {{ margin: 8mm; }} .grid {{ gap: 8px; }} }}
+        </style>
+    </head>
+    <body>
+        <h1>{html.escape(header)}</h1>
+        <div class="grid">
+            {context_html or '<section class="context"><h2>与件文</h2><p>（登録なし）</p></section>'}
+            <section class="answers">
+                <h2>解答と講評</h2>
+                {''.join(answer_sections)}
+            </section>
+        </div>
+    </body>
+    </html>
+    """
+    return html_content
+
+
+def _render_print_view_button(*, html_content: str, key: str) -> None:
+    encoded = base64.b64encode(html_content.encode("utf-8")).decode("ascii")
+    button_html = f"""
+    <button style="padding:0.5rem 0.75rem;border:1px solid #0F6AB2;border-radius:0.6rem;background:#0F6AB2;color:#fff;font-weight:600;cursor:pointer;"
+        onclick="(function() {{ const html = atob('{encoded}'); const w = window.open('', '_blank'); w.document.write(html); w.document.close(); setTimeout(() => w.print(), 300); }})();">
+        印刷用ビューを開く
+    </button>
+    """
+    components.html(button_html, height=70, key=key)
+
+
+def _generate_grading_log_pdf(records: Sequence[Dict[str, Any]]) -> bytes:
+    pdf = FPDF(orientation="L", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=10)
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.cell(0, 8, "採点ログ", ln=1)
+    pdf.set_font("Helvetica", "", 8)
+
+    headers = [
+        "記録日時",
+        "年度",
+        "事例",
+        "設問概要",
+        "得点",
+        "配点",
+        "要点達成率",
+        "自己評価",
+        "所要時間(分)",
+        "メモ",
+    ]
+    widths = [40, 20, 20, 70, 16, 16, 25, 20, 25, 70]
+
+    for header, width in zip(headers, widths):
+        pdf.cell(width, 6, header, border=1, align="C")
+    pdf.ln()
+
+    for row in records:
+        duration_seconds = row.get("duration_seconds")
+        duration_minutes = "-"
+        if duration_seconds:
+            duration_minutes = f"{duration_seconds / 60:.1f}"
+        hit_ratio = row.get("keyword_hit_ratio")
+        hit_ratio_display = (
+            f"{float(hit_ratio) * 100:.0f}%" if hit_ratio is not None else "-"
+        )
+        self_eval = row.get("self_evaluation")
+        self_eval_display = f"{self_eval}/5" if self_eval is not None else "-"
+        values = [
+            _ensure_text(row.get("recorded_at")),
+            _ensure_text(row.get("year")),
+            _ensure_text(row.get("case_label")),
+            _ensure_text(row.get("prompt")),
+            str(row.get("score") if row.get("score") is not None else "-"),
+            str(row.get("max_score") if row.get("max_score") is not None else "-"),
+            hit_ratio_display,
+            self_eval_display,
+            duration_minutes,
+            _ensure_text(row.get("notes")),
+        ]
+        for value, width in zip(values, widths):
+            pdf.cell(width, 5, value[:80], border=1)
+        pdf.ln()
+
+    pdf_output = pdf.output(dest="S")
+    if isinstance(pdf_output, str):
+        return pdf_output.encode("latin-1", "ignore")
+    return pdf_output
+
+
+def _parse_grading_log_upload(file_bytes: bytes, filename: str) -> List[Dict[str, Any]]:
+    name_lower = filename.lower()
+    if name_lower.endswith(".json"):
+        try:
+            payload = json.loads(file_bytes.decode("utf-8"))
+        except UnicodeDecodeError:
+            payload = json.loads(file_bytes.decode("utf-8-sig"))
+        if isinstance(payload, dict):
+            if "records" in payload:
+                data = payload.get("records")
+            else:
+                data = payload.get("logs") or payload.get("entries")
+        else:
+            data = payload
+        if not isinstance(data, list):
+            raise ValueError("JSON形式の採点ログは配列または records 配列である必要があります。")
+        return [record for record in data if isinstance(record, dict)]
+
+    if name_lower.endswith(".csv"):
+        df = pd.read_csv(io.BytesIO(file_bytes))
+        return df.to_dict("records")
+
+    raise ValueError("採点ログはCSVまたはJSON形式でアップロードしてください。")
+
+
 def render_attempt_results(attempt_id: int) -> None:
     detail = database.fetch_attempt_detail(attempt_id)
     attempt = detail["attempt"]
@@ -10950,25 +11455,65 @@ def render_attempt_results(attempt_id: int) -> None:
 
     summary_rows = []
     for idx, answer in enumerate(answers, start=1):
+        keyword_hits = answer.get("keyword_hits") or {}
+        hit_ratio = _calculate_keyword_hit_ratio(keyword_hits, answer.get("keyword_hit_ratio"))
+        coverage_display = f"{hit_ratio * 100:.0f}%" if hit_ratio is not None else "-"
+        duration_display = "-"
+        if answer.get("log_duration_seconds"):
+            duration_display = f"{answer['log_duration_seconds'] / 60:.1f}"
+        self_eval_display = (
+            str(answer.get("self_evaluation")) if answer.get("self_evaluation") is not None else "-"
+        )
         summary_rows.append(
             {
                 "設問": idx,
-                "得点": answer["score"],
-                "満点": answer["max_score"],
+                "得点": answer.get("score"),
+                "満点": answer.get("max_score"),
+                "要点達成率": coverage_display,
+                "自己評価": self_eval_display,
+                "所要時間(分)": duration_display,
                 "キーワード達成": ", ".join(
-                    [kw for kw, hit in (answer["keyword_hits"] or {}).items() if hit]
+                    [kw for kw, hit in keyword_hits.items() if hit]
                 )
                 or "-",
             }
         )
     if summary_rows:
+        summary_df = pd.DataFrame(summary_rows)
         st.data_editor(
-            pd.DataFrame(summary_rows),
+            summary_df,
             hide_index=True,
             use_container_width=True,
             disabled=True,
         )
-        st.caption("各設問の得点とキーワード達成状況を整理しました。弱点分析に活用してください。")
+        st.caption("各設問の得点・要点達成率・自己評価を一覧化しました。学習ログと合わせて振り返りましょう。")
+
+    export_table, export_payload = _prepare_attempt_export_payload(attempt, answers)
+    st.markdown("#### エクスポートと印刷")
+    csv_bytes = export_table.to_csv(index=False).encode("utf-8-sig")
+    st.download_button(
+        "解答・採点結果をCSVでダウンロード",
+        data=csv_bytes,
+        file_name=f"attempt_{attempt_id}.csv",
+        mime="text/csv",
+    )
+    json_bytes = json.dumps(export_payload, ensure_ascii=False, indent=2).encode("utf-8")
+    st.download_button(
+        "解答・採点結果をJSONでダウンロード",
+        data=json_bytes,
+        file_name=f"attempt_{attempt_id}.json",
+        mime="application/json",
+    )
+    pdf_bytes = _generate_attempt_pdf(attempt, answers)
+    st.download_button(
+        "解答・採点結果をPDFでダウンロード",
+        data=pdf_bytes,
+        file_name=f"attempt_{attempt_id}.pdf",
+        mime="application/pdf",
+    )
+    print_html = _build_attempt_print_html(attempt, answers)
+    _render_print_view_button(html_content=print_html, key=f"print_attempt_{attempt_id}")
+    st.caption("CSV/JSON/PDFでの保存に加え、ブラウザ印刷に最適化したビューを開いて1ページ出力できます。")
 
     case_label = answers[0].get("case_label") if answers else None
     bundle_evaluation = scoring.evaluate_case_bundle(case_label=case_label, answers=answers)
@@ -10978,6 +11523,23 @@ def render_attempt_results(attempt_id: int) -> None:
     for idx, answer in enumerate(answers, start=1):
         with st.expander(f"設問{idx}の結果", expanded=True):
             st.write(f"**得点:** {answer['score']} / {answer['max_score']}")
+            hit_ratio = _calculate_keyword_hit_ratio(
+                answer.get("keyword_hits"), answer.get("keyword_hit_ratio")
+            )
+            if hit_ratio is not None:
+                st.caption(f"要点達成率: {hit_ratio * 100:.0f}%")
+            if answer.get("log_duration_seconds"):
+                minutes = answer["log_duration_seconds"] / 60
+                recorded = answer.get("log_recorded_at")
+                timestamp_display = "記録日時不明"
+                if recorded:
+                    try:
+                        timestamp_display = datetime.fromisoformat(str(recorded)).strftime(
+                            "%Y-%m-%d %H:%M"
+                        )
+                    except ValueError:
+                        timestamp_display = str(recorded)
+                st.caption(f"所要時間ログ: {minutes:.1f}分（{timestamp_display}）")
             st.write("**フィードバック**")
             st.markdown(f"<pre>{answer['feedback']}</pre>", unsafe_allow_html=True)
             axis_breakdown = answer.get("axis_breakdown") or {}
@@ -10990,6 +11552,33 @@ def render_attempt_results(attempt_id: int) -> None:
                     columns=["キーワード", "判定"],
                 )
                 st.table(keyword_df)
+
+            eval_key = f"self_eval_slider::{attempt_id}::{answer['question_id']}"
+            notes_key = f"self_eval_notes::{attempt_id}::{answer['question_id']}"
+            default_eval = answer.get("self_evaluation")
+            eval_value = st.select_slider(
+                "自己評価 (1-5)",
+                options=[1, 2, 3, 4, 5],
+                value=int(default_eval) if isinstance(default_eval, (int, float)) and 1 <= int(default_eval) <= 5 else 3,
+                key=eval_key,
+            )
+            notes_value = st.text_area(
+                "振り返りメモ", value=answer.get("notes") or "", key=notes_key, height=80
+            )
+            st.caption("※保存すると採点ログに記録され、次回提案に反映されます。")
+            if st.button(
+                "自己評価を保存",
+                key=f"save_self_eval_{attempt_id}_{answer['question_id']}",
+            ):
+                database.update_grading_log_self_evaluation(
+                    attempt_id=attempt_id,
+                    question_id=answer["question_id"],
+                    user_id=attempt["user_id"],
+                    self_evaluation=int(eval_value),
+                    notes=notes_value,
+                )
+                st.success("自己評価を保存しました。")
+                st.experimental_rerun()
             with st.expander("模範解答と解説", expanded=False):
                 _render_model_answer_section(
                     model_answer=answer["model_answer"],
@@ -12229,6 +12818,97 @@ def history_page(user: Dict) -> None:
         attempt_id = int(recent_history.loc[selected_idx, "attempt_id"])
         render_attempt_results(attempt_id)
 
+        st.divider()
+        st.markdown("#### 採点ログ")
+        log_upload = st.file_uploader(
+            "採点ログをインポート (CSV/JSON)",
+            type=["csv", "json"],
+            key="grading_log_uploader",
+            help="外部で記録した採点ログを取り込むと学習提案に反映されます。",
+        )
+        if log_upload is not None:
+            try:
+                records = _parse_grading_log_upload(log_upload.getvalue(), log_upload.name)
+            except ValueError as exc:
+                st.error(str(exc))
+            else:
+                inserted, updated = database.import_grading_logs(user["id"], records)
+                st.success(f"採点ログを取り込みました。（新規 {inserted}件 / 更新 {updated}件）")
+                st.experimental_rerun()
+
+        grading_logs = database.fetch_grading_logs(user["id"])
+        valid_attempt_ids = set(
+            pd.to_numeric(filtered_df.get("attempt_id"), errors="coerce")
+            .dropna()
+            .astype(int)
+            .tolist()
+        )
+        if valid_attempt_ids:
+            grading_logs = [
+                log for log in grading_logs if log.get("attempt_id") in valid_attempt_ids
+            ]
+
+        if grading_logs:
+            log_df = pd.DataFrame(grading_logs)
+            log_df["recorded_at"] = pd.to_datetime(log_df["recorded_at"], errors="coerce")
+            display_df = pd.DataFrame(
+                [
+                    {
+                        "記録日時": row.get("recorded_at"),
+                        "年度": row.get("year"),
+                        "事例": row.get("case_label"),
+                        "設問概要": row.get("prompt"),
+                        "得点": row.get("score"),
+                        "配点": row.get("max_score"),
+                        "要点達成率(%)": (
+                            f"{float(row.get('keyword_hit_ratio')) * 100:.0f}%"
+                            if row.get("keyword_hit_ratio") is not None
+                            else "-"
+                        ),
+                        "自己評価": row.get("self_evaluation"),
+                        "所要時間(分)": (
+                            f"{row.get('duration_seconds') / 60:.1f}"
+                            if row.get("duration_seconds") is not None
+                            else "-"
+                        ),
+                        "メモ": row.get("notes"),
+                    }
+                    for row in grading_logs
+                ]
+            )
+            display_df["記録日時"] = pd.to_datetime(
+                display_df["記録日時"], errors="coerce"
+            )
+            display_df.sort_values("記録日時", ascending=False, inplace=True)
+            display_df["記録日時"] = display_df["記録日時"].dt.strftime("%Y-%m-%d %H:%M")
+            display_df["記録日時"].fillna("-", inplace=True)
+            st.data_editor(display_df, hide_index=True, use_container_width=True, disabled=True)
+            st.caption("採点ログは要点達成率・自己評価・所要時間を記録し、次回の提案に活用されます。")
+
+            log_csv = display_df.to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                "採点ログをCSVでエクスポート",
+                data=log_csv,
+                file_name="grading_logs.csv",
+                mime="text/csv",
+            )
+            log_json = json.dumps(grading_logs, ensure_ascii=False, indent=2).encode("utf-8")
+            st.download_button(
+                "採点ログをJSONでエクスポート",
+                data=log_json,
+                file_name="grading_logs.json",
+                mime="application/json",
+            )
+            log_pdf = _generate_grading_log_pdf(grading_logs)
+            st.download_button(
+                "採点ログをPDFでエクスポート",
+                data=log_pdf,
+                file_name="grading_logs.pdf",
+                mime="application/pdf",
+            )
+        else:
+            st.info("採点ログはまだありません。AI採点を実施すると自動で記録されます。")
+
 
 def settings_page(user: Dict) -> None:
     st.title("設定・プラン管理")
@@ -12346,12 +13026,12 @@ def settings_page(user: Dict) -> None:
 
         st.markdown("#### 過去問データ（与件文・設問文を含む）")
         uploaded_file = st.file_uploader(
-            "過去問データファイルをアップロード (CSV/Excel/PDF)",
-            type=["csv", "xlsx", "xls", "pdf"],
+            "過去問データファイルをアップロード (CSV/Excel/PDF/JSON)",
+            type=["csv", "xlsx", "xls", "pdf", "json"],
             key="past_exam_uploader",
         )
         st.caption(
-            "R6/R5 事例III原紙テンプレートを同梱し、自動分解の精度を高めています。PDFアップロードにも対応しています。"
+            "R6/R5 事例III原紙テンプレートを同梱し、自動分解の精度を高めています。PDF・JSONアップロードにも対応しています。"
         )
         try:
             template_bytes = _load_past_exam_template_bytes()
