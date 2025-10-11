@@ -6070,19 +6070,6 @@ def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。与件ハイライトと詳細解説で復習効果を高めましょう。")
 
-    due_reviews = database.list_due_reviews(user["id"], limit=3)
-    if due_reviews:
-        st.warning(
-            "本日復習推奨の事例があります。該当の年度・事例を選択して復習しましょう。",
-            icon="⏰",
-        )
-        for review in due_reviews:
-            ratio = review["last_score_ratio"] or 0
-            st.markdown(
-                f"- **{review['year']} {review['case_label']}** {review['title']}"
-                f" — 前回達成度 {ratio * 100:.0f}% / 推奨間隔 {review['interval_days']}日"
-            )
-
     st.markdown(
         dedent(
             """
