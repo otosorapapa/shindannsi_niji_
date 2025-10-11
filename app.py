@@ -7,6 +7,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Any, Dict, Iterable, List, Optional, Pattern, Set, Tuple
 from uuid import uuid4
+from urllib.parse import urlencode
 import logging
 
 import html
@@ -1323,6 +1324,37 @@ def _init_session_state() -> None:
     st.session_state.setdefault("_timeline_styles_injected", False)
     st.session_state.setdefault("_practice_question_styles_injected", False)
     st.session_state.setdefault("model_answer_slots", {})
+    st.session_state.setdefault("history_focus_attempt", None)
+    st.session_state.setdefault("history_focus_from_notification", False)
+
+    query_params = st.experimental_get_query_params()
+    nav_targets = query_params.get("nav")
+    attempt_targets = query_params.get("attempt")
+    processed_query = False
+    if nav_targets:
+        nav_value = nav_targets[0]
+        if nav_value == "history":
+            st.session_state.page = "学習履歴"
+            st.session_state["navigation_selection"] = "学習履歴"
+            st.session_state["mobile_navigation"] = "学習履歴"
+            st.session_state["history_focus_from_notification"] = True
+            if attempt_targets:
+                attempt_token = attempt_targets[0]
+                try:
+                    st.session_state["history_focus_attempt"] = int(attempt_token)
+                except (TypeError, ValueError):
+                    st.session_state["history_focus_attempt"] = None
+            processed_query = True
+    if attempt_targets and not processed_query:
+        try:
+            st.session_state["history_focus_attempt"] = int(attempt_targets[0])
+            processed_query = True
+        except (TypeError, ValueError):
+            st.session_state["history_focus_attempt"] = None
+
+    if processed_query:
+        remaining = {k: v for k, v in query_params.items() if k not in {"nav", "attempt"}}
+        st.experimental_set_query_params(**remaining)
 
 
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
@@ -5145,11 +5177,36 @@ def _inject_dashboard_styles() -> None:
                 grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
                 gap: 1rem;
             }
+            .insight-card-link {
+                display: block;
+                text-decoration: none;
+                color: inherit;
+                border-radius: 18px;
+            }
+            .insight-card-link:focus-visible {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
+            }
             .insight-card {
                 display: grid;
                 grid-template-columns: auto 1fr;
                 gap: 0.8rem;
                 align-items: center;
+                padding: 0.85rem 0.95rem;
+                border-radius: 18px;
+                border: 1px solid rgba(148, 163, 184, 0.32);
+                background: rgba(255, 255, 255, 0.82);
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+                transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+            }
+            .insight-card[data-clickable="true"] {
+                cursor: pointer;
+            }
+            .insight-card-link:hover .insight-card,
+            .insight-card-link:focus-visible .insight-card {
+                border-color: rgba(37, 99, 235, 0.45);
+                box-shadow: 0 18px 36px rgba(37, 99, 235, 0.16);
+                transform: translateY(-2px);
             }
             .insight-icon {
                 display: inline-flex;
@@ -5393,6 +5450,19 @@ def _format_datetime_label(value: datetime | str | None) -> str:
         except ValueError:
             return value
     return "記録なし"
+
+
+def _summarize_feedback_text(feedback: Optional[str], *, limit: int = 60) -> str:
+    if not feedback:
+        return ""
+    normalized = re.sub(r"\s+", " ", str(feedback)).strip()
+    if not normalized:
+        return ""
+    if len(normalized) <= limit:
+        return normalized
+    if limit <= 1:
+        return "…"
+    return normalized[: limit - 1] + "…"
 
 
 def _format_duration_minutes(total_minutes: int) -> str:
@@ -5859,6 +5929,15 @@ def _insight_icon_svg(name: str) -> str:
             </svg>
             """
         ).strip(),
+        "bell": dedent(
+            """
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M18 15c-1.1-1.3-2-2.5-2-5.5A4 4 0 0 0 12 5a4 4 0 0 0-4 4.5c0 3-0.9 4.2-2 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M5 15h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                <path d="M10 18a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            """
+        ).strip(),
     }
     return icon_map.get(name, icon_map["target"])
 
@@ -6012,6 +6091,65 @@ def dashboard_page(user: Dict) -> None:
             "value": f"{latest_score:.0f} / {latest_max:.0f}点 ({latest_ratio:.0f}%)",
             "desc": f"{_format_datetime_label(latest_attempt.get('submitted_at'))} 実施",
         }
+
+    latest_feedback_card = {
+        "icon": "bell",
+        "accent": "indigo",
+        "title": "最新のフィードバック",
+        "value": "通知はまだありません",
+        "desc": "演習を完了するとAI採点コメントが届きます。",
+    }
+    latest_feedback_record: Optional[Dict[str, Any]] = None
+    for record in reversed(keyword_records):
+        feedback_text = (record.get("feedback") or "").strip()
+        if feedback_text:
+            latest_feedback_record = record
+            break
+    if latest_feedback_record:
+        attempt_id = latest_feedback_record.get("attempt_id")
+        summary = _summarize_feedback_text(latest_feedback_record.get("feedback"), limit=52)
+        if not summary:
+            summary = "採点コメントを確認しましょう"
+        question_number = _normalize_question_number(latest_feedback_record.get("question_order"))
+        case_label = str(latest_feedback_record.get("case_label") or "").strip()
+        year_label = str(latest_feedback_record.get("year") or "").strip()
+        base_parts: List[str] = []
+        if year_label:
+            base_parts.append(year_label)
+        if case_label:
+            base_parts.append(case_label)
+        location_parts = []
+        if base_parts:
+            location_parts.append(" ".join(base_parts))
+        if question_number is not None:
+            location_parts.append(f"設問{question_number}")
+        location_label = " / ".join(part for part in location_parts if part)
+        submitted_label = _format_datetime_label(latest_feedback_record.get("submitted_at"))
+        meta_label = location_label or "フィードバック"
+        if submitted_label and submitted_label != "記録なし":
+            meta_label = f"{meta_label} / {submitted_label} 実施"
+        desc_label = f"{meta_label} / クリックで採点詳細へ"
+        feedback_card = {
+            "icon": "bell",
+            "accent": "indigo",
+            "title": "最新のフィードバック",
+            "value": summary,
+            "desc": desc_label,
+        }
+        if attempt_id is not None:
+            feedback_card["url"] = f"?{urlencode({'nav': 'history', 'attempt': attempt_id})}"
+            aria_parts = []
+            if year_label:
+                aria_parts.append(year_label)
+            if case_label:
+                aria_parts.append(case_label)
+            if question_number is not None:
+                aria_parts.append(f"設問{question_number}")
+            if aria_parts:
+                feedback_card["aria_label"] = " ".join(aria_parts) + " の採点結果へ移動"
+            else:
+                feedback_card["aria_label"] = "採点結果ページへ移動"
+        latest_feedback_card = feedback_card
 
     toc_items = [
         ("kpi-lane", "KPI"),
@@ -6571,24 +6709,40 @@ def dashboard_page(user: Dict) -> None:
                 unsafe_allow_html=True,
             )
 
+        insight_cards_data = [latest_feedback_card, next_focus_card, learning_time_card, latest_result_card]
         insight_cards_html: List[str] = []
-        for card in [next_focus_card, learning_time_card, latest_result_card]:
+        for card in insight_cards_data:
             accent = card.get("accent", "indigo")
             icon_html = _insight_icon_svg(card.get("icon", "target"))
-            insight_cards_html.append(
-                dedent(
-                    f"""
-                    <div class="insight-card" data-accent="{accent}">
-                        <div class="insight-icon" data-accent="{accent}">{icon_html}</div>
-                        <div class="insight-copy">
-                            <p class="insight-title">{card['title']}</p>
-                            <p class="insight-value">{card['value']}</p>
-                            <p class="insight-desc">{card['desc']}</p>
-                        </div>
+            title_html = html.escape(str(card.get("title", "")))
+            value_html = html.escape(str(card.get("value", "")))
+            desc_html = html.escape(str(card.get("desc", "")))
+            clickable = bool(card.get("url"))
+            card_inner = dedent(
+                f"""
+                <div class="insight-card" data-accent="{accent}"{' data-clickable="true"' if clickable else ''}>
+                    <div class="insight-icon" data-accent="{accent}">{icon_html}</div>
+                    <div class="insight-copy">
+                        <p class="insight-title">{title_html}</p>
+                        <p class="insight-value">{value_html}</p>
+                        <p class="insight-desc">{desc_html}</p>
                     </div>
+                </div>
+                """
+            ).strip()
+            if clickable:
+                url_value = html.escape(card["url"], quote=True)
+                aria_label = html.escape(card.get("aria_label") or card.get("title", ""), quote=True)
+                card_markup = dedent(
+                    f"""
+                    <a class="insight-card-link" href="{url_value}" aria-label="{aria_label}">
+                        {card_inner}
+                    </a>
                     """
                 ).strip()
-            )
+            else:
+                card_markup = card_inner
+            insight_cards_html.append(card_markup)
         insight_cards_html_str = "".join(insight_cards_html)
         st.markdown(
             dedent(
@@ -10996,6 +11150,36 @@ def history_page(user: Dict) -> None:
     else:
         history_df["学習時間(分)"] = 0.0
     history_df.sort_values("日付", inplace=True)
+
+    focus_attempt_id = st.session_state.get("history_focus_attempt")
+    highlight_from_notification = st.session_state.get("history_focus_from_notification")
+    if focus_attempt_id is not None:
+        try:
+            focus_attempt_int = int(focus_attempt_id)
+        except (TypeError, ValueError):
+            focus_attempt_int = None
+        if focus_attempt_int is not None:
+            attempt_id_series = pd.to_numeric(history_df.get("attempt_id"), errors="coerce")
+            attempt_ids = set(attempt_id_series.dropna().astype(int).tolist())
+            if focus_attempt_int in attempt_ids:
+                if highlight_from_notification:
+                    st.success("通知センターで選択した演習結果を表示しています。", icon="🔔")
+                else:
+                    st.info("指定した演習結果を表示しています。", icon="📄")
+                render_attempt_results(focus_attempt_int)
+                if st.button("通知センターのハイライトを閉じる", key="clear_history_focus"):
+                    st.session_state.history_focus_attempt = None
+                    st.session_state.history_focus_from_notification = False
+                    st.experimental_rerun()
+                st.session_state.history_focus_from_notification = False
+                st.divider()
+            else:
+                st.warning("指定された演習結果が見つかりませんでした。", icon="⚠️")
+                st.session_state.history_focus_attempt = None
+                st.session_state.history_focus_from_notification = False
+        else:
+            st.session_state.history_focus_attempt = None
+            st.session_state.history_focus_from_notification = False
 
     keyword_records = database.fetch_keyword_performance(user["id"])
 
