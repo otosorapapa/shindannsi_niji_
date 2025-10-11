@@ -1328,7 +1328,7 @@ def _init_session_state() -> None:
     st.session_state.setdefault("history_focus_attempt", None)
     st.session_state.setdefault("history_focus_from_notification", False)
 
-    query_params = st.experimental_get_query_params()
+    query_params = st.query_params
     nav_targets = query_params.get("nav")
     attempt_targets = query_params.get("attempt")
     processed_query = False
