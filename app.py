@@ -5557,6 +5557,8 @@ def dashboard_page(user: Dict) -> None:
     attempts = database.list_attempts(user_id=user["id"])
     gamification = _calculate_gamification(attempts)
     stats = database.aggregate_statistics(user["id"])
+    keyword_records = database.fetch_keyword_performance(user["id"])
+    dashboard_analysis = _prepare_dashboard_analysis_data(keyword_records)
 
     total_attempts = len(attempts)
     total_score = sum(row["total_score"] or 0 for row in attempts)
@@ -6053,6 +6055,132 @@ def dashboard_page(user: Dict) -> None:
                     st.altair_chart(bar + target_line, use_container_width=True)
                 else:
                     st.info("演習データが蓄積すると事例別の分析が表示されます。")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        has_case_chart = not dashboard_analysis["case_chart_source"].empty
+        has_question_heatmap = not dashboard_analysis["question_source"].empty
+        has_keyword_heatmap = not dashboard_analysis["keyword_source"].empty
+
+        if has_case_chart or has_question_heatmap or has_keyword_heatmap:
+            st.markdown(
+                "<div class='dashboard-card card--tone-purple analysis-visual-card'>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "<p class='timeline-filter__label'>得点率×キーワード網羅の弱点診断</p>",
+                unsafe_allow_html=True,
+            )
+
+            if has_case_chart:
+                st.markdown("#### 事例別レーダーチャート")
+                radar_source = dashboard_analysis["case_chart_source"].dropna(subset=["値"])
+                if not radar_source.empty:
+                    radar_chart = (
+                        alt.Chart(radar_source)
+                        .mark_line(point=True)
+                        .encode(
+                            theta=alt.Theta("指標:N", sort=["平均得点率", "平均キーワード網羅率"], title=None),
+                            radius=alt.Radius(
+                                "値:Q", scale=alt.Scale(domain=[0, 100]), title="達成率 (%)"
+                            ),
+                            color=alt.Color("事例:N", sort=CASE_ORDER, title=None),
+                            tooltip=["事例", "指標", alt.Tooltip("値:Q", format=".1f")],
+                        )
+                        .properties(height=320)
+                    )
+                    st.altair_chart(radar_chart, use_container_width=True)
+                    improvement_low, improvement_high = dashboard_analysis["improvement_range"]
+                    st.caption(
+                        f"フェルミ推定では弱点分析を踏まえた学習時間の再配分により平均得点が"
+                        f"{improvement_low * 100:.0f}〜{improvement_high * 100:.0f}%向上する余地があります。"
+                    )
+                else:
+                    st.info("事例別のレーダーチャートを描画するには演習データが必要です。")
+
+            if has_question_heatmap:
+                st.markdown("#### 設問別のヒートマップ")
+                question_df = dashboard_analysis["question_source"].copy()
+                question_sort = dashboard_analysis["question_order_labels"] or "ascending"
+                score_heatmap = (
+                    alt.Chart(question_df.dropna(subset=["平均得点率"]))
+                    .mark_rect()
+                    .encode(
+                        x=alt.X("設問:N", sort=question_sort, title="設問"),
+                        y=alt.Y("事例:N", sort=CASE_ORDER, title=None),
+                        color=alt.Color(
+                            "平均得点率:Q",
+                            scale=alt.Scale(domain=[0, 100], scheme="teals"),
+                            title="平均得点率 (%)",
+                        ),
+                        tooltip=[
+                            "事例",
+                            "設問",
+                            alt.Tooltip("平均得点率:Q", format=".1f"),
+                            alt.Tooltip("平均キーワード網羅率:Q", format=".1f"),
+                        ],
+                    )
+                    .properties(height=260)
+                )
+                coverage_heatmap = (
+                    alt.Chart(question_df.dropna(subset=["平均キーワード網羅率"]))
+                    .mark_rect()
+                    .encode(
+                        x=alt.X("設問:N", sort=question_sort, title="設問"),
+                        y=alt.Y("事例:N", sort=CASE_ORDER, title=None),
+                        color=alt.Color(
+                            "平均キーワード網羅率:Q",
+                            scale=alt.Scale(domain=[0, 100], scheme="purples"),
+                            title="平均キーワード網羅率 (%)",
+                        ),
+                        tooltip=[
+                            "事例",
+                            "設問",
+                            alt.Tooltip("平均得点率:Q", format=".1f"),
+                            alt.Tooltip("平均キーワード網羅率:Q", format=".1f"),
+                        ],
+                    )
+                    .properties(height=260)
+                )
+                heatmap_col1, heatmap_col2 = st.columns(2)
+                with heatmap_col1:
+                    if score_heatmap.data.empty:
+                        st.info("得点率ヒートマップを表示するには得点データが必要です。")
+                    else:
+                        st.altair_chart(score_heatmap, use_container_width=True)
+                with heatmap_col2:
+                    if coverage_heatmap.data.empty:
+                        st.info("キーワード網羅率ヒートマップを表示するには判定データが必要です。")
+                    else:
+                        st.altair_chart(coverage_heatmap, use_container_width=True)
+                st.caption("濃淡が薄いセルは優先復習したい設問を示します。")
+
+            if has_keyword_heatmap:
+                st.markdown("#### テーマ別（キーワード）網羅率ヒートマップ")
+                keyword_df = dashboard_analysis["keyword_source"].copy()
+                keyword_sort = dashboard_analysis["keyword_labels"] or "ascending"
+                keyword_heatmap = (
+                    alt.Chart(keyword_df.dropna(subset=["網羅率"]))
+                    .mark_rect()
+                    .encode(
+                        x=alt.X("キーワード:N", sort=keyword_sort, title="キーワード"),
+                        y=alt.Y("事例:N", sort=CASE_ORDER, title=None),
+                        color=alt.Color(
+                            "網羅率:Q",
+                            scale=alt.Scale(domain=[0, 100], scheme="oranges"),
+                            title="網羅率 (%)",
+                        ),
+                        tooltip=[
+                            "事例",
+                            "キーワード",
+                            alt.Tooltip("網羅率:Q", format=".1f"),
+                            alt.Tooltip("出題数:Q", format=".0f", title="出題数"),
+                        ],
+                    )
+                    .properties(height=260)
+                )
+                st.altair_chart(keyword_heatmap, use_container_width=True)
+                st.caption("特に網羅率が低いテーマは早期に補強しましょう。")
+
             st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</section>", unsafe_allow_html=True)
 
@@ -7366,6 +7494,193 @@ def _build_schedule_preview(
 
 def _mode_label(mode: str) -> str:
     return "模試" if mode == "mock" else "演習"
+
+
+def _prepare_dashboard_analysis_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
+    if not records:
+        return {
+            "case_chart_source": pd.DataFrame(),
+            "question_source": pd.DataFrame(),
+            "question_order_labels": [],
+            "keyword_source": pd.DataFrame(),
+            "keyword_labels": [],
+            "improvement_range": (0.10, 0.15),
+        }
+
+    def _case_order(label: str) -> int:
+        try:
+            return CASE_ORDER.index(label)
+        except ValueError:
+            return len(CASE_ORDER)
+
+    case_stats: Dict[str, Dict[str, float]] = defaultdict(
+        lambda: {
+            "score_sum": 0.0,
+            "score_count": 0,
+            "coverage_sum": 0.0,
+            "coverage_count": 0,
+        }
+    )
+    question_stats: Dict[Tuple[str, int], Dict[str, float]] = defaultdict(
+        lambda: {
+            "score_sum": 0.0,
+            "score_count": 0,
+            "coverage_sum": 0.0,
+            "coverage_count": 0,
+        }
+    )
+    keyword_stats: Dict[Tuple[str, str], Dict[str, float]] = defaultdict(
+        lambda: {"attempts": 0, "hits": 0}
+    )
+
+    question_numbers: Set[int] = set()
+
+    for record in records:
+        case_label = record.get("case_label") or "不明"
+        max_score = record.get("max_score") or 0
+        score = record.get("score") or 0
+        keyword_hits: Dict[str, bool] = record.get("keyword_hits") or {}
+
+        score_ratio: Optional[float]
+        if max_score:
+            try:
+                score_ratio = score / max_score
+            except ZeroDivisionError:
+                score_ratio = None
+        else:
+            score_ratio = None
+
+        coverage_ratio: Optional[float]
+        if keyword_hits:
+            coverage_ratio = sum(1 for hit in keyword_hits.values() if hit) / len(keyword_hits)
+        else:
+            coverage_ratio = None
+
+        if score_ratio is not None:
+            stat = case_stats[case_label]
+            stat["score_sum"] += score_ratio
+            stat["score_count"] += 1
+        if coverage_ratio is not None:
+            stat = case_stats[case_label]
+            stat["coverage_sum"] += coverage_ratio
+            stat["coverage_count"] += 1
+
+        question_number = _normalize_question_number(record.get("question_order"))
+        if question_number is not None:
+            question_numbers.add(question_number)
+            q_stat = question_stats[(case_label, question_number)]
+            if score_ratio is not None:
+                q_stat["score_sum"] += score_ratio
+                q_stat["score_count"] += 1
+            if coverage_ratio is not None:
+                q_stat["coverage_sum"] += coverage_ratio
+                q_stat["coverage_count"] += 1
+
+        for keyword, hit in keyword_hits.items():
+            k_stat = keyword_stats[(case_label, keyword)]
+            k_stat["attempts"] += 1
+            if hit:
+                k_stat["hits"] += 1
+
+    case_rows: List[Dict[str, Any]] = []
+    for case_label, stat in case_stats.items():
+        avg_score = (
+            stat["score_sum"] / stat["score_count"] * 100
+            if stat["score_count"]
+            else None
+        )
+        avg_coverage = (
+            stat["coverage_sum"] / stat["coverage_count"] * 100
+            if stat["coverage_count"]
+            else None
+        )
+        case_rows.append(
+            {
+                "事例": case_label,
+                "平均得点率": avg_score,
+                "平均キーワード網羅率": avg_coverage,
+            }
+        )
+
+    case_df = pd.DataFrame(case_rows)
+    if not case_df.empty:
+        case_df["_order"] = case_df["事例"].map(_case_order)
+        case_df.sort_values("_order", inplace=True)
+        case_df.drop(columns=["_order"], inplace=True)
+        case_chart_source = case_df.melt(
+            id_vars=["事例"],
+            value_vars=["平均得点率", "平均キーワード網羅率"],
+            var_name="指標",
+            value_name="値",
+        )
+    else:
+        case_chart_source = case_df
+
+    question_rows: List[Dict[str, Any]] = []
+    for (case_label, question_number), stat in question_stats.items():
+        avg_score = (
+            stat["score_sum"] / stat["score_count"] * 100
+            if stat["score_count"]
+            else None
+        )
+        avg_coverage = (
+            stat["coverage_sum"] / stat["coverage_count"] * 100
+            if stat["coverage_count"]
+            else None
+        )
+        question_rows.append(
+            {
+                "事例": case_label,
+                "設問": f"第{question_number}問",
+                "平均得点率": avg_score,
+                "平均キーワード網羅率": avg_coverage,
+                "設問番号": question_number,
+            }
+        )
+
+    question_df = pd.DataFrame(question_rows)
+    if not question_df.empty:
+        question_df["_order"] = question_df["事例"].map(_case_order)
+        question_df.sort_values(["_order", "設問番号"], inplace=True)
+        question_df.drop(columns=["_order"], inplace=True)
+
+    keyword_rows: List[Dict[str, Any]] = []
+    for (case_label, keyword), stat in keyword_stats.items():
+        attempts = stat["attempts"]
+        if attempts == 0:
+            continue
+        hit_rate = stat["hits"] / attempts if attempts else None
+        keyword_rows.append(
+            {
+                "事例": case_label,
+                "キーワード": keyword,
+                "網羅率": hit_rate * 100 if hit_rate is not None else None,
+                "出題数": attempts,
+            }
+        )
+
+    keyword_df = pd.DataFrame(keyword_rows)
+    keyword_labels: List[str] = []
+    if not keyword_df.empty:
+        keyword_totals = (
+            keyword_df.groupby("キーワード")["出題数"].sum().sort_values(ascending=False)
+        )
+        keyword_labels = keyword_totals.head(8).index.tolist()
+        keyword_df = keyword_df[keyword_df["キーワード"].isin(keyword_labels)]
+        keyword_df["_order"] = keyword_df["事例"].map(_case_order)
+        keyword_df.sort_values(["_order", "キーワード"], inplace=True)
+        keyword_df.drop(columns=["_order"], inplace=True)
+
+    question_order_labels = [f"第{num}問" for num in sorted(question_numbers)]
+
+    return {
+        "case_chart_source": case_chart_source,
+        "question_source": question_df,
+        "question_order_labels": question_order_labels,
+        "keyword_source": keyword_df,
+        "keyword_labels": keyword_labels,
+        "improvement_range": (0.10, 0.15),
+    }
 
 
 def _analyze_keyword_records(records: List[Dict]) -> Dict[str, Any]:
