@@ -2292,6 +2292,58 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
     }
 
 
+def fetch_user_question_scores(user_id: int) -> List[Dict[str, Any]]:
+    """Return historical question-level scores for a user."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            aa.attempt_id,
+            aa.question_id,
+            aa.score,
+            q.max_score AS question_max_score,
+            q.question_order,
+            p.case_label,
+            p.year,
+            a.submitted_at,
+            log.keyword_coverage,
+            log.duration_seconds
+        FROM attempt_answers aa
+        JOIN attempts a ON a.id = aa.attempt_id
+        JOIN questions q ON q.id = aa.question_id
+        JOIN problems p ON p.id = q.problem_id
+        LEFT JOIN attempt_scoring_logs log
+            ON log.attempt_id = aa.attempt_id AND log.question_id = aa.question_id
+        WHERE a.user_id = ?
+        ORDER BY a.submitted_at ASC, q.question_order ASC
+        """,
+        (user_id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    history: List[Dict[str, Any]] = []
+    for row in rows:
+        history.append(
+            {
+                "attempt_id": row["attempt_id"],
+                "question_id": row["question_id"],
+                "score": row["score"],
+                "max_score": row["question_max_score"],
+                "question_order": row["question_order"],
+                "case_label": row["case_label"],
+                "year": row["year"],
+                "submitted_at": row["submitted_at"],
+                "keyword_coverage": row["keyword_coverage"],
+                "duration_seconds": row["duration_seconds"],
+            }
+        )
+
+    return history
+
+
 def fetch_attempt_activity(attempt_id: int) -> List[Dict[str, Any]]:
     conn = get_connection()
     cur = conn.cursor()

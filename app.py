@@ -11849,19 +11849,62 @@ def render_attempt_results(attempt_id: int) -> None:
             st.success("模擬試験クリア！称号『模試コンプリート』を獲得しました。")
             st.balloons()
 
-    summary_rows = []
+    def _classify_score_ratio(ratio: Optional[float]) -> str:
+        if ratio is None:
+            return "採点待ち"
+        if ratio >= 0.8:
+            return "得意ゾーン"
+        if ratio >= 0.5:
+            return "伸びしろ"
+        return "要強化"
+
+    summary_rows: List[Dict[str, Any]] = []
+    question_records: List[Dict[str, Any]] = []
     for idx, answer in enumerate(answers, start=1):
+        score = float(answer.get("score") or 0.0)
+        max_score = float(answer.get("max_score") or 0.0)
+        ratio = None
+        if max_score:
+            ratio = max(min(score / max_score, 1.0), 0.0)
+        keyword_hits = answer.get("keyword_hits") or {}
+        keyword_coverage = answer.get("keyword_coverage")
+        if keyword_coverage is None and keyword_hits:
+            total_keywords = len(keyword_hits)
+            if total_keywords:
+                keyword_coverage = sum(1 for hit in keyword_hits.values() if hit) / total_keywords
+        keyword_label = ", ".join([kw for kw, hit in keyword_hits.items() if hit]) or "-"
+        keyword_pct = (
+            round(keyword_coverage * 100, 1) if keyword_coverage is not None else None
+        )
+        status_label = _classify_score_ratio(ratio)
+        year_label = str(answer.get("year") or "").strip()
+        case_label = str(answer.get("case_label") or "").strip() or "未分類"
+        question_label_parts = [part for part in [year_label, case_label, f"設問{idx}"] if part]
+        question_label = " ".join(question_label_parts)
         summary_rows.append(
             {
                 "設問": idx,
-                "得点": answer["score"],
-                "満点": answer["max_score"],
-                "キーワード達成": ", ".join(
-                    [kw for kw, hit in (answer["keyword_hits"] or {}).items() if hit]
-                )
-                or "-",
+                "得点": score,
+                "満点": max_score,
+                "得点率(%)": round(ratio * 100, 1) if ratio is not None else None,
+                "評価": status_label,
+                "キーワード達成": keyword_label,
+                "キーワード網羅率(%)": keyword_pct,
             }
         )
+        question_records.append(
+            {
+                "question_order": idx,
+                "question_label": question_label or f"設問{idx}",
+                "score": score,
+                "max_score": max_score,
+                "score_ratio": ratio,
+                "status": status_label,
+                "case_label": case_label,
+                "keyword_rate": keyword_coverage,
+            }
+        )
+
     if summary_rows:
         st.data_editor(
             pd.DataFrame(summary_rows),
@@ -11869,7 +11912,192 @@ def render_attempt_results(attempt_id: int) -> None:
             use_container_width=True,
             disabled=True,
         )
-        st.caption("各設問の得点とキーワード達成状況を整理しました。弱点分析に活用してください。")
+        st.caption(
+            "各設問の得点率・キーワード網羅率・評価カテゴリを一覧化しました。弱点分析に活用してください。"
+        )
+
+    if question_records:
+        st.markdown("#### 設問別パフォーマンスの可視化")
+        chart_df = pd.DataFrame(question_records)
+        chart_df["status"].fillna("採点待ち", inplace=True)
+        chart_df["case_label"].fillna("未分類", inplace=True)
+        status_options = list(chart_df["status"].unique())
+        case_options = sorted(chart_df["case_label"].unique())
+        filter_col1, filter_col2 = st.columns(2)
+        selected_status = filter_col1.multiselect(
+            "注目レベル",
+            status_options,
+            default=status_options,
+            key=f"question_status_filter_{attempt_id}",
+            help="得意ゾーン／要強化などのカテゴリで絞り込みます。",
+        )
+        selected_cases = filter_col2.multiselect(
+            "事例フィルタ",
+            case_options,
+            default=case_options,
+            key=f"question_case_filter_{attempt_id}",
+            help="対象とする事例（分野）を選択してください。",
+        )
+        if not selected_status:
+            selected_status = status_options
+        if not selected_cases:
+            selected_cases = case_options
+        filtered_df = chart_df[
+            chart_df["status"].isin(selected_status)
+            & chart_df["case_label"].isin(selected_cases)
+        ]
+        ratio_df = filtered_df.dropna(subset=["score_ratio"]).copy()
+        if not ratio_df.empty:
+            color_scale = alt.Scale(
+                domain=["要強化", "伸びしろ", "得意ゾーン", "採点待ち"],
+                range=["#d14343", "#f2a73b", "#2a7f62", "#9ca3af"],
+            )
+            bar_chart = (
+                alt.Chart(ratio_df)
+                .mark_bar(cornerRadius=6)
+                .encode(
+                    x=alt.X("question_label:N", title="設問", sort=None),
+                    y=alt.Y(
+                        "score_ratio:Q",
+                        title="得点率",
+                        axis=alt.Axis(format="%"),
+                        scale=alt.Scale(domain=[0, 1]),
+                    ),
+                    color=alt.Color("status:N", title="評価", scale=color_scale),
+                    tooltip=[
+                        alt.Tooltip("question_label:N", title="設問"),
+                        alt.Tooltip("score:Q", title="得点", format=".1f"),
+                        alt.Tooltip("max_score:Q", title="満点", format=".1f"),
+                        alt.Tooltip("score_ratio:Q", title="得点率", format=".0%"),
+                        alt.Tooltip(
+                            "keyword_rate:Q",
+                            title="キーワード網羅率",
+                            format=".0%",
+                        ),
+                        alt.Tooltip("status:N", title="評価"),
+                    ],
+                )
+                .properties(height=280)
+            )
+            st.altair_chart(bar_chart, use_container_width=True)
+        else:
+            st.info("選択条件に該当する設問の得点率データがありません。")
+
+        weakness_df = filtered_df[filtered_df["status"] == "要強化"].dropna(
+            subset=["score_ratio"]
+        )
+        strength_df = filtered_df[filtered_df["status"] == "得意ゾーン"].dropna(
+            subset=["score_ratio"]
+        )
+        if not weakness_df.empty:
+            st.warning(
+                "要強化カテゴリの設問があります。反復練習の優先度を上げましょう。",
+                icon="📌",
+            )
+            for row in weakness_df.sort_values("score_ratio").itertuples():
+                keyword_hint = (
+                    f" / キーワード網羅率 {row.keyword_rate:.0%}"
+                    if row.keyword_rate is not None
+                    else ""
+                )
+                st.markdown(
+                    f"- **{row.question_label}**: 得点率 {row.score_ratio:.0%}{keyword_hint}"
+                )
+        if not strength_df.empty:
+            st.success("得意ゾーンの設問です。自信を維持しつつ応用問題に挑戦しましょう。", icon="💪")
+            for row in strength_df.sort_values("score_ratio", ascending=False).itertuples():
+                keyword_hint = (
+                    f" / キーワード網羅率 {row.keyword_rate:.0%}"
+                    if row.keyword_rate is not None
+                    else ""
+                )
+                st.markdown(
+                    f"- **{row.question_label}**: 得点率 {row.score_ratio:.0%}{keyword_hint}"
+                )
+
+        history_records = database.fetch_user_question_scores(attempt["user_id"])
+        if history_records:
+            history_df = pd.DataFrame(history_records)
+            history_df["case_label"].fillna("未分類", inplace=True)
+            history_df["score_ratio"] = history_df.apply(
+                lambda row: (row["score"] / row["max_score"]) if row["max_score"] else None,
+                axis=1,
+            )
+            history_df["status"] = history_df["score_ratio"].apply(_classify_score_ratio)
+            history_df["question_label"] = history_df.apply(
+                lambda row: " ".join(
+                    part
+                    for part in [
+                        str(row.get("year") or "").strip(),
+                        str(row.get("case_label") or "未分類").strip(),
+                        f"設問{int(row.get('question_order') or 0)}",
+                    ]
+                    if part
+                ),
+                axis=1,
+            )
+            st.markdown("##### スコア履歴ヒストグラム")
+            hist_status = st.multiselect(
+                "履歴の評価カテゴリ",
+                status_options,
+                default=status_options,
+                key=f"history_status_filter_{attempt_id}",
+            )
+            hist_cases = st.multiselect(
+                "履歴の事例フィルタ",
+                sorted(history_df["case_label"].unique()),
+                default=selected_cases,
+                key=f"history_case_filter_{attempt_id}",
+            )
+            hist_questions = st.multiselect(
+                "設問の選択",
+                sorted(history_df["question_label"].unique()),
+                default=sorted(set(chart_df["question_label"].unique())),
+                key=f"history_question_filter_{attempt_id}",
+            )
+            if not hist_status:
+                hist_status = status_options
+            if not hist_cases:
+                hist_cases = sorted(history_df["case_label"].unique())
+            if not hist_questions:
+                hist_questions = sorted(history_df["question_label"].unique())
+
+            hist_filtered = history_df[
+                history_df["status"].isin(hist_status)
+                & history_df["case_label"].isin(hist_cases)
+                & history_df["question_label"].isin(hist_questions)
+            ]
+            hist_filtered = hist_filtered.dropna(subset=["score_ratio"])
+            if not hist_filtered.empty:
+                hist_chart = (
+                    alt.Chart(hist_filtered)
+                    .mark_bar(opacity=0.8)
+                    .encode(
+                        x=alt.X(
+                            "score_ratio:Q",
+                            bin=alt.Bin(maxbins=12),
+                            title="得点率",
+                            axis=alt.Axis(format="%"),
+                        ),
+                        y=alt.Y("count():Q", title="回数"),
+                        color=alt.Color(
+                            "question_label:N",
+                            title="設問",
+                            legend=alt.Legend(title="設問"),
+                        ),
+                        tooltip=[
+                            alt.Tooltip("question_label:N", title="設問"),
+                            alt.Tooltip("count():Q", title="回数"),
+                        ],
+                    )
+                    .properties(height=260)
+                )
+                st.altair_chart(hist_chart, use_container_width=True)
+                st.caption("選択した設問の得点率分布です。ヒストグラムの山が左寄りなら優先的に復習しましょう。")
+            else:
+                st.info("条件に合致する履歴データがありません。演習を重ねるとヒストグラムが生成されます。")
+
+    st.divider()
 
     export_col1, export_col2, export_col3 = st.columns(3)
     with export_col1:
