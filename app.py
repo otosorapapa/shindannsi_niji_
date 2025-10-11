@@ -6317,8 +6317,8 @@ def dashboard_page(user: Dict) -> None:
             """
             <section class="dashboard-lane" role="region" aria-labelledby="review-lane-title">
                 <header class="dashboard-lane__header">
-                    <h2 id="review-lane-title" class="dashboard-lane__title">復習スケジュール</h2>
-                    <p class="dashboard-lane__subtitle">間隔反復で優先度の高い復習を提示します。</p>
+                    <h2 id="review-lane-title" class="dashboard-lane__title">🕒 復習ハブ</h2>
+                    <p class="dashboard-lane__subtitle">間隔反復アルゴリズムで優先度の高い復習タスクを整理します。</p>
                 </header>
             """
         )
@@ -6329,7 +6329,7 @@ def dashboard_page(user: Dict) -> None:
         )
         if due_review_count:
             st.markdown(
-                f"<p class='timeline-filter__label'>⏳ {due_review_count}件の復習が期限到来または超過しています。優先的に取り組みましょう。</p>",
+                f"<p class='timeline-filter__label'>⏳ 復習ハブで管理しているタスクのうち {due_review_count}件が期限到来または超過しています。優先的に取り組みましょう。</p>",
                 unsafe_allow_html=True,
             )
         if upcoming_reviews:
@@ -6366,9 +6366,9 @@ def dashboard_page(user: Dict) -> None:
                 use_container_width=True,
                 disabled=True,
             )
-            st.caption("演習結果に応じて次回の復習タイミングを自動で提案します。")
+            st.caption("演習結果に応じて復習ハブが次回の復習タイミングを自動提案します。")
         else:
-            st.info("演習データが蓄積されると復習スケジュールが表示されます。")
+            st.info("演習データが蓄積されると復習ハブが表示されます。")
         st.markdown("</div></section>", unsafe_allow_html=True)
 
         analysis_section_open = dedent(
@@ -6634,8 +6634,8 @@ def dashboard_page(user: Dict) -> None:
             banner_html = dedent(
                 f"""
                 <details class="insight-banner" open data-banner-storage="dashboard-review-banner">
-                    <summary class="insight-banner__summary insight-banner__toggle">ℹ️ 復習アラート ({due_review_count}件)</summary>
-                    <div class="insight-banner__content">期限が到来した復習があります。復習スケジュールを確認し、優先対応しましょう。</div>
+                    <summary class="insight-banner__summary insight-banner__toggle">🔔 復習ハブ通知 ({due_review_count}件)</summary>
+                    <div class="insight-banner__content">復習ハブで期限が到来したタスクがあります。ハブ内の優先タスクから着手しましょう。</div>
                 </details>
                 """
             )
@@ -11151,10 +11151,10 @@ def history_page(user: Dict) -> None:
         st.info("これから学習を始めましょう。初期推奨リマインダーは3日おきです。")
 
     if review_schedule:
-        st.markdown("#### 復習予定リスト")
+        st.markdown("#### 復習ハブ予定リスト")
         if due_reviews_count:
             st.warning(
-                f"{due_reviews_count}件の復習期限が到来しています。『過去問演習』から優先的に復習しましょう。",
+                f"復習ハブで {due_reviews_count}件の期限が到来しています。『過去問演習』から優先的に復習しましょう。",
                 icon="📌",
             )
         review_df = pd.DataFrame(
@@ -11185,7 +11185,7 @@ def history_page(user: Dict) -> None:
         )
         st.dataframe(review_df, use_container_width=True)
     else:
-        st.caption("演習完了後に復習予定が自動生成されます。")
+        st.caption("演習完了後に復習ハブの予定が自動生成されます。")
 
     with st.expander("リマインダー設定", expanded=reminder_settings is None):
         st.write("学習リズムに合わせて通知頻度・時刻・チャネルをカスタマイズできます。")
