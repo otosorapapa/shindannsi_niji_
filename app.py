@@ -4520,6 +4520,88 @@ def main_view() -> None:
                 box-shadow: 0 0 0 1px var(--primary-color) inset;
                 font-weight: 600;
             }
+            .mobile-bottom-nav {
+                display: none;
+            }
+            @media (max-width: 960px) {
+                section[data-testid="stSidebar"] {
+                    display: none !important;
+                }
+                [data-testid="stAppViewContainer"] > .main {
+                    padding-left: 0 !important;
+                }
+                .block-container {
+                    padding: 1rem 1rem 5.5rem;
+                    max-width: 100%;
+                }
+                .dashboard-grid {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1.25rem;
+                }
+                .dashboard-toc {
+                    flex-wrap: wrap;
+                    gap: 0.65rem;
+                }
+                .dashboard-toc__link {
+                    flex: 1 1 calc(50% - 0.65rem);
+                    text-align: center;
+                }
+                .dashboard-card {
+                    padding: 1rem 1.05rem 1.1rem;
+                }
+                .kpi-tiles,
+                .metric-grid {
+                    grid-template-columns: 1fr;
+                }
+                .mobile-bottom-nav {
+                    display: block;
+                    position: fixed;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    z-index: 1200;
+                    padding: 0.5rem 0.75rem calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+                    background: rgba(255, 255, 255, 0.94);
+                    box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.12);
+                    border-top: 1px solid rgba(148, 163, 184, 0.35);
+                    backdrop-filter: blur(12px);
+                }
+                .mobile-bottom-nav [role="radiogroup"] {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: stretch;
+                    gap: 0.25rem;
+                }
+                .mobile-bottom-nav label[data-baseweb="radio"] {
+                    flex: 1 1 0;
+                }
+                .mobile-bottom-nav label[data-baseweb="radio"] > div:first-child {
+                    display: none;
+                }
+                .mobile-bottom-nav label[data-baseweb="radio"] > div:last-child {
+                    border-radius: 14px;
+                    border: 1px solid transparent;
+                    padding: 0.45rem 0.35rem 0.4rem;
+                    font-size: 0.78rem;
+                    font-weight: 600;
+                    text-align: center;
+                    color: var(--text-muted);
+                    background: rgba(248, 250, 252, 0.9);
+                    transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+                }
+                .mobile-bottom-nav label[data-baseweb="radio"] > input:checked + div {
+                    border-color: rgba(37, 99, 235, 0.45);
+                    color: var(--brand-strong);
+                    background: rgba(219, 234, 254, 0.9);
+                    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.18);
+                }
+            }
+            @media (min-width: 961px) {
+                .mobile-bottom-nav {
+                    display: none !important;
+                }
+            }
             </style>
             """
         ).strip(),
@@ -4552,7 +4634,35 @@ def main_view() -> None:
         "必要な情報にすぐアクセスできるよう、ページ別にコンテンツを整理しています。"
     )
 
-    page = st.session_state.page
+    mobile_nav_key = "mobile_navigation"
+
+    def _sync_mobile_nav_to_sidebar() -> None:
+        selection = st.session_state.get(mobile_nav_key)
+        if selection in navigation_items:
+            st.session_state[navigation_key] = selection
+            st.session_state.page = selection
+
+    current_selection = st.session_state[navigation_key]
+    if st.session_state.get(mobile_nav_key) != current_selection:
+        st.session_state[mobile_nav_key] = current_selection
+
+    with st.container():
+        st.markdown(
+            "<div class=\"mobile-bottom-nav\" role=\"navigation\" aria-label=\"主要メニュー\">",
+            unsafe_allow_html=True,
+        )
+        st.radio(
+            "主要メニュー",  # ラベルはスクリーンリーダー向けに保持
+            nav_labels,
+            key=mobile_nav_key,
+            horizontal=True,
+            label_visibility="collapsed",
+            on_change=_sync_mobile_nav_to_sidebar,
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    page = st.session_state[navigation_key]
+    st.session_state.page = page
     navigation_items[page](user)
 
 
