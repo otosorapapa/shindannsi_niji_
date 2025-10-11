@@ -17,7 +17,7 @@ from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from functools import lru_cache
 from pathlib import Path
 from threading import Lock
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 DB_PATH = Path("data/app.db")
 SEED_PATH = Path("data/seed_problems.json")
@@ -352,6 +352,24 @@ def initialize_database(*, force: bool = False) -> None:
             revision_count INTEGER DEFAULT 0,
             edit_history_json TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS attempt_scoring_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            attempt_id INTEGER NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
+            question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+            question_order INTEGER,
+            logged_at TEXT NOT NULL,
+            max_score REAL,
+            score REAL,
+            keyword_coverage REAL,
+            checkpoints_json TEXT,
+            axis_breakdown_json TEXT,
+            duration_seconds INTEGER,
+            self_evaluation TEXT,
+            notes TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_attempt_scoring_logs_attempt
+            ON attempt_scoring_logs(attempt_id);
 
         CREATE TABLE IF NOT EXISTS reminders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1049,13 +1067,24 @@ def record_attempt(
     conn = get_connection()
     cur = conn.cursor()
 
+    answers = list(answers)
     total_score = sum(answer.score for answer in answers)
 
     cur.execute(
-        "SELECT SUM(max_score) as total FROM questions WHERE problem_id = ?",
+        "SELECT id, question_order, max_score FROM questions WHERE problem_id = ?",
         (problem_id,),
     )
-    total_max_score = cur.fetchone()["total"] or 0
+    question_meta = {
+        row["id"]: {
+            "order": row["question_order"],
+            "max_score": row["max_score"],
+        }
+        for row in cur.fetchall()
+    }
+
+    total_max_score = sum(
+        meta.get("max_score") or 0 for meta in question_meta.values()
+    )
 
     cur.execute(
         """
@@ -1097,6 +1126,49 @@ def record_attempt(
         )
 
         activity = answer.activity or {}
+
+        question_info = question_meta.get(answer.question_id, {})
+        keyword_hits = answer.keyword_hits or {}
+        total_keywords = len(keyword_hits)
+        coverage_ratio = None
+        if total_keywords:
+            coverage_ratio = sum(1 for hit in keyword_hits.values() if hit) / total_keywords
+        duration_seconds = activity.get("total_duration_seconds") if activity else None
+        try:
+            duration_value = (
+                int(duration_seconds)
+                if duration_seconds is not None
+                else None
+            )
+        except (TypeError, ValueError):
+            duration_value = None
+
+        checkpoints = {"keywords": keyword_hits}
+        if answer.axis_breakdown:
+            checkpoints["axes"] = answer.axis_breakdown
+
+        cur.execute(
+            """
+            INSERT INTO attempt_scoring_logs (
+                attempt_id, question_id, question_order, logged_at, max_score, score,
+                keyword_coverage, checkpoints_json, axis_breakdown_json,
+                duration_seconds, self_evaluation, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+            """,
+            (
+                attempt_id,
+                answer.question_id,
+                question_info.get("order"),
+                submitted_at.isoformat(),
+                question_info.get("max_score"),
+                answer.score,
+                coverage_ratio,
+                json.dumps(checkpoints, ensure_ascii=False),
+                json.dumps(answer.axis_breakdown, ensure_ascii=False),
+                duration_value,
+            ),
+        )
+
         if activity:
             cur.execute(
                 """
@@ -1122,6 +1194,115 @@ def record_attempt(
     conn.commit()
     conn.close()
     return attempt_id
+
+
+def update_scoring_log_self_evaluation(log_id: int, value: Optional[str]) -> None:
+    """Update the learner's self evaluation for a scoring log entry."""
+
+    normalized = (value or "").strip() or None
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE attempt_scoring_logs SET self_evaluation = ? WHERE id = ?",
+        (normalized, log_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def fetch_scoring_logs_for_attempts(
+    attempt_ids: Sequence[int],
+) -> List[Dict[str, Any]]:
+    """Return scoring log entries for the specified attempts."""
+
+    ids: List[int] = []
+    for item in attempt_ids:
+        try:
+            ids.append(int(item))
+        except (TypeError, ValueError):
+            continue
+    if not ids:
+        return []
+
+    placeholders = ",".join("?" for _ in ids)
+    query = f"""
+        SELECT
+            log.id,
+            log.attempt_id,
+            log.question_id,
+            log.question_order,
+            log.logged_at,
+            log.max_score,
+            log.score,
+            log.keyword_coverage,
+            log.checkpoints_json,
+            log.axis_breakdown_json,
+            log.duration_seconds,
+            log.self_evaluation,
+            log.notes,
+            a.user_id,
+            a.mode,
+            a.started_at,
+            a.submitted_at,
+            p.year,
+            p.case_label,
+            p.title,
+            q.prompt,
+            q.max_score AS question_max_score
+        FROM attempt_scoring_logs log
+        JOIN attempts a ON a.id = log.attempt_id
+        JOIN questions q ON q.id = log.question_id
+        JOIN problems p ON p.id = a.problem_id
+        WHERE log.attempt_id IN ({placeholders})
+        ORDER BY log.logged_at, log.id
+    """
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(query, tuple(ids))
+    rows = cur.fetchall()
+    conn.close()
+
+    results: List[Dict[str, Any]] = []
+    for row in rows:
+        checkpoints = (
+            json.loads(row["checkpoints_json"])
+            if row["checkpoints_json"]
+            else {}
+        )
+        axes = (
+            json.loads(row["axis_breakdown_json"])
+            if row["axis_breakdown_json"]
+            else {}
+        )
+        results.append(
+            {
+                "log_id": row["id"],
+                "attempt_id": row["attempt_id"],
+                "question_id": row["question_id"],
+                "question_order": row["question_order"],
+                "logged_at": row["logged_at"],
+                "max_score": row["max_score"],
+                "score": row["score"],
+                "keyword_coverage": row["keyword_coverage"],
+                "checkpoints": checkpoints,
+                "axis_breakdown": axes,
+                "duration_seconds": row["duration_seconds"],
+                "self_evaluation": row["self_evaluation"],
+                "notes": row["notes"],
+                "user_id": row["user_id"],
+                "mode": row["mode"],
+                "started_at": row["started_at"],
+                "submitted_at": row["submitted_at"],
+                "year": row["year"],
+                "case_label": row["case_label"],
+                "title": row["title"],
+                "prompt": row["prompt"],
+                "question_max_score": row["question_max_score"],
+            }
+        )
+
+    return results
 
 
 def _next_review_plan(
@@ -1809,11 +1990,16 @@ def fetch_keyword_performance(user_id: int) -> List[Dict]:
             q.id AS question_id,
             q.prompt,
             q.max_score,
-            q.question_order
+            q.question_order,
+            log.duration_seconds,
+            log.self_evaluation,
+            log.keyword_coverage
         FROM attempt_answers aa
         JOIN attempts a ON a.id = aa.attempt_id
         JOIN questions q ON q.id = aa.question_id
         JOIN problems p ON p.id = a.problem_id
+        LEFT JOIN attempt_scoring_logs log
+            ON log.attempt_id = aa.attempt_id AND log.question_id = aa.question_id
         WHERE a.user_id = ? AND a.submitted_at IS NOT NULL
         ORDER BY a.submitted_at
         """,
@@ -1842,6 +2028,9 @@ def fetch_keyword_performance(user_id: int) -> List[Dict]:
                 "prompt": row["prompt"],
                 "max_score": row["max_score"],
                 "question_order": row["question_order"],
+                "duration_seconds": row["duration_seconds"],
+                "self_evaluation": row["self_evaluation"],
+                "keyword_coverage": row["keyword_coverage"],
             }
         )
 
@@ -1922,10 +2111,17 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
         """
         SELECT aa.*, q.prompt, q.max_score, q.model_answer, q.explanation,
                q.keywords_json, q.intent_cards_json, q.video_url, q.diagram_path,
-               q.diagram_caption, q.question_order, p.year, p.case_label
+               q.diagram_caption, q.question_order, p.year, p.case_label,
+               log.id AS scoring_log_id,
+               log.duration_seconds AS log_duration_seconds,
+               log.self_evaluation AS log_self_evaluation,
+               log.keyword_coverage AS log_keyword_coverage,
+               log.checkpoints_json AS log_checkpoints_json
         FROM attempt_answers aa
         JOIN questions q ON q.id = aa.question_id
         JOIN problems p ON p.id = q.problem_id
+        LEFT JOIN attempt_scoring_logs log
+            ON log.attempt_id = aa.attempt_id AND log.question_id = aa.question_id
         WHERE aa.attempt_id = ?
         ORDER BY q.question_order
         """,
@@ -1954,6 +2150,11 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
                 "question_order": row["question_order"],
                 "year": row["year"],
                 "case_label": row["case_label"],
+                "scoring_log_id": row["scoring_log_id"],
+                "duration_seconds": row["log_duration_seconds"],
+                "self_evaluation": row["log_self_evaluation"],
+                "keyword_coverage": row["log_keyword_coverage"],
+                "checkpoint_log": json.loads(row["log_checkpoints_json"]) if row["log_checkpoints_json"] else {},
             }
         )
 
