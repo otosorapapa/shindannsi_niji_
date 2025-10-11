@@ -5379,14 +5379,18 @@ def _inject_dashboard_styles() -> None:
             }
             .insight-icon {
                 display: inline-flex;
+                flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                width: 54px;
-                height: 54px;
+                gap: 0.3rem;
+                min-width: 54px;
+                min-height: 54px;
+                padding: 0.5rem 0.6rem;
                 border-radius: 16px;
                 background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(37, 99, 235, 0.26));
                 color: var(--brand-strong);
                 box-shadow: 0 10px 18px rgba(37, 99, 235, 0.16);
+                text-align: center;
             }
             .insight-icon[data-accent="teal"] {
                 background: linear-gradient(135deg, rgba(15, 118, 110, 0.15), rgba(13, 148, 136, 0.25));
@@ -5398,9 +5402,20 @@ def _inject_dashboard_styles() -> None:
                 color: #1f2937;
                 box-shadow: 0 10px 18px rgba(30, 41, 59, 0.14);
             }
-            .insight-icon svg {
+            .insight-icon__glyph {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .insight-icon__glyph svg {
                 width: 26px;
                 height: 26px;
+            }
+            .insight-icon__label {
+                font-size: 0.7rem;
+                font-weight: 600;
+                letter-spacing: 0.03em;
+                line-height: 1.1;
             }
             .insight-copy {
                 display: flex;
@@ -6136,42 +6151,54 @@ def _render_study_goal_panel(
         st.info("学習時間目標を設定すると日々の予定が自動生成されます。")
 
 
-def _insight_icon_svg(name: str) -> str:
-    icon_map = {
-        "target": dedent(
-            """
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6" />
-                <circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6" />
-                <path d="M12 7v5l3 1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            """
-        ).strip(),
-        "clock": dedent(
-            """
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6" />
-                <path d="M12 7v5.2l3 2.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            """
-        ).strip(),
-        "trend": dedent(
-            """
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M4 16.5 9.2 11l3.1 3.1 7.7-7.7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-                <polyline points="18 6.4 18 10.8 13.6 10.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            """
-        ).strip(),
-        "bell": dedent(
-            """
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M18 15c-1.1-1.3-2-2.5-2-5.5A4 4 0 0 0 12 5a4 4 0 0 0-4 4.5c0 3-0.9 4.2-2 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-                <path d="M5 15h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-                <path d="M10 18a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            """
-        ).strip(),
+def _insight_icon_asset(name: str) -> Tuple[str, str]:
+    icon_map: Dict[str, Tuple[str, str]] = {
+        "target": (
+            dedent(
+                """
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6" />
+                    <circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6" />
+                    <path d="M12 7v5l3 1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                """
+            ).strip(),
+            "注力目標",
+        ),
+        "clock": (
+            dedent(
+                """
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6" />
+                    <path d="M12 7v5.2l3 2.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                """
+            ).strip(),
+            "学習時間",
+        ),
+        "trend": (
+            dedent(
+                """
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M4 16.5 9.2 11l3.1 3.1 7.7-7.7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                    <polyline points="18 6.4 18 10.8 13.6 10.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                """
+            ).strip(),
+            "スコア推移",
+        ),
+        "bell": (
+            dedent(
+                """
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M18 15c-1.1-1.3-2-2.5-2-5.5A4 4 0 0 0 12 5a4 4 0 0 0-4 4.5c0 3-0.9 4.2-2 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M5 15h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                    <path d="M10 18a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                """
+            ).strip(),
+            "通知",
+        ),
     }
     return icon_map.get(name, icon_map["target"])
 
@@ -6968,7 +6995,9 @@ def dashboard_page(user: Dict) -> None:
         insight_cards_html: List[str] = []
         for card in insight_cards_data:
             accent = card.get("accent", "indigo")
-            icon_html = _insight_icon_svg(card.get("icon", "target"))
+            icon_name = card.get("icon", "target")
+            icon_svg, default_icon_label = _insight_icon_asset(icon_name)
+            icon_label = html.escape(card.get("icon_label") or default_icon_label)
             title_html = html.escape(str(card.get("title", "")))
             value_html = html.escape(str(card.get("value", "")))
             desc_html = html.escape(str(card.get("desc", "")))
@@ -6976,7 +7005,10 @@ def dashboard_page(user: Dict) -> None:
             card_inner = dedent(
                 f"""
                 <div class="insight-card" data-accent="{accent}"{' data-clickable="true"' if clickable else ''}>
-                    <div class="insight-icon" data-accent="{accent}">{icon_html}</div>
+                    <div class="insight-icon" data-accent="{accent}">
+                        <span class="insight-icon__glyph" aria-hidden="true">{icon_svg}</span>
+                        <span class="insight-icon__label">{icon_label}</span>
+                    </div>
                     <div class="insight-copy">
                         <p class="insight-title">{title_html}</p>
                         <p class="insight-value">{value_html}</p>
