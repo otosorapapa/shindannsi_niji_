@@ -1574,6 +1574,7 @@ def fetch_learning_history(user_id: int) -> List[Dict]:
             a.submitted_at,
             a.total_score,
             a.total_max_score,
+            a.duration_seconds,
             a.mode,
             p.year,
             p.case_label,
@@ -1599,6 +1600,7 @@ def fetch_learning_history(user_id: int) -> List[Dict]:
                 "タイトル": row["title"],
                 "得点": row["total_score"],
                 "満点": row["total_max_score"],
+                "学習時間(分)": (row["duration_seconds"] or 0) / 60 if row["duration_seconds"] else 0,
                 "モード": "模試" if row["mode"] == "mock" else "演習",
             }
         )
