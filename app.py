@@ -235,6 +235,17 @@ CASE_FRAME_SHORTCUTS = {
 }
 
 
+def _build_case_frame_tooltip(frame: Dict[str, Any]) -> str:
+    description = (frame.get("description") or "").strip()
+    snippet = (frame.get("snippet") or "").strip()
+
+    if snippet.startswith("【") and "】" in snippet:
+        snippet = snippet.split("】", 1)[1].lstrip()
+
+    parts = [part for part in (description, snippet) if part]
+    return " / ".join(parts)
+
+
 PAST_EXAM_TEMPLATE_PATH = Path(__file__).resolve().parent / "data" / "past_exam_template.csv"
 CASE_CONTEXT_TEMPLATE_PATH = Path(__file__).resolve().parent / "data" / "case_context_template.csv"
 QUESTION_TEXT_TEMPLATE_PATH = (
@@ -3935,17 +3946,27 @@ def _render_question_overview_card(
         aim_html = html.escape(aim_text).replace("\n", "<br>")
 
     frames = CASE_FRAME_SHORTCUTS.get(case_label or question.get("case_label") or "", [])
-    frame_labels = [frame.get("label") for frame in frames[:4] if frame.get("label")]
+    frame_spans: List[str] = []
+    for frame in frames[:4]:
+        label = frame.get("label")
+        if not label:
+            continue
+        tooltip = _build_case_frame_tooltip(frame)
+        tooltip_attr = (
+            f' title="{html.escape(tooltip, quote=True)}"'
+            if tooltip
+            else ""
+        )
+        frame_spans.append(
+            f"<span class=\"practice-question-chip\"{tooltip_attr}>{html.escape(label)}</span>"
+        )
 
     meta_html = "".join(
         f"<span class=\"practice-question-meta-item\">{html.escape(str(item))}</span>"
         for item in meta_items
         if item
     )
-    chips_html = "".join(
-        f"<span class=\"practice-question-chip\">{html.escape(label)}</span>"
-        for label in frame_labels
-    )
+    chips_html = "".join(frame_spans)
 
     header_attributes = f' id="{html.escape(header_id)}"' if header_id else ""
 
@@ -4035,7 +4056,16 @@ def _render_case_frame_shortcuts(
     with grid_container:
         st.markdown("<div class=\"case-frame-grid\">", unsafe_allow_html=True)
         for index, frame in enumerate(frames):
-            st.markdown("<div class=\"case-frame-card\">", unsafe_allow_html=True)
+            tooltip = _build_case_frame_tooltip(frame)
+            tooltip_attr = (
+                f' title="{html.escape(tooltip, quote=True)}"'
+                if tooltip
+                else ""
+            )
+            st.markdown(
+                f"<div class=\"case-frame-card\"{tooltip_attr}>",
+                unsafe_allow_html=True,
+            )
             clicked = st.button(
                 frame["label"],
                 key=f"case-frame-{draft_key}-{index}",
