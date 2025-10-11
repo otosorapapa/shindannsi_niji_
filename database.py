@@ -1071,6 +1071,70 @@ def record_attempt(
     return attempt_id
 
 
+def fetch_answer_versions(
+    *, user_id: int, question_id: int, limit: int = 20
+) -> List[Dict[str, Any]]:
+    """Return recent answer submissions and scoring metadata for a question."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            aa.id AS answer_id,
+            aa.attempt_id,
+            aa.answer_text,
+            aa.score,
+            aa.feedback,
+            aa.keyword_hits_json,
+            a.submitted_at,
+            a.mode,
+            a.problem_id,
+            q.max_score
+        FROM attempt_answers AS aa
+        JOIN attempts AS a ON aa.attempt_id = a.id
+        JOIN questions AS q ON aa.question_id = q.id
+        WHERE a.user_id = ? AND aa.question_id = ? AND a.submitted_at IS NOT NULL
+        ORDER BY a.submitted_at DESC, aa.id DESC
+        LIMIT ?
+        """,
+        (user_id, question_id, limit),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    versions: List[Dict[str, Any]] = []
+    for row in rows:
+        keyword_hits: Dict[str, Any] = {}
+        if row["keyword_hits_json"]:
+            try:
+                keyword_hits = json.loads(row["keyword_hits_json"])
+            except (TypeError, json.JSONDecodeError):
+                keyword_hits = {}
+
+        matched_keywords = [
+            keyword for keyword, hit in keyword_hits.items() if hit
+        ] if isinstance(keyword_hits, dict) else []
+
+        versions.append(
+            {
+                "answer_id": row["answer_id"],
+                "attempt_id": row["attempt_id"],
+                "answer_text": row["answer_text"],
+                "score": row["score"],
+                "max_score": row["max_score"],
+                "feedback": row["feedback"],
+                "keyword_hits": keyword_hits,
+                "matched_keywords": matched_keywords,
+                "submitted_at": row["submitted_at"],
+                "mode": row["mode"],
+                "problem_id": row["problem_id"],
+            }
+        )
+
+    return versions
+
+
 def _next_review_interval(
     *, previous_interval: Optional[int], score_ratio: float
 ) -> tuple[int, int]:

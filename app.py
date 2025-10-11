@@ -6744,6 +6744,40 @@ def _render_mece_causal_scanner(text: str) -> None:
         st.warning(suggestion)
 
 
+def _format_history_timestamp(value: Optional[str]) -> str:
+    if not value:
+        return "日時不明"
+    try:
+        parsed = datetime.fromisoformat(str(value))
+    except ValueError:
+        return str(value)
+    return parsed.strftime("%Y/%m/%d %H:%M")
+
+
+def _format_answer_mode_label(mode: Optional[str]) -> str:
+    mapping = {"practice": "演習", "mock": "模試"}
+    if not mode:
+        return "-"
+    return mapping.get(mode, str(mode))
+
+
+def _format_score_display(score: Optional[float], max_score: Optional[float]) -> str:
+    if score is None:
+        return "採点なし"
+    if max_score:
+        return f"{score:.1f} / {max_score:.1f}点"
+    return f"{score:.1f}点"
+
+
+def _summarize_feedback(feedback: Optional[str], *, limit: int = 80) -> str:
+    if not feedback:
+        return "-"
+    summary = str(feedback).strip()
+    if len(summary) <= limit:
+        return summary
+    return summary[:limit].rstrip() + "…"
+
+
 def _question_input(
     problem_id: int,
     question: Dict,
@@ -6754,6 +6788,7 @@ def _question_input(
     question_index: Optional[int] = None,
     anchor_id: Optional[str] = None,
     header_id: Optional[str] = None,
+    user_id: Optional[int] = None,
 ) -> str:
     _inject_practice_question_styles()
     key = _draft_key(problem_id, question["id"])
@@ -6854,17 +6889,128 @@ def _question_input(
     st.session_state.saved_answers.setdefault(key, value)
     status_placeholder = st.empty()
     saved_text = st.session_state.saved_answers.get(key)
-    restore_disabled = not saved_text
-    if restore_disabled:
-        status_placeholder.caption("復元できる下書きはまだありません。")
-    if st.button(
-        "下書きを復元",
-        key=f"restore_{key}",
-        disabled=restore_disabled,
-    ):
-        st.session_state.drafts[key] = saved_text
-        st.session_state[textarea_state_key] = saved_text
-        status_placeholder.info("保存済みの下書きを復元しました。")
+
+    version_entries: List[Dict[str, Any]] = []
+    if saved_text:
+        version_entries.append(
+            {
+                "id": "draft",
+                "label": f"自動保存 ({len(saved_text)}文字)",
+                "text": saved_text,
+                "score": None,
+                "max_score": None,
+                "mode": None,
+                "submitted_at": None,
+                "matched_keywords": [],
+                "feedback": None,
+            }
+        )
+
+    history_versions: List[Dict[str, Any]] = []
+    if user_id is not None:
+        try:
+            history_versions = database.fetch_answer_versions(
+                user_id=user_id, question_id=question["id"], limit=20
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to load answer history for question %s: %s", question.get("id"), exc
+            )
+            history_versions = []
+
+    for version in history_versions:
+        label = "｜".join(
+            [
+                _format_history_timestamp(version.get("submitted_at")),
+                _format_answer_mode_label(version.get("mode")),
+                _format_score_display(version.get("score"), version.get("max_score")),
+            ]
+        )
+        version_entries.append(
+            {
+                "id": f"attempt::{version.get('attempt_id')}::{version.get('answer_id')}",
+                "label": label,
+                "text": version.get("answer_text", ""),
+                "score": version.get("score"),
+                "max_score": version.get("max_score"),
+                "mode": version.get("mode"),
+                "submitted_at": version.get("submitted_at"),
+                "matched_keywords": version.get("matched_keywords", []),
+                "feedback": version.get("feedback"),
+            }
+        )
+
+    if version_entries:
+        option_ids = [entry["id"] for entry in version_entries]
+        label_lookup = {entry["id"]: entry["label"] for entry in version_entries}
+        selected_id = st.selectbox(
+            "復元するバージョン",
+            options=option_ids,
+            key=f"draft_version_select::{key}",
+            format_func=lambda option: label_lookup.get(option, option),
+        )
+        selected_entry = next(
+            (entry for entry in version_entries if entry["id"] == selected_id),
+            version_entries[0],
+        )
+
+        info_lines: List[str] = []
+        if selected_entry.get("submitted_at"):
+            info_lines.append(
+                f"最終更新: {_format_history_timestamp(selected_entry['submitted_at'])}"
+            )
+        if selected_entry.get("mode"):
+            info_lines.append(f"モード: {_format_answer_mode_label(selected_entry['mode'])}")
+        if selected_entry.get("score") is not None:
+            info_lines.append(
+                f"AI採点: {_format_score_display(selected_entry['score'], selected_entry['max_score'])}"
+            )
+        if selected_entry.get("matched_keywords"):
+            info_lines.append(
+                "キーワード達成: "
+                + "、".join(str(kw) for kw in selected_entry["matched_keywords"])
+            )
+        if info_lines:
+            status_placeholder.caption(" / ".join(info_lines))
+        else:
+            status_placeholder.caption("保存済みのバージョンから復元できます。")
+
+        feedback_summary = selected_entry.get("feedback")
+        if feedback_summary:
+            st.caption(f"フィードバック要約: {_summarize_feedback(feedback_summary)}")
+
+        if st.button("選択バージョンを復元", key=f"restore_{key}"):
+            restored_text = selected_entry.get("text", "")
+            st.session_state.drafts[key] = restored_text
+            st.session_state[textarea_state_key] = restored_text
+            status_placeholder.info("選択したバージョンを復元しました。")
+    else:
+        status_placeholder.caption("復元できるバージョンはまだありません。")
+
+    if history_versions:
+        history_rows = []
+        for version in history_versions:
+            history_rows.append(
+                {
+                    "提出時刻": _format_history_timestamp(version.get("submitted_at")),
+                    "モード": _format_answer_mode_label(version.get("mode")),
+                    "得点": _format_score_display(version.get("score"), version.get("max_score")),
+                    "キーワード達成": "、".join(version.get("matched_keywords", []))
+                    if version.get("matched_keywords")
+                    else "-",
+                    "フィードバック要約": _summarize_feedback(version.get("feedback")),
+                }
+            )
+
+        with st.expander("過去の答案バージョンとAI採点履歴", expanded=False):
+            history_df = pd.DataFrame(history_rows)
+            st.data_editor(
+                history_df,
+                hide_index=True,
+                use_container_width=True,
+                disabled=True,
+            )
+            st.caption("提出済みの答案と得点推移を一覧できます。任意のバージョンを選んで復元してください。")
     return text
 
 
@@ -8099,6 +8245,7 @@ def practice_page(user: Dict) -> None:
                 question_index=idx,
                 anchor_id=anchor_value,
                 header_id=header_value,
+                user_id=user.get("id") if isinstance(user, dict) else None,
             )
             question_specs.append(
                 QuestionSpec(
@@ -9595,6 +9742,7 @@ def mock_exam_page(user: Dict) -> None:
                     widget_prefix="mock_textarea_",
                     case_label=problem.get("case_label") or problem.get("case"),
                     question_index=idx,
+                    user_id=user.get("id") if isinstance(user, dict) else None,
                 )
                 st.markdown("</section>", unsafe_allow_html=True)
                 if idx < question_total:
