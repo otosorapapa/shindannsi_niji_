@@ -3983,39 +3983,40 @@ def _render_intent_cards(
         return
 
     _inject_intent_card_styles()
-    st.markdown("<p class=\"intent-card-header\">設問趣旨カード</p>", unsafe_allow_html=True)
-    st.caption("クリックで例示表現をドラフトに素早く差し込めます。ホバーで全文を確認できます。")
+    with st.expander("設問趣旨カード（ヒント集）", expanded=False):
+        st.markdown("<p class=\"intent-card-header\">設問趣旨カード</p>", unsafe_allow_html=True)
+        st.caption("クリックで例示表現をドラフトに素早く差し込めます。ホバーで全文を確認できます。")
 
-    grid_container = st.container()
-    with grid_container:
-        st.markdown("<div class=\"intent-card-grid\">", unsafe_allow_html=True)
-        for index, card in enumerate(cards):
-            st.markdown("<div class=\"intent-card-wrapper\">", unsafe_allow_html=True)
-            clicked = st.button(
-                card["label"],
-                key=f"intent-card-{draft_key}-{index}",
-                use_container_width=True,
-            )
-            example_text = card["example"]
-            preview_text = _format_preview_text(example_text, 90)
-            st.markdown(
-                (
-                    "<div class=\"intent-card-example\" title=\"{title}\">"
-                    "例: {preview}</div>"
-                ).format(
-                    title=html.escape(_compact_text(example_text), quote=True),
-                    preview=html.escape(preview_text),
-                ),
-                unsafe_allow_html=True,
-            )
+        grid_container = st.container()
+        with grid_container:
+            st.markdown("<div class=\"intent-card-grid\">", unsafe_allow_html=True)
+            for index, card in enumerate(cards):
+                st.markdown("<div class=\"intent-card-wrapper\">", unsafe_allow_html=True)
+                clicked = st.button(
+                    card["label"],
+                    key=f"intent-card-{draft_key}-{index}",
+                    use_container_width=True,
+                )
+                example_text = card["example"]
+                preview_text = _format_preview_text(example_text, 90)
+                st.markdown(
+                    (
+                        "<div class=\"intent-card-example\" title=\"{title}\">"
+                        "例: {preview}</div>"
+                    ).format(
+                        title=html.escape(_compact_text(example_text), quote=True),
+                        preview=html.escape(preview_text),
+                    ),
+                    unsafe_allow_html=True,
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+                if clicked:
+                    _insert_template_snippet(draft_key, textarea_state_key, card["example"])
+                    st.session_state["_intent_card_notice"] = {
+                        "draft_key": draft_key,
+                        "label": card["label"],
+                    }
             st.markdown("</div>", unsafe_allow_html=True)
-            if clicked:
-                _insert_template_snippet(draft_key, textarea_state_key, card["example"])
-                st.session_state["_intent_card_notice"] = {
-                    "draft_key": draft_key,
-                    "label": card["label"],
-                }
-        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _render_case_frame_shortcuts(
@@ -4028,54 +4029,55 @@ def _render_case_frame_shortcuts(
     if not frames:
         return
 
-    st.markdown("<p class=\"intent-card-header\">頻出フレーム</p>", unsafe_allow_html=True)
-    st.caption("一読で狙いを掴み、クリックで定番フレーズを挿入できます。")
+    with st.expander("頻出フレーム（参考）", expanded=False):
+        st.markdown("<p class=\"intent-card-header\">頻出フレーム</p>", unsafe_allow_html=True)
+        st.caption("一読で狙いを掴み、クリックで定番フレーズを挿入できます。")
 
-    grid_container = st.container()
-    with grid_container:
-        st.markdown("<div class=\"case-frame-grid\">", unsafe_allow_html=True)
-        for index, frame in enumerate(frames):
-            st.markdown("<div class=\"case-frame-card\">", unsafe_allow_html=True)
-            clicked = st.button(
-                frame["label"],
-                key=f"case-frame-{draft_key}-{index}",
-                use_container_width=True,
-                help=frame.get("description"),
-            )
-            description = frame.get("description")
-            if description:
-                desc_preview = _format_preview_text(description, 68)
-                st.markdown(
-                    (
-                        "<p class=\"case-frame-desc\" title=\"{title}\">"
-                        "{content}</p>"
-                    ).format(
-                        title=html.escape(_compact_text(description), quote=True),
-                        content=html.escape(desc_preview),
-                    ),
-                    unsafe_allow_html=True,
+        grid_container = st.container()
+        with grid_container:
+            st.markdown("<div class=\"case-frame-grid\">", unsafe_allow_html=True)
+            for index, frame in enumerate(frames):
+                st.markdown("<div class=\"case-frame-card\">", unsafe_allow_html=True)
+                clicked = st.button(
+                    frame["label"],
+                    key=f"case-frame-{draft_key}-{index}",
+                    use_container_width=True,
+                    help=frame.get("description"),
                 )
-            snippet = frame.get("snippet")
-            if snippet:
-                snippet_preview = _format_preview_text(snippet, 74)
-                st.markdown(
-                    (
-                        "<p class=\"case-frame-snippet\" title=\"{title}\">"
-                        "{content}</p>"
-                    ).format(
-                        title=html.escape(_compact_text(snippet), quote=True),
-                        content=html.escape(snippet_preview),
-                    ),
-                    unsafe_allow_html=True,
-                )
+                description = frame.get("description")
+                if description:
+                    desc_preview = _format_preview_text(description, 68)
+                    st.markdown(
+                        (
+                            "<p class=\"case-frame-desc\" title=\"{title}\">"
+                            "{content}</p>"
+                        ).format(
+                            title=html.escape(_compact_text(description), quote=True),
+                            content=html.escape(desc_preview),
+                        ),
+                        unsafe_allow_html=True,
+                    )
+                snippet = frame.get("snippet")
+                if snippet:
+                    snippet_preview = _format_preview_text(snippet, 74)
+                    st.markdown(
+                        (
+                            "<p class=\"case-frame-snippet\" title=\"{title}\">"
+                            "{content}</p>"
+                        ).format(
+                            title=html.escape(_compact_text(snippet), quote=True),
+                            content=html.escape(snippet_preview),
+                        ),
+                        unsafe_allow_html=True,
+                    )
+                st.markdown("</div>", unsafe_allow_html=True)
+                if clicked:
+                    _insert_template_snippet(draft_key, textarea_state_key, frame["snippet"])
+                    st.session_state["_case_frame_notice"] = {
+                        "draft_key": draft_key,
+                        "label": frame["label"],
+                    }
             st.markdown("</div>", unsafe_allow_html=True)
-            if clicked:
-                _insert_template_snippet(draft_key, textarea_state_key, frame["snippet"])
-                st.session_state["_case_frame_notice"] = {
-                    "draft_key": draft_key,
-                    "label": frame["label"],
-                }
-        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _format_amount(value: Optional[float]) -> str:
@@ -6792,8 +6794,6 @@ def _question_input(
         anchor_id=anchor_id,
         header_id=header_id,
     )
-    _render_intent_cards(question, key, textarea_state_key)
-    _render_case_frame_shortcuts(case_label, key, textarea_state_key)
 
     context_candidates = [
         question.get("context"),
@@ -6865,6 +6865,10 @@ def _question_input(
         st.session_state.drafts[key] = saved_text
         st.session_state[textarea_state_key] = saved_text
         status_placeholder.info("保存済みの下書きを復元しました。")
+
+    st.divider()
+    _render_intent_cards(question, key, textarea_state_key)
+    _render_case_frame_shortcuts(case_label, key, textarea_state_key)
     return text
 
 
