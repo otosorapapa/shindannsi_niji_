@@ -7,21 +7,21 @@
     <style>
       :root {
         /* カラーと余白のカスタムプロパティ */
-        --color-bg: #f9fafb;
-        --color-text: #1f2933;
-        --color-border: rgba(31, 41, 51, 0.16);
-        --color-chip-bg: rgba(31, 41, 51, 0.08);
-        --color-chip-active: #2563eb;
+        --color-bg: #f4f6fb;
+        --color-surface: #ffffff;
+        --color-surface-muted: #e6ebf5;
+        --color-text: #1e293b;
+        --color-text-muted: #5b6b80;
+        --color-border: rgba(30, 41, 59, 0.15);
+        --color-chip-bg: rgba(30, 64, 175, 0.08);
+        --color-chip-active: #1d4ed8;
         --color-chip-active-text: #ffffff;
         --color-warning: #dc2626;
-        --color-card-a: #e6f1ff;
-        --color-card-b: #e9f9f1;
-        --color-card-c: #fff6e5;
-        --color-card-d: #ffe9f3;
-        --shadow-focus: 0 0 0 2px rgba(37, 99, 235, 0.45);
-        --radius-card: 16px;
+        --shadow-focus: 0 0 0 2px rgba(29, 78, 216, 0.45);
+        --radius-card: 20px;
+        --spacing-xl: 48px;
         --spacing-lg: 32px;
-        --spacing-md: 16px;
+        --spacing-md: 20px;
         --spacing-sm: 12px;
         --spacing-xs: 8px;
         --transition-duration: 200ms;
@@ -30,16 +30,15 @@
 
       @media (prefers-color-scheme: dark) {
         :root {
-          --color-bg: #111827;
-          --color-text: #f3f4f6;
-          --color-border: rgba(243, 244, 246, 0.25);
-          --color-chip-bg: rgba(243, 244, 246, 0.12);
+          --color-bg: #0f172a;
+          --color-surface: rgba(15, 23, 42, 0.92);
+          --color-surface-muted: rgba(148, 163, 184, 0.22);
+          --color-text: #e2e8f0;
+          --color-text-muted: #94a3b8;
+          --color-border: rgba(148, 163, 184, 0.35);
+          --color-chip-bg: rgba(148, 163, 184, 0.18);
           --color-chip-active: #60a5fa;
           --color-chip-active-text: #0b1120;
-          --color-card-a: rgba(96, 165, 250, 0.24);
-          --color-card-b: rgba(52, 211, 153, 0.24);
-          --color-card-c: rgba(251, 191, 36, 0.24);
-          --color-card-d: rgba(248, 113, 113, 0.24);
           --shadow-focus: 0 0 0 2px rgba(96, 165, 250, 0.65);
         }
       }
@@ -56,7 +55,7 @@
           "Segoe UI", sans-serif;
         background-color: var(--color-bg);
         color: var(--color-text);
-        line-height: 1.6;
+        line-height: 1.7;
       }
 
       a {
@@ -87,10 +86,10 @@
       .layout {
         display: flex;
         align-items: flex-start;
-        gap: var(--spacing-lg);
+        gap: var(--spacing-xl);
         max-width: 1200px;
         margin: 0 auto;
-        padding: var(--spacing-lg) var(--spacing-md) calc(var(--spacing-lg) * 2);
+        padding: var(--spacing-xl) var(--spacing-lg) calc(var(--spacing-xl) * 1.5);
       }
 
       .context-pane {
@@ -99,16 +98,16 @@
         max-height: calc(100vh - var(--spacing-lg) * 2);
         overflow-y: auto;
         flex: 0 0 380px;
-        padding: var(--spacing-lg) var(--spacing-md);
+        padding: calc(var(--spacing-lg) * 1.1) var(--spacing-lg);
         border: 1px solid var(--color-border);
         border-radius: var(--radius-card);
-        background-color: rgba(255, 255, 255, 0.82);
-        backdrop-filter: blur(4px);
+        background-color: var(--color-surface);
+        box-shadow: 0 24px 48px rgba(15, 23, 42, 0.08);
       }
 
       @media (prefers-color-scheme: dark) {
         .context-pane {
-          background-color: rgba(17, 24, 39, 0.82);
+          background-color: var(--color-surface);
         }
       }
 
@@ -119,8 +118,9 @@
       .context-pane__meta {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: var(--spacing-xs) var(--spacing-sm);
-        font-size: 0.88rem;
+        gap: var(--spacing-sm) var(--spacing-md);
+        font-size: 0.9rem;
+        color: var(--color-text-muted);
       }
 
       .context-pane__meta dt {
@@ -128,15 +128,17 @@
       }
 
       .context-pane__body {
-        font-size: 0.96rem;
+        font-size: 0.98rem;
         white-space: pre-line;
+        color: var(--color-text-muted);
+        line-height: 1.8;
       }
 
       .exercise {
         flex: 1 1 auto;
         display: flex;
         flex-direction: column;
-        gap: var(--spacing-lg);
+        gap: var(--spacing-xl);
         min-width: 0;
       }
 
@@ -144,13 +146,14 @@
         position: sticky;
         top: var(--spacing-lg);
         z-index: 5;
-        background: linear-gradient(to bottom, var(--color-bg) 80%, transparent);
-        padding: var(--spacing-md) var(--spacing-md) var(--spacing-sm);
+        background-color: var(--color-surface);
+        padding: var(--spacing-md);
         border: 1px solid var(--color-border);
         border-radius: var(--radius-card);
         display: flex;
         flex-wrap: wrap;
         gap: var(--spacing-sm);
+        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.05);
       }
 
       .toc__link {
@@ -160,6 +163,7 @@
         padding: var(--spacing-xs) var(--spacing-sm);
         border-radius: 999px;
         background-color: var(--color-chip-bg);
+        color: var(--color-chip-active);
         font-size: 0.9rem;
         border: 1px solid transparent;
         transition: background-color var(--transition-duration) ease,
@@ -181,30 +185,18 @@
       .exercise__questions {
         display: flex;
         flex-direction: column;
-        gap: var(--spacing-lg);
+        gap: var(--spacing-xl);
       }
 
       .question-card {
         position: relative;
-        padding: var(--spacing-lg);
+        padding: calc(var(--spacing-lg) * 1.25);
         border-radius: var(--radius-card);
         border: 1px solid var(--color-border);
-        background-color: var(--color-card-a);
-        box-shadow: none;
+        background-color: var(--color-surface);
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.05);
         transition: box-shadow var(--transition-duration) ease,
           transform var(--transition-duration) ease;
-      }
-
-      .question-card:nth-of-type(4n + 2) {
-        background-color: var(--color-card-b);
-      }
-
-      .question-card:nth-of-type(4n + 3) {
-        background-color: var(--color-card-c);
-      }
-
-      .question-card:nth-of-type(4n + 4) {
-        background-color: var(--color-card-d);
       }
 
       .question-card:hover,
@@ -225,16 +217,17 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 40px;
-        height: 40px;
-        border-radius: 12px;
-        background-color: rgba(31, 41, 51, 0.85);
-        color: #ffffff;
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        background-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
         font-weight: 700;
+        box-shadow: 0 10px 20px rgba(29, 78, 216, 0.25);
       }
 
       .question-card__title {
-        font-size: 1.15rem;
+        font-size: 1.25rem;
         font-weight: 700;
         margin: 0;
       }
@@ -243,11 +236,13 @@
         margin-left: auto;
         display: flex;
         gap: var(--spacing-sm);
-        font-size: 0.9rem;
+        font-size: 0.88rem;
+        color: var(--color-text-muted);
       }
 
       .question-card__body {
         margin-bottom: var(--spacing-md);
+        color: var(--color-text-muted);
       }
 
       .question-card__input {
@@ -258,11 +253,11 @@
 
       .question-card__textarea {
         width: 100%;
-        min-height: 160px;
-        padding: var(--spacing-sm);
-        border-radius: 12px;
-        border: 1px solid rgba(31, 41, 51, 0.2);
-        background-color: rgba(255, 255, 255, 0.82);
+        min-height: 180px;
+        padding: calc(var(--spacing-sm) + 4px);
+        border-radius: 14px;
+        border: 1px solid var(--color-border);
+        background-color: var(--color-surface-muted);
         color: inherit;
         font-size: 1rem;
         resize: vertical;
@@ -272,13 +267,14 @@
 
       @media (prefers-color-scheme: dark) {
         .question-card__textarea {
-          background-color: rgba(17, 24, 39, 0.7);
-          border-color: rgba(243, 244, 246, 0.24);
+          background-color: var(--color-surface-muted);
+          border-color: var(--color-border);
         }
       }
 
       .question-card__textarea:focus {
         border-color: var(--color-chip-active);
+        box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.12);
       }
 
       .char-counter {
@@ -294,8 +290,9 @@
       .support-block {
         border-top: 1px solid var(--color-border);
         padding-top: var(--spacing-sm);
-        margin-top: var(--spacing-md);
+        margin-top: var(--spacing-lg);
         font-size: 0.9rem;
+        color: var(--color-text-muted);
       }
 
       .support-block__toggle {
@@ -314,7 +311,7 @@
         margin-top: var(--spacing-xs);
         padding: var(--spacing-xs) var(--spacing-sm);
         border-radius: 8px;
-        background-color: rgba(255, 255, 255, 0.55);
+        background-color: var(--color-surface-muted);
       }
 
       .support-block__content[hidden] {
@@ -323,7 +320,7 @@
 
       @media (prefers-color-scheme: dark) {
         .support-block__content {
-          background-color: rgba(17, 24, 39, 0.55);
+          background-color: var(--color-surface-muted);
         }
       }
 
