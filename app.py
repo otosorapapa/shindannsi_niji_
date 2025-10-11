@@ -6108,6 +6108,10 @@ def practice_page(user: Dict) -> None:
                 touch-action: none;
                 user-select: none;
             }
+            .practice-quick-nav:focus-visible {
+                outline: 3px solid rgba(248, 250, 252, 0.75);
+                outline-offset: 4px;
+            }
             .practice-quick-nav-title {
                 font-size: 0.78rem;
                 font-weight: 700;
@@ -6182,6 +6186,21 @@ def practice_page(user: Dict) -> None:
                 const STORAGE_KEY = 'practiceQuickNavPosition';
                 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
+                const ensureExplicitPosition = (nav) => {
+                    const computed = doc.defaultView?.getComputedStyle(nav);
+                    if (!computed) {
+                        return;
+                    }
+                    if (computed.left !== "auto" && computed.top !== "auto") {
+                        return;
+                    }
+                    const rect = nav.getBoundingClientRect();
+                    nav.style.left = `${rect.left}px`;
+                    nav.style.top = `${rect.top}px`;
+                    nav.style.bottom = "auto";
+                    nav.style.right = "auto";
+                };
+
                 const applyStoredPosition = (nav) => {
                     const stored = window.parent?.localStorage?.getItem(STORAGE_KEY);
                     if (!stored) {
@@ -6225,7 +6244,12 @@ def practice_page(user: Dict) -> None:
                         return true;
                     }
 
+                    if (nav.tabIndex < 0) {
+                        nav.tabIndex = 0;
+                    }
+
                     applyStoredPosition(nav);
+                    ensureExplicitPosition(nav);
 
                     const startDrag = (event) => {
                         if (event.button !== undefined && event.button !== 0) {
@@ -6235,14 +6259,12 @@ def practice_page(user: Dict) -> None:
                             return;
                         }
                         event.preventDefault();
+                        ensureExplicitPosition(nav);
                         nav.style.cursor = 'grabbing';
 
                         const rect = nav.getBoundingClientRect();
                         const offsetX = event.clientX - rect.left;
                         const offsetY = event.clientY - rect.top;
-
-                        nav.style.bottom = 'auto';
-                        nav.style.right = 'auto';
 
                         const onPointerMove = (moveEvent) => {
                             const availableWidth = doc.documentElement.clientWidth;
@@ -6264,10 +6286,23 @@ def practice_page(user: Dict) -> None:
                             nav.style.top = `${targetTop}px`;
                         };
 
+                        const usePointerCapture =
+                            typeof event.pointerId === 'number' &&
+                            typeof nav.setPointerCapture === 'function';
+
                         const onPointerUp = () => {
-                            doc.removeEventListener('pointermove', onPointerMove);
-                            doc.removeEventListener('pointerup', onPointerUp);
-                            doc.removeEventListener('pointercancel', onPointerUp);
+                            if (usePointerCapture && nav.hasPointerCapture?.(event.pointerId)) {
+                                nav.releasePointerCapture(event.pointerId);
+                            }
+                            if (usePointerCapture) {
+                                nav.removeEventListener('pointermove', onPointerMove);
+                                nav.removeEventListener('pointerup', onPointerUp);
+                                nav.removeEventListener('pointercancel', onPointerUp);
+                            } else {
+                                doc.removeEventListener('pointermove', onPointerMove);
+                                doc.removeEventListener('pointerup', onPointerUp);
+                                doc.removeEventListener('pointercancel', onPointerUp);
+                            }
                             nav.style.cursor = 'grab';
 
                             const left = parseFloat(nav.style.left || '0');
@@ -6277,12 +6312,59 @@ def practice_page(user: Dict) -> None:
                             }
                         };
 
-                        doc.addEventListener('pointermove', onPointerMove);
-                        doc.addEventListener('pointerup', onPointerUp);
-                        doc.addEventListener('pointercancel', onPointerUp);
+                        if (usePointerCapture) {
+                            nav.setPointerCapture(event.pointerId);
+                            nav.addEventListener('pointermove', onPointerMove);
+                            nav.addEventListener('pointerup', onPointerUp);
+                            nav.addEventListener('pointercancel', onPointerUp);
+                        } else {
+                            doc.addEventListener('pointermove', onPointerMove);
+                            doc.addEventListener('pointerup', onPointerUp);
+                            doc.addEventListener('pointercancel', onPointerUp);
+                        }
                     };
 
                     nav.addEventListener('pointerdown', startDrag);
+                    nav.addEventListener('keydown', (event) => {
+                        const step = event.shiftKey ? 32 : 16;
+                        let deltaX = 0;
+                        let deltaY = 0;
+                        if (event.key === 'ArrowUp') {
+                            deltaY = -step;
+                        } else if (event.key === 'ArrowDown') {
+                            deltaY = step;
+                        } else if (event.key === 'ArrowLeft') {
+                            deltaX = -step;
+                        } else if (event.key === 'ArrowRight') {
+                            deltaX = step;
+                        } else {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        ensureExplicitPosition(nav);
+
+                        const rect = nav.getBoundingClientRect();
+                        const availableWidth = doc.documentElement.clientWidth;
+                        const availableHeight = doc.documentElement.clientHeight;
+                        const navWidth = nav.offsetWidth;
+                        const navHeight = nav.offsetHeight;
+
+                        const targetLeft = clamp(
+                            rect.left + deltaX,
+                            12,
+                            Math.max(12, availableWidth - navWidth - 12)
+                        );
+                        const targetTop = clamp(
+                            rect.top + deltaY,
+                            12,
+                            Math.max(12, availableHeight - navHeight - 12)
+                        );
+
+                        nav.style.left = `${targetLeft}px`;
+                        nav.style.top = `${targetTop}px`;
+                        savePosition(targetLeft, targetTop);
+                    });
                     nav.dataset.draggableInitialized = 'true';
                     return true;
                 };
