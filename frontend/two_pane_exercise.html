@@ -199,9 +199,27 @@
         letter-spacing: 0.02em;
       }
 
+      .context-pane__body p {
+        margin: 0 0 var(--spacing-sm);
+      }
+
+      .context-pane__body p:last-child {
+        margin-bottom: 0;
+      }
+
+      .context-pane__lead {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: var(--color-text-strong);
+      }
+
+      .context-pane__body p:not(.context-pane__lead) {
+        color: var(--color-text);
+        font-size: 0.97rem;
+      }
+
       .context-pane__body {
         font-size: 1rem;
-        white-space: pre-line;
       }
 
       .exercise {
@@ -365,6 +383,25 @@
         font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
       }
 
+      .question-card__meta-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 88px;
+      }
+
+      .question-card__meta-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .question-card__meta-value {
+        font-size: 0.98rem;
+        color: var(--color-text-strong);
+        font-weight: 600;
+      }
+
       .question-card__body {
         margin-bottom: var(--spacing-md);
       }
@@ -443,10 +480,21 @@
 
       .support-block__content {
         margin-top: var(--spacing-xs);
-        padding: var(--spacing-xs) var(--spacing-sm);
-        border-radius: 8px;
-        background-color: rgba(255, 255, 255, 0.55);
-        color: var(--color-text-muted);
+        padding: var(--spacing-sm);
+        border-radius: 12px;
+        background-color: var(--color-chip-bg);
+        background-color: color-mix(
+          in srgb,
+          var(--color-chip-bg) 60%,
+          transparent
+        );
+        color: var(--color-text-strong);
+        box-shadow: inset 0 0 0 1px var(--color-border);
+        box-shadow: inset 0 0 0 1px color-mix(
+            in srgb,
+            var(--color-border) 60%,
+            transparent
+          );
       }
 
       .support-block__content[hidden] {
@@ -656,20 +704,23 @@
         </header>
         <div class="context-pane__body">
           <!-- 与件文を常時参照できるよう縦スクロール可能に配置 -->
-          A社は創業40年の精密機器メーカーである。創業者の引退を契機に、
-          2代目社長は設計部門のDX化と熟練技術者の技能伝承を最優先テーマ
-          と定めた。設計BOMと生産BOMが分断されており、製品立ち上げ時の
-          手戻りが多発している。また、顧客ニーズの高度化に伴い、多品種小
-          ロットかつ短納期での開発対応が求められている。
-
-          現状、設計段階での顧客折衝は営業部門が単独で担っており、設計の
-          観点が十分に反映されていない。生産部門ではベテラン技能者の高齢
-          化が進み、暗黙知の形式知化が急務となっている。社長は部門横断で
-          の情報共有と意思決定スピードの改善を目指し、試験的にデジタル・
-          コラボレーション基盤を導入した。
-
-          今後は、設計段階からの顧客共創、外部パートナーとの連携強化、そ
-          れに伴う評価制度の再設計が検討課題である。
+          <p class="context-pane__lead">
+            A社は創業40年の精密機器メーカーである。創業者の引退を契機に、
+            2代目社長は設計部門のDX化と熟練技術者の技能伝承を最優先テーマ
+            と定めた。
+          </p>
+          <p>
+            設計BOMと生産BOMが分断されており、製品立ち上げ時の手戻りが多発している。
+            また、顧客ニーズの高度化に伴い、多品種小ロットかつ短納期での開発対応が求められている。
+          </p>
+          <p>
+            現状、設計段階での顧客折衝は営業部門が単独で担っており、設計の観点が十分に反映されていない。
+            生産部門ではベテラン技能者の高齢化が進み、暗黙知の形式知化が急務となっている。
+            社長は部門横断での情報共有と意思決定スピードの改善を目指し、試験的にデジタル・コラボレーション基盤を導入した。
+          </p>
+          <p>
+            今後は、設計段階からの顧客共創、外部パートナーとの連携強化、それに伴う評価制度の再設計が検討課題である。
+          </p>
         </div>
       </aside>
 
@@ -749,8 +800,14 @@
                 経営課題の整理
               </h3>
               <div class="question-card__meta">
-                <span>配点 20点</span>
-                <span>120字以内</span>
+                <span class="question-card__meta-item">
+                  <span class="question-card__meta-label">配点</span>
+                  <span class="question-card__meta-value">20点</span>
+                </span>
+                <span class="question-card__meta-item">
+                  <span class="question-card__meta-label">制限字数</span>
+                  <span class="question-card__meta-value">120字以内</span>
+                </span>
               </div>
             </header>
             <div class="question-card__body">
@@ -801,8 +858,14 @@
                 顧客共創の提案
               </h3>
               <div class="question-card__meta">
-                <span>配点 30点</span>
-                <span>160字以内</span>
+                <span class="question-card__meta-item">
+                  <span class="question-card__meta-label">配点</span>
+                  <span class="question-card__meta-value">30点</span>
+                </span>
+                <span class="question-card__meta-item">
+                  <span class="question-card__meta-label">制限字数</span>
+                  <span class="question-card__meta-value">160字以内</span>
+                </span>
               </div>
             </header>
             <div class="question-card__body">
@@ -853,8 +916,14 @@
                 技能伝承の仕組み
               </h3>
               <div class="question-card__meta">
-                <span>配点 25点</span>
-                <span>160字以内</span>
+                <span class="question-card__meta-item">
+                  <span class="question-card__meta-label">配点</span>
+                  <span class="question-card__meta-value">25点</span>
+                </span>
+                <span class="question-card__meta-item">
+                  <span class="question-card__meta-label">制限字数</span>
+                  <span class="question-card__meta-value">160字以内</span>
+                </span>
               </div>
             </header>
             <div class="question-card__body">
@@ -905,8 +974,14 @@
                 評価制度の再設計
               </h3>
               <div class="question-card__meta">
-                <span>配点 25点</span>
-                <span>200字以内</span>
+                <span class="question-card__meta-item">
+                  <span class="question-card__meta-label">配点</span>
+                  <span class="question-card__meta-value">25点</span>
+                </span>
+                <span class="question-card__meta-item">
+                  <span class="question-card__meta-label">制限字数</span>
+                  <span class="question-card__meta-value">200字以内</span>
+                </span>
               </div>
             </header>
             <div class="question-card__body">
