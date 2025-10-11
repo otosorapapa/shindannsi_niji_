@@ -1342,27 +1342,62 @@ def _inject_guideline_styles() -> None:
         <style>
         .guideline-card {
             margin: 0.5rem 0 1.5rem;
-            padding: 1.1rem 1.25rem;
-            border-radius: 14px;
+            padding: 1.25rem 1.35rem;
+            border-radius: 16px;
             border: 1px solid rgba(148, 163, 184, 0.35);
-            background: rgba(248, 250, 252, 0.8);
-            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+            background: rgba(248, 250, 252, 0.92);
+            box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
         }
-        .guideline-card .guideline-heading {
-            font-weight: 700;
-            font-size: 0.95rem;
+        .guideline-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .guideline-table tr + tr {
+            border-top: 1px dashed rgba(148, 163, 184, 0.6);
+        }
+        .guideline-table th,
+        .guideline-table td {
+            padding: 0.75rem 0;
+            vertical-align: top;
+        }
+        .guideline-table th {
+            width: 32%;
+            padding-right: 1rem;
+        }
+        .guideline-label {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
             color: #1f2937;
-            margin-bottom: 0.25rem;
+            font-size: 0.95rem;
+            font-weight: 700;
         }
-        .guideline-card .guideline-body {
-            margin: 0 0 0.8rem;
+        .guideline-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.2rem;
+            height: 2.2rem;
+            border-radius: 0.9rem;
+            background: #111827;
+            color: #f9fafb;
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 0.02em;
+        }
+        .guideline-icon::before {
+            content: attr(data-icon);
+        }
+        .guideline-body {
+            margin: 0;
             color: #334155;
-            line-height: 1.6;
+            line-height: 1.7;
+            font-size: 0.93rem;
         }
-        .guideline-card .guideline-section + .guideline-section {
-            margin-top: 0.6rem;
+        .guideline-body p {
+            margin: 0 0 0.35rem;
         }
-        .guideline-card .guideline-body:last-child {
+        .guideline-body p:last-child {
             margin-bottom: 0;
         }
         </style>
@@ -5170,24 +5205,46 @@ def practice_page(user: Dict) -> None:
             help="模範解答全文と採点時に確認されるポイントを必要なときに開閉できます。",
         )
         if show_guideline:
-            sections: List[str] = []
+            rows: List[str] = []
             if question["keywords"]:
                 keywords_text = "、".join(question["keywords"])
-                sections.append(
-                    "<div class=\"guideline-section\">"
-                    "<p class=\"guideline-heading\">キーワード評価</p>"
-                    f"<p class=\"guideline-body\">{html.escape(keywords_text)} を含めると加点対象です。</p>"
-                    "</div>"
+                rows.append(
+                    dedent(
+                        f"""
+                        <tr>
+                            <th scope=\"row\">
+                                <div class=\"guideline-label\">
+                                    <span class=\"guideline-icon\" data-icon=\"KW\"></span>
+                                    <span>キーワード評価</span>
+                                </div>
+                            </th>
+                            <td>
+                                <div class=\"guideline-body\">{html.escape(keywords_text)} を含めると加点対象です。</div>
+                            </td>
+                        </tr>
+                        """
+                    ).strip()
                 )
 
             model_answer_text = _normalize_text_block(question.get("model_answer"))
             if model_answer_text:
                 model_answer_html = html.escape(model_answer_text).replace("\n", "<br>")
-                sections.append(
-                    "<div class=\"guideline-section\">"
-                    "<p class=\"guideline-heading\">模範解答</p>"
-                    f"<p class=\"guideline-body\">{model_answer_html}</p>"
-                    "</div>"
+                rows.append(
+                    dedent(
+                        f"""
+                        <tr>
+                            <th scope=\"row\">
+                                <div class=\"guideline-label\">
+                                    <span class=\"guideline-icon\" data-icon=\"模\"></span>
+                                    <span>模範解答</span>
+                                </div>
+                            </th>
+                            <td>
+                                <div class=\"guideline-body\">{model_answer_html}</div>
+                            </td>
+                        </tr>
+                        """
+                    ).strip()
                 )
 
             explanation_text = _normalize_text_block(
@@ -5195,20 +5252,35 @@ def practice_page(user: Dict) -> None:
             )
             if explanation_text:
                 explanation_html = html.escape(explanation_text).replace("\n", "<br>")
-                sections.append(
-                    "<div class=\"guideline-section\">"
-                    "<p class=\"guideline-heading\">模範解答の解説</p>"
-                    f"<p class=\"guideline-body\">{explanation_html}</p>"
-                    "</div>"
+                rows.append(
+                    dedent(
+                        f"""
+                        <tr>
+                            <th scope=\"row\">
+                                <div class=\"guideline-label\">
+                                    <span class=\"guideline-icon\" data-icon=\"解\"></span>
+                                    <span>模範解答の解説</span>
+                                </div>
+                            </th>
+                            <td>
+                                <div class=\"guideline-body\">{explanation_html}</div>
+                            </td>
+                        </tr>
+                        """
+                    ).strip()
                 )
 
-            if sections:
+            if rows:
                 st.markdown(
                     """
                     <div class="guideline-card">
-                        {sections}
+                        <table class="guideline-table">
+                            <tbody>
+                                {rows}
+                            </tbody>
+                        </table>
                     </div>
-                    """.format(sections="".join(sections)),
+                    """.format(rows="".join(rows)),
                     unsafe_allow_html=True,
                 )
             st.caption(
