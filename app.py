@@ -10529,6 +10529,7 @@ def practice_page(user: Dict) -> None:
         st.session_state.practice_started = None
         st.session_state.practice_last_attempt_id = attempt_id
         st.session_state.practice_last_problem_id = problem["id"]
+        st.session_state.question_activity = {}
 
         st.success("採点が完了しました。結果を確認してください。")
         render_attempt_results(attempt_id)
