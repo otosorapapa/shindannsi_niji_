@@ -3536,14 +3536,14 @@ def _render_problem_context_block(
         <div class="problem-context-root">
             <div class="context-toolbar" id="{toolbar_id}">
                 <div class="toolbar-actions">
-                    <button type="button" class="toolbar-button toggle" data-action="highlight" data-target="{element_id}" aria-pressed="false" data-default-color="amber">
+                    <button type="button" class="toolbar-button toggle" data-action="highlight" data-target="{element_id}" aria-pressed="false" data-default-color="gold">
                         選択範囲にマーカー
                     </button>
                     <div class="marker-palette" role="group" aria-label="マーカー色">
-                        <button type="button" class="marker-color selected" data-action="set-color" data-color="amber" aria-label="イエローマーカー"></button>
-                        <button type="button" class="marker-color" data-action="set-color" data-color="rose" aria-label="ピンクマーカー"></button>
-                        <button type="button" class="marker-color" data-action="set-color" data-color="sky" aria-label="ブルーマーカー"></button>
-                        <button type="button" class="marker-color" data-action="set-color" data-color="lime" aria-label="グリーンマーカー"></button>
+                        <button type="button" class="marker-color selected" data-action="set-color" data-color="gold" aria-label="ゴールドマーカー"></button>
+                        <button type="button" class="marker-color" data-action="set-color" data-color="violet" aria-label="バイオレットマーカー"></button>
+                        <button type="button" class="marker-color" data-action="set-color" data-color="cerulean" aria-label="セルリアンマーカー"></button>
+                        <button type="button" class="marker-color" data-action="set-color" data-color="teal" aria-label="ティールマーカー"></button>
                     </div>
                     <button type="button" class="toolbar-button undo" data-action="undo" aria-disabled="true" disabled>
                         直前の操作を取り消す
@@ -3607,24 +3607,24 @@ def _render_problem_context_block(
                 gap: 0.5rem;
             }}
             .toolbar-button {{
-                background: linear-gradient(135deg, rgba(250, 204, 21, 0.85), rgba(234, 179, 8, 0.65));
-                color: #422006;
+                background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(37, 99, 235, 0.22));
+                color: #1f2937;
                 border: none;
                 border-radius: 999px;
                 padding: 0.35rem 0.95rem;
                 font-size: 0.82rem;
                 font-weight: 600;
                 cursor: pointer;
-                box-shadow: inset 0 0 0 1px rgba(120, 53, 15, 0.15);
+                box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.25);
                 transition: transform 120ms ease, box-shadow 120ms ease;
             }}
             .toolbar-button.toggle.active {{
-                box-shadow: inset 0 0 0 2px rgba(120, 53, 15, 0.35), 0 6px 14px rgba(234, 179, 8, 0.32);
+                box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.38), 0 6px 14px rgba(37, 99, 235, 0.22);
                 transform: translateY(-1px);
             }}
             .toolbar-button:hover {{
                 transform: translateY(-1px);
-                box-shadow: inset 0 0 0 1px rgba(120, 53, 15, 0.28), 0 6px 12px rgba(234, 179, 8, 0.25);
+                box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.32), 0 6px 12px rgba(37, 99, 235, 0.2);
             }}
             .toolbar-button:active {{
                 transform: translateY(0);
@@ -3687,17 +3687,17 @@ def _render_problem_context_block(
                 background: currentColor;
                 opacity: 0.85;
             }}
-            .marker-color[data-color="amber"] {{
-                color: rgba(250, 204, 21, 1);
+            .marker-color[data-color="gold"] {{
+                color: #f5c04e;
             }}
-            .marker-color[data-color="rose"] {{
-                color: rgba(244, 114, 182, 1);
+            .marker-color[data-color="violet"] {{
+                color: #b286f6;
             }}
-            .marker-color[data-color="sky"] {{
-                color: rgba(125, 211, 252, 1);
+            .marker-color[data-color="cerulean"] {{
+                color: #64b4eb;
             }}
-            .marker-color[data-color="lime"] {{
-                color: rgba(163, 230, 53, 1);
+            .marker-color[data-color="teal"] {{
+                color: #4cc0a4;
             }}
             .marker-color:hover {{
                 transform: translateY(-1px);
@@ -3734,24 +3734,24 @@ def _render_problem_context_block(
             .problem-context-block mark.fluorescent-marker {{
                 padding: 0 0.15rem;
                 border-radius: 0.2rem;
-                box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.05);
-                background: linear-gradient(transparent 40%, rgba(250, 204, 21, 0.95) 40%);
+                box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.08);
+                background: linear-gradient(transparent 40%, rgba(99, 102, 241, 0.18) 40%);
             }}
-            .problem-context-block mark.fluorescent-marker.color-amber {{
-                background: linear-gradient(transparent 40%, rgba(250, 204, 21, 0.95) 40%);
-                box-shadow: 0 0 0 1px rgba(217, 119, 6, 0.12);
+            .problem-context-block mark.fluorescent-marker.color-gold {{
+                background: linear-gradient(transparent 40%, rgba(245, 192, 78, 0.95) 40%);
+                box-shadow: 0 0 0 1px rgba(180, 128, 20, 0.18);
             }}
-            .problem-context-block mark.fluorescent-marker.color-rose {{
-                background: linear-gradient(transparent 40%, rgba(244, 114, 182, 0.9) 40%);
-                box-shadow: 0 0 0 1px rgba(190, 24, 93, 0.12);
+            .problem-context-block mark.fluorescent-marker.color-violet {{
+                background: linear-gradient(transparent 40%, rgba(178, 134, 246, 0.92) 40%);
+                box-shadow: 0 0 0 1px rgba(109, 71, 187, 0.22);
             }}
-            .problem-context-block mark.fluorescent-marker.color-sky {{
-                background: linear-gradient(transparent 40%, rgba(125, 211, 252, 0.9) 40%);
-                box-shadow: 0 0 0 1px rgba(14, 116, 144, 0.12);
+            .problem-context-block mark.fluorescent-marker.color-cerulean {{
+                background: linear-gradient(transparent 40%, rgba(100, 180, 235, 0.92) 40%);
+                box-shadow: 0 0 0 1px rgba(26, 112, 158, 0.2);
             }}
-            .problem-context-block mark.fluorescent-marker.color-lime {{
-                background: linear-gradient(transparent 40%, rgba(163, 230, 53, 0.9) 40%);
-                box-shadow: 0 0 0 1px rgba(63, 98, 18, 0.12);
+            .problem-context-block mark.fluorescent-marker.color-teal {{
+                background: linear-gradient(transparent 40%, rgba(76, 192, 164, 0.9) 40%);
+                box-shadow: 0 0 0 1px rgba(22, 109, 96, 0.2);
             }}
             .problem-context-block mark.context-search-hit {{
                 padding: 0 0.1rem;
@@ -3774,7 +3774,7 @@ def _render_problem_context_block(
                 const colorButtons = Array.from(toolbar.querySelectorAll('[data-action="set-color"]'));
 
                 let highlightMode = false;
-                let activeColor = (highlightButton && highlightButton.dataset.defaultColor) || (colorButtons[0] && colorButtons[0].dataset.color) || "amber";
+                let activeColor = (highlightButton && highlightButton.dataset.defaultColor) || (colorButtons[0] && colorButtons[0].dataset.color) || "gold";
                 const history = [];
                 const maxHistory = 30;
 
@@ -3911,7 +3911,7 @@ def _render_problem_context_block(
                 if (colorButtons.length) {{
                     colorButtons.forEach((button) => {{
                         button.addEventListener("click", () => {{
-                            const nextColor = button.dataset.color || "amber";
+                            const nextColor = button.dataset.color || "gold";
                             activeColor = nextColor;
                             colorButtons.forEach((candidate) => {{
                                 candidate.classList.toggle("selected", candidate === button);
@@ -5028,6 +5028,64 @@ def _inject_dashboard_styles() -> None:
                 font-size: 0.9rem;
                 color: var(--text-muted);
             }
+            .insight-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 1rem;
+            }
+            .insight-card {
+                display: grid;
+                grid-template-columns: auto 1fr;
+                gap: 0.8rem;
+                align-items: center;
+            }
+            .insight-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 54px;
+                height: 54px;
+                border-radius: 16px;
+                background: linear-gradient(135deg, rgba(30, 64, 175, 0.16), rgba(30, 64, 175, 0.3));
+                color: #1e3a8a;
+                box-shadow: 0 10px 20px rgba(30, 64, 175, 0.18);
+            }
+            .insight-icon[data-accent="teal"] {
+                background: linear-gradient(135deg, rgba(13, 148, 136, 0.16), rgba(13, 148, 136, 0.3));
+                color: #0f766e;
+                box-shadow: 0 10px 20px rgba(15, 118, 110, 0.18);
+            }
+            .insight-icon[data-accent="slate"] {
+                background: linear-gradient(135deg, rgba(51, 65, 85, 0.16), rgba(51, 65, 85, 0.28));
+                color: #1f2937;
+                box-shadow: 0 10px 20px rgba(30, 41, 59, 0.18);
+            }
+            .insight-icon svg {
+                width: 26px;
+                height: 26px;
+            }
+            .insight-copy {
+                display: flex;
+                flex-direction: column;
+                gap: 0.15rem;
+            }
+            .insight-title {
+                margin: 0;
+                font-size: 0.82rem;
+                color: var(--text-muted);
+                font-weight: 600;
+            }
+            .insight-value {
+                margin: 0;
+                font-size: 1.35rem;
+                font-weight: 700;
+                color: var(--text-body);
+            }
+            .insight-desc {
+                margin: 0;
+                font-size: 0.85rem;
+                color: var(--text-muted);
+            }
             .heatmap-legend {
                 display: flex;
                 align-items: center;
@@ -5662,6 +5720,37 @@ def _render_study_goal_panel(
         st.info("学習時間目標を設定すると日々の予定が自動生成されます。")
 
 
+def _insight_icon_svg(name: str) -> str:
+    icon_map = {
+        "target": dedent(
+            """
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6" />
+                <circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6" />
+                <path d="M12 7v5l3 1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            """
+        ).strip(),
+        "clock": dedent(
+            """
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6" />
+                <path d="M12 7v5.2l3 2.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            """
+        ).strip(),
+        "trend": dedent(
+            """
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4 16.5 9.2 11l3.1 3.1 7.7-7.7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                <polyline points="18 6.4 18 10.8 13.6 10.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            """
+        ).strip(),
+    }
+    return icon_map.get(name, icon_map["target"])
+
+
 def dashboard_page(user: Dict) -> None:
     _inject_dashboard_styles()
 
@@ -5749,7 +5838,8 @@ def dashboard_page(user: Dict) -> None:
 
     latest_attempt = attempts[0] if attempts else None
     next_focus_card = {
-        "icon": "🎯",
+        "icon": "target",
+        "accent": "indigo",
         "title": "次に集中すべき事例",
         "value": "最初の演習を始めましょう",
         "desc": "演習を完了すると優先度が表示されます。",
@@ -5766,14 +5856,16 @@ def dashboard_page(user: Dict) -> None:
                 focus_case_label = case_label
         if focus_case_label:
             next_focus_card = {
-                "icon": "🎯",
+                "icon": "target",
+                "accent": "indigo",
                 "title": "次に集中すべき事例",
                 "value": focus_case_label,
                 "desc": f"平均達成率 {focus_rate:.0f}%。重点復習で底上げしましょう。",
             }
 
     learning_time_card = {
-        "icon": "⏱️",
+        "icon": "clock",
+        "accent": "teal",
         "title": "累計学習時間",
         "value": _format_duration_minutes(total_learning_minutes),
         "desc": "記録された演習・模試の回答時間の合計",
@@ -5783,7 +5875,8 @@ def dashboard_page(user: Dict) -> None:
         learning_time_card["desc"] = "初回の演習で学習時間を記録しましょう。"
 
     latest_result_card = {
-        "icon": "📈",
+        "icon": "trend",
+        "accent": "slate",
         "title": "直近の結果",
         "value": "データなし",
         "desc": "演習を完了すると最新結果が表示されます。",
@@ -5793,7 +5886,8 @@ def dashboard_page(user: Dict) -> None:
         latest_max = latest_attempt.get("total_max_score") or 0
         latest_ratio = (latest_score / latest_max * 100) if latest_max else 0
         latest_result_card = {
-            "icon": "📈",
+            "icon": "trend",
+            "accent": "slate",
             "title": "直近の結果",
             "value": f"{latest_score:.0f} / {latest_max:.0f}点 ({latest_ratio:.0f}%)",
             "desc": f"{_format_datetime_label(latest_attempt.get('submitted_at'))} 実施",
@@ -6357,26 +6451,30 @@ def dashboard_page(user: Dict) -> None:
                 unsafe_allow_html=True,
             )
 
-        insight_cards_html = "".join(
-            dedent(
-                f"""
-                <div class="insight-card">
-                    <div class="insight-icon">{card['icon']}</div>
-                    <div>
-                        <p class="insight-title">{card['title']}</p>
-                        <p class="insight-value">{card['value']}</p>
-                        <p class="insight-desc">{card['desc']}</p>
+        insight_cards_html: List[str] = []
+        for card in [next_focus_card, learning_time_card, latest_result_card]:
+            accent = card.get("accent", "indigo")
+            icon_html = _insight_icon_svg(card.get("icon", "target"))
+            insight_cards_html.append(
+                dedent(
+                    f"""
+                    <div class="insight-card" data-accent="{accent}">
+                        <div class="insight-icon" data-accent="{accent}">{icon_html}</div>
+                        <div class="insight-copy">
+                            <p class="insight-title">{card['title']}</p>
+                            <p class="insight-value">{card['value']}</p>
+                            <p class="insight-desc">{card['desc']}</p>
+                        </div>
                     </div>
-                </div>
-                """
-            ).strip()
-            for card in [next_focus_card, learning_time_card, latest_result_card]
-        )
+                    """
+                ).strip()
+            )
+        insight_cards_html_str = "".join(insight_cards_html)
         st.markdown(
             dedent(
                 f"""
                 <div class="dashboard-card card--tone-green" role="group" aria-label="学習ハイライト">
-                    <div class="insight-grid">{insight_cards_html}</div>
+                    <div class="insight-grid">{insight_cards_html_str}</div>
                 </div>
                 """
             ),
