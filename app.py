@@ -1548,21 +1548,30 @@ def _inject_practice_question_styles() -> None:
                 align-items: flex-end;
                 gap: 0.2rem;
             }
-            .practice-anchor-button {
+            .practice-anchor-button,
+            .context-return-button {
                 display: inline-flex;
                 align-items: center;
                 gap: 0.35rem;
                 border-radius: 999px;
-                border: 1px solid rgba(37, 99, 235, 0.4);
-                background: rgba(37, 99, 235, 0.08);
-                color: #1d4ed8;
                 font-size: 0.78rem;
                 font-weight: 600;
                 padding: 0.35rem 0.8rem;
                 cursor: pointer;
                 transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
             }
-            .practice-anchor-button svg {
+            .practice-anchor-button {
+                border: 1px solid rgba(37, 99, 235, 0.4);
+                background: rgba(37, 99, 235, 0.08);
+                color: #1d4ed8;
+            }
+            .context-return-button {
+                border: 1px solid rgba(15, 118, 110, 0.35);
+                background: rgba(16, 185, 129, 0.12);
+                color: #0f766e;
+            }
+            .practice-anchor-button svg,
+            .context-return-button svg {
                 width: 16px;
                 height: 16px;
             }
@@ -1571,11 +1580,18 @@ def _inject_practice_question_styles() -> None:
                 transform: translateY(-1px);
                 box-shadow: 0 6px 18px rgba(37, 99, 235, 0.18);
             }
-            .practice-anchor-button:focus-visible {
+            .context-return-button:hover {
+                background: rgba(16, 185, 129, 0.18);
+                transform: translateY(-1px);
+                box-shadow: 0 6px 18px rgba(14, 116, 144, 0.2);
+            }
+            .practice-anchor-button:focus-visible,
+            .context-return-button:focus-visible {
                 outline: 3px solid var(--practice-focus-ring-soft);
                 outline-offset: 3px;
             }
-            .practice-anchor-button[disabled] {
+            .practice-anchor-button[disabled],
+            .context-return-button[disabled] {
                 opacity: 0.6;
                 cursor: not-allowed;
             }
@@ -1706,6 +1722,11 @@ def _inject_practice_question_styles() -> None:
                     background: rgba(37, 99, 235, 0.22);
                     color: #bfdbfe;
                     border-color: rgba(96, 165, 250, 0.6);
+                }
+                .context-return-button {
+                    background: rgba(13, 148, 136, 0.32);
+                    color: #a7f3d0;
+                    border-color: rgba(45, 212, 191, 0.55);
                 }
                 .practice-anchor-feedback {
                     color: #7dd3fc;
@@ -2224,6 +2245,11 @@ def _inject_context_column_styles() -> None:
                 flex-direction: column;
                 gap: 0.75rem;
                 overflow: hidden;
+                transition: box-shadow 0.2s ease, border-color 0.2s ease;
+            }
+            .context-panel.is-highlighted {
+                border-color: rgba(16, 185, 129, 0.5);
+                box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.28), 0 20px 40px rgba(15, 23, 42, 0.18);
             }
             .practice-context-inner > .context-panel {
                 flex: 1 1 auto;
@@ -2401,7 +2427,9 @@ def _inject_context_panel_behavior() -> None:
                     const column = panel ? panel.closest('.practice-context-column') : null;
                     const mainColumn = doc.querySelector('.practice-main-column');
                     const triggers = Array.from(doc.querySelectorAll('.context-panel-trigger'));
+                    const returnButtons = Array.from(doc.querySelectorAll('.context-return-button'));
                     let lastTrigger = null;
+                    let highlightTimer = null;
 
                     if (panel && !panel.hasAttribute('aria-hidden')) {
                         panel.setAttribute('aria-hidden', 'true');
@@ -2508,6 +2536,36 @@ def _inject_context_panel_behavior() -> None:
                         setOpen(false, options);
                     };
 
+                    const emphasizeContextPanel = (options = {}) => {
+                        if (!panel) {
+                            return;
+                        }
+                        const { focus = true } = options;
+                        if (scrollArea) {
+                            if (typeof scrollArea.scrollTo === 'function') {
+                                try {
+                                    scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
+                                } catch (error) {
+                                    scrollArea.scrollTop = 0;
+                                }
+                            } else {
+                                scrollArea.scrollTop = 0;
+                            }
+                            if (focus && typeof scrollArea.focus === 'function') {
+                                scrollArea.focus({ preventScroll: true });
+                            }
+                        } else {
+                            panel.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+                        }
+                        panel.classList.add('is-highlighted');
+                        if (highlightTimer) {
+                            window.clearTimeout(highlightTimer);
+                        }
+                        highlightTimer = window.setTimeout(() => {
+                            panel.classList.remove('is-highlighted');
+                        }, 1500);
+                    };
+
                     if (triggers.length) {
                         triggers.forEach((button) => {
                             if (button.dataset.bound === 'true') {
@@ -2515,6 +2573,27 @@ def _inject_context_panel_behavior() -> None:
                             }
                             button.dataset.bound = 'true';
                             button.setAttribute('aria-expanded', 'false');
+                        });
+                    }
+
+                    if (returnButtons.length) {
+                        returnButtons.forEach((button) => {
+                            if (button.dataset.bound === 'true') {
+                                return;
+                            }
+                            button.dataset.bound = 'true';
+                            button.addEventListener('click', (event) => {
+                                event.preventDefault();
+                                const mobileView = window.matchMedia('(max-width: 900px)').matches;
+                                if (mobileView) {
+                                    setOpen(true, { trigger: button, suppressFocus: true });
+                                    window.requestAnimationFrame(() => {
+                                        window.setTimeout(() => emphasizeContextPanel({ focus: true }), 80);
+                                    });
+                                } else {
+                                    emphasizeContextPanel({ focus: true });
+                                }
+                            });
                         });
                     }
 
@@ -3797,6 +3876,7 @@ def _render_question_overview_card(
     source_label: Optional[str] = None,
     anchor_id: Optional[str] = None,
     header_id: Optional[str] = None,
+    show_context_return: bool = False,
 ) -> None:
     if not question:
         return
@@ -3860,32 +3940,61 @@ def _render_question_overview_card(
     )
 
     anchor_control_html = ""
-    if anchor_id:
-        escaped_anchor = html.escape(anchor_id)
-        anchor_feedback_id = f"{anchor_id}-feedback"
-        anchor_label = f"{order_label}のリンクをコピー"
-        anchor_control_html = dedent(
-            f"""
-            <div class=\"practice-anchor-control\">
-                <button
-                    type=\"button\"
-                    class=\"practice-anchor-button\"
-                    data-anchor=\"{escaped_anchor}\"
-                    data-feedback-id=\"{html.escape(anchor_feedback_id)}\"
-                    aria-label=\"{html.escape(anchor_label)}\"
-                    data-label=\"{html.escape(anchor_label)}\"
-                    data-label-copied=\"リンクをコピーしました\"
-                >
-                    <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\">
-                        <path d=\"M10.59 13.41a1 1 0 0 1 0-1.41l3.18-3.18a1 1 0 1 1 1.41 1.41l-3.18 3.18a1 1 0 0 1-1.41 0z\" fill=\"currentColor\" />
-                        <path d=\"M11 7a3 3 0 0 1 4.24 0l1.76 1.76a3 3 0 0 1 0 4.24l-.88.88a1 1 0 1 1-1.41-1.41l.88-.88a1 1 0 0 0 0-1.41L14.83 8.4a1 1 0 0 0-1.41 0l-.89.89a1 1 0 0 1-1.41-1.41L11 7zm2 10a3 3 0 0 1-2.12-.88l-1.76-1.76a3 3 0 0 1 0-4.24l.88-.88a1 1 0 0 1 1.41 1.41l-.88.88a1 1 0 0 0 0 1.41l1.76 1.76a1 1 0 0 0 1.41 0l.89-.89a1 1 0 1 1 1.41 1.41l-.89.89A3 3 0 0 1 13 17z\" fill=\"currentColor\" />
-                    </svg>
-                    <span>リンクコピー</span>
-                </button>
-                <span id=\"{html.escape(anchor_feedback_id)}\" class=\"practice-anchor-feedback\" aria-live=\"polite\"></span>
-            </div>
-            """
-        ).strip()
+    if anchor_id or show_context_return:
+        control_parts: List[str] = []
+        if show_context_return:
+            control_parts.append(
+                dedent(
+                    """
+                    <button
+                        type=\"button\"
+                        class=\"context-return-button\"
+                        data-context-target=\"context-panel\"
+                        aria-label=\"与件文に戻る\"
+                        aria-controls=\"context-panel\"
+                    >
+                        <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\">
+                            <path d=\"M5 5.75C5 4.78 5.78 4 6.75 4h7.5C15.22 4 16 4.78 16 5.75v2.43l2.35-1.17a.75.75 0 0 1 1.09.67v9.2a.75.75 0 0 1-1.09.67L16 15.38v2.87c0 .97-.78 1.75-1.75 1.75h-7.5A1.75 1.75 0 0 1 5 18.25zM6.75 5.5a.25.25 0 0 0-.25.25v12.5c0 .14.11.25.25.25h7.5a.25.25 0 0 0 .25-.25V5.75a.25.25 0 0 0-.25-.25z\" fill=\"currentColor\" />
+                            <path d=\"M9.28 12.78a.75.75 0 1 1-1.06-1.06L9.94 10l-1.72-1.72A.75.75 0 1 1 9.28 7.22L11.78 9.7a.75.75 0 0 1 0 1.06z\" fill=\"currentColor\" />
+                        </svg>
+                        <span>与件文に戻る</span>
+                    </button>
+                    """
+                ).strip()
+            )
+
+        if anchor_id:
+            escaped_anchor = html.escape(anchor_id)
+            anchor_feedback_id = f"{anchor_id}-feedback"
+            anchor_label = f"{order_label}のリンクをコピー"
+            control_parts.append(
+                dedent(
+                    f"""
+                    <button
+                        type=\"button\"
+                        class=\"practice-anchor-button\"
+                        data-anchor=\"{escaped_anchor}\"
+                        data-feedback-id=\"{html.escape(anchor_feedback_id)}\"
+                        aria-label=\"{html.escape(anchor_label)}\"
+                        data-label=\"{html.escape(anchor_label)}\"
+                        data-label-copied=\"リンクをコピーしました\"
+                    >
+                        <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\">
+                            <path d=\"M10.59 13.41a1 1 0 0 1 0-1.41l3.18-3.18a1 1 0 1 1 1.41 1.41l-3.18 3.18a1 1 0 0 1-1.41 0z\" fill=\"currentColor\" />
+                            <path d=\"M11 7a3 3 0 0 1 4.24 0l1.76 1.76a3 3 0 0 1 0 4.24l-.88.88a1 1 0 1 1-1.41-1.41l.88-.88a1 1 0 0 0 0-1.41L14.83 8.4a1 1 0 0 0-1.41 0l-.89.89a1 1 0 0 1-1.41-1.41L11 7zm2 10a3 3 0 0 1-2.12-.88l-1.76-1.76a3 3 0 0 1 0-4.24l.88-.88a1 1 0 0 1 1.41 1.41l-.88.88a1 1 0 0 0 0 1.41l1.76 1.76a1 1 0 0 0 1.41 0l.89-.89a1 1 0 1 1 1.41 1.41l-.89.89A3 3 0 0 1 13 17z\" fill=\"currentColor\" />
+                        </svg>
+                        <span>リンクコピー</span>
+                    </button>
+                    <span id=\"{html.escape(anchor_feedback_id)}\" class=\"practice-anchor-feedback\" aria-live=\"polite\"></span>
+                    """
+                ).strip()
+            )
+
+        anchor_control_html = (
+            "<div class=\"practice-anchor-control\">"
+            + "".join(control_parts)
+            + "</div>"
+        )
 
     header_attributes = f' id="{html.escape(header_id)}"' if header_id else ""
 
@@ -5983,6 +6092,7 @@ def _question_input(
     question_index: Optional[int] = None,
     anchor_id: Optional[str] = None,
     header_id: Optional[str] = None,
+    context_available: bool = False,
 ) -> str:
     _inject_practice_question_styles()
     key = _draft_key(problem_id, question["id"])
@@ -6020,6 +6130,7 @@ def _question_input(
         case_label=case_label,
         anchor_id=anchor_id,
         header_id=header_id,
+        show_context_return=context_available,
     )
     _render_intent_cards(question, key, textarea_state_key)
     _render_case_frame_shortcuts(case_label, key, textarea_state_key)
@@ -7294,6 +7405,7 @@ def practice_page(user: Dict) -> None:
                 question_index=idx,
                 anchor_id=anchor_value,
                 header_id=header_value,
+                context_available=bool(problem_context),
             )
             question_specs.append(
                 QuestionSpec(
