@@ -5184,6 +5184,132 @@ def _inject_dashboard_styles() -> None:
             .progress-bar[data-tone="yellow"] .progress-bar__fill {
                 background: linear-gradient(90deg, rgba(244, 187, 68, 0.7), rgba(234, 179, 8, 0.82));
             }
+            .study-notification-card {
+                display: flex;
+                flex-direction: column;
+                gap: 1.1rem;
+            }
+            .study-progress-meter {
+                display: flex;
+                flex-direction: column;
+                gap: 0.55rem;
+            }
+            .study-progress-meter__header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-weight: 600;
+                font-size: 0.92rem;
+                color: var(--text-body);
+            }
+            .study-progress-meter__track {
+                position: relative;
+                height: 12px;
+                border-radius: 999px;
+                background: rgba(37, 99, 235, 0.18);
+                overflow: hidden;
+            }
+            .study-progress-meter__fill {
+                position: absolute;
+                inset: 0;
+                width: var(--progress, 0%);
+                background: linear-gradient(90deg, #2563eb, #0ea5e9);
+                border-radius: inherit;
+                transition: width 600ms ease;
+            }
+            .study-progress-meter__footer {
+                display: flex;
+                justify-content: space-between;
+                font-size: 0.82rem;
+                color: var(--text-muted);
+            }
+            .notification-group {
+                display: flex;
+                flex-direction: column;
+                gap: 0.6rem;
+                padding: 0.85rem 1rem;
+                border-radius: 16px;
+                border: 1px solid rgba(37, 99, 235, 0.18);
+                background: rgba(37, 99, 235, 0.04);
+            }
+            .notification-group[data-tone="alert"] {
+                border-color: rgba(239, 68, 68, 0.28);
+                background: rgba(239, 68, 68, 0.08);
+            }
+            .notification-group[data-tone="info"] {
+                border-color: rgba(14, 116, 144, 0.28);
+                background: rgba(14, 116, 144, 0.08);
+            }
+            .notification-group[data-tone="success"] {
+                border-color: rgba(34, 197, 94, 0.28);
+                background: rgba(34, 197, 94, 0.08);
+            }
+            .notification-group__title {
+                font-weight: 700;
+                font-size: 0.9rem;
+                color: var(--text-body);
+            }
+            .notification-list {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            .notification-item {
+                display: grid;
+                grid-template-columns: auto 1fr;
+                gap: 0.75rem;
+                align-items: flex-start;
+            }
+            .notification-item__badge {
+                display: inline-flex;
+                align-items: center;
+                padding: 0.25rem 0.65rem;
+                border-radius: 999px;
+                font-size: 0.75rem;
+                font-weight: 700;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                background: rgba(37, 99, 235, 0.18);
+                color: var(--brand-strong);
+            }
+            .notification-item__badge[data-tone="alert"] {
+                background: rgba(239, 68, 68, 0.18);
+                color: #b91c1c;
+            }
+            .notification-item__badge[data-tone="info"] {
+                background: rgba(14, 116, 144, 0.18);
+                color: #0f766e;
+            }
+            .notification-item__badge[data-tone="success"] {
+                background: rgba(34, 197, 94, 0.18);
+                color: #047857;
+            }
+            .notification-item__body {
+                display: flex;
+                flex-direction: column;
+                gap: 0.15rem;
+            }
+            .notification-item__title {
+                font-weight: 600;
+                font-size: 0.95rem;
+                color: var(--text-body);
+            }
+            .notification-item__subtitle {
+                font-size: 0.84rem;
+                color: var(--text-muted);
+            }
+            .notification-item__meta {
+                font-size: 0.8rem;
+                color: var(--text-faint);
+            }
+            .notification-empty {
+                font-size: 0.85rem;
+                color: var(--text-muted);
+                margin: 0;
+            }
             .metric-grid {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -6187,6 +6313,19 @@ def dashboard_page(user: Dict) -> None:
     stats = database.aggregate_statistics(user["id"])
     keyword_records = database.fetch_keyword_performance(user["id"])
     dashboard_analysis = _prepare_dashboard_analysis_data(keyword_records)
+    question_progress = database.get_question_progress_summary(user["id"], recent_limit=5)
+    unattempted_questions = database.list_unattempted_questions(user["id"], limit=3)
+    due_review_items = database.list_due_reviews(user_id=user["id"], limit=3)
+
+    def _truncate_text(value: Optional[str], limit: int = 36) -> str:
+        if value is None:
+            return ""
+        text = str(value).strip()
+        if len(text) <= limit:
+            return text
+        if limit <= 1:
+            return text[:limit]
+        return text[: limit - 1] + "…"
 
     total_attempts = len(attempts)
     total_score = sum(row["total_score"] or 0 for row in attempts)
@@ -6388,6 +6527,7 @@ def dashboard_page(user: Dict) -> None:
     toc_items = [
         ("kpi-lane", "KPI"),
         ("progress-lane", "進捗"),
+        ("notification-lane", "通知"),
         ("analysis-lane", "ヒートマップ"),
         ("insight-lane", "洞察"),
     ]
@@ -6484,7 +6624,22 @@ def dashboard_page(user: Dict) -> None:
         )
         st.markdown(kpi_section_html, unsafe_allow_html=True)
 
+        total_questions = question_progress.get("total_questions", 0)
+        studied_questions = question_progress.get("studied_questions", 0)
+        question_progress_percent = (
+            max(0.0, min(question_progress.get("progress_ratio", 0.0) * 100, 100.0))
+            if total_questions
+            else 0.0
+        )
+
         progress_bars = [
+            {
+                "label": "設問カバレッジ",
+                "value": f"{question_progress_percent:.0f}%",
+                "progress": question_progress_percent,
+                "tone": "green",
+                "helper": f"{studied_questions} / {total_questions} 設問",
+            },
             {
                 "label": "得点達成率",
                 "value": f"{completion_rate:.0f}%",
@@ -6560,6 +6715,161 @@ def dashboard_page(user: Dict) -> None:
             """
         )
         st.markdown(progress_section_html, unsafe_allow_html=True)
+
+        unattempted_count = max(total_questions - studied_questions, 0)
+        if total_questions:
+            progress_meter_html = dedent(
+                f"""
+                <div class="study-progress-meter" role="group" aria-label="設問カバレッジの進捗">
+                    <div class="study-progress-meter__header">
+                        <span class="study-progress-meter__title">学習済み設問</span>
+                        <span class="study-progress-meter__value">{studied_questions} / {total_questions}</span>
+                    </div>
+                    <div class="study-progress-meter__track" aria-hidden="true">
+                        <div class="study-progress-meter__fill" style="--progress: {question_progress_percent:.0f}%"></div>
+                    </div>
+                    <div class="study-progress-meter__footer">
+                        <span class="study-progress-meter__ratio">{question_progress_percent:.0f}%</span>
+                        <span class="study-progress-meter__helper">未演習 {unattempted_count} 設問</span>
+                    </div>
+                </div>
+                """
+            ).strip()
+        else:
+            progress_meter_html = (
+                "<p class='notification-empty'>問題データが登録されていません。</p>"
+            )
+
+        notification_groups: List[str] = []
+        now = datetime.utcnow()
+
+        if due_review_items:
+            due_items_html = "".join(
+                dedent(
+                    f"""
+                    <li class="notification-item" role="listitem">
+                        <span class="notification-item__badge" data-tone="alert">{'期限超過' if item['due_at'] <= now else '復習'}</span>
+                        <div class="notification-item__body">
+                            <span class="notification-item__title">{html.escape(f"{item['year']} {item['case_label']}")}</span>
+                            <span class="notification-item__subtitle">{html.escape(_truncate_text(item['title'], 38))}</span>
+                            <span class="notification-item__meta">期限: {item['due_at'].strftime('%Y-%m-%d')}</span>
+                            <span class="notification-item__meta">推奨 {item['recommended_items']}問 / 約{item['recommended_minutes']}分</span>
+                        </div>
+                    </li>
+                    """
+                ).strip()
+                for item in due_review_items
+            )
+            notification_groups.append(
+                dedent(
+                    """
+                    <div class="notification-group" data-tone="alert" role="group" aria-label="復習リマインダー">
+                        <span class="notification-group__title">復習リマインダー</span>
+                        <ul class="notification-list" role="list">
+                            {items}
+                        </ul>
+                    </div>
+                    """
+                ).strip().format(items=due_items_html)
+            )
+
+        if unattempted_questions:
+            unattempted_html = "".join(
+                dedent(
+                    f"""
+                    <li class="notification-item" role="listitem">
+                        <span class="notification-item__badge" data-tone="info">未着手</span>
+                        <div class="notification-item__body">
+                            <span class="notification-item__title">{html.escape(f"{item.get('year', '')} {item.get('case_label', '')}")}</span>
+                            <span class="notification-item__subtitle">設問{item['question_order']} | {html.escape(_truncate_text(item['prompt'], 38))}</span>
+                            <span class="notification-item__meta">『{html.escape(_truncate_text(item['title'], 26))}』</span>
+                        </div>
+                    </li>
+                    """
+                ).strip()
+                for item in unattempted_questions
+            )
+            notification_groups.append(
+                dedent(
+                    """
+                    <div class="notification-group" data-tone="info" role="group" aria-label="未着手の設問">
+                        <span class="notification-group__title">未着手の設問</span>
+                        <ul class="notification-list" role="list">
+                            {items}
+                        </ul>
+                    </div>
+                    """
+                ).strip().format(items=unattempted_html)
+            )
+
+        recent_records = question_progress.get("recent_questions", [])
+        if recent_records:
+            recent_html = []
+            for record in recent_records:
+                subtitle = f"設問{record['question_order']} | {_truncate_text(record['prompt'], 38)}"
+                meta_parts = []
+                if record.get("last_practiced_at"):
+                    meta_parts.append(
+                        f"最終 {record['last_practiced_at'].strftime('%Y-%m-%d %H:%M')}"
+                    )
+                if record.get("due_at"):
+                    due_state = "期限超過" if record["due_at"] <= now else "次回"
+                    due_label = (
+                        f"{due_state}: {record['due_at'].strftime('%Y-%m-%d')}"
+                    )
+                    meta_parts.append(due_label)
+                meta_html = "".join(
+                    f"<span class='notification-item__meta'>{html.escape(part)}</span>"
+                    for part in meta_parts
+                )
+                recent_html.append(
+                    dedent(
+                        f"""
+                        <li class="notification-item" role="listitem">
+                            <span class="notification-item__badge" data-tone="success">記録</span>
+                            <div class="notification-item__body">
+                                <span class="notification-item__title">{html.escape(f"{record.get('year', '')} {record.get('case_label', '')}")}</span>
+                                <span class="notification-item__subtitle">{html.escape(subtitle)}</span>
+                                {meta_html}
+                            </div>
+                        </li>
+                        """
+                    ).strip()
+                )
+            notification_groups.append(
+                dedent(
+                    """
+                    <div class="notification-group" data-tone="success" role="group" aria-label="直近の学習ログ">
+                        <span class="notification-group__title">直近の学習ログ</span>
+                        <ul class="notification-list" role="list">
+                            {items}
+                        </ul>
+                    </div>
+                    """
+                ).strip().format(items="".join(recent_html))
+            )
+
+        notification_groups_html = (
+            "".join(notification_groups)
+            if notification_groups
+            else "<p class='notification-empty'>現在対応が必要な通知はありません。</p>"
+        )
+
+        notification_section_html = dedent(
+            f"""
+            <section class="dashboard-lane" id="notification-lane" data-section-id="notification-lane" role="region" aria-labelledby="notification-lane-title">
+                <header class="dashboard-lane__header">
+                    <h2 id="notification-lane-title" class="dashboard-lane__title">学習通知センター</h2>
+                    <p class="dashboard-lane__subtitle">進捗バーとリマインダーをまとめて確認できます。</p>
+                </header>
+                <div class="dashboard-card card--tone-green study-notification-card">
+                    {progress_meter_html}
+                    {notification_groups_html}
+                </div>
+            </section>
+            """
+        ).strip()
+        st.markdown(notification_section_html, unsafe_allow_html=True)
 
         if timeline_events:
             timeline_items_html = "".join(
