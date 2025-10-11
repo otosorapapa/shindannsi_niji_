@@ -1788,20 +1788,75 @@ def _render_question_context_block(context_value: Any) -> None:
         st.write("\n\n".join(lines))
 
 
+def _split_long_japanese_paragraph(paragraph: str, max_chars: int = 120) -> List[str]:
+    """Heuristically split a long Japanese paragraph into shorter segments.
+
+    The 与件文データ often arrives as a single block of text without paragraph
+    breaks. To improve readability we chunk the text by sentences (句点終止) while
+    keeping each chunk reasonably sized.
+    """
+
+    stripped = paragraph.strip()
+    if len(stripped) <= max_chars:
+        return [stripped] if stripped else []
+
+    sentences = [
+        s.strip()
+        for s in re.findall(r"[^。！？]+[。！？]?", stripped)
+        if s.strip()
+    ]
+
+    if len(sentences) <= 1:
+        return [stripped]
+
+    chunks: List[str] = []
+    current = ""
+    for sentence in sentences:
+        if not current:
+            current = sentence
+            continue
+
+        candidate = f"{current}{sentence}"
+        if len(candidate) <= max_chars or len(current) < max_chars * 0.6:
+            current = candidate
+            continue
+
+        chunks.append(current.strip())
+        current = sentence
+
+    if current:
+        chunks.append(current.strip())
+
+    # Fall back to the original paragraph if the heuristic failed to create
+    # multiple meaningful chunks.
+    if len(chunks) <= 1:
+        return [stripped]
+
+    return chunks
+
+
 def _render_problem_context_block(context_text: str) -> None:
     normalized = _normalize_text_block(context_text)
     if not normalized:
         return
 
-    blocks: List[str] = []
+    paragraphs: List[str] = []
     for raw_block in normalized.replace("\r\n", "\n").replace("\r", "\n").split("\n\n"):
         paragraph = raw_block.strip()
-        if not paragraph:
-            continue
+        if paragraph:
+            paragraphs.append(paragraph)
+
+    if not paragraphs:
+        return
+
+    if len(paragraphs) == 1:
+        paragraphs = _split_long_japanese_paragraph(paragraphs[0])
+
+    blocks: List[str] = []
+    for paragraph in paragraphs:
         lines = [html.escape(line.strip()) for line in paragraph.split("\n") if line.strip()]
-        if not lines:
-            continue
-        blocks.append(f"<p>{'<br/>'.join(lines)}</p>")
+        if lines:
+            blocks.append(f"<p>{'<br/>'.join(lines)}</p>")
 
     if not blocks:
         return
