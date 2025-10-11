@@ -61,12 +61,11 @@ def _seed_file_signature() -> float:
         return 0.0
 
 
-@lru_cache(maxsize=1)
-def _load_seed_problem_lookup_cached(signature: float) -> Dict[Tuple[str, str], Dict[str, Any]]:
-    """Return seed problem data keyed by ``(year, case_label)``."""
+def _load_seed_file_payload() -> Optional[Dict[str, Any]]:
+    """Return the normalised seed payload from disk if available."""
 
     if not SEED_PATH.exists():
-        return {}
+        return None
 
     raw_text = SEED_PATH.read_text(encoding="utf-8")
     cleaned_lines: List[str] = []
@@ -82,10 +81,22 @@ def _load_seed_problem_lookup_cached(signature: float) -> Dict[Tuple[str, str], 
 
     try:
         payload = json.loads(cleaned_text)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        logger.warning("Failed to parse seed file %s: %s", SEED_PATH, exc)
+        return None
+
+    return _normalise_seed_payload(payload)
+
+
+@lru_cache(maxsize=1)
+def _load_seed_problem_lookup_cached(signature: float) -> Dict[Tuple[str, str], Dict[str, Any]]:
+    """Return seed problem data keyed by ``(year, case_label)``."""
+
+    payload = _load_seed_file_payload()
+    if not payload:
         return {}
 
-    normalised = _normalise_seed_payload(payload)
+    normalised = payload
     lookup: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
     for problem in normalised.get("problems", []):
@@ -274,10 +285,15 @@ def initialize_database(*, force: bool = False) -> None:
                     json.dumps(seed_payload, ensure_ascii=False, indent=2),
                     encoding="utf-8",
                 )
+                seed_payload = _normalise_seed_payload(seed_payload)
             else:
-                seed_payload = json.loads(SEED_PATH.read_text(encoding="utf-8"))
-
-            seed_payload = _normalise_seed_payload(seed_payload)
+                seed_payload = _load_seed_file_payload()
+                if not seed_payload:
+                    logger.warning(
+                        "Falling back to bundled seed payload because %s could not be parsed.",
+                        SEED_PATH,
+                    )
+                    seed_payload = _normalise_seed_payload(_default_seed_payload())
 
             _ensure_question_multimedia_columns(conn)
             _ensure_problem_context_columns(conn)
