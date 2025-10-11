@@ -1902,11 +1902,9 @@ def _inject_context_panel_behavior() -> None:
             (() => {
                 const setupContextPanel = () => {
                     const doc = window.document;
-                    const openButtons = Array.from(doc.querySelectorAll('.context-panel-trigger'));
-                    const closeButtons = Array.from(doc.querySelectorAll('.context-panel-close'));
-                    const backdrops = Array.from(doc.querySelectorAll('.context-panel-backdrop'));
                     const panel = doc.getElementById('context-panel');
                     const scrollArea = panel ? panel.querySelector('.context-panel-scroll') : null;
+                    const triggers = Array.from(doc.querySelectorAll('.context-panel-trigger'));
                     let lastTrigger = null;
 
                     if (panel && !panel.hasAttribute('aria-hidden')) {
@@ -1914,7 +1912,7 @@ def _inject_context_panel_behavior() -> None:
                     }
 
                     const setAriaExpanded = (open) => {
-                        openButtons.forEach((button) => {
+                        triggers.forEach((button) => {
                             button.setAttribute('aria-expanded', open ? 'true' : 'false');
                         });
                     };
@@ -1947,53 +1945,78 @@ def _inject_context_panel_behavior() -> None:
                         }
 
                         if (!open && !skipReturnFocus) {
-                            const focusTarget = returnFocusTo || lastTrigger || openButtons[0];
+                            const focusTarget = returnFocusTo || lastTrigger || triggers[0];
                             if (focusTarget) {
                                 focusTarget.focus();
                             }
                         }
                     };
 
-                    openButtons.forEach((button) => {
-                        if (button.dataset.bound === 'true') {
-                            return;
-                        }
-                        button.dataset.bound = 'true';
-                        button.setAttribute('aria-expanded', 'false');
-                        button.addEventListener('click', () => setOpen(true, { trigger: button }));
-                        button.addEventListener('keydown', (event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                                event.preventDefault();
-                                setOpen(true, { trigger: button });
-                            }
-                        });
-                    });
+                    const handleTrigger = (button) => {
+                        setOpen(true, { trigger: button });
+                    };
 
-                    closeButtons.forEach((button) => {
-                        if (button.dataset.bound === 'true') {
-                            return;
-                        }
-                        button.dataset.bound = 'true';
-                        button.addEventListener('click', () => setOpen(false));
-                        button.addEventListener('keydown', (event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                                event.preventDefault();
-                                setOpen(false);
-                            }
-                        });
-                    });
+                    const handleClose = (options = {}) => {
+                        setOpen(false, options);
+                    };
 
-                    backdrops.forEach((node) => {
-                        if (node.dataset.bound === 'true') {
-                            return;
-                        }
-                        node.dataset.bound = 'true';
-                        node.addEventListener('click', (event) => {
-                            if (event.target === node) {
-                                setOpen(false, { suppressFocus: true, skipReturnFocus: true });
+                    if (triggers.length) {
+                        triggers.forEach((button) => {
+                            if (button.dataset.bound === 'true') {
+                                return;
                             }
+                            button.dataset.bound = 'true';
+                            button.setAttribute('aria-expanded', 'false');
                         });
-                    });
+                    }
+
+                    if (doc.body && doc.body.dataset.contextPanelDelegated !== 'true') {
+                        doc.body.dataset.contextPanelDelegated = 'true';
+
+                        doc.addEventListener(
+                            'click',
+                            (event) => {
+                                const triggerButton = event.target.closest('.context-panel-trigger');
+                                if (triggerButton) {
+                                    event.preventDefault();
+                                    handleTrigger(triggerButton);
+                                    return;
+                                }
+
+                                const closeButton = event.target.closest('.context-panel-close');
+                                if (closeButton) {
+                                    event.preventDefault();
+                                    handleClose();
+                                    return;
+                                }
+
+                                const backdrop = event.target.closest('.context-panel-backdrop');
+                                if (backdrop && event.target === backdrop) {
+                                    handleClose({ suppressFocus: true, skipReturnFocus: true });
+                                }
+                            },
+                            { passive: false }
+                        );
+
+                        doc.addEventListener(
+                            'keydown',
+                            (event) => {
+                                const triggerButton = event.target.closest('.context-panel-trigger');
+                                if (triggerButton && (event.key === 'Enter' || event.key === ' ')) {
+                                    event.preventDefault();
+                                    handleTrigger(triggerButton);
+                                    return;
+                                }
+
+                                const closeButton = event.target.closest('.context-panel-close');
+                                if (closeButton && (event.key === 'Enter' || event.key === ' ')) {
+                                    event.preventDefault();
+                                    handleClose();
+                                }
+                            },
+                            { passive: false }
+                        );
+                    }
 
                     const mediaQuery = window.matchMedia('(max-width: 900px)');
                     const syncForViewport = (mq) => {
@@ -2001,7 +2024,7 @@ def _inject_context_panel_behavior() -> None:
                             return;
                         }
                         if (mq.matches) {
-                            setOpen(false, { suppressFocus: true, skipReturnFocus: true });
+                            handleClose({ suppressFocus: true, skipReturnFocus: true });
                         } else {
                             panel.setAttribute('aria-hidden', 'false');
                             setAriaExpanded(true);
@@ -2022,7 +2045,7 @@ def _inject_context_panel_behavior() -> None:
                         doc.body.dataset.contextPanelEscapeBound = 'true';
                         doc.addEventListener('keydown', (event) => {
                             if (event.key === 'Escape') {
-                                setOpen(false, { suppressFocus: true });
+                                handleClose({ suppressFocus: true });
                             }
                         });
                     }
