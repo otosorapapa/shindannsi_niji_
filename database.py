@@ -1341,7 +1341,7 @@ def aggregate_attempts_between(
     }
 
 
-def list_attempts(user_id: int) -> List[sqlite3.Row]:
+def list_attempts(user_id: int) -> List[Dict[str, Any]]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -1354,7 +1354,7 @@ def list_attempts(user_id: int) -> List[sqlite3.Row]:
         """,
         (user_id,),
     )
-    rows = cur.fetchall()
+    rows = [dict(row) for row in cur.fetchall()]
     conn.close()
     return rows
 
