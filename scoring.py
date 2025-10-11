@@ -27,6 +27,8 @@ class ScoreResult:
     feedback: str
     keyword_hits: Dict[str, bool]
     axis_breakdown: Dict[str, Dict[str, object]] = field(default_factory=dict)
+    keyword_category_hits: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    connector_stats: Dict[str, object] = field(default_factory=dict)
 
 
 EVALUATION_AXES: List[Dict[str, object]] = [
@@ -48,6 +50,23 @@ EVALUATION_AXES: List[Dict[str, object]] = [
 ]
 
 _AXIS_LOOKUP = {axis["label"]: axis for axis in EVALUATION_AXES}
+
+
+CAUSAL_CONNECTORS: List[str] = [
+    "ため",
+    "ので",
+    "結果",
+    "したがって",
+    "よって",
+    "さらに",
+    "まず",
+    "次に",
+    "一方",
+    "そのため",
+    "その結果",
+    "だから",
+    "結果として",
+]
 
 
 @dataclass
@@ -97,33 +116,35 @@ def cosine_similarity_score(answer: str, reference: str) -> float:
     return numerator / denominator
 
 
-def _estimate_logic_score(answer: str, similarity: float) -> Dict[str, object]:
-    connectors = [
-        "ため",
-        "ので",
-        "結果",
-        "したがって",
-        "よって",
-        "さらに",
-        "まず",
-        "次に",
-        "一方",
-        "そのため",
-        "その結果",
-    ]
+def analyze_causal_connectors(answer: str) -> Dict[str, object]:
+    """Return statistics about causal/logic connectors in ``answer``."""
+
     sentences = [segment for segment in re.split(r"[。\.!?！？]\s*", answer) if segment.strip()]
     sentence_count = max(len(sentences), 1)
-    connector_hits = 0
-    lowered = answer
-    for connector in connectors:
-        if connector in lowered:
-            connector_hits += lowered.count(connector)
-    connector_ratio = min(1.0, connector_hits / sentence_count)
+    connector_counts: Dict[str, int] = {}
+    total_hits = 0
+    for connector in CAUSAL_CONNECTORS:
+        count = answer.count(connector)
+        if count:
+            connector_counts[connector] = count
+            total_hits += count
+    connector_ratio = total_hits / sentence_count if sentence_count else 0.0
+    return {
+        "total_hits": total_hits,
+        "sentence_count": sentence_count,
+        "per_sentence": connector_ratio,
+        "counts": connector_counts,
+    }
+
+
+def _estimate_logic_score(answer: str, similarity: float) -> Dict[str, object]:
+    connector_stats = analyze_causal_connectors(answer)
+    connector_ratio = min(1.0, connector_stats["per_sentence"] if connector_stats else 0.0)
     logic_score = max(0.0, min(1.0, 0.7 * similarity + 0.3 * connector_ratio))
     detail = (
-        f"類似度{similarity:.2f}、論理接続語{connector_hits}件（{sentence_count}文中）を検出しました。"
+        f"類似度{similarity:.2f}、論理接続語{connector_stats['total_hits']}件（{connector_stats['sentence_count']}文中）を検出しました。"
     )
-    return {"score": logic_score, "detail": detail}
+    return {"score": logic_score, "detail": detail, "connector_stats": connector_stats}
 
 
 def _estimate_clarity_score(answer: str) -> Dict[str, object]:
@@ -166,9 +187,15 @@ def score_answer(answer: str, question: QuestionSpec) -> ScoreResult:
                 f"{sum(keyword_hits.values())} / {max(len(keyword_hits), 1)} 件の採点キーワードを含みました。"
             ),
         },
-        "構成の論理性": logic_axis,
+        "構成の論理性": {
+            "score": logic_axis["score"],
+            "detail": logic_axis["detail"],
+        },
         "表現の明快さ": clarity_axis,
     }
+
+    keyword_categories = _summarise_keyword_categories(keyword_hits)
+    connector_stats = logic_axis.get("connector_stats", {})
 
     raw_score_ratio = 0.0
     for axis in EVALUATION_AXES:
@@ -238,7 +265,53 @@ def score_answer(answer: str, question: QuestionSpec) -> ScoreResult:
         feedback=feedback,
         keyword_hits=keyword_hits,
         axis_breakdown=axis_breakdown,
+        keyword_category_hits=keyword_categories,
+        connector_stats=connector_stats,
     )
+
+
+def _summarise_keyword_categories(keyword_hits: Mapping[str, bool]) -> Dict[str, Dict[str, int]]:
+    """Return counts of matched/missed keywords split into coarse categories."""
+
+    categories: Dict[str, Dict[str, int]] = {
+        "名詞": {"hit": 0, "miss": 0},
+        "述語": {"hit": 0, "miss": 0},
+        "その他": {"hit": 0, "miss": 0},
+    }
+    for keyword, hit in keyword_hits.items():
+        category = _categorise_keyword(keyword)
+        entry = categories.setdefault(category, {"hit": 0, "miss": 0})
+        if hit:
+            entry["hit"] += 1
+        else:
+            entry["miss"] += 1
+    return categories
+
+
+def _categorise_keyword(keyword: str) -> str:
+    action_suffixes = [
+        "する",
+        "化",
+        "向上",
+        "改善",
+        "強化",
+        "促進",
+        "導入",
+        "実施",
+        "最適化",
+        "短縮",
+        "低減",
+        "育成",
+        "連携",
+    ]
+    keyword = keyword.strip()
+    if not keyword:
+        return "その他"
+    if any(keyword.endswith(suffix) for suffix in action_suffixes):
+        return "述語"
+    if keyword.endswith("化") and len(keyword) > 1:
+        return "述語"
+    return "名詞"
 
 
 def evaluate_case_bundle(

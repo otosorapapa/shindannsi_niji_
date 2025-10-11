@@ -341,6 +341,18 @@ def initialize_database(*, force: bool = False) -> None:
             axis_breakdown_json TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS attempt_question_activity (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            attempt_id INTEGER NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
+            question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+            opened_at TEXT,
+            first_input_at TEXT,
+            last_updated_at TEXT,
+            total_duration_seconds INTEGER,
+            revision_count INTEGER DEFAULT 0,
+            edit_history_json TEXT
+        );
+
         CREATE TABLE IF NOT EXISTS reminders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1021,6 +1033,7 @@ class RecordedAnswer:
     feedback: str
     keyword_hits: Dict[str, bool]
     axis_breakdown: Dict[str, Dict[str, object]]
+    activity: Optional[Dict[str, Any]] = None
 
 
 def record_attempt(
@@ -1082,6 +1095,29 @@ def record_attempt(
                 json.dumps(answer.axis_breakdown, ensure_ascii=False),
             ),
         )
+
+        activity = answer.activity or {}
+        if activity:
+            cur.execute(
+                """
+                INSERT INTO attempt_question_activity (
+                    attempt_id, question_id, opened_at, first_input_at, last_updated_at,
+                    total_duration_seconds, revision_count, edit_history_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    attempt_id,
+                    answer.question_id,
+                    activity.get("opened_at"),
+                    activity.get("first_input_at"),
+                    activity.get("last_updated_at"),
+                    activity.get("total_duration_seconds"),
+                    activity.get("revision_count", 0),
+                    json.dumps(activity.get("edit_history", []), ensure_ascii=False)
+                    if activity.get("edit_history")
+                    else None,
+                ),
+            )
 
     conn.commit()
     conn.close()
@@ -1925,6 +1961,40 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
         "attempt": attempt,
         "answers": formatted_answers,
     }
+
+
+def fetch_attempt_activity(attempt_id: int) -> List[Dict[str, Any]]:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT aqa.*, q.question_order
+        FROM attempt_question_activity aqa
+        JOIN questions q ON q.id = aqa.question_id
+        WHERE aqa.attempt_id = ?
+        ORDER BY q.question_order
+        """,
+        (attempt_id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    activities: List[Dict[str, Any]] = []
+    for row in rows:
+        activities.append(
+            {
+                "question_id": row["question_id"],
+                "question_order": row["question_order"],
+                "opened_at": row["opened_at"],
+                "first_input_at": row["first_input_at"],
+                "last_updated_at": row["last_updated_at"],
+                "total_duration_seconds": row["total_duration_seconds"],
+                "revision_count": row["revision_count"],
+                "edit_history": json.loads(row["edit_history_json"])
+                if row["edit_history_json"]
+                else [],
+            }
+        )
+    return activities
 
 
 def aggregate_statistics(user_id: int) -> Dict[str, Dict[str, float]]:
