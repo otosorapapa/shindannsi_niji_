@@ -1327,6 +1327,7 @@ def _init_session_state() -> None:
     st.session_state.setdefault("_intent_card_styles_injected", False)
     st.session_state.setdefault("_question_card_styles_injected", False)
     st.session_state.setdefault("_timeline_styles_injected", False)
+    st.session_state.setdefault("_practice_question_styles_injected", False)
     st.session_state.setdefault("model_answer_slots", {})
 
 
@@ -1414,6 +1415,197 @@ def _inject_guideline_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_guideline_styles_injected"] = True
+
+
+def _inject_practice_question_styles() -> None:
+    if st.session_state.get("_practice_question_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .practice-question-block {
+                --accent: rgba(56, 189, 248, 0.7);
+                --accent-border: rgba(56, 189, 248, 0.35);
+                --accent-soft: rgba(224, 242, 254, 0.92);
+                --accent-glow: rgba(56, 189, 248, 0.2);
+                --accent-text: #0f172a;
+                position: relative;
+                margin: 2.2rem 0;
+                padding: 1.6rem 1.8rem 1.9rem;
+                border-radius: 24px;
+                border: 1px solid var(--accent-border);
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), var(--accent-soft));
+                box-shadow: 0 24px 48px rgba(15, 23, 42, 0.12);
+                overflow: hidden;
+            }
+            .practice-question-block::before {
+                content: "";
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: 0;
+                height: 10px;
+                background: linear-gradient(90deg, transparent, var(--accent), transparent);
+                opacity: 0.75;
+            }
+            .practice-question-block::after {
+                content: "";
+                position: absolute;
+                top: -35%;
+                right: -25%;
+                width: 320px;
+                height: 320px;
+                background: radial-gradient(circle at center, rgba(255, 255, 255, 0.65), transparent 70%);
+                opacity: 0.75;
+                pointer-events: none;
+            }
+            .practice-question-block[data-tone="sakura"] {
+                --accent: rgba(244, 114, 182, 0.6);
+                --accent-border: rgba(244, 114, 182, 0.32);
+                --accent-soft: rgba(253, 242, 248, 0.92);
+                --accent-glow: rgba(244, 114, 182, 0.18);
+            }
+            .practice-question-block[data-tone="mizu"] {
+                --accent: rgba(56, 189, 248, 0.7);
+                --accent-border: rgba(56, 189, 248, 0.35);
+                --accent-soft: rgba(224, 242, 254, 0.92);
+                --accent-glow: rgba(56, 189, 248, 0.2);
+            }
+            .practice-question-block[data-tone="matcha"] {
+                --accent: rgba(134, 239, 172, 0.65);
+                --accent-border: rgba(74, 222, 128, 0.28);
+                --accent-soft: rgba(240, 253, 244, 0.9);
+                --accent-glow: rgba(74, 222, 128, 0.2);
+            }
+            .practice-question-block[data-tone="lavender"] {
+                --accent: rgba(196, 181, 253, 0.65);
+                --accent-border: rgba(167, 139, 250, 0.32);
+                --accent-soft: rgba(237, 233, 254, 0.92);
+                --accent-glow: rgba(167, 139, 250, 0.2);
+            }
+            .practice-question-block[data-tone="citrus"] {
+                --accent: rgba(250, 204, 21, 0.7);
+                --accent-border: rgba(250, 204, 21, 0.36);
+                --accent-soft: rgba(254, 249, 195, 0.9);
+                --accent-glow: rgba(250, 204, 21, 0.22);
+            }
+            .practice-question-block .question-mini-card {
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.88)) !important;
+                color: var(--accent-text) !important;
+                border-color: rgba(148, 163, 184, 0.35) !important;
+                box-shadow: none !important;
+            }
+            .practice-question-block .question-mini-card::before {
+                display: none;
+            }
+            .practice-question-block .question-mini-card .qm-eyebrow {
+                color: rgba(30, 41, 59, 0.55) !important;
+            }
+            .practice-question-block .question-mini-card .qm-meta span {
+                background: rgba(255, 255, 255, 0.92) !important;
+                border-color: var(--accent-border) !important;
+                color: inherit !important;
+            }
+            .practice-question-block .question-mini-card .qm-chip {
+                background: rgba(148, 163, 184, 0.18) !important;
+                border-color: rgba(148, 163, 184, 0.35) !important;
+                color: #1f2937 !important;
+            }
+            .practice-autosave-caption {
+                font-size: 0.75rem;
+                letter-spacing: 0.02em;
+                color: rgba(15, 23, 42, 0.68);
+                margin: 0.45rem 0 0.85rem;
+            }
+            .practice-question-block .stTextArea textarea {
+                border-radius: 14px;
+                border: 1px solid rgba(148, 163, 184, 0.45);
+                background: rgba(255, 255, 255, 0.96);
+                box-shadow: inset 0 2px 6px rgba(15, 23, 42, 0.08);
+            }
+            .practice-question-block .stTextArea textarea:focus {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px var(--accent-glow);
+            }
+            .practice-question-block .stButton > button {
+                border-radius: 999px;
+                padding: 0.5rem 1.35rem;
+                border: 1px solid var(--accent-border);
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.85));
+                color: #0f172a;
+                font-weight: 600;
+                transition: transform 0.15s ease, box-shadow 0.15s ease;
+            }
+            .practice-question-block .stButton > button:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+            }
+            .practice-question-divider {
+                height: 1px;
+                margin: 1.5rem auto 0;
+                max-width: 86%;
+                background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.5), transparent);
+            }
+            @media (max-width: 900px) {
+                .practice-question-block {
+                    padding: 1.4rem 1.15rem 1.6rem;
+                    border-radius: 20px;
+                }
+            }
+            @media (prefers-color-scheme: dark) {
+                .practice-question-block {
+                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.92));
+                    color: #f8fafc;
+                    border-color: rgba(148, 163, 184, 0.35);
+                    box-shadow: 0 24px 50px rgba(2, 6, 23, 0.55);
+                }
+                .practice-question-block::before {
+                    opacity: 0.55;
+                }
+                .practice-question-block::after {
+                    opacity: 0.4;
+                }
+                .practice-question-block .question-mini-card {
+                    background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.88)) !important;
+                    color: #e2e8f0 !important;
+                    border-color: rgba(100, 116, 139, 0.4) !important;
+                }
+                .practice-question-block .question-mini-card .qm-chip {
+                    background: rgba(148, 163, 184, 0.22) !important;
+                    color: #e2e8f0 !important;
+                }
+                .practice-autosave-caption {
+                    color: rgba(226, 232, 240, 0.75);
+                }
+                .practice-question-block .stTextArea textarea {
+                    background: rgba(15, 23, 42, 0.92);
+                    color: #f8fafc;
+                    border-color: rgba(100, 116, 139, 0.5);
+                }
+                .practice-question-block .stTextArea textarea:focus {
+                    box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.28);
+                }
+                .practice-question-block .stButton > button {
+                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.92));
+                    color: #f8fafc;
+                    border-color: rgba(71, 85, 105, 0.55);
+                }
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_practice_question_styles_injected"] = True
+
+
+def _practice_tone_for_index(index: Optional[int]) -> str:
+    palette = ["mizu", "sakura", "matcha", "lavender", "citrus"]
+    if not index:
+        return palette[0]
+    return palette[(int(index) - 1) % len(palette)]
 
 
 def _inject_intent_card_styles() -> None:
@@ -4909,6 +5101,7 @@ def _question_input(
     case_label: Optional[str] = None,
     question_index: Optional[int] = None,
 ) -> str:
+    _inject_practice_question_styles()
     key = _draft_key(problem_id, question["id"])
     if key not in st.session_state.drafts:
         saved_default = st.session_state.saved_answers.get(key, "")
@@ -4981,7 +5174,10 @@ def _question_input(
 
     value = st.session_state.drafts.get(key, "")
     help_text = f"文字数目安: {question['character_limit']}字" if question["character_limit"] else ""
-    st.caption("入力内容は自動保存されます。")
+    st.markdown(
+        "<p class=\"practice-autosave-caption\">入力内容は自動保存されます。</p>",
+        unsafe_allow_html=True,
+    )
     text = st.text_area(
         label=question["prompt"],
         key=textarea_state_key,
@@ -6381,6 +6577,11 @@ def practice_page(user: Dict) -> None:
         _inject_guideline_styles()
 
         for idx, question in enumerate(problem["questions"], start=1):
+            tone = _practice_tone_for_index(idx)
+            st.markdown(
+                f'<section class="practice-question-block" data-tone="{tone}">',
+                unsafe_allow_html=True,
+            )
             text = _question_input(
                 problem["id"],
                 question,
@@ -6489,9 +6690,16 @@ def practice_page(user: Dict) -> None:
                         </div>
                         """.format(rows="".join(rows)),
                         unsafe_allow_html=True,
-                    )
+                )
                 st.caption(
                     "模範解答は構成や論理展開の参考例です。キーワードを押さえつつ自分の言葉で表現しましょう。"
+                )
+
+            st.markdown("</section>", unsafe_allow_html=True)
+            if idx < question_count:
+                st.markdown(
+                    '<div class="practice-question-divider" aria-hidden="true"></div>',
+                    unsafe_allow_html=True,
                 )
 
         st.markdown('<div id="practice-actions"></div>', unsafe_allow_html=True)
@@ -7833,7 +8041,13 @@ def mock_exam_page(user: Dict) -> None:
                 continue
             st.subheader(problem["title"])
             st.write(problem["overview"])
+            question_total = len(problem["questions"])
             for idx, question in enumerate(problem["questions"], start=1):
+                tone = _practice_tone_for_index(idx)
+                st.markdown(
+                    f'<section class="practice-question-block" data-tone="{tone}">',
+                    unsafe_allow_html=True,
+                )
                 _question_input(
                     problem_id,
                     question,
@@ -7841,6 +8055,12 @@ def mock_exam_page(user: Dict) -> None:
                     case_label=problem.get("case_label") or problem.get("case"),
                     question_index=idx,
                 )
+                st.markdown("</section>", unsafe_allow_html=True)
+                if idx < question_total:
+                    st.markdown(
+                        '<div class="practice-question-divider" aria-hidden="true"></div>',
+                        unsafe_allow_html=True,
+                    )
 
     if st.button("模試を提出", type="primary"):
         overall_results = []
