@@ -1417,116 +1417,229 @@ def _inject_practice_question_styles() -> None:
         dedent(
             """
             <style>
+            :root {
+                --practice-shadow-card: 0 18px 40px rgba(15, 23, 42, 0.08);
+                --practice-text-strong: #0f172a;
+                --practice-text-muted: #475569;
+                --practice-focus-ring: #2563eb;
+                --practice-focus-ring-soft: rgba(37, 99, 235, 0.18);
+                --practice-chip-bg: rgba(15, 23, 42, 0.06);
+                --pastel-mint-bg: #f0fdf4;
+                --pastel-mint-border: rgba(34, 197, 94, 0.28);
+                --pastel-mint-inner: rgba(34, 197, 94, 0.18);
+                --pastel-lemon-bg: #fefce8;
+                --pastel-lemon-border: rgba(250, 204, 21, 0.32);
+                --pastel-lemon-inner: rgba(250, 204, 21, 0.2);
+            }
             .practice-question-block {
-                --accent: rgba(56, 189, 248, 0.7);
-                --accent-border: rgba(56, 189, 248, 0.35);
-                --accent-soft: rgba(224, 242, 254, 0.92);
-                --accent-glow: rgba(56, 189, 248, 0.2);
-                --accent-text: #0f172a;
                 position: relative;
-                margin: 2.2rem 0;
-                padding: 1.6rem 1.8rem 1.9rem;
+                margin: 0 0 2.6rem;
+                scroll-margin-top: 110px;
+                transition: box-shadow 0.2s ease, transform 0.2s ease;
+            }
+            .practice-question-block:last-of-type {
+                margin-bottom: 1.8rem;
+            }
+            .practice-question-block[data-tone="mint"] .practice-question-card {
+                --card-bg: var(--pastel-mint-bg);
+                --card-border: var(--pastel-mint-border);
+                --card-inner: var(--pastel-mint-inner);
+            }
+            .practice-question-block[data-tone="lemon"] .practice-question-card {
+                --card-bg: var(--pastel-lemon-bg);
+                --card-border: var(--pastel-lemon-border);
+                --card-inner: var(--pastel-lemon-inner);
+            }
+            .practice-question-block.is-active .practice-question-card {
+                border-color: rgba(37, 99, 235, 0.55);
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18), var(--practice-shadow-card);
+            }
+            .practice-question-block.is-highlighted .practice-question-card {
+                animation: practiceCardPulse 2s ease;
+            }
+            @keyframes practiceCardPulse {
+                0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.35), var(--practice-shadow-card); }
+                100% { box-shadow: var(--practice-shadow-card); }
+            }
+            .practice-question-card {
+                position: relative;
+                padding: 1.8rem 1.95rem 2rem;
                 border-radius: 24px;
-                border: 1px solid var(--accent-border);
-                background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), var(--accent-soft));
-                box-shadow: 0 24px 48px rgba(15, 23, 42, 0.12);
-                overflow: hidden;
+                background: var(--card-bg, #ffffff);
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.35));
+                box-shadow: var(--practice-shadow-card);
+                color: var(--practice-text-strong);
+                display: flex;
+                flex-direction: column;
+                gap: 1.25rem;
+                line-height: 1.75;
             }
-            .practice-question-block::before {
+            .practice-question-card::before {
                 content: "";
                 position: absolute;
-                left: 0;
-                right: 0;
-                top: 0;
-                height: 10px;
-                background: linear-gradient(90deg, transparent, var(--accent), transparent);
-                opacity: 0.75;
-            }
-            .practice-question-block::after {
-                content: "";
-                position: absolute;
-                top: -35%;
-                right: -25%;
-                width: 320px;
-                height: 320px;
-                background: radial-gradient(circle at center, rgba(255, 255, 255, 0.65), transparent 70%);
-                opacity: 0.75;
+                inset: 10px;
+                border-radius: 18px;
+                border: 1px solid var(--card-inner, rgba(148, 163, 184, 0.28));
                 pointer-events: none;
             }
-            .practice-question-block[data-tone="sakura"] {
-                --accent: rgba(244, 114, 182, 0.6);
-                --accent-border: rgba(244, 114, 182, 0.32);
-                --accent-soft: rgba(253, 242, 248, 0.92);
-                --accent-glow: rgba(244, 114, 182, 0.18);
+            .practice-question-card > *:last-child {
+                margin-bottom: 0;
             }
-            .practice-question-block[data-tone="mizu"] {
-                --accent: rgba(56, 189, 248, 0.7);
-                --accent-border: rgba(56, 189, 248, 0.35);
-                --accent-soft: rgba(224, 242, 254, 0.92);
-                --accent-glow: rgba(56, 189, 248, 0.2);
+            .practice-question-header {
+                position: relative;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 0.85rem 1.2rem;
+                z-index: 1;
             }
-            .practice-question-block[data-tone="matcha"] {
-                --accent: rgba(134, 239, 172, 0.65);
-                --accent-border: rgba(74, 222, 128, 0.28);
-                --accent-soft: rgba(240, 253, 244, 0.9);
-                --accent-glow: rgba(74, 222, 128, 0.2);
+            .practice-question-header-main {
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+                min-width: 0;
             }
-            .practice-question-block[data-tone="lavender"] {
-                --accent: rgba(196, 181, 253, 0.65);
-                --accent-border: rgba(167, 139, 250, 0.32);
-                --accent-soft: rgba(237, 233, 254, 0.92);
-                --accent-glow: rgba(167, 139, 250, 0.2);
+            .practice-question-number {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0.25rem 0.75rem;
+                border-radius: 999px;
+                font-size: 0.82rem;
+                font-weight: 700;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                background: rgba(15, 23, 42, 0.08);
+                color: var(--practice-text-strong);
             }
-            .practice-question-block[data-tone="citrus"] {
-                --accent: rgba(250, 204, 21, 0.7);
-                --accent-border: rgba(250, 204, 21, 0.36);
-                --accent-soft: rgba(254, 249, 195, 0.9);
-                --accent-glow: rgba(250, 204, 21, 0.22);
+            .practice-question-title {
+                margin: 0;
+                font-size: clamp(1rem, 1.8vw, 1.2rem);
+                font-weight: 700;
+                color: var(--practice-text-strong);
             }
-            .practice-question-block .question-mini-card {
-                background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.88)) !important;
-                color: var(--accent-text) !important;
-                border-color: rgba(148, 163, 184, 0.35) !important;
-                box-shadow: none !important;
+            .practice-question-header-meta {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 0.45rem;
             }
-            .practice-question-block .question-mini-card::before {
-                display: none;
+            .practice-question-meta-items {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+                gap: 0.4rem;
             }
-            .practice-question-block .question-mini-card .qm-eyebrow {
-                color: rgba(30, 41, 59, 0.55) !important;
+            .practice-question-meta-item {
+                display: inline-flex;
+                align-items: center;
+                padding: 0.28rem 0.65rem;
+                border-radius: 999px;
+                border: 1px solid rgba(15, 23, 42, 0.15);
+                background: rgba(255, 255, 255, 0.85);
+                font-size: 0.78rem;
+                color: var(--practice-text-muted);
+                white-space: nowrap;
             }
-            .practice-question-block .question-mini-card .qm-meta span {
-                background: rgba(255, 255, 255, 0.92) !important;
-                border-color: var(--accent-border) !important;
-                color: inherit !important;
+            .practice-anchor-control {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 0.2rem;
             }
-            .practice-question-block .question-mini-card .qm-chip {
-                background: rgba(148, 163, 184, 0.18) !important;
-                border-color: rgba(148, 163, 184, 0.35) !important;
-                color: #1f2937 !important;
+            .practice-anchor-button {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+                border-radius: 999px;
+                border: 1px solid rgba(37, 99, 235, 0.4);
+                background: rgba(37, 99, 235, 0.08);
+                color: #1d4ed8;
+                font-size: 0.78rem;
+                font-weight: 600;
+                padding: 0.35rem 0.8rem;
+                cursor: pointer;
+                transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+            }
+            .practice-anchor-button svg {
+                width: 16px;
+                height: 16px;
+            }
+            .practice-anchor-button:hover {
+                background: rgba(37, 99, 235, 0.15);
+                transform: translateY(-1px);
+                box-shadow: 0 6px 18px rgba(37, 99, 235, 0.18);
+            }
+            .practice-anchor-button:focus-visible {
+                outline: 3px solid var(--practice-focus-ring-soft);
+                outline-offset: 3px;
+            }
+            .practice-anchor-button[disabled] {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+            .practice-anchor-feedback {
+                min-height: 1em;
+                font-size: 0.72rem;
+                color: #0f766e;
+            }
+            .practice-question-summary {
+                margin: 0;
+                font-size: 0.95rem;
+                color: var(--practice-text-muted);
+                z-index: 1;
+            }
+            .practice-question-summary strong {
+                color: var(--practice-text-strong);
+            }
+            .practice-question-chips {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.4rem;
+                z-index: 1;
+            }
+            .practice-question-chip {
+                display: inline-flex;
+                align-items: center;
+                padding: 0.25rem 0.6rem;
+                border-radius: 999px;
+                font-size: 0.75rem;
+                font-weight: 600;
+                letter-spacing: 0.02em;
+                background: rgba(59, 130, 246, 0.12);
+                color: #1d4ed8;
+                border: 1px solid rgba(59, 130, 246, 0.28);
             }
             .practice-autosave-caption {
-                font-size: 0.75rem;
+                font-size: 0.78rem;
                 letter-spacing: 0.02em;
-                color: rgba(15, 23, 42, 0.68);
+                color: var(--practice-text-muted);
                 margin: 0.45rem 0 0.85rem;
             }
             .practice-question-block .stTextArea textarea {
-                border-radius: 14px;
-                border: 1px solid rgba(148, 163, 184, 0.45);
+                border-radius: 16px;
+                border: 1px solid rgba(148, 163, 184, 0.5);
                 background: rgba(255, 255, 255, 0.96);
+                color: var(--practice-text-strong);
                 box-shadow: inset 0 2px 6px rgba(15, 23, 42, 0.08);
+                transition: border-color 0.15s ease, box-shadow 0.15s ease;
             }
-            .practice-question-block .stTextArea textarea:focus {
-                border-color: var(--accent);
-                box-shadow: 0 0 0 3px var(--accent-glow);
+            .practice-question-block .stTextArea textarea:focus-visible {
+                border-color: var(--practice-focus-ring);
+                box-shadow: 0 0 0 2px var(--practice-focus-ring-soft);
+                outline: 2px solid transparent;
+                outline-offset: 2px;
+            }
+            .practice-question-block .stTextArea textarea::placeholder {
+                color: rgba(100, 116, 139, 0.7);
             }
             .practice-question-block .stButton > button {
-                border-radius: 999px;
-                padding: 0.5rem 1.35rem;
-                border: 1px solid var(--accent-border);
-                background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.85));
-                color: #0f172a;
+                border-radius: 14px;
+                padding: 0.55rem 1.3rem;
+                border: 1px solid rgba(148, 163, 184, 0.45);
+                background: rgba(248, 250, 252, 0.95);
+                color: var(--practice-text-strong);
                 font-weight: 600;
                 transition: transform 0.15s ease, box-shadow 0.15s ease;
             }
@@ -1536,53 +1649,82 @@ def _inject_practice_question_styles() -> None:
             }
             .practice-question-divider {
                 height: 1px;
-                margin: 1.5rem auto 0;
-                max-width: 86%;
-                background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.5), transparent);
+                margin: 1.8rem auto 0;
+                max-width: 92%;
+                background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.45), transparent);
             }
             @media (max-width: 900px) {
-                .practice-question-block {
-                    padding: 1.4rem 1.15rem 1.6rem;
-                    border-radius: 20px;
+                .practice-question-card {
+                    padding: 1.5rem 1.35rem 1.7rem;
+                    border-radius: 22px;
+                }
+                .practice-question-card::before {
+                    inset: 8px;
+                    border-radius: 16px;
+                }
+                .practice-question-header {
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+                .practice-question-header-meta {
+                    align-items: stretch;
+                }
+                .practice-question-meta-items {
+                    justify-content: flex-start;
+                }
+                .practice-anchor-control {
+                    align-items: flex-start;
                 }
             }
             @media (prefers-color-scheme: dark) {
-                .practice-question-block {
-                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.92));
-                    color: #f8fafc;
+                .practice-question-card {
+                    background: rgba(17, 24, 39, 0.88);
+                    color: #e2e8f0;
                     border-color: rgba(148, 163, 184, 0.35);
-                    box-shadow: 0 24px 50px rgba(2, 6, 23, 0.55);
                 }
-                .practice-question-block::before {
-                    opacity: 0.55;
+                .practice-question-card::before {
+                    border-color: rgba(148, 163, 184, 0.3);
                 }
-                .practice-question-block::after {
-                    opacity: 0.4;
+                .practice-question-number {
+                    background: rgba(148, 163, 184, 0.25);
+                    color: #f8fafc;
                 }
-                .practice-question-block .question-mini-card {
-                    background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.88)) !important;
-                    color: #e2e8f0 !important;
-                    border-color: rgba(100, 116, 139, 0.4) !important;
+                .practice-question-meta-item {
+                    background: rgba(15, 23, 42, 0.35);
+                    border-color: rgba(148, 163, 184, 0.4);
+                    color: #e2e8f0;
                 }
-                .practice-question-block .question-mini-card .qm-chip {
-                    background: rgba(148, 163, 184, 0.22) !important;
-                    color: #e2e8f0 !important;
+                .practice-question-summary {
+                    color: rgba(226, 232, 240, 0.85);
+                }
+                .practice-question-chip {
+                    background: rgba(59, 130, 246, 0.2);
+                    color: #bfdbfe;
+                    border-color: rgba(147, 197, 253, 0.45);
+                }
+                .practice-anchor-button {
+                    background: rgba(37, 99, 235, 0.22);
+                    color: #bfdbfe;
+                    border-color: rgba(96, 165, 250, 0.6);
+                }
+                .practice-anchor-feedback {
+                    color: #7dd3fc;
                 }
                 .practice-autosave-caption {
-                    color: rgba(226, 232, 240, 0.75);
+                    color: rgba(226, 232, 240, 0.78);
                 }
                 .practice-question-block .stTextArea textarea {
                     background: rgba(15, 23, 42, 0.92);
                     color: #f8fafc;
-                    border-color: rgba(100, 116, 139, 0.5);
+                    border-color: rgba(100, 116, 139, 0.55);
                 }
-                .practice-question-block .stTextArea textarea:focus {
-                    box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.28);
+                .practice-question-block .stTextArea textarea:focus-visible {
+                    box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.35);
                 }
                 .practice-question-block .stButton > button {
-                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.92));
+                    background: rgba(30, 41, 59, 0.92);
+                    border-color: rgba(100, 116, 139, 0.45);
                     color: #f8fafc;
-                    border-color: rgba(71, 85, 105, 0.55);
                 }
             }
             </style>
@@ -1594,10 +1736,11 @@ def _inject_practice_question_styles() -> None:
 
 
 def _practice_tone_for_index(index: Optional[int]) -> str:
-    palette = ["mizu", "sakura", "matcha", "lavender", "citrus"]
-    if not index:
-        return palette[0]
-    return palette[(int(index) - 1) % len(palette)]
+    try:
+        numeric_index = int(index) if index is not None else 1
+    except (TypeError, ValueError):
+        numeric_index = 1
+    return "mint" if numeric_index % 2 == 1 else "lemon"
 
 
 def _inject_intent_card_styles() -> None:
@@ -1768,89 +1911,97 @@ def _inject_question_card_styles() -> None:
             """
             <style>
             .question-mini-card {
-                border-radius: 16px;
-                padding: 1rem 1.25rem;
-                background: linear-gradient(140deg, rgba(30, 41, 59, 0.92), rgba(51, 65, 85, 0.92));
-                color: #e2e8f0;
-                box-shadow: 0 18px 32px rgba(15, 23, 42, 0.28);
+                border-radius: 20px;
+                padding: 1.5rem 1.7rem;
+                background: var(--card-surface, #ffffff);
+                color: var(--card-text, #0f172a);
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                box-shadow: var(--practice-shadow-card, 0 18px 32px rgba(15, 23, 42, 0.12));
                 display: flex;
                 flex-direction: column;
-                gap: 0.6rem;
-                border: 1px solid rgba(148, 163, 184, 0.25);
+                gap: 0.9rem;
+                line-height: 1.7;
                 position: relative;
-                overflow: hidden;
-            }
-            .question-mini-card[data-theme="light"] {
-                background: linear-gradient(135deg, rgba(226, 232, 240, 0.9), rgba(203, 213, 225, 0.95));
-                color: #1e293b;
-                box-shadow: 0 14px 28px rgba(15, 23, 42, 0.2);
-                border-color: rgba(100, 116, 139, 0.35);
             }
             .question-mini-card::before {
                 content: "";
                 position: absolute;
-                inset: -40% -45% auto auto;
-                width: 240px;
-                height: 240px;
-                background: radial-gradient(circle at center, rgba(96, 165, 250, 0.25), transparent 70%);
-                opacity: 0.65;
+                inset: 10px;
+                border-radius: 16px;
+                border: 1px solid rgba(148, 163, 184, 0.25);
                 pointer-events: none;
             }
-            .question-mini-card .qm-eyebrow {
-                font-size: 0.72rem;
-                letter-spacing: 0.12em;
-                text-transform: uppercase;
-                color: rgba(226, 232, 240, 0.72);
+            .question-mini-card[data-theme="dark"] {
+                --card-surface: rgba(17, 24, 39, 0.92);
+                --card-text: #e2e8f0;
+                border-color: rgba(148, 163, 184, 0.4);
             }
-            .question-mini-card[data-theme="light"] .qm-eyebrow {
-                color: rgba(30, 41, 59, 0.6);
+            .question-mini-card[data-theme="auto"] {
+                --card-surface: #ffffff;
+                --card-text: #0f172a;
             }
-            .question-mini-card h4 {
-                font-size: 1.02rem;
+            .question-mini-card h4,
+            .question-mini-card .practice-question-title {
                 margin: 0;
+                font-size: clamp(1rem, 1.7vw, 1.18rem);
                 font-weight: 700;
-            }
-            .question-mini-card p {
-                margin: 0;
-                font-size: 0.85rem;
-                line-height: 1.6;
                 color: inherit;
             }
-            .question-mini-card .qm-meta {
+            .question-mini-card p,
+            .question-mini-card .practice-question-summary {
+                margin: 0;
+                font-size: 0.92rem;
+                color: rgba(71, 85, 105, 0.95);
+            }
+            .question-mini-card[data-theme="dark"] p,
+            .question-mini-card[data-theme="dark"] .practice-question-summary {
+                color: rgba(226, 232, 240, 0.86);
+            }
+            .question-mini-card .qm-meta,
+            .question-mini-card .practice-question-meta-items {
                 display: flex;
                 flex-wrap: wrap;
                 gap: 0.4rem;
             }
-            .question-mini-card .qm-meta span {
-                font-size: 0.74rem;
-                padding: 0.2rem 0.55rem;
+            .question-mini-card .qm-meta span,
+            .question-mini-card .practice-question-meta-item {
+                display: inline-flex;
+                align-items: center;
+                padding: 0.28rem 0.6rem;
                 border-radius: 999px;
-                background: rgba(15, 23, 42, 0.28);
-                border: 1px solid rgba(148, 163, 184, 0.35);
+                font-size: 0.78rem;
+                border: 1px solid rgba(148, 163, 184, 0.38);
+                background: rgba(248, 250, 252, 0.88);
                 color: inherit;
             }
-            .question-mini-card[data-theme="light"] .qm-meta span {
-                background: rgba(255, 255, 255, 0.75);
+            .question-mini-card[data-theme="dark"] .qm-meta span,
+            .question-mini-card[data-theme="dark"] .practice-question-meta-item {
+                background: rgba(30, 41, 59, 0.65);
                 border-color: rgba(148, 163, 184, 0.35);
             }
-            .question-mini-card .qm-chips {
+            .question-mini-card .qm-chips,
+            .question-mini-card .practice-question-chips {
                 display: flex;
                 flex-wrap: wrap;
                 gap: 0.3rem;
             }
-            .question-mini-card .qm-chip {
-                font-size: 0.72rem;
-                padding: 0.2rem 0.6rem;
+            .question-mini-card .qm-chip,
+            .question-mini-card .practice-question-chip {
+                display: inline-flex;
+                align-items: center;
+                padding: 0.24rem 0.55rem;
                 border-radius: 999px;
-                background: rgba(94, 234, 212, 0.12);
-                border: 1px solid rgba(148, 163, 184, 0.45);
-                color: inherit;
-                backdrop-filter: blur(6px);
+                font-size: 0.74rem;
+                letter-spacing: 0.02em;
+                background: rgba(59, 130, 246, 0.12);
+                color: #1d4ed8;
+                border: 1px solid rgba(59, 130, 246, 0.28);
             }
-            .question-mini-card[data-theme="light"] .qm-chip {
-                background: rgba(30, 64, 175, 0.12);
-                border-color: rgba(59, 130, 246, 0.35);
-                color: #1e3a8a;
+            .question-mini-card[data-theme="dark"] .qm-chip,
+            .question-mini-card[data-theme="dark"] .practice-question-chip {
+                background: rgba(59, 130, 246, 0.25);
+                color: #bfdbfe;
+                border-color: rgba(147, 197, 253, 0.4);
             }
             </style>
             """
@@ -2497,6 +2648,517 @@ def _inject_context_panel_behavior() -> None:
     )
 
 
+def _inject_practice_navigation_styles() -> None:
+    if st.session_state.get("_practice_nav_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .practice-main-column {
+                display: flex;
+                flex-direction: column;
+                gap: 1.6rem;
+            }
+            .practice-toc {
+                position: sticky;
+                top: calc(var(--context-panel-offset, 72px) + 12px);
+                display: flex;
+                flex-direction: column;
+                gap: 0.6rem;
+                padding: 0.75rem 1rem 0.9rem;
+                border-radius: 18px;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: rgba(248, 250, 252, 0.95);
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+                backdrop-filter: blur(6px);
+                z-index: 12;
+            }
+            .practice-main-column > .practice-toc:first-child {
+                margin-top: 0.6rem;
+            }
+            .practice-toc-label {
+                font-size: 0.75rem;
+                letter-spacing: 0.12em;
+                font-weight: 700;
+                text-transform: uppercase;
+                color: #2563eb;
+            }
+            .practice-toc-track {
+                list-style: none;
+                display: flex;
+                gap: 0.55rem;
+                padding: 0;
+                margin: 0;
+                overflow-x: auto;
+                scrollbar-width: thin;
+            }
+            .practice-toc-track::-webkit-scrollbar {
+                height: 6px;
+            }
+            .practice-toc-track::-webkit-scrollbar-thumb {
+                background: rgba(148, 163, 184, 0.6);
+                border-radius: 999px;
+            }
+            .practice-toc-track::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            .practice-toc-item {
+                flex: 0 0 auto;
+            }
+            .practice-toc-link {
+                display: flex;
+                flex-direction: column;
+                gap: 0.25rem;
+                min-width: 128px;
+                text-decoration: none;
+                border-radius: 999px;
+                border: 1px solid rgba(148, 163, 184, 0.38);
+                background: #ffffff;
+                color: #0f172a;
+                padding: 0.55rem 1rem;
+                box-shadow: 0 6px 12px rgba(15, 23, 42, 0.06);
+                transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+            }
+            .practice-toc-link:hover {
+                border-color: rgba(37, 99, 235, 0.4);
+                box-shadow: 0 10px 20px rgba(37, 99, 235, 0.12);
+            }
+            .practice-toc-link:focus-visible {
+                outline: 3px solid var(--practice-focus-ring-soft);
+                outline-offset: 3px;
+            }
+            .practice-toc-link[aria-current="location"] {
+                background: linear-gradient(135deg, #2563eb, #1d4ed8);
+                color: #ffffff;
+                border-color: rgba(37, 99, 235, 0.8);
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+                font-weight: 700;
+            }
+            .practice-toc-link[aria-current="location"] .practice-toc-index {
+                color: rgba(255, 255, 255, 0.92);
+            }
+            .practice-toc-index {
+                font-size: 0.75rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: #1d4ed8;
+            }
+            .practice-toc-text {
+                font-size: 0.8rem;
+                line-height: 1.3;
+                color: #1f2937;
+            }
+            .practice-toc-link[aria-current="location"] .practice-toc-text {
+                color: rgba(255, 255, 255, 0.92);
+            }
+            .practice-stepper {
+                position: sticky;
+                bottom: 1.5rem;
+                margin: 2.2rem 0 1.9rem;
+                display: flex;
+                gap: 0.75rem;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0.75rem 1rem;
+                border-radius: 18px;
+                border: 1px solid rgba(148, 163, 184, 0.38);
+                background: rgba(248, 250, 252, 0.92);
+                box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12);
+                backdrop-filter: blur(12px);
+                z-index: 14;
+            }
+            .practice-stepper-button {
+                flex: 1 1 0;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.2rem;
+                border: none;
+                border-radius: 12px;
+                padding: 0.65rem 1rem;
+                background: rgba(255, 255, 255, 0.85);
+                color: #0f172a;
+                font-weight: 600;
+                font-size: 0.92rem;
+                cursor: pointer;
+                transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+            }
+            .practice-stepper-button:hover:not(:disabled) {
+                background: rgba(219, 234, 254, 0.65);
+                box-shadow: 0 8px 20px rgba(59, 130, 246, 0.18);
+                transform: translateY(-1px);
+            }
+            .practice-stepper-button:focus-visible {
+                outline: 3px solid var(--practice-focus-ring-soft);
+                outline-offset: 2px;
+            }
+            .practice-stepper-button:disabled,
+            .practice-stepper-button[aria-disabled="true"] {
+                opacity: 0.5;
+                cursor: not-allowed;
+                box-shadow: none;
+                transform: none;
+            }
+            .practice-stepper-main {
+                font-size: 0.82rem;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                color: #1d4ed8;
+            }
+            .practice-stepper-sub {
+                font-size: 0.86rem;
+                color: #0f172a;
+            }
+            @media (max-width: 1024px) {
+                .practice-toc {
+                    position: static;
+                    box-shadow: none;
+                }
+            }
+            @media (max-width: 768px) {
+                .practice-toc {
+                    padding: 0.65rem 0.75rem 0.85rem;
+                }
+                .practice-stepper {
+                    position: fixed;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    margin: 0;
+                    border-radius: 0;
+                    padding: 0.65rem 1rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
+                    box-shadow: 0 -12px 24px rgba(15, 23, 42, 0.22);
+                    border-top: 1px solid rgba(148, 163, 184, 0.35);
+                }
+                .practice-stepper-button {
+                    align-items: center;
+                    text-align: center;
+                    background: rgba(255, 255, 255, 0.92);
+                }
+                .practice-stepper-sub {
+                    font-size: 0.8rem;
+                }
+            }
+            @media (prefers-color-scheme: dark) {
+                .practice-toc {
+                    background: rgba(17, 24, 39, 0.9);
+                    border-color: rgba(148, 163, 184, 0.35);
+                    box-shadow: 0 12px 32px rgba(2, 6, 23, 0.55);
+                }
+                .practice-toc-link {
+                    background: rgba(30, 41, 59, 0.92);
+                    color: #e2e8f0;
+                    border-color: rgba(148, 163, 184, 0.4);
+                }
+                .practice-toc-index {
+                    color: #bfdbfe;
+                }
+                .practice-toc-text {
+                    color: rgba(226, 232, 240, 0.85);
+                }
+                .practice-stepper {
+                    background: rgba(15, 23, 42, 0.9);
+                    border-color: rgba(148, 163, 184, 0.35);
+                    box-shadow: 0 16px 40px rgba(2, 6, 23, 0.6);
+                }
+                .practice-stepper-button {
+                    background: rgba(30, 41, 59, 0.88);
+                    color: #e2e8f0;
+                }
+                .practice-stepper-main {
+                    color: #93c5fd;
+                }
+                .practice-stepper-sub {
+                    color: #e2e8f0;
+                }
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_practice_nav_styles_injected"] = True
+
+
+def _inject_practice_navigation_script() -> None:
+    st.markdown(
+        dedent(
+            """
+            <script>
+            (() => {
+                const win = window.parent || window;
+                const doc = win.document;
+                if (!doc) {
+                    return;
+                }
+
+                const sections = Array.from(doc.querySelectorAll('.practice-question-block'));
+                const navLinks = Array.from(doc.querySelectorAll('.practice-toc-link'));
+                if (!sections.length || !navLinks.length) {
+                    return;
+                }
+
+                const stepper = doc.querySelector('.practice-stepper');
+                const prevButton = stepper ? stepper.querySelector('[data-step="prev"]') : null;
+                const nextButton = stepper ? stepper.querySelector('[data-step="next"]') : null;
+
+                if (win.__practiceNavObserver) {
+                    win.__practiceNavObserver.disconnect();
+                }
+
+                const sectionAnchors = sections.map((section) => {
+                    const explicit = section.getAttribute('data-anchor-id');
+                    if (explicit) {
+                        return explicit;
+                    }
+                    const marker = section.querySelector('.practice-question-anchor');
+                    return marker ? marker.id : '';
+                });
+
+                const sectionLabels = sections.map((section, index) => {
+                    const label = section.getAttribute('data-label');
+                    if (label) {
+                        return label;
+                    }
+                    const numberEl = section.querySelector('.practice-question-number');
+                    if (numberEl && numberEl.textContent.trim()) {
+                        return numberEl.textContent.trim();
+                    }
+                    return `設問${index + 1}`;
+                });
+
+                const sectionMap = new Map();
+                sections.forEach((section, index) => {
+                    const anchor = sectionAnchors[index];
+                    if (anchor) {
+                        sectionMap.set(anchor, { section, index });
+                    }
+                });
+
+                let activeAnchor = sectionAnchors[0] || '';
+
+                const copyText = async (text) => {
+                    try {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(text);
+                            return true;
+                        }
+                    } catch (error) {
+                        // fall back below
+                    }
+                    const helper = doc.createElement('textarea');
+                    helper.value = text;
+                    helper.setAttribute('readonly', '');
+                    helper.style.position = 'absolute';
+                    helper.style.left = '-9999px';
+                    doc.body.appendChild(helper);
+                    helper.select();
+                    let succeeded = false;
+                    try {
+                        succeeded = doc.execCommand('copy');
+                    } catch (err) {
+                        succeeded = false;
+                    }
+                    doc.body.removeChild(helper);
+                    return succeeded;
+                };
+
+                const highlightSection = (anchor) => {
+                    const data = sectionMap.get(anchor);
+                    if (!data) {
+                        return;
+                    }
+                    const { section } = data;
+                    section.classList.add('is-highlighted');
+                    win.setTimeout(() => section.classList.remove('is-highlighted'), 2000);
+                };
+
+                const updateStepper = () => {
+                    if (!stepper) {
+                        return;
+                    }
+                    const currentIndex = sectionAnchors.indexOf(activeAnchor);
+                    const setButton = (button, targetIndex, prefix) => {
+                        if (!button) {
+                            return;
+                        }
+                        if (targetIndex < 0 || targetIndex >= sectionAnchors.length || !sectionAnchors[targetIndex]) {
+                            button.dataset.anchor = '';
+                            button.disabled = true;
+                            button.setAttribute('aria-disabled', 'true');
+                            const sub = button.querySelector('.practice-stepper-sub');
+                            if (sub) {
+                                sub.textContent = '';
+                            }
+                            button.setAttribute('aria-label', prefix);
+                            return;
+                        }
+                        const anchor = sectionAnchors[targetIndex];
+                        const label = sectionLabels[targetIndex] || `設問${targetIndex + 1}`;
+                        button.dataset.anchor = anchor;
+                        button.disabled = false;
+                        button.setAttribute('aria-disabled', 'false');
+                        const sub = button.querySelector('.practice-stepper-sub');
+                        if (sub) {
+                            sub.textContent = label;
+                        }
+                        button.setAttribute('aria-label', `${prefix}（${label}）`);
+                    };
+                    setButton(prevButton, currentIndex - 1, '前の設問');
+                    setButton(nextButton, currentIndex + 1, '次の設問');
+                };
+
+                const setActive = (anchor, options = {}) => {
+                    if (!anchor) {
+                        return;
+                    }
+                    const changed = anchor !== activeAnchor;
+                    activeAnchor = anchor;
+                    navLinks.forEach((link) => {
+                        if (link.dataset.anchor === anchor) {
+                            link.setAttribute('aria-current', 'location');
+                            link.classList.add('is-active');
+                            if (options.scrollNav) {
+                                link.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+                            }
+                        } else {
+                            link.removeAttribute('aria-current');
+                            link.classList.remove('is-active');
+                        }
+                    });
+                    sections.forEach((section, index) => {
+                        section.classList.toggle('is-active', sectionAnchors[index] === anchor);
+                    });
+                    if (changed || options.forceUpdate) {
+                        updateStepper();
+                    }
+                };
+
+                const scrollToAnchor = (anchor, emphasize = false) => {
+                    if (!anchor) {
+                        return;
+                    }
+                    const target = doc.getElementById(anchor);
+                    if (!target) {
+                        return;
+                    }
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    if (history.replaceState) {
+                        const nextUrl = new URL(win.location);
+                        nextUrl.hash = anchor;
+                        history.replaceState(null, '', nextUrl.toString());
+                    }
+                    if (emphasize) {
+                        highlightSection(anchor);
+                    }
+                    win.requestAnimationFrame(() => setActive(anchor, { scrollNav: true, forceUpdate: true }));
+                };
+
+                navLinks.forEach((link) => {
+                    if (link.dataset.enhanced === '1') {
+                        return;
+                    }
+                    link.dataset.enhanced = '1';
+                    link.addEventListener('click', (event) => {
+                        const anchor = link.dataset.anchor;
+                        if (!anchor) {
+                            return;
+                        }
+                        event.preventDefault();
+                        scrollToAnchor(anchor, true);
+                    });
+                });
+
+                [prevButton, nextButton].forEach((button) => {
+                    if (!button || button.dataset.enhanced === '1') {
+                        return;
+                    }
+                    button.dataset.enhanced = '1';
+                    button.addEventListener('click', (event) => {
+                        const anchor = button.dataset.anchor;
+                        if (!anchor) {
+                            return;
+                        }
+                        event.preventDefault();
+                        scrollToAnchor(anchor, true);
+                    });
+                });
+
+                const anchorButtons = Array.from(doc.querySelectorAll('.practice-anchor-button'));
+                anchorButtons.forEach((button) => {
+                    if (button.dataset.enhanced === '1') {
+                        return;
+                    }
+                    button.dataset.enhanced = '1';
+                    button.addEventListener('click', async () => {
+                        const anchor = button.dataset.anchor;
+                        if (!anchor) {
+                            return;
+                        }
+                        const feedbackId = button.dataset.feedbackId;
+                        const feedback = feedbackId ? doc.getElementById(feedbackId) : null;
+                        const original = button.dataset.label || button.getAttribute('aria-label') || '';
+                        const copied = button.dataset.labelCopied || 'リンクをコピーしました';
+                        const url = new URL(win.location);
+                        url.hash = anchor;
+                        const success = await copyText(url.toString());
+                        if (feedback) {
+                            feedback.textContent = success ? copied : 'コピーに失敗しました';
+                            win.setTimeout(() => {
+                                feedback.textContent = '';
+                            }, 2600);
+                        }
+                        if (original) {
+                            button.setAttribute('aria-label', success ? copied : original);
+                            win.setTimeout(() => button.setAttribute('aria-label', original), 2600);
+                        }
+                        if (success) {
+                            highlightSection(anchor);
+                        }
+                    });
+                });
+
+                if ('IntersectionObserver' in win) {
+                    const observer = new IntersectionObserver(
+                        (entries) => {
+                            const candidates = entries
+                                .filter((entry) => entry.isIntersecting)
+                                .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+                            if (!candidates.length) {
+                                return;
+                            }
+                            const targetSection = candidates[0].target;
+                            const index = sections.indexOf(targetSection);
+                            const anchor = sectionAnchors[index];
+                            if (anchor) {
+                                setActive(anchor, { forceUpdate: true });
+                            }
+                        },
+                        { rootMargin: '-45% 0px -45% 0px', threshold: [0.25, 0.5, 0.7] }
+                    );
+                    sections.forEach((section) => observer.observe(section));
+                    win.__practiceNavObserver = observer;
+                }
+
+                setActive(activeAnchor || sectionAnchors[0] || '', { forceUpdate: true });
+                updateStepper();
+
+                win.addEventListener('hashchange', () => {
+                    const anchor = win.location.hash.replace('#', '');
+                    if (anchor && sectionMap.has(anchor)) {
+                        setActive(anchor, { scrollNav: true, forceUpdate: true });
+                    }
+                });
+            })();
+            </script>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+
 def _render_question_context_block(context_value: Any) -> None:
     context_text = _normalize_text_block(context_value)
     if not context_text:
@@ -3133,33 +3795,46 @@ def _render_question_overview_card(
     *,
     case_label: Optional[str] = None,
     source_label: Optional[str] = None,
+    anchor_id: Optional[str] = None,
+    header_id: Optional[str] = None,
 ) -> None:
     if not question:
         return
 
     _inject_question_card_styles()
     theme = _resolve_question_card_theme()
-    prompt = html.escape(question.get("prompt") or question.get("設問見出し") or "設問")
+    prompt_text = _normalize_text_block(
+        question.get("prompt") or question.get("設問見出し") or ""
+    )
+    if not prompt_text:
+        prompt_text = "設問タイトル未設定"
+    prompt = html.escape(prompt_text)
+
     order = question.get("order") or question.get("設問番号")
-    eyebrow = f"設問{order}" if order else "設問"
+    try:
+        numeric_order = int(order) if order is not None else None
+    except (TypeError, ValueError):
+        numeric_order = None
+    order_label = (
+        f"設問{numeric_order}"
+        if numeric_order is not None
+        else f"設問{order}" if order is not None else "設問"
+    )
+
     limit = question.get("character_limit") or question.get("制限字数")
+    if isinstance(limit, float) and float(limit).is_integer():
+        limit = int(limit)
     max_score = question.get("max_score") or question.get("配点")
+    if isinstance(max_score, float) and float(max_score).is_integer():
+        max_score = int(max_score)
 
-    element_label = "3点構成"
-    if limit and int(limit) <= 80:
-        element_label = "2点構成"
-
-    meta_items = [element_label]
-    if limit and pd.notna(limit):
-        meta_items.append(f"{int(limit)}字以内")
+    meta_items: List[str] = []
+    if limit and not pd.isna(limit):
+        meta_items.append(f"制限 {int(limit)}字")
     if max_score is not None and not pd.isna(max_score):
-        if isinstance(max_score, (int, float)) and float(max_score).is_integer():
-            score_label = str(int(max_score))
-        else:
-            score_label = str(max_score)
-        meta_items.append(f"配点 {score_label}点")
+        meta_items.append(f"配点 {max_score}点")
     if source_label:
-        meta_items.append(source_label)
+        meta_items.append(str(source_label))
 
     question_for_aim = dict(question)
     if not question_for_aim.get("prompt") and question_for_aim.get("問題文"):
@@ -3167,25 +3842,69 @@ def _render_question_overview_card(
         if first_line:
             question_for_aim["prompt"] = first_line
     aim_text = question.get("aim") or _infer_question_aim(question_for_aim)
-    aim = html.escape(aim_text)
+    aim_html = ""
+    if aim_text:
+        aim_html = html.escape(aim_text).replace("\n", "<br>")
 
     frames = CASE_FRAME_SHORTCUTS.get(case_label or question.get("case_label") or "", [])
     frame_labels = [frame.get("label") for frame in frames[:4] if frame.get("label")]
 
-    meta_html = "".join(f"<span>{html.escape(str(item))}</span>" for item in meta_items if item)
-    chips_html = "".join(
-        f"<span class=\"qm-chip\">{html.escape(label)}</span>" for label in frame_labels
+    meta_html = "".join(
+        f"<span class=\"practice-question-meta-item\">{html.escape(str(item))}</span>"
+        for item in meta_items
+        if item
     )
+    chips_html = "".join(
+        f"<span class=\"practice-question-chip\">{html.escape(label)}</span>"
+        for label in frame_labels
+    )
+
+    anchor_control_html = ""
+    if anchor_id:
+        escaped_anchor = html.escape(anchor_id)
+        anchor_feedback_id = f"{anchor_id}-feedback"
+        anchor_label = f"{order_label}のリンクをコピー"
+        anchor_control_html = dedent(
+            f"""
+            <div class=\"practice-anchor-control\">
+                <button
+                    type=\"button\"
+                    class=\"practice-anchor-button\"
+                    data-anchor=\"{escaped_anchor}\"
+                    data-feedback-id=\"{html.escape(anchor_feedback_id)}\"
+                    aria-label=\"{html.escape(anchor_label)}\"
+                    data-label=\"{html.escape(anchor_label)}\"
+                    data-label-copied=\"リンクをコピーしました\"
+                >
+                    <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\">
+                        <path d=\"M10.59 13.41a1 1 0 0 1 0-1.41l3.18-3.18a1 1 0 1 1 1.41 1.41l-3.18 3.18a1 1 0 0 1-1.41 0z\" fill=\"currentColor\" />
+                        <path d=\"M11 7a3 3 0 0 1 4.24 0l1.76 1.76a3 3 0 0 1 0 4.24l-.88.88a1 1 0 1 1-1.41-1.41l.88-.88a1 1 0 0 0 0-1.41L14.83 8.4a1 1 0 0 0-1.41 0l-.89.89a1 1 0 0 1-1.41-1.41L11 7zm2 10a3 3 0 0 1-2.12-.88l-1.76-1.76a3 3 0 0 1 0-4.24l.88-.88a1 1 0 0 1 1.41 1.41l-.88.88a1 1 0 0 0 0 1.41l1.76 1.76a1 1 0 0 0 1.41 0l.89-.89a1 1 0 1 1 1.41 1.41l-.89.89A3 3 0 0 1 13 17z\" fill=\"currentColor\" />
+                    </svg>
+                    <span>リンクコピー</span>
+                </button>
+                <span id=\"{html.escape(anchor_feedback_id)}\" class=\"practice-anchor-feedback\" aria-live=\"polite\"></span>
+            </div>
+            """
+        ).strip()
+
+    header_attributes = f' id="{html.escape(header_id)}"' if header_id else ""
 
     st.markdown(
         dedent(
             f"""
-            <div class="question-mini-card" data-theme="{theme}">
-                <span class="qm-eyebrow">{html.escape(eyebrow)}</span>
-                <h4>{prompt}</h4>
-                <div class="qm-meta">{meta_html}</div>
-                <p>{aim}</p>
-                <div class="qm-chips">{chips_html}</div>
+            <div class=\"question-mini-card practice-question-card\" data-theme=\"{theme}\">
+                <header class=\"practice-question-header\"{header_attributes}>
+                    <div class=\"practice-question-header-main\">
+                        <span class=\"practice-question-number\">{html.escape(order_label)}</span>
+                        <h3 class=\"practice-question-title\">{prompt}</h3>
+                    </div>
+                    <div class=\"practice-question-header-meta\">
+                        <div class=\"practice-question-meta-items\">{meta_html}</div>
+                        {anchor_control_html}
+                    </div>
+                </header>
+                {f'<p class="practice-question-summary">{aim_html}</p>' if aim_html else ''}
+                {f'<div class="practice-question-chips">{chips_html}</div>' if chips_html else ''}
             </div>
             """
         ),
@@ -5262,6 +5981,8 @@ def _question_input(
     widget_prefix: str = "textarea_",
     case_label: Optional[str] = None,
     question_index: Optional[int] = None,
+    anchor_id: Optional[str] = None,
+    header_id: Optional[str] = None,
 ) -> str:
     _inject_practice_question_styles()
     key = _draft_key(problem_id, question["id"])
@@ -5271,28 +5992,35 @@ def _question_input(
 
     textarea_state_key = f"{widget_prefix}{key}"
 
-    anchor_source = (
-        question_index
-        if question_index is not None
-        else question.get("order")
-        or question.get("設問番号")
-        or question.get("prompt")
-        or question.get("id")
-    )
-    if anchor_source is not None:
-        anchor_slug = re.sub(r"[^0-9a-zA-Z]+", "-", str(anchor_source)).strip("-")
-        if not anchor_slug:
-            anchor_slug = str(question.get("id"))
-        anchor_id = f"question-q{anchor_slug}"
+    if not anchor_id:
+        anchor_source = (
+            question_index
+            if question_index is not None
+            else question.get("order")
+            or question.get("設問番号")
+            or question.get("prompt")
+            or question.get("id")
+        )
+        if anchor_source is not None:
+            anchor_slug = re.sub(r"[^0-9a-zA-Z]+", "-", str(anchor_source)).strip("-")
+            if not anchor_slug:
+                anchor_slug = str(question.get("id"))
+            anchor_id = f"question-q{anchor_slug}"
+    if anchor_id:
         st.markdown(
-            f"<div id=\"{anchor_id}\" class=\"practice-question-anchor\" aria-hidden=\"true\"></div>",
+            f"<div id=\"{html.escape(anchor_id)}\" class=\"practice-question-anchor\" aria-hidden=\"true\"></div>",
             unsafe_allow_html=True,
         )
 
     question_overview = dict(question)
     question_overview.setdefault("order", question.get("order"))
     question_overview.setdefault("case_label", case_label)
-    _render_question_overview_card(question_overview, case_label=case_label)
+    _render_question_overview_card(
+        question_overview,
+        case_label=case_label,
+        anchor_id=anchor_id,
+        header_id=header_id,
+    )
     _render_intent_cards(question, key, textarea_state_key)
     _render_case_frame_shortcuts(case_label, key, textarea_state_key)
 
@@ -6152,306 +6880,7 @@ def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。与件ハイライトと詳細解説で復習効果を高めましょう。")
 
-    st.markdown(
-        dedent(
-            """
-            <style>
-            .practice-quick-nav {
-                position: fixed;
-                bottom: 2.25rem;
-                right: 2.25rem;
-                display: flex;
-                flex-direction: column;
-                gap: 0.75rem;
-                padding: 1rem 1.15rem;
-                border-radius: 1rem;
-                border: 1px solid rgba(148, 163, 184, 0.35);
-                background: linear-gradient(145deg, #0f172a 0%, #1e293b 55%, #1d4ed8 120%);
-                box-shadow: 0 22px 50px rgba(15, 23, 42, 0.22);
-                z-index: 75;
-                min-width: 108px;
-                color: #f8fafc;
-                cursor: grab;
-                touch-action: none;
-                user-select: none;
-            }
-            .practice-quick-nav:focus-visible {
-                outline: 3px solid rgba(248, 250, 252, 0.75);
-                outline-offset: 4px;
-            }
-            .practice-quick-nav-title {
-                font-size: 0.78rem;
-                font-weight: 700;
-                letter-spacing: 0.18em;
-                text-transform: uppercase;
-                color: #c7d2fe;
-            }
-            .practice-quick-nav-items {
-                display: flex;
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-            .practice-quick-nav a {
-                text-decoration: none;
-            }
-            .practice-quick-nav-link {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                padding: 0.48rem 1rem;
-                border-radius: 999px;
-                font-weight: 700;
-                font-size: 0.95rem;
-                border: 1px solid rgba(148, 163, 184, 0.6);
-                background: #facc15;
-                color: #0f172a;
-                letter-spacing: 0.04em;
-                box-shadow: 0 10px 18px rgba(8, 47, 73, 0.25);
-                transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
-            }
-            .practice-quick-nav-link:hover {
-                background-color: #fde047;
-                transform: translateY(-1.5px) scale(1.01);
-                box-shadow: 0 14px 26px rgba(8, 47, 73, 0.3);
-            }
-            .practice-quick-nav-link:focus-visible {
-                outline: 3px solid rgba(248, 250, 252, 0.8);
-                outline-offset: 3px;
-            }
-            .practice-question-anchor {
-                scroll-margin-top: 80px;
-            }
-            body.context-panel-open .practice-quick-nav {
-                display: none;
-            }
-            @media (prefers-reduced-motion: reduce) {
-                .practice-quick-nav-link {
-                    transition: none;
-                }
-            }
-            @media (max-width: 900px) {
-                .practice-quick-nav {
-                    display: none;
-                }
-            }
-            </style>
-            """
-        ).strip(),
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        dedent(
-            """
-            <script>
-            (function() {
-                const doc = window.parent?.document || document;
-                if (!doc?.body) {
-                    return;
-                }
-
-                const STORAGE_KEY = 'practiceQuickNavPosition';
-                const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-
-                const ensureExplicitPosition = (nav) => {
-                    const computed = doc.defaultView?.getComputedStyle(nav);
-                    if (!computed) {
-                        return;
-                    }
-                    if (computed.left !== "auto" && computed.top !== "auto") {
-                        return;
-                    }
-                    const rect = nav.getBoundingClientRect();
-                    nav.style.left = `${rect.left}px`;
-                    nav.style.top = `${rect.top}px`;
-                    nav.style.bottom = "auto";
-                    nav.style.right = "auto";
-                };
-
-                const applyStoredPosition = (nav) => {
-                    const stored = window.parent?.localStorage?.getItem(STORAGE_KEY);
-                    if (!stored) {
-                        return;
-                    }
-                    try {
-                        const pos = JSON.parse(stored);
-                        if (
-                            typeof pos === 'object' &&
-                            pos !== null &&
-                            typeof pos.x === 'number' &&
-                            typeof pos.y === 'number'
-                        ) {
-                            nav.style.left = `${pos.x}px`;
-                            nav.style.top = `${pos.y}px`;
-                            nav.style.bottom = 'auto';
-                            nav.style.right = 'auto';
-                        }
-                    } catch (error) {
-                        console.warn('Failed to parse stored Qナビ position', error);
-                    }
-                };
-
-                const savePosition = (left, top) => {
-                    try {
-                        window.parent?.localStorage?.setItem(
-                            STORAGE_KEY,
-                            JSON.stringify({ x: left, y: top })
-                        );
-                    } catch (error) {
-                        console.warn('Failed to store Qナビ position', error);
-                    }
-                };
-
-                const initializeNav = () => {
-                    const nav = doc.querySelector('.practice-quick-nav');
-                    if (!nav) {
-                        return false;
-                    }
-                    if (nav.dataset.draggableInitialized === 'true') {
-                        return true;
-                    }
-
-                    if (nav.tabIndex < 0) {
-                        nav.tabIndex = 0;
-                    }
-
-                    applyStoredPosition(nav);
-                    ensureExplicitPosition(nav);
-
-                    const startDrag = (event) => {
-                        if (event.button !== undefined && event.button !== 0) {
-                            return;
-                        }
-                        if (event.target.closest('.practice-quick-nav-link')) {
-                            return;
-                        }
-                        event.preventDefault();
-                        ensureExplicitPosition(nav);
-                        nav.style.cursor = 'grabbing';
-
-                        const rect = nav.getBoundingClientRect();
-                        const offsetX = event.clientX - rect.left;
-                        const offsetY = event.clientY - rect.top;
-
-                        const onPointerMove = (moveEvent) => {
-                            const availableWidth = doc.documentElement.clientWidth;
-                            const availableHeight = doc.documentElement.clientHeight;
-                            const navWidth = nav.offsetWidth;
-                            const navHeight = nav.offsetHeight;
-                            const targetLeft = clamp(
-                                moveEvent.clientX - offsetX,
-                                12,
-                                Math.max(12, availableWidth - navWidth - 12)
-                            );
-                            const targetTop = clamp(
-                                moveEvent.clientY - offsetY,
-                                12,
-                                Math.max(12, availableHeight - navHeight - 12)
-                            );
-
-                            nav.style.left = `${targetLeft}px`;
-                            nav.style.top = `${targetTop}px`;
-                        };
-
-                        const usePointerCapture =
-                            typeof event.pointerId === 'number' &&
-                            typeof nav.setPointerCapture === 'function';
-
-                        const onPointerUp = () => {
-                            if (usePointerCapture && nav.hasPointerCapture?.(event.pointerId)) {
-                                nav.releasePointerCapture(event.pointerId);
-                            }
-                            if (usePointerCapture) {
-                                nav.removeEventListener('pointermove', onPointerMove);
-                                nav.removeEventListener('pointerup', onPointerUp);
-                                nav.removeEventListener('pointercancel', onPointerUp);
-                            } else {
-                                doc.removeEventListener('pointermove', onPointerMove);
-                                doc.removeEventListener('pointerup', onPointerUp);
-                                doc.removeEventListener('pointercancel', onPointerUp);
-                            }
-                            nav.style.cursor = 'grab';
-
-                            const left = parseFloat(nav.style.left || '0');
-                            const top = parseFloat(nav.style.top || '0');
-                            if (!Number.isNaN(left) && !Number.isNaN(top)) {
-                                savePosition(left, top);
-                            }
-                        };
-
-                        if (usePointerCapture) {
-                            nav.setPointerCapture(event.pointerId);
-                            nav.addEventListener('pointermove', onPointerMove);
-                            nav.addEventListener('pointerup', onPointerUp);
-                            nav.addEventListener('pointercancel', onPointerUp);
-                        } else {
-                            doc.addEventListener('pointermove', onPointerMove);
-                            doc.addEventListener('pointerup', onPointerUp);
-                            doc.addEventListener('pointercancel', onPointerUp);
-                        }
-                    };
-
-                    nav.addEventListener('pointerdown', startDrag);
-                    nav.addEventListener('keydown', (event) => {
-                        const step = event.shiftKey ? 32 : 16;
-                        let deltaX = 0;
-                        let deltaY = 0;
-                        if (event.key === 'ArrowUp') {
-                            deltaY = -step;
-                        } else if (event.key === 'ArrowDown') {
-                            deltaY = step;
-                        } else if (event.key === 'ArrowLeft') {
-                            deltaX = -step;
-                        } else if (event.key === 'ArrowRight') {
-                            deltaX = step;
-                        } else {
-                            return;
-                        }
-
-                        event.preventDefault();
-                        ensureExplicitPosition(nav);
-
-                        const rect = nav.getBoundingClientRect();
-                        const availableWidth = doc.documentElement.clientWidth;
-                        const availableHeight = doc.documentElement.clientHeight;
-                        const navWidth = nav.offsetWidth;
-                        const navHeight = nav.offsetHeight;
-
-                        const targetLeft = clamp(
-                            rect.left + deltaX,
-                            12,
-                            Math.max(12, availableWidth - navWidth - 12)
-                        );
-                        const targetTop = clamp(
-                            rect.top + deltaY,
-                            12,
-                            Math.max(12, availableHeight - navHeight - 12)
-                        );
-
-                        nav.style.left = `${targetLeft}px`;
-                        nav.style.top = `${targetTop}px`;
-                        savePosition(targetLeft, targetTop);
-                    });
-                    nav.dataset.draggableInitialized = 'true';
-                    return true;
-                };
-
-                if (!initializeNav()) {
-                    const observer = new MutationObserver(() => {
-                        if (initializeNav()) {
-                            observer.disconnect();
-                        }
-                    });
-                    observer.observe(doc.body, { childList: true, subtree: true });
-
-                    setTimeout(() => observer.disconnect(), 10000);
-                }
-            })();
-            </script>
-            """
-        ).strip(),
-        unsafe_allow_html=True,
-    )
+    _inject_practice_navigation_styles()
 
     past_data_df = st.session_state.get("past_data")
     signature = _problem_data_signature()
@@ -6760,21 +7189,50 @@ def practice_page(user: Dict) -> None:
 
     with main_col:
         st.markdown('<div class="practice-main-column">', unsafe_allow_html=True)
-        question_count = len(problem["questions"])
-        if question_count:
+        question_entries: List[Dict[str, str]] = []
+        for idx, q in enumerate(problem["questions"], start=1):
+            anchor_id = f"question-q{idx}"
+            header_id = f"{anchor_id}-header"
+            raw_prompt = _normalize_text_block(q.get("prompt") or q.get("設問見出し") or "")
+            preview_text = _format_preview_text(raw_prompt, 24) if raw_prompt else "概要未登録"
+            label = f"設問{idx}"
+            stepper_label = f"{label}：{preview_text}" if preview_text else label
+            question_entries.append(
+                {
+                    "anchor": anchor_id,
+                    "header_id": header_id,
+                    "label": label,
+                    "preview": preview_text,
+                    "title": raw_prompt or label,
+                    "stepper": stepper_label,
+                }
+            )
+
+        question_count = len(question_entries)
+
+        if question_entries:
             nav_items = "".join(
-                f"<a href=\"#question-q{idx}\" class=\"practice-quick-nav-link\" role=\"button\" aria-label=\"設問{idx}へ移動\">Q{idx}</a>"
-                for idx in range(1, question_count + 1)
+                (
+                    "<li class=\"practice-toc-item\">"
+                    f"<a class=\"practice-toc-link\" data-anchor=\"{html.escape(entry['anchor'])}\" "
+                    f"href=\"#{html.escape(entry['anchor'])}\" data-index=\"{index}\" "
+                    f"title=\"{html.escape(entry['title'], quote=True)}\""
+                    f"{' aria-current=\"location\"' if index == 0 else ''}>"
+                    f"<span class=\"practice-toc-index\">{html.escape(entry['label'])}</span>"
+                    f"<span class=\"practice-toc-text\">{html.escape(entry['preview'])}</span>"
+                    "</a></li>"
+                )
+                for index, entry in enumerate(question_entries)
             )
             st.markdown(
                 dedent(
                     f"""
-                    <nav class=\"practice-quick-nav\" aria-label=\"設問ナビゲーション\">
-                        <span class=\"practice-quick-nav-title\">Qナビ</span>
-                        <div class=\"practice-quick-nav-items\">{nav_items}</div>
+                    <nav class=\"practice-toc\" aria-label=\"設問セクション\">
+                        <span class=\"practice-toc-label\">設問ナビ</span>
+                        <ol class=\"practice-toc-track\" role=\"list\">{nav_items}</ol>
                     </nav>
                     """
-                ).strip(),
+                ),
                 unsafe_allow_html=True,
             )
 
@@ -6815,8 +7273,18 @@ def practice_page(user: Dict) -> None:
 
         for idx, question in enumerate(problem["questions"], start=1):
             tone = _practice_tone_for_index(idx)
+            entry = question_entries[idx - 1] if idx - 1 < len(question_entries) else None
+            anchor_value = entry["anchor"] if entry else f"question-q{idx}"
+            header_value = entry["header_id"] if entry else f"question-q{idx}-header"
+            label_value = entry["stepper"] if entry else f"設問{idx}"
             st.markdown(
-                f'<section class="practice-question-block" data-tone="{tone}">',
+                (
+                    f'<section class="practice-question-block" data-tone="{tone}" '
+                    f'data-anchor-id="{html.escape(anchor_value)}" '
+                    f'data-index="{idx}" '
+                    f'data-label="{html.escape(label_value)}" '
+                    f'role="region" aria-labelledby="{html.escape(header_value)}">'
+                ),
                 unsafe_allow_html=True,
             )
             text = _question_input(
@@ -6824,6 +7292,8 @@ def practice_page(user: Dict) -> None:
                 question,
                 case_label=problem.get("case_label") or problem.get("case"),
                 question_index=idx,
+                anchor_id=anchor_value,
+                header_id=header_value,
             )
             question_specs.append(
                 QuestionSpec(
@@ -6938,6 +7408,26 @@ def practice_page(user: Dict) -> None:
                     '<div class="practice-question-divider" aria-hidden="true"></div>',
                     unsafe_allow_html=True,
                 )
+
+        if question_entries:
+            st.markdown(
+                dedent(
+                    """
+                    <nav class="practice-stepper" aria-label="設問ステッパー">
+                        <button type="button" class="practice-stepper-button" data-step="prev" data-anchor="" aria-disabled="true">
+                            <span class="practice-stepper-main">前の設問</span>
+                            <span class="practice-stepper-sub" aria-hidden="true"></span>
+                        </button>
+                        <button type="button" class="practice-stepper-button" data-step="next" data-anchor="">
+                            <span class="practice-stepper-main">次の設問</span>
+                            <span class="practice-stepper-sub" aria-hidden="true"></span>
+                        </button>
+                    </nav>
+                    """
+                ),
+                unsafe_allow_html=True,
+            )
+            _inject_practice_navigation_script()
 
         st.markdown('<div id="practice-actions"></div>', unsafe_allow_html=True)
 
