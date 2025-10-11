@@ -239,6 +239,8 @@ def _compute_theme_summary(corpus: pd.DataFrame, top_n: int) -> Dict[str, pd.Dat
         empty = pd.DataFrame(columns=["keyword", "score"])
         return {"overall": empty, "by_case": {}}
 
+    corpus = corpus.reset_index(drop=True)
+
     vectoriser = TfidfVectorizer(tokenizer=_tokeniser_for_vectoriser, token_pattern=None, lowercase=False)
     matrix = vectoriser.fit_transform(corpus["text"])
     feature_names = vectoriser.get_feature_names_out()
@@ -256,9 +258,10 @@ def _compute_theme_summary(corpus: pd.DataFrame, top_n: int) -> Dict[str, pd.Dat
 
     by_case: Dict[str, pd.DataFrame] = {}
     for case_label, group_indices in corpus.groupby("case_label").groups.items():
-        if not group_indices:
+        if group_indices.empty:
             continue
-        case_matrix = matrix[list(group_indices)]
+        case_positions = group_indices.to_numpy(dtype=int, copy=False)
+        case_matrix = matrix[case_positions]
         case_scores = np.asarray(case_matrix.mean(axis=0)).ravel()
         case_indices = np.argsort(case_scores)[::-1]
         case_rows: List[Dict[str, object]] = []
