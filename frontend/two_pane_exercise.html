@@ -29,10 +29,13 @@
         --color-card-iv: #dfe2ff; /* 瑠璃 */
         --color-focus-ring: rgba(39, 71, 128, 0.55);
         --radius-card: 16px;
+        --spacing-xl: 40px;
         --spacing-lg: 32px;
         --spacing-md: 16px;
         --spacing-sm: 12px;
         --spacing-xs: 8px;
+        --spacing-xxl: 64px;
+        --layout-max-width: 1280px;
         --transition-duration: 200ms;
         --font-heading-xl: clamp(1.9rem, 1.6rem + 0.5vw, 2.2rem);
         --font-heading-lg: clamp(1.45rem, 1.3rem + 0.3vw, 1.6rem);
@@ -143,10 +146,12 @@
       .layout {
         display: flex;
         align-items: flex-start;
-        gap: var(--spacing-lg);
-        max-width: 1200px;
+        gap: clamp(var(--spacing-md), 4vw, var(--spacing-xl));
+        max-width: var(--layout-max-width);
         margin: 0 auto;
-        padding: var(--spacing-lg) var(--spacing-md) calc(var(--spacing-lg) * 2);
+        padding: var(--spacing-xxl)
+          clamp(var(--spacing-md), 6vw, var(--spacing-xl))
+          var(--spacing-xxl);
       }
 
       .context-pane {
@@ -155,11 +160,11 @@
         max-height: calc(100vh - var(--spacing-lg) * 2);
         overflow-y: auto;
         flex: 0 0 380px;
-        padding: var(--spacing-lg) var(--spacing-md);
+        padding: clamp(var(--spacing-md), 3vw, var(--spacing-xl));
         border: 1px solid var(--color-border);
-        border-radius: var(--radius-card);
+        border-radius: calc(var(--radius-card) + 4px);
         background-color: var(--color-surface);
-        box-shadow: 0 16px 32px rgba(16, 24, 40, 0.08);
+        box-shadow: 0 24px 64px rgba(16, 24, 40, 0.08);
       }
 
       @media (prefers-color-scheme: dark) {
@@ -208,8 +213,9 @@
         flex: 1 1 auto;
         display: flex;
         flex-direction: column;
-        gap: var(--spacing-lg);
+        gap: var(--spacing-xl);
         min-width: 0;
+        padding-bottom: var(--spacing-xl);
       }
 
       .exercise__tabs {
@@ -218,15 +224,11 @@
         z-index: 5;
         display: flex;
         gap: var(--spacing-sm);
-        padding: var(--spacing-sm) var(--spacing-md);
+        padding: var(--spacing-sm) clamp(var(--spacing-sm), 3vw, var(--spacing-md));
         border: 1px solid var(--color-border);
-        border-radius: var(--radius-card);
-        background-color: var(--color-bg);
-        background: linear-gradient(
-          180deg,
-          var(--color-bg) 0%,
-          color-mix(in srgb, var(--color-bg) 60%, transparent)
-        );
+        border-radius: calc(var(--radius-card) + 4px);
+        background-color: var(--color-surface);
+        box-shadow: 0 20px 48px rgba(16, 24, 40, 0.08);
         overflow-x: auto;
         scroll-snap-type: x mandatory;
         scrollbar-width: thin;
@@ -250,8 +252,12 @@
         padding: 10px 14px;
         border-radius: 14px;
         border: 1px solid transparent;
-        background-color: var(--color-chip-bg);
-        color: var(--color-text);
+        background-color: color-mix(
+          in srgb,
+          var(--color-surface) 92%,
+          transparent
+        );
+        color: var(--color-text-strong);
         font-size: 0.95rem;
         font-weight: 600;
         letter-spacing: 0.01em;
@@ -295,36 +301,58 @@
       .exercise__questions {
         display: flex;
         flex-direction: column;
-        gap: var(--spacing-lg);
+        gap: clamp(var(--spacing-lg), 6vw, var(--spacing-xxl));
       }
 
       .question-card {
         position: relative;
-        padding: var(--spacing-lg);
-        border-radius: var(--radius-card);
-        border: 1px solid var(--color-border);
-        background-color: var(--color-card-i);
-        box-shadow: none;
+        --question-accent: var(--color-card-i);
+        padding: clamp(var(--spacing-lg), 5vw, calc(var(--spacing-xl) + 4px));
+        border-radius: calc(var(--radius-card) + 6px);
+        border: 1px solid color-mix(
+          in srgb,
+          var(--color-border) 65%,
+          transparent
+        );
+        background-color: var(--color-surface);
+        box-shadow: 0 28px 60px rgba(15, 23, 42, 0.1);
         transition: box-shadow var(--transition-duration) ease,
           transform var(--transition-duration) ease;
+        overflow: hidden;
       }
 
       .question-card:nth-of-type(4n + 2) {
-        background-color: var(--color-card-ii);
+        --question-accent: var(--color-card-ii);
       }
 
       .question-card:nth-of-type(4n + 3) {
-        background-color: var(--color-card-iii);
+        --question-accent: var(--color-card-iii);
       }
 
       .question-card:nth-of-type(4n + 4) {
-        background-color: var(--color-card-iv);
+        --question-accent: var(--color-card-iv);
+      }
+
+      .question-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 6px;
+        border-radius: calc(var(--radius-card) + 6px)
+          calc(var(--radius-card) + 6px) 0 0;
+        background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--question-accent) 65%, white) 0%,
+          var(--question-accent) 60%
+        );
       }
 
       .question-card:hover,
       .question-card:focus-within {
-        box-shadow: 0 12px 32px rgba(31, 41, 51, 0.12);
-        transform: translateY(-2px);
+        box-shadow: 0 32px 72px rgba(31, 41, 55, 0.16);
+        transform: translateY(-4px);
       }
 
       .question-card__header {
@@ -332,7 +360,7 @@
         flex-wrap: wrap;
         align-items: center;
         gap: var(--spacing-sm);
-        margin-bottom: var(--spacing-md);
+        margin-bottom: clamp(var(--spacing-sm), 2vw, var(--spacing-lg));
       }
 
       .question-card__badge {
@@ -341,15 +369,20 @@
         justify-content: center;
         width: 40px;
         height: 40px;
-        border-radius: 12px;
-        background-color: var(--color-chip-active);
-        color: var(--color-chip-active-text);
+        border-radius: 14px;
+        background: var(--question-accent);
+        color: var(--color-text-strong);
         font-weight: 700;
         font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
+        box-shadow: 0 10px 24px color-mix(
+            in srgb,
+            var(--question-accent) 40%,
+            transparent
+          );
       }
 
       .question-card__title {
-        font-size: 1.15rem;
+        font-size: clamp(1.15rem, 1.05rem + 0.3vw, 1.35rem);
         font-weight: 700;
         margin: 0;
         font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
@@ -359,14 +392,16 @@
       .question-card__meta {
         margin-left: auto;
         display: flex;
-        gap: var(--spacing-sm);
-        font-size: 0.9rem;
+        flex-wrap: wrap;
+        gap: var(--spacing-xs);
+        font-size: 0.88rem;
         color: var(--color-text-muted);
         font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
       }
 
       .question-card__body {
-        margin-bottom: var(--spacing-md);
+        margin-bottom: clamp(var(--spacing-md), 3vw, var(--spacing-lg));
+        max-width: 68ch;
       }
 
       .question-card__input {
@@ -414,8 +449,8 @@
 
       .support-block {
         border-top: 1px solid var(--color-border);
-        padding-top: var(--spacing-sm);
-        margin-top: var(--spacing-md);
+        padding-top: clamp(var(--spacing-sm), 2vw, var(--spacing-lg));
+        margin-top: clamp(var(--spacing-md), 3vw, var(--spacing-lg));
         font-size: 0.9rem;
       }
 
@@ -442,11 +477,20 @@
       }
 
       .support-block__content {
-        margin-top: var(--spacing-xs);
-        padding: var(--spacing-xs) var(--spacing-sm);
-        border-radius: 8px;
-        background-color: rgba(255, 255, 255, 0.55);
-        color: var(--color-text-muted);
+        margin-top: var(--spacing-sm);
+        padding: var(--spacing-sm) clamp(var(--spacing-sm), 3vw, var(--spacing-md));
+        border-radius: 12px;
+        border: 1px solid color-mix(
+          in srgb,
+          var(--question-accent) 40%,
+          transparent
+        );
+        background: color-mix(
+          in srgb,
+          var(--question-accent) 24%,
+          var(--color-surface)
+        );
+        color: color-mix(in srgb, var(--color-text) 85%, white);
       }
 
       .support-block__content[hidden] {
@@ -455,7 +499,12 @@
 
       @media (prefers-color-scheme: dark) {
         .support-block__content {
-          background-color: rgba(17, 24, 39, 0.55);
+          background: color-mix(
+            in srgb,
+            var(--question-accent) 35%,
+            var(--color-surface)
+          );
+          color: color-mix(in srgb, var(--color-text) 92%, white);
         }
       }
 
@@ -534,16 +583,20 @@
         position: sticky;
         bottom: 0;
         z-index: 10;
-        margin-top: auto;
-        background-color: var(--color-bg);
+        margin-top: clamp(var(--spacing-lg), 5vw, var(--spacing-xxl));
         background: linear-gradient(
           180deg,
-          color-mix(in srgb, var(--color-bg) 90%, transparent) 0%,
-          var(--color-bg) 55%,
-          var(--color-bg) 100%
+          color-mix(in srgb, var(--color-surface) 92%, transparent) 0%,
+          var(--color-surface) 55%,
+          var(--color-surface) 100%
         );
-        border-top: 1px solid var(--color-border);
-        padding: var(--spacing-md) var(--spacing-md) calc(var(--spacing-md) + 4px);
+        border-top: 1px solid color-mix(
+          in srgb,
+          var(--color-border) 70%,
+          transparent
+        );
+        padding: clamp(var(--spacing-md), 3vw, var(--spacing-lg))
+          clamp(var(--spacing-md), 4vw, var(--spacing-lg));
         display: flex;
         justify-content: flex-end;
       }
