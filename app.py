@@ -3708,9 +3708,7 @@ def _render_model_answer_section(
         _render_video_player(video_url, key_prefix=context_id)
         st.caption("倍速再生と10秒スキップで効率的に復習できます。")
 
-    if diagram_path:
-        st.markdown("**図解で押さえるポイント**")
-        _render_diagram_resource(diagram_path, diagram_caption)
+    # 添付図解の表示は現在無効化しているため、diagram_path が指定されていても描画しない
 
 def main_view() -> None:
     user = st.session_state.user
