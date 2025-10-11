@@ -5,7 +5,7 @@ import copy
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Pattern, Set, Tuple
 from uuid import uuid4
 import logging
 
@@ -1840,6 +1840,33 @@ def _inject_context_column_styles() -> None:
             .context-panel-scroll::-webkit-scrollbar-track {
                 background-color: transparent;
             }
+            .context-search-control {
+                margin-bottom: 0.85rem;
+                padding: 0.75rem 0.85rem;
+                border-radius: 0.75rem;
+                border: 1px solid #e5e7eb;
+                background: rgba(248, 250, 252, 0.9);
+            }
+            .context-search-control [data-testid="stTextInput"] {
+                margin-bottom: 0.35rem;
+            }
+            .context-search-control [data-testid="stTextInput"] > label {
+                font-weight: 600;
+                color: #1f2937;
+                font-size: 0.85rem;
+                margin-bottom: 0.35rem;
+            }
+            .context-search-control [data-testid="stTextInput"] input {
+                border-radius: 0.5rem;
+                border: 1px solid #cbd5f5;
+                padding: 0.45rem 0.75rem;
+                background: #ffffff;
+                box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+            }
+            .context-search-control [data-testid="stCaptionContainer"] {
+                margin: 0.35rem 0 0;
+                color: #475569;
+            }
             @media (min-width: 901px) {
                 .context-panel {
                     position: sticky;
@@ -2197,10 +2224,59 @@ def _split_long_japanese_paragraph(paragraph: str, max_chars: int = 120) -> List
     return chunks
 
 
-def _render_problem_context_block(context_text: str) -> None:
+def _compile_context_search_pattern(query: Optional[str]) -> Optional[Pattern[str]]:
+    if query is None:
+        return None
+
+    normalized = str(query).replace("\u3000", " ").strip()
+    if not normalized:
+        return None
+
+    parts = [re.escape(part) for part in re.split(r"\s+", normalized) if part]
+    if not parts:
+        return None
+
+    return re.compile("|".join(parts), re.IGNORECASE)
+
+
+def _highlight_context_line(
+    text: str, pattern: Optional[Pattern[str]]
+) -> Tuple[str, int]:
+    if not text:
+        return "", 0
+
+    if not pattern:
+        return html.escape(text), 0
+
+    segments: List[str] = []
+    match_count = 0
+    last_index = 0
+
+    for match in pattern.finditer(text):
+        start, end = match.span()
+        if start == end:
+            continue
+
+        if start > last_index:
+            segments.append(html.escape(text[last_index:start]))
+
+        segments.append(
+            f'<mark class="context-search-hit">{html.escape(match.group(0))}</mark>'
+        )
+        match_count += 1
+        last_index = end
+
+    segments.append(html.escape(text[last_index:]))
+
+    return "".join(segments), match_count
+
+
+def _render_problem_context_block(
+    context_text: str, search_query: Optional[str] = None
+) -> int:
     normalized = _normalize_text_block(context_text)
     if not normalized:
-        return
+        return 0
 
     paragraphs: List[str] = []
     for raw_block in normalized.replace("\r\n", "\n").replace("\r", "\n").split("\n\n"):
@@ -2209,19 +2285,32 @@ def _render_problem_context_block(context_text: str) -> None:
             paragraphs.append(paragraph)
 
     if not paragraphs:
-        return
+        return 0
 
     if len(paragraphs) == 1:
         paragraphs = _split_long_japanese_paragraph(paragraphs[0])
 
     blocks: List[str] = []
+    search_pattern = _compile_context_search_pattern(search_query)
+    total_matches = 0
     for paragraph in paragraphs:
-        lines = [html.escape(line.strip()) for line in paragraph.split("\n") if line.strip()]
-        if lines:
-            blocks.append(f"<p>{'<br/>'.join(lines)}</p>")
+        line_fragments: List[str] = []
+        for raw_line in paragraph.split("\n"):
+            stripped_line = raw_line.strip()
+            if not stripped_line:
+                continue
+
+            highlighted_line, matches = _highlight_context_line(
+                stripped_line, search_pattern
+            )
+            total_matches += matches
+            line_fragments.append(highlighted_line)
+
+        if line_fragments:
+            blocks.append(f"<p>{'<br/>'.join(line_fragments)}</p>")
 
     if not blocks:
-        return
+        return total_matches
 
     element_id = f"problem-context-{uuid.uuid4().hex}"
     toolbar_id = f"{element_id}-toolbar"
@@ -2450,6 +2539,12 @@ def _render_problem_context_block(context_text: str) -> None:
                 background: linear-gradient(transparent 40%, rgba(163, 230, 53, 0.9) 40%);
                 box-shadow: 0 0 0 1px rgba(63, 98, 18, 0.12);
             }}
+            .problem-context-block mark.context-search-hit {{
+                padding: 0 0.1rem;
+                border-radius: 0.2rem;
+                background: linear-gradient(transparent 45%, rgba(129, 140, 248, 0.65) 45%);
+                box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2);
+            }}
         </style>
         <script>
             (function() {{
@@ -2677,6 +2772,8 @@ def _render_problem_context_block(context_text: str) -> None:
     )
 
     components.html(highlight_html, height=estimated_height, scrolling=True)
+
+    return total_matches
 
 
 def _render_question_overview_card(
@@ -5962,7 +6059,37 @@ def practice_page(user: Dict) -> None:
                 ).strip(),
                 unsafe_allow_html=True,
             )
-            _render_problem_context_block(problem_context)
+            st.markdown(
+                '<div class="context-search-control" role="search">',
+                unsafe_allow_html=True,
+            )
+            with st.container():
+                problem_identifier = (
+                    problem.get("id")
+                    or problem.get("slug")
+                    or problem.get("title")
+                    or "default"
+                )
+                search_query = st.text_input(
+                    "与件文内検索",
+                    key=f"context-search-{problem_identifier}",
+                    placeholder="キーワードを入力",
+                    help="与件文内の気になるキーワードを検索すると該当箇所がハイライトされます。",
+                )
+                search_feedback = st.empty()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            match_count = _render_problem_context_block(problem_context, search_query)
+
+            normalized_query = (search_query or "").strip()
+            if normalized_query:
+                if match_count:
+                    search_feedback.caption(f"該当箇所: {match_count}件")
+                else:
+                    search_feedback.caption("該当箇所は見つかりませんでした。")
+            else:
+                search_feedback.empty()
+
             st.markdown("</div></div></section>", unsafe_allow_html=True)
             _inject_context_panel_behavior()
     else:
