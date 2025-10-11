@@ -1741,6 +1741,15 @@ def _inject_context_column_styles() -> None:
             html {
                 scroll-behavior: smooth;
             }
+            .practice-context-column {
+                position: relative;
+            }
+            .practice-context-inner {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+                height: 100%;
+            }
             .context-panel-mobile-bar {
                 display: none;
             }
@@ -1868,10 +1877,19 @@ def _inject_context_column_styles() -> None:
                 color: #475569;
             }
             @media (min-width: 901px) {
-                .context-panel {
+                .practice-context-column {
+                    display: flex;
+                }
+                .practice-context-inner {
                     position: sticky;
                     top: var(--context-panel-offset, 72px);
                     max-height: calc(100vh - 96px);
+                    overflow: visible;
+                }
+                .practice-context-inner > .context-panel {
+                    flex: 1 1 auto;
+                    min-height: 0;
+                    max-height: inherit;
                 }
                 .context-panel-inner {
                     flex: 1 1 auto;
@@ -6048,13 +6066,15 @@ def practice_page(user: Dict) -> None:
             st.markdown(
                 dedent(
                     """
-                    <section id="context-panel" class="context-panel" aria-labelledby="context-panel-heading" aria-hidden="false">
-                        <div class="context-panel-inner">
-                            <div class="context-panel-header">
-                                <h3 id="context-panel-heading" class="context-panel-title" aria-label="与件文">与件文</h3>
-                                <button type="button" class="context-panel-close" aria-label="与件文を閉じる">閉じる</button>
-                            </div>
-                            <div class="context-panel-scroll" tabindex="-1">
+                    <div class="practice-context-column">
+                        <div class="practice-context-inner">
+                            <section id="context-panel" class="context-panel" aria-labelledby="context-panel-heading" aria-hidden="false">
+                                <div class="context-panel-inner">
+                                    <div class="context-panel-header">
+                                        <h3 id="context-panel-heading" class="context-panel-title" aria-label="与件文">与件文</h3>
+                                        <button type="button" class="context-panel-close" aria-label="与件文を閉じる">閉じる</button>
+                                    </div>
+                                    <div class="context-panel-scroll" tabindex="-1">
                     """
                 ).strip(),
                 unsafe_allow_html=True,
@@ -6090,7 +6110,7 @@ def practice_page(user: Dict) -> None:
             else:
                 search_feedback.empty()
 
-            st.markdown("</div></div></section>", unsafe_allow_html=True)
+            st.markdown("</div></div></section></div></div>", unsafe_allow_html=True)
             _inject_context_panel_behavior()
     else:
         main_col = layout_container
