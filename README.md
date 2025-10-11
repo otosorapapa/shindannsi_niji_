@@ -13,6 +13,20 @@ streamlit run app.py
 
 初回起動時に `data/app.db` およびサンプル問題 (`data/seed_problems.json`) が自動生成されます。画面右側に表示されるフォームからアカウントを作成し、ログインして学習を開始してください。
 
+## メイン UI の構成ファイル
+
+リポジトリ直下の `frontend/two_pane_exercise.html` は、過去問演習ページで利用する 2 ペイン UI の本実装です。スタンドアロンの HTML / CSS / JavaScript として構成されているため、ブラウザで直接開いてレイアウトを確認したり、`streamlit.components.v1.html` を介して `app.py` から読み込むことで再利用できます。
+
+```
+from pathlib import Path
+import streamlit as st
+
+exercise_ui = Path("frontend/two_pane_exercise.html").read_text(encoding="utf-8")
+st.components.v1.html(exercise_ui, height=900, scrolling=True)
+```
+
+※ 旧 `prototypes/` ディレクトリに含まれていたプロトタイプは上記ファイルへ統合しました。
+
 ## 実装済みの主な機能
 
 | 機能 | 概要 |
