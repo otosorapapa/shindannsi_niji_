@@ -5165,33 +5165,52 @@ def practice_page(user: Dict) -> None:
         if visibility_key not in st.session_state:
             st.session_state[visibility_key] = True
         show_guideline = st.checkbox(
-            "採点ガイドラインを表示",
+            "模範解答・採点ガイドラインを表示",
             key=visibility_key,
-            help="採点時に確認されるポイントを必要なときに開閉できます。",
+            help="模範解答全文と採点時に確認されるポイントを必要なときに開閉できます。",
         )
         if show_guideline:
-            keywords_html = ""
+            sections: List[str] = []
             if question["keywords"]:
                 keywords_text = "、".join(question["keywords"])
-                keywords_html = (
+                sections.append(
                     "<div class=\"guideline-section\">"
                     "<p class=\"guideline-heading\">キーワード評価</p>"
                     f"<p class=\"guideline-body\">{html.escape(keywords_text)} を含めると加点対象です。</p>"
                     "</div>"
                 )
-            model_answer_html = html.escape(question["model_answer"]).replace("\n", "<br>")
-            st.markdown(
-                """
-                <div class="guideline-card">
-                    {keywords}
-                    <div class="guideline-section">
-                        <p class="guideline-heading">模範解答の背景</p>
-                        <p class="guideline-body">{model}</p>
-                    </div>
-                </div>
-                """.format(keywords=keywords_html, model=model_answer_html),
-                unsafe_allow_html=True,
+
+            model_answer_text = _normalize_text_block(question.get("model_answer"))
+            if model_answer_text:
+                model_answer_html = html.escape(model_answer_text).replace("\n", "<br>")
+                sections.append(
+                    "<div class=\"guideline-section\">"
+                    "<p class=\"guideline-heading\">模範解答</p>"
+                    f"<p class=\"guideline-body\">{model_answer_html}</p>"
+                    "</div>"
+                )
+
+            explanation_text = _normalize_text_block(
+                question.get("explanation") or question.get("解説")
             )
+            if explanation_text:
+                explanation_html = html.escape(explanation_text).replace("\n", "<br>")
+                sections.append(
+                    "<div class=\"guideline-section\">"
+                    "<p class=\"guideline-heading\">模範解答の解説</p>"
+                    f"<p class=\"guideline-body\">{explanation_html}</p>"
+                    "</div>"
+                )
+
+            if sections:
+                st.markdown(
+                    """
+                    <div class="guideline-card">
+                        {sections}
+                    </div>
+                    """.format(sections="".join(sections)),
+                    unsafe_allow_html=True,
+                )
             st.caption(
                 "模範解答は構成や論理展開の参考例です。キーワードを押さえつつ自分の言葉で表現しましょう。"
             )
