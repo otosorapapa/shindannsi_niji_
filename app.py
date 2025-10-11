@@ -4793,17 +4793,26 @@ def _inject_dashboard_styles() -> None:
             :root {
                 --dashboard-max-width: min(1320px, 96vw);
                 --grid-gap: clamp(1rem, 2vw, 1.75rem);
-                --pastel-blue: #e8f1ff;
-                --pastel-green: #e5f7ed;
-                --pastel-yellow: #fff6da;
-                --pastel-pink: #ffe9f3;
                 --brand: #2563eb;
                 --brand-strong: #1d4ed8;
-                --text-body: #1f2937;
+                --accent-green: #0f766e;
+                --accent-amber: #b45309;
+                --pastel-blue: #e7f0ff;
+                --pastel-green: #e3f6f1;
+                --pastel-yellow: #fff5e0;
+                --pastel-pink: #ffe8f2;
+                --text-body: #111827;
                 --text-muted: #4b5563;
-                --border-soft: rgba(148, 163, 184, 0.4);
-                --border-strong: rgba(71, 85, 105, 0.6);
-                --shadow-card: 0 18px 38px rgba(15, 23, 42, 0.12);
+                --text-faint: #6b7280;
+                --border-soft: rgba(148, 163, 184, 0.32);
+                --border-strong: rgba(71, 85, 105, 0.58);
+                --shadow-card: 0 18px 32px rgba(15, 23, 42, 0.1);
+            }
+            body,
+            [data-testid="stAppViewContainer"] * {
+                font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+                color: var(--text-body);
+                letter-spacing: 0.01em;
             }
             [data-testid="stAppViewContainer"] {
                 background: linear-gradient(180deg, #fdfdfc 0%, #f7f9ff 48%, #ffffff 100%);
@@ -4857,27 +4866,58 @@ def _inject_dashboard_styles() -> None:
                 flex-direction: column;
                 gap: 1.1rem;
             }
+            .dashboard-lane__eyebrow {
+                display: flex;
+                align-items: center;
+                gap: 0.6rem;
+                font-size: 0.78rem;
+                color: var(--text-muted);
+                margin: 0 0 0.35rem;
+                flex-wrap: wrap;
+            }
+            .lane-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.25rem;
+                padding: 0.2rem 0.65rem;
+                border-radius: 999px;
+                background: rgba(37, 99, 235, 0.12);
+                color: var(--brand-strong);
+                font-weight: 600;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+            }
+            .lane-badge--beta::before {
+                content: "β";
+                font-size: 0.75em;
+            }
+            .lane-badge__link {
+                color: var(--brand-strong);
+                text-decoration: underline;
+                text-underline-offset: 0.2em;
+            }
             .dashboard-lane__header {
                 display: flex;
                 flex-direction: column;
                 gap: 0.15rem;
             }
             .dashboard-lane__title {
-                font-size: clamp(1.15rem, 1.6vw, 1.4rem);
+                font-size: clamp(1.35rem, 2vw, 1.65rem);
                 font-weight: 700;
                 color: var(--text-body);
                 margin: 0;
+                letter-spacing: 0.01em;
             }
             .dashboard-lane__subtitle {
-                font-size: 0.95rem;
-                color: var(--text-muted);
+                font-size: 0.92rem;
+                color: var(--text-faint);
                 margin: 0;
             }
             .dashboard-card {
                 border-radius: 20px;
-                padding: clamp(1rem, 1.6vw, 1.35rem) clamp(1.05rem, 1.8vw, 1.6rem);
+                padding: clamp(1rem, 1.6vw, 1.35rem) clamp(1.05rem, 1.8vw, 1.55rem);
                 background: #ffffff;
-                border: 1px solid rgba(148, 163, 184, 0.35);
+                border: 1px solid var(--border-soft);
                 box-shadow: var(--shadow-card);
                 position: relative;
                 overflow: hidden;
@@ -4891,16 +4931,19 @@ def _inject_dashboard_styles() -> None:
                 pointer-events: none;
             }
             .dashboard-card.card--tone-blue {
-                background: linear-gradient(180deg, rgba(232, 241, 255, 0.95), rgba(255, 255, 255, 0.95));
+                background: linear-gradient(180deg, rgba(226, 240, 254, 0.92), rgba(255, 255, 255, 0.96));
             }
             .dashboard-card.card--tone-green {
-                background: linear-gradient(180deg, rgba(229, 247, 237, 0.95), rgba(255, 255, 255, 0.95));
+                background: linear-gradient(180deg, rgba(222, 247, 238, 0.9), rgba(255, 255, 255, 0.96));
             }
             .dashboard-card.card--tone-yellow {
-                background: linear-gradient(180deg, rgba(255, 246, 218, 0.98), rgba(255, 255, 255, 0.95));
+                background: linear-gradient(180deg, rgba(255, 248, 229, 0.9), rgba(255, 255, 255, 0.96));
             }
             .dashboard-card.card--tone-pink {
-                background: linear-gradient(180deg, rgba(255, 233, 243, 0.98), rgba(255, 255, 255, 0.95));
+                background: linear-gradient(180deg, rgba(254, 236, 244, 0.9), rgba(255, 255, 255, 0.96));
+            }
+            .dashboard-card.card--tone-purple {
+                background: linear-gradient(180deg, rgba(240, 236, 255, 0.9), rgba(255, 255, 255, 0.96));
             }
             .dashboard-card:focus-within {
                 box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.32), var(--shadow-card);
@@ -4948,6 +4991,11 @@ def _inject_dashboard_styles() -> None:
                 color: var(--text-muted);
                 margin: 0;
             }
+            .progress-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: clamp(1rem, 1.6vw, 1.4rem);
+            }
             .progress-bar {
                 display: flex;
                 flex-direction: column;
@@ -4970,7 +5018,7 @@ def _inject_dashboard_styles() -> None:
                 inset: 0;
                 width: var(--progress, 0%);
                 border-radius: inherit;
-                background: linear-gradient(90deg, rgba(37, 99, 235, 0.85), rgba(59, 130, 246, 0.85));
+                background: linear-gradient(90deg, rgba(37, 99, 235, 0.7), rgba(29, 78, 216, 0.85));
                 transition: width 600ms ease;
             }
             .progress-bar__value {
@@ -4978,10 +5026,10 @@ def _inject_dashboard_styles() -> None:
                 color: var(--text-body);
             }
             .progress-bar[data-tone="green"] .progress-bar__fill {
-                background: linear-gradient(90deg, rgba(34, 197, 94, 0.85), rgba(22, 163, 74, 0.9));
+                background: linear-gradient(90deg, rgba(15, 118, 110, 0.7), rgba(13, 148, 136, 0.85));
             }
             .progress-bar[data-tone="yellow"] .progress-bar__fill {
-                background: linear-gradient(90deg, rgba(234, 179, 8, 0.85), rgba(217, 119, 6, 0.9));
+                background: linear-gradient(90deg, rgba(244, 187, 68, 0.7), rgba(234, 179, 8, 0.82));
             }
             .metric-grid {
                 display: grid;
@@ -5010,8 +5058,8 @@ def _inject_dashboard_styles() -> None:
             }
             .metric-chip__desc {
                 margin: 0.35rem 0 0;
-                font-size: 0.85rem;
-                color: var(--text-muted);
+                font-size: 0.82rem;
+                color: var(--text-faint);
             }
             .achievement-timeline {
                 position: relative;
@@ -5123,8 +5171,8 @@ def _inject_dashboard_styles() -> None:
             }
             .insight-banner {
                 border-radius: 16px;
-                border: 1px solid rgba(37, 99, 235, 0.3);
-                background: linear-gradient(180deg, rgba(232, 241, 255, 0.92), rgba(255, 255, 255, 0.95));
+                border: 1px solid rgba(37, 99, 235, 0.28);
+                background: linear-gradient(180deg, rgba(231, 240, 255, 0.9), rgba(255, 255, 255, 0.96));
                 padding: 0.85rem 1rem;
                 box-shadow: 0 12px 24px rgba(37, 99, 235, 0.12);
             }
@@ -5158,19 +5206,19 @@ def _inject_dashboard_styles() -> None:
                 width: 54px;
                 height: 54px;
                 border-radius: 16px;
-                background: linear-gradient(135deg, rgba(30, 64, 175, 0.16), rgba(30, 64, 175, 0.3));
-                color: #1e3a8a;
-                box-shadow: 0 10px 20px rgba(30, 64, 175, 0.18);
+                background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(37, 99, 235, 0.26));
+                color: var(--brand-strong);
+                box-shadow: 0 10px 18px rgba(37, 99, 235, 0.16);
             }
             .insight-icon[data-accent="teal"] {
-                background: linear-gradient(135deg, rgba(13, 148, 136, 0.16), rgba(13, 148, 136, 0.3));
-                color: #0f766e;
-                box-shadow: 0 10px 20px rgba(15, 118, 110, 0.18);
+                background: linear-gradient(135deg, rgba(15, 118, 110, 0.15), rgba(13, 148, 136, 0.25));
+                color: var(--accent-green);
+                box-shadow: 0 10px 18px rgba(15, 118, 110, 0.16);
             }
             .insight-icon[data-accent="slate"] {
-                background: linear-gradient(135deg, rgba(51, 65, 85, 0.16), rgba(51, 65, 85, 0.28));
+                background: linear-gradient(135deg, rgba(71, 85, 105, 0.14), rgba(71, 85, 105, 0.24));
                 color: #1f2937;
-                box-shadow: 0 10px 20px rgba(30, 41, 59, 0.18);
+                box-shadow: 0 10px 18px rgba(30, 41, 59, 0.14);
             }
             .insight-icon svg {
                 width: 26px;
@@ -5235,6 +5283,19 @@ def _inject_dashboard_styles() -> None:
                     box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.0);
                 }
             }
+            .analysis-visual-card,
+            .heatmap-card {
+                overflow-x: auto;
+            }
+            .analysis-visual-card .vega-embed,
+            .heatmap-card .vega-embed {
+                width: 100% !important;
+            }
+            .analysis-visual-card canvas,
+            .heatmap-card canvas {
+                max-width: 100% !important;
+                height: auto !important;
+            }
             .dashboard-lane[data-section-id].is-active {
                 outline: 2px solid rgba(37, 99, 235, 0.35);
                 outline-offset: 4px;
@@ -5258,17 +5319,42 @@ def _inject_dashboard_styles() -> None:
                 }
             }
             @media (max-width: 900px) {
+                .block-container {
+                    padding: 1.1rem 1.2rem 2.4rem;
+                }
                 .dashboard-toc {
                     justify-content: flex-start;
+                    gap: 0.5rem;
+                }
+                .dashboard-toc__link {
+                    flex: 1 1 45%;
+                    justify-content: center;
                 }
                 .dashboard-card {
-                    padding: 1rem 1.1rem 1.2rem;
+                    padding: 1rem 1.1rem 1.25rem;
+                }
+                .kpi-tiles,
+                .progress-grid,
+                .metric-grid,
+                .insight-grid {
+                    grid-template-columns: 1fr;
                 }
                 .achievement-timeline::before {
                     left: 0.45rem;
                 }
                 .achievement-timeline__item::before {
                     left: -1.15rem;
+                }
+            }
+            @media (max-width: 600px) {
+                .dashboard-toc__link {
+                    flex-basis: 100%;
+                }
+                .dashboard-lane__title {
+                    font-size: 1.25rem;
+                }
+                .dashboard-lane__subtitle {
+                    font-size: 0.88rem;
                 }
             }
             </style>
@@ -6170,7 +6256,7 @@ def dashboard_page(user: Dict) -> None:
             for card in metric_cards
         )
         progress_section_html = dedent(
-            """
+            f"""
             <section class="dashboard-lane" id="progress-lane" data-section-id="progress-lane" role="region" aria-labelledby="progress-lane-title">
                 <header class="dashboard-lane__header">
                     <h2 id="progress-lane-title" class="dashboard-lane__title">進捗レーン</h2>
@@ -6275,6 +6361,7 @@ def dashboard_page(user: Dict) -> None:
             """
             <section class="dashboard-lane dashboard-lane--analysis" id="analysis-lane" data-section-id="analysis-lane" role="region" aria-labelledby="analysis-lane-title">
                 <header class="dashboard-lane__header">
+                    <p class="dashboard-lane__eyebrow"><span class="lane-badge lane-badge--beta">BETA</span><span>分析レーンは開発中の機能です。不具合は<a href="mailto:support@example.com" class="lane-badge__link">support@example.com</a>までお知らせください。</span></p>
                     <h2 id="analysis-lane-title" class="dashboard-lane__title">分析レーン</h2>
                     <p class="dashboard-lane__subtitle">試験委員の専門×事例ヒートマップと実績分析を確認できます。</p>
                 </header>
@@ -6371,13 +6458,13 @@ def dashboard_page(user: Dict) -> None:
                         .encode(
                             y=alt.Y("事例:N", sort="-x", title=None),
                             x=alt.X("達成率:Q", scale=alt.Scale(domain=[0, 100]), title="平均達成率 (%)"),
-                            color=alt.value("#22c55e"),
+                            color=alt.value("#2563eb"),
                             tooltip=["事例", "得点", "満点", alt.Tooltip("達成率:Q", format=".1f")],
                         )
                     )
                     target_line = (
                         alt.Chart(pd.DataFrame({"ベンチマーク": [60]}))
-                        .mark_rule(color="#f97316", strokeDash=[6, 4])
+                        .mark_rule(color="#b45309", strokeDash=[6, 4])
                         .encode(x="ベンチマーク:Q")
                     )
                     st.altair_chart(bar + target_line, use_container_width=True)
@@ -6411,7 +6498,12 @@ def dashboard_page(user: Dict) -> None:
                             radius=alt.Radius(
                                 "値:Q", scale=alt.Scale(domain=[0, 100]), title="達成率 (%)"
                             ),
-                            color=alt.Color("事例:N", sort=CASE_ORDER, title=None),
+                            color=alt.Color(
+                                "事例:N",
+                                sort=CASE_ORDER,
+                                scale=alt.Scale(range=["#2563eb", "#0f766e", "#b45309", "#db2777"]),
+                                title=None,
+                            ),
                             tooltip=["事例", "指標", alt.Tooltip("値:Q", format=".1f")],
                         )
                         .properties(height=320)
@@ -6437,7 +6529,7 @@ def dashboard_page(user: Dict) -> None:
                         y=alt.Y("事例:N", sort=CASE_ORDER, title=None),
                         color=alt.Color(
                             "平均得点率:Q",
-                            scale=alt.Scale(domain=[0, 100], scheme="teals"),
+                            scale=alt.Scale(domain=[0, 100], range=["#e7f0ff", "#1d4ed8"]),
                             title="平均得点率 (%)",
                         ),
                         tooltip=[
@@ -6457,7 +6549,7 @@ def dashboard_page(user: Dict) -> None:
                         y=alt.Y("事例:N", sort=CASE_ORDER, title=None),
                         color=alt.Color(
                             "平均キーワード網羅率:Q",
-                            scale=alt.Scale(domain=[0, 100], scheme="purples"),
+                            scale=alt.Scale(domain=[0, 100], range=["#ecfdf5", "#0f766e"]),
                             title="平均キーワード網羅率 (%)",
                         ),
                         tooltip=[
@@ -6494,7 +6586,7 @@ def dashboard_page(user: Dict) -> None:
                         y=alt.Y("事例:N", sort=CASE_ORDER, title=None),
                         color=alt.Color(
                             "網羅率:Q",
-                            scale=alt.Scale(domain=[0, 100], scheme="oranges"),
+                            scale=alt.Scale(domain=[0, 100], range=["#fff5e0", "#b45309"]),
                             title="網羅率 (%)",
                         ),
                         tooltip=[
@@ -6516,6 +6608,7 @@ def dashboard_page(user: Dict) -> None:
             """
             <section class="dashboard-lane dashboard-lane--insight" id="insight-lane" data-section-id="insight-lane" role="region" aria-labelledby="insight-lane-title">
                 <header class="dashboard-lane__header">
+                    <p class="dashboard-lane__eyebrow"><span class="lane-badge lane-badge--beta">BETA</span><span>洞察レーンはベータ版です。気づいた点は<a href="mailto:support@example.com" class="lane-badge__link">support@example.com</a>までご連絡ください。</span></p>
                     <h2 id="insight-lane-title" class="dashboard-lane__title">洞察レーン</h2>
                     <p class="dashboard-lane__subtitle">強み・推奨テーマ・アクションプランを表示します。</p>
                 </header>
