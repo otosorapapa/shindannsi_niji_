@@ -1728,47 +1728,284 @@ def _inject_context_highlight_styles() -> None:
 
 
 def _inject_context_column_styles() -> None:
-    if st.session_state.get("_context_column_styles_injected"):
+    if st.session_state.get("_context_panel_styles_injected_v2"):
         return
 
     st.markdown(
         dedent(
             """
             <style>
-            @media (min-width: 1100px) {
-                .context-sticky-panel {
-                    position: sticky;
-                    top: 4.5rem;
-                    max-height: calc(100vh - 5rem);
-                    overflow-y: auto;
-                    padding-right: 0.4rem;
-                    scrollbar-gutter: stable;
-                }
+            :root {
+                --context-panel-offset: 72px;
             }
-            @media (max-width: 1099px) {
-                .context-sticky-panel {
-                    position: static;
-                    max-height: none;
-                    overflow: visible;
-                    padding-right: 0;
-                }
+            .context-panel-mobile-bar {
+                display: none;
             }
-            .context-sticky-panel::-webkit-scrollbar {
-                width: 0.45rem;
+            .context-panel-trigger {
+                display: none;
+                align-items: center;
+                justify-content: center;
+                gap: 0.4rem;
+                width: 100%;
+                border-radius: 999px;
+                border: 1px solid #e5e7eb;
+                background: #ffffff;
+                color: #111827;
+                font-weight: 600;
+                font-size: 0.95rem;
+                padding: 0.65rem 1.1rem;
+                box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+                cursor: pointer;
+                transition: transform 120ms ease, box-shadow 120ms ease;
             }
-            .context-sticky-panel::-webkit-scrollbar-thumb {
+            .context-panel-trigger:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+            }
+            .context-panel-trigger:focus-visible,
+            .context-panel-close:focus-visible,
+            .context-panel-scroll:focus-visible {
+                outline: 3px solid rgba(59, 130, 246, 0.45);
+                outline-offset: 2px;
+            }
+            .context-panel-backdrop {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(15, 23, 42, 0.35);
+                z-index: 60;
+            }
+            .context-panel {
+                width: 100%;
+                background: #ffffff;
+                border: 1px solid #e5e7eb;
+                border-radius: 0.5rem;
+                padding: 1rem;
+                line-height: 1.7;
+                box-sizing: border-box;
+                margin-bottom: 1.5rem;
+            }
+            .context-panel-inner {
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                height: 100%;
+            }
+            .context-panel-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 0.75rem;
+            }
+            .context-panel-title {
+                margin: 0;
+                font-size: 1.1rem;
+                font-weight: 600;
+                color: #111827;
+            }
+            .context-panel-close {
+                display: none;
+                border: 1px solid #e5e7eb;
+                background: #f9fafb;
+                color: #374151;
+                border-radius: 999px;
+                padding: 0.35rem 0.9rem;
+                font-size: 0.85rem;
+                cursor: pointer;
+            }
+            .context-panel-scroll {
+                overflow-y: auto;
+                padding-right: 0.75rem;
+                scrollbar-gutter: stable;
+                scrollbar-width: thin;
+            }
+            .context-panel-scroll::-webkit-scrollbar {
+                width: 0.5rem;
+            }
+            .context-panel-scroll::-webkit-scrollbar-thumb {
                 background-color: rgba(100, 116, 139, 0.55);
                 border-radius: 999px;
             }
-            .context-sticky-panel::-webkit-scrollbar-track {
+            .context-panel-scroll::-webkit-scrollbar-track {
                 background-color: transparent;
+            }
+            @media (min-width: 901px) {
+                .context-panel {
+                    position: sticky;
+                    top: var(--context-panel-offset, 72px);
+                }
+                .context-panel-scroll {
+                    max-height: calc(100vh - 96px);
+                }
+            }
+            @media (max-width: 900px) {
+                .context-panel-mobile-bar {
+                    display: block;
+                    position: sticky;
+                    top: var(--context-panel-offset, 72px);
+                    z-index: 65;
+                    padding: 0.25rem 0;
+                    margin-bottom: 0.75rem;
+                    background: linear-gradient(180deg, #ffffff 75%, rgba(255, 255, 255, 0));
+                }
+                .context-panel-trigger {
+                    display: inline-flex;
+                }
+                .context-panel {
+                    display: none;
+                    position: fixed;
+                    top: var(--context-panel-offset, 72px);
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: min(640px, 92vw);
+                    height: 85vh;
+                    max-height: 90vh;
+                    padding: 1.25rem;
+                    margin-bottom: 0;
+                    z-index: 70;
+                    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.25);
+                }
+                body.context-panel-open {
+                    overflow: hidden;
+                }
+                body.context-panel-open .context-panel {
+                    display: flex;
+                    flex-direction: column;
+                }
+                body.context-panel-open .context-panel-backdrop {
+                    display: block;
+                }
+                .context-panel-close {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #ffffff;
+                }
+                .context-panel-scroll {
+                    flex: 1 1 auto;
+                    max-height: none;
+                }
             }
             </style>
             """
         ),
         unsafe_allow_html=True,
     )
-    st.session_state["_context_column_styles_injected"] = True
+    st.session_state["_context_panel_styles_injected_v2"] = True
+
+
+def _inject_context_panel_behavior() -> None:
+    st.markdown(
+        dedent(
+            """
+            <script>
+            (() => {
+                const setupContextPanel = () => {
+                    const doc = window.document;
+                    const openButton = doc.querySelector('.context-panel-trigger');
+                    const closeButton = doc.querySelector('.context-panel-close');
+                    const backdrop = doc.querySelector('.context-panel-backdrop');
+                    const panel = doc.getElementById('context-panel');
+                    const scrollArea = panel ? panel.querySelector('.context-panel-scroll') : null;
+
+                    if (panel && !panel.hasAttribute('aria-hidden')) {
+                        panel.setAttribute('aria-hidden', 'true');
+                    }
+
+                    const setOpen = (open, options = {}) => {
+                        const { suppressFocus = false, skipReturnFocus = false } = options;
+                        if (!doc.body) {
+                            return;
+                        }
+                        doc.body.classList.toggle('context-panel-open', open);
+                        if (openButton) {
+                            openButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+                        }
+                        if (panel) {
+                            panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+                        }
+                        if (open && scrollArea && !suppressFocus) {
+                            scrollArea.focus({ preventScroll: false });
+                        }
+                        if (!open && openButton && !skipReturnFocus) {
+                            openButton.focus();
+                        }
+                    };
+
+                    if (openButton && !openButton.dataset.bound) {
+                        openButton.dataset.bound = 'true';
+                        openButton.setAttribute('aria-expanded', 'false');
+                        openButton.addEventListener('click', () => setOpen(true));
+                        openButton.addEventListener('keydown', (event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                setOpen(true);
+                            }
+                        });
+                    }
+
+                    if (closeButton && !closeButton.dataset.bound) {
+                        closeButton.dataset.bound = 'true';
+                        closeButton.addEventListener('click', () => setOpen(false));
+                        closeButton.addEventListener('keydown', (event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                setOpen(false);
+                            }
+                        });
+                    }
+
+                    if (backdrop && !backdrop.dataset.bound) {
+                        backdrop.dataset.bound = 'true';
+                        backdrop.addEventListener('click', () => setOpen(false));
+                    }
+
+                    const mediaQuery = window.matchMedia('(max-width: 900px)');
+                    const syncForViewport = (mq) => {
+                        if (!panel) {
+                            return;
+                        }
+                        if (mq.matches) {
+                            setOpen(false, { suppressFocus: true, skipReturnFocus: true });
+                        } else {
+                            panel.setAttribute('aria-hidden', 'false');
+                            if (openButton) {
+                                openButton.setAttribute('aria-expanded', 'true');
+                            }
+                            if (doc.body) {
+                                doc.body.classList.remove('context-panel-open');
+                            }
+                        }
+                    };
+
+                    syncForViewport(mediaQuery);
+                    if (mediaQuery.addEventListener) {
+                        mediaQuery.addEventListener('change', syncForViewport);
+                    } else if (mediaQuery.addListener) {
+                        mediaQuery.addListener(syncForViewport);
+                    }
+
+                    if (doc.body && !doc.body.dataset.contextPanelEscapeBound) {
+                        doc.body.dataset.contextPanelEscapeBound = 'true';
+                        doc.addEventListener('keydown', (event) => {
+                            if (event.key === 'Escape') {
+                                setOpen(false, { suppressFocus: true });
+                            }
+                        });
+                    }
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', setupContextPanel);
+                } else {
+                    setupContextPanel();
+                }
+            })();
+            </script>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
 
 
 def _render_question_context_block(context_value: Any) -> None:
@@ -5520,13 +5757,39 @@ def practice_page(user: Dict) -> None:
     layout_container = st.container()
     problem_context = _collect_problem_context_text(problem)
     if problem_context:
+        _inject_context_column_styles()
+        st.markdown(
+            dedent(
+                """
+                <div class="context-panel-mobile-bar">
+                    <button type="button" class="context-panel-trigger" aria-expanded="false" aria-controls="context-panel">
+                        与件文を開く
+                    </button>
+                </div>
+                <div class="context-panel-backdrop" aria-hidden="true"></div>
+                """
+            ).strip(),
+            unsafe_allow_html=True,
+        )
         context_col, main_col = layout_container.columns([0.42, 0.58], gap="large")
         with context_col:
-            _inject_context_column_styles()
-            st.markdown('<div class="context-sticky-panel">', unsafe_allow_html=True)
-            st.markdown("### 与件文")
+            st.markdown(
+                dedent(
+                    """
+                    <section id="context-panel" class="context-panel" aria-labelledby="context-panel-heading" aria-hidden="false">
+                        <div class="context-panel-inner">
+                            <div class="context-panel-header">
+                                <h3 id="context-panel-heading" class="context-panel-title" aria-label="与件文">与件文</h3>
+                                <button type="button" class="context-panel-close" aria-label="与件文を閉じる">閉じる</button>
+                            </div>
+                            <div class="context-panel-scroll" tabindex="-1">
+                    """
+                ).strip(),
+                unsafe_allow_html=True,
+            )
             _render_problem_context_block(problem_context)
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div></div></section>", unsafe_allow_html=True)
+            _inject_context_panel_behavior()
     else:
         main_col = layout_container
 
