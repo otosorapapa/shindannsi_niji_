@@ -5773,16 +5773,39 @@ def _render_study_goal_panel(
     default_time = existing_goal["preferred_start_time"] if existing_goal else dt_time(20, 0)
 
     with st.form(f"{period_type}_goal_form", clear_on_submit=False):
-        practice_target = st.number_input(
-            "演習回数目標 (回)", min_value=0, value=default_practice, step=1
+        practice_presets = list(range(0, 11)) + [int(default_practice)]
+        practice_options = sorted(set(practice_presets))
+        practice_target = st.select_slider(
+            "演習回数目標 (回)",
+            options=practice_options,
+            value=int(default_practice),
+            format_func=lambda x: f"{x}回",
         )
-        study_hours = st.number_input(
-            "学習時間目標 (時間)", min_value=0.0, step=0.5, value=float(default_hours)
+
+        study_hour_base = [i * 0.5 for i in range(0, 21)]
+        study_hour_presets = study_hour_base + [float(default_hours)]
+        study_hour_options = sorted(set(round(value, 1) for value in study_hour_presets))
+        study_hours = st.select_slider(
+            "学習時間目標 (時間)",
+            options=study_hour_options,
+            value=round(float(default_hours), 1),
+            format_func=lambda x: f"{x:.1f}時間",
         )
-        score_target = st.number_input(
-            "平均得点目標 (点)", min_value=0.0, step=1.0, value=float(default_score)
+
+        score_presets = [40.0, 45.0, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 85.0, 90.0, float(default_score)]
+        score_options = sorted(set(round(value, 1) for value in score_presets))
+        score_target = st.select_slider(
+            "平均得点目標 (点)",
+            options=score_options,
+            value=round(float(default_score), 1),
+            format_func=lambda x: f"{x:.0f}点" if x.is_integer() else f"{x:.1f}点",
         )
-        preferred_time = st.time_input("学習開始時間", value=default_time or dt_time(20, 0))
+
+        preferred_time = st.time_input(
+            "学習開始時間",
+            value=default_time or dt_time(20, 0),
+            step=timedelta(minutes=15),
+        )
         submitted = st.form_submit_button("目標を保存")
 
     if submitted:
