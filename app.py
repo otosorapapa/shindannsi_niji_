@@ -5,7 +5,7 @@ import copy
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, Iterable, List, Optional, Pattern, Set, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Pattern, Set, Tuple
 from uuid import uuid4
 from urllib.parse import urlencode
 import logging
@@ -1307,6 +1307,7 @@ def _init_session_state() -> None:
     st.session_state.setdefault("drafts", {})
     st.session_state.setdefault("saved_answers", {})
     st.session_state.setdefault("practice_started", None)
+    st.session_state.setdefault("question_activity", {})
     st.session_state.setdefault("mock_session", None)
     st.session_state.setdefault("past_data", None)
     st.session_state.setdefault("past_data_tables", [])
@@ -7776,6 +7777,310 @@ def _render_mece_causal_scanner(text: str, analysis: Optional[Dict[str, Any]] = 
         st.warning(suggestion)
 
 
+def _ensure_keyword_feedback_styles() -> None:
+    if st.session_state.get("_keyword_feedback_styles_injected"):
+        return
+    st.markdown(
+        """
+        <style>
+        .coverage-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 0.82rem;
+        }
+        .coverage-pill.good {
+            background: rgba(134, 239, 172, 0.55);
+            color: #166534;
+        }
+        .coverage-pill.warn {
+            background: rgba(253, 230, 138, 0.7);
+            color: #92400e;
+        }
+        .coverage-breakdown {
+            margin: 0.35rem 0 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .coverage-row {
+            display: grid;
+            grid-template-columns: 4.5rem 1fr auto;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.78rem;
+        }
+        .coverage-row__label {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .coverage-row__bar {
+            position: relative;
+            height: 0.55rem;
+            border-radius: 999px;
+            overflow: hidden;
+            background: #e2e8f0;
+        }
+        .coverage-row__fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+        }
+        .coverage-row__fill.good {
+            background: rgba(134, 239, 172, 0.85);
+        }
+        .coverage-row__fill.warn {
+            background: rgba(253, 230, 138, 0.85);
+        }
+        .coverage-row__meta {
+            color: #475569;
+        }
+        .connector-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 0.82rem;
+        }
+        .connector-pill.good {
+            background: rgba(167, 243, 208, 0.7);
+            color: #065f46;
+        }
+        .connector-pill.warn {
+            background: rgba(254, 240, 138, 0.85);
+            color: #92400e;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state["_keyword_feedback_styles_injected"] = True
+
+
+_ACTION_SUFFIXES = [
+    "する",
+    "化",
+    "向上",
+    "改善",
+    "強化",
+    "促進",
+    "導入",
+    "実施",
+    "最適化",
+    "短縮",
+    "低減",
+    "育成",
+    "連携",
+]
+
+
+def _categorize_keyword(keyword: str) -> str:
+    keyword = str(keyword).strip()
+    if not keyword:
+        return "その他"
+    if any(keyword.endswith(suffix) for suffix in _ACTION_SUFFIXES):
+        return "述語"
+    return "名詞"
+
+
+def _summarize_keyword_categories(keyword_hits: Mapping[str, bool]) -> Dict[str, Dict[str, int]]:
+    summary: Dict[str, Dict[str, int]] = {
+        "名詞": {"hit": 0, "miss": 0},
+        "述語": {"hit": 0, "miss": 0},
+        "その他": {"hit": 0, "miss": 0},
+    }
+    for keyword, hit in keyword_hits.items():
+        category = _categorize_keyword(keyword)
+        bucket = summary.setdefault(category, {"hit": 0, "miss": 0})
+        if hit:
+            bucket["hit"] += 1
+        else:
+            bucket["miss"] += 1
+    return summary
+
+
+def _render_keyword_coverage_meter(text: str, keywords: Iterable[str]) -> None:
+    cleaned = [str(keyword).strip() for keyword in keywords if str(keyword).strip()]
+    if not cleaned:
+        return
+    hits = scoring.keyword_match_score(text, cleaned)
+    _render_keyword_coverage_from_hits(hits)
+
+
+def _render_keyword_coverage_from_hits(keyword_hits: Mapping[str, bool]) -> None:
+    if not keyword_hits:
+        return
+    _ensure_keyword_feedback_styles()
+    total = len(keyword_hits)
+    matched = sum(1 for hit in keyword_hits.values() if hit)
+    ratio = matched / max(total, 1)
+    tone = "good" if ratio >= 0.7 else "warn"
+    pill_html = (
+        f"<div class='coverage-pill {tone}'>要点被覆率 {ratio * 100:.0f}%"
+        f" <span>({matched} / {total})</span></div>"
+    )
+    st.markdown(pill_html, unsafe_allow_html=True)
+
+    category_summary = _summarize_keyword_categories(keyword_hits)
+    rows: List[str] = []
+    for label in ("名詞", "述語", "その他"):
+        counts = category_summary.get(label) or {"hit": 0, "miss": 0}
+        total_category = counts["hit"] + counts["miss"]
+        if total_category == 0:
+            continue
+        coverage = counts["hit"] / total_category
+        bar_tone = "good" if coverage >= 0.7 else "warn"
+        rows.append(
+            """
+            <div class='coverage-row'>
+                <span class='coverage-row__label'>{label}</span>
+                <div class='coverage-row__bar'>
+                    <div class='coverage-row__fill {tone}' style='width: {width:.0f}%;'></div>
+                </div>
+                <span class='coverage-row__meta'>{hit} / {total}</span>
+            </div>
+            """.format(
+                label=html.escape(label),
+                tone=bar_tone,
+                width=coverage * 100,
+                hit=counts["hit"],
+                total=total_category,
+            )
+        )
+    if rows:
+        st.markdown("<div class='coverage-breakdown'>" + "".join(rows) + "</div>", unsafe_allow_html=True)
+
+
+def _render_causal_connector_indicator(
+    text: str,
+    *,
+    stats: Optional[Dict[str, object]] = None,
+    show_breakdown: bool = False,
+) -> Dict[str, object]:
+    if stats is None:
+        stats = scoring.analyze_causal_connectors(text)
+    if not text.strip():
+        return stats
+    _ensure_keyword_feedback_styles()
+    total = int(stats.get("total_hits", 0) or 0)
+    sentence_count = int(stats.get("sentence_count", 0) or 0) or 1
+    tone = "good" if total >= 1 else "warn"
+    pill_html = (
+        f"<div class='connector-pill {tone}'>因果チェッカー: 接続語 {total} 件 / {sentence_count} 文</div>"
+    )
+    st.markdown(pill_html, unsafe_allow_html=True)
+    if tone == "warn":
+        st.caption("『その結果』『よって』などの接続詞で因果の骨格を明示しましょう。")
+    elif total >= sentence_count:
+        st.caption("因果の接続が明確です。この調子で骨格を保ちましょう。")
+    if show_breakdown:
+        counts: Dict[str, int] = stats.get("counts") or {}
+        if counts:
+            ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+            detail = " / ".join(f"{connector}×{count}" for connector, count in ordered)
+            st.caption(f"検出された接続詞: {detail}")
+        else:
+            st.caption("接続詞が検出されませんでした。結論→理由の順で接続語を挿入しましょう。")
+    return stats
+
+
+def _resolve_question_keywords(question: Mapping[str, Any]) -> List[str]:
+    raw = question.get("keywords") or question.get("キーワード")
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        parts = re.split(r"[、,;\n]", raw)
+        return [part.strip() for part in parts if part.strip()]
+    if isinstance(raw, Iterable):
+        return [str(item).strip() for item in raw if str(item).strip()]
+    return []
+
+
+def _track_question_activity(draft_key: str, text: str) -> Dict[str, Any]:
+    activity = st.session_state.setdefault("question_activity", {})
+    now = datetime.utcnow()
+    record = activity.setdefault(
+        draft_key,
+        {
+            "opened_at": now,
+            "last_text": None,
+            "revision_count": 0,
+            "edit_history": [],
+        },
+    )
+    record.setdefault("opened_at", now)
+    record.setdefault("revision_count", 0)
+    record.setdefault("edit_history", [])
+    previous_text = record.get("last_text")
+    trimmed_previous = (previous_text or "").strip()
+    trimmed_current = text.strip()
+    if previous_text is None:
+        record["last_text"] = text
+    if text != previous_text:
+        if trimmed_current and record.get("first_input_at") is None:
+            record["first_input_at"] = now
+        elif trimmed_current and (trimmed_previous or record.get("first_input_at")):
+            record["revision_count"] = int(record.get("revision_count", 0)) + 1
+        record.setdefault("edit_history", []).append(
+            {"timestamp": now.isoformat(), "length": len(trimmed_current)}
+        )
+        record["last_updated_at"] = now
+    record["last_text"] = text
+    record["last_seen_at"] = now
+    return record
+
+
+def _serialise_activity_record(record: Mapping[str, Any], submitted_at: datetime) -> Dict[str, Any]:
+    def _to_datetime(value: Any) -> Optional[datetime]:
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str) and value:
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError:
+                return None
+        return None
+
+    opened_dt = _to_datetime(record.get("opened_at"))
+    first_input_dt = _to_datetime(record.get("first_input_at"))
+    last_updated_dt = _to_datetime(record.get("last_updated_at"))
+    base_dt = first_input_dt or opened_dt
+    total_duration = None
+    if base_dt and submitted_at >= base_dt:
+        total_duration = int((submitted_at - base_dt).total_seconds())
+
+    return {
+        "opened_at": opened_dt.isoformat() if opened_dt else None,
+        "first_input_at": first_input_dt.isoformat() if first_input_dt else None,
+        "last_updated_at": (last_updated_dt or base_dt or submitted_at).isoformat(),
+        "total_duration_seconds": total_duration,
+        "revision_count": int(record.get("revision_count", 0) or 0),
+        "edit_history": list(record.get("edit_history", [])),
+    }
+
+
+def _summarise_question_activity(problem: Mapping[str, Any], submitted_at: datetime) -> Dict[int, Dict[str, Any]]:
+    activity = st.session_state.get("question_activity", {}) or {}
+    summary: Dict[int, Dict[str, Any]] = {}
+    questions = problem.get("questions") or []
+    for question in questions:
+        qid = question.get("id")
+        if qid is None:
+            continue
+        key = _draft_key(problem.get("id"), qid)
+        record = activity.get(key)
+        if not record:
+            continue
+        summary[qid] = _serialise_activity_record(record, submitted_at)
+    return summary
+
+
 def _question_input(
     problem_id: int,
     question: Dict,
@@ -7878,6 +8183,13 @@ def _question_input(
         disabled=disabled,
     )
     _render_character_counter(text, question.get("character_limit"))
+    _track_question_activity(key, text)
+    keywords = _resolve_question_keywords(question)
+    if keywords:
+        _render_keyword_coverage_meter(text, keywords)
+    else:
+        st.caption("キーワードはまだ登録されていません。与件から重要語を抜き出しましょう。")
+    _render_causal_connector_indicator(text)
     analysis = _render_mece_status_labels(text)
     with st.expander("MECE/因果スキャナ", expanded=bool(text.strip())):
         _render_mece_causal_scanner(text, analysis=analysis)
@@ -9978,6 +10290,8 @@ def practice_page(user: Dict) -> None:
         st.markdown('</div>', unsafe_allow_html=True)
 
     if submitted:
+        submitted_at = datetime.utcnow()
+        activity_summary = _summarise_question_activity(problem, submitted_at)
         answers = []
         for question, spec in zip(problem["questions"], question_specs):
             text = st.session_state.drafts.get(_draft_key(problem["id"], question["id"]), "")
@@ -9990,10 +10304,10 @@ def practice_page(user: Dict) -> None:
                     feedback=result.feedback,
                     keyword_hits=result.keyword_hits,
                     axis_breakdown=result.axis_breakdown,
+                    activity=activity_summary.get(question["id"]),
                 )
             )
 
-        submitted_at = datetime.utcnow()
         started_at = st.session_state.practice_started or submitted_at
         duration = int((submitted_at - started_at).total_seconds())
         total_score = sum(answer.score for answer in answers)
@@ -10016,6 +10330,7 @@ def practice_page(user: Dict) -> None:
             reviewed_at=submitted_at,
         )
         st.session_state.practice_started = None
+        st.session_state.question_activity = {}
 
         st.success("採点が完了しました。結果を確認してください。")
         render_attempt_results(attempt_id)
@@ -10914,6 +11229,166 @@ def _handle_model_answer_slot_upload(file_bytes: bytes, filename: str) -> bool:
     return True
 
 
+_WEAKNESS_CASE_PATTERNS: Dict[str, List[Dict[str, Any]]] = {
+    "事例I": [
+        {"tag": "人材育成", "patterns": ["育成", "教育", "研修", "技能伝承"]},
+        {"tag": "権限設計", "patterns": ["権限", "委譲", "組織", "情報共有"]},
+    ],
+    "事例II": [
+        {"tag": "ターゲティング", "patterns": ["ターゲ", "顧客", "客層", "セグメント"]},
+        {"tag": "チャネル", "patterns": ["チャネル", "販路", "SNS", "オンライン", "店舗"]},
+    ],
+    "事例III": [
+        {"tag": "QCD", "patterns": ["QCD", "品質", "コスト", "納期"]},
+        {"tag": "段取り短縮", "patterns": ["段取", "段取り", "リードタイム", "準備", "外段取り"]},
+    ],
+    "事例IV": [
+        {"tag": "CVP", "patterns": ["CVP", "損益分岐", "限界利益"]},
+        {"tag": "NPV", "patterns": ["NPV", "現在価値", "投資", "キャッシュフロー"]},
+    ],
+}
+
+_WEAKNESS_DRILL_MESSAGES: Dict[str, str] = {
+    "人材育成": "人材マネジメント（採用→育成→評価）を整理するドリルで表現を磨きましょう。",
+    "権限設計": "組織体制と権限委譲のケース演習で意思決定の流れを補強しましょう。",
+    "ターゲティング": "ターゲットペルソナ設計のドリルで顧客像を描き直してください。",
+    "チャネル": "チャネル戦略ドリルでオンライン／オフライン施策を整理しましょう。",
+    "QCD": "QCDバランスを問う演習で品質・コスト・納期の優先度を再確認しましょう。",
+    "段取り短縮": "段取り替えの定石を扱うドリルで工程設計を再トレースしましょう。",
+    "CVP": "損益分岐分析の演習で数式と因果の結び付けを押さえ直してください。",
+    "NPV": "投資評価（NPV）のドリルでキャッシュフローの算出手順を復習しましょう。",
+    "因果構成": "接続詞挿入トレーニングで結論→理由の骨格を瞬時に描けるようにしましょう。",
+}
+
+
+def _render_time_allocation_heatmap(
+    attempt: Mapping[str, Any], activities: List[Dict[str, Any]]
+) -> None:
+    if not activities:
+        return
+
+    start_dt = _parse_iso_datetime(attempt.get("started_at") if attempt else None)
+    submitted_dt = _parse_iso_datetime(attempt.get("submitted_at") if attempt else None)
+
+    rows: List[Dict[str, Any]] = []
+    for entry in activities:
+        question_order = entry.get("question_order")
+        label = f"設問{question_order}" if question_order is not None else f"Q{entry.get('question_id')}"
+        opened_dt = _parse_iso_datetime(entry.get("opened_at"))
+        first_input_dt = _parse_iso_datetime(entry.get("first_input_at"))
+        last_updated_dt = _parse_iso_datetime(entry.get("last_updated_at"))
+        base_dt = first_input_dt or opened_dt
+        start_offset = None
+        if start_dt and base_dt:
+            start_offset = (base_dt - start_dt).total_seconds() / 60
+        duration_seconds = entry.get("total_duration_seconds")
+        elapsed_minutes = None
+        if isinstance(duration_seconds, (int, float)):
+            elapsed_minutes = float(duration_seconds) / 60
+        revision_count = int(entry.get("revision_count") or 0)
+        rows.append(
+            {
+                "設問": label,
+                "着手(分)": start_offset,
+                "経過(分)": elapsed_minutes,
+                "見直し回数": revision_count,
+                "着手時刻": base_dt.strftime("%H:%M:%S") if base_dt else "-",
+                "最終更新": (last_updated_dt or base_dt or submitted_dt).strftime("%H:%M:%S")
+                if (last_updated_dt or base_dt or submitted_dt)
+                else "-",
+            }
+        )
+
+    if not rows:
+        return
+
+    df = pd.DataFrame(rows)
+    heat_df = (
+        df.melt(
+            id_vars=["設問"],
+            value_vars=["着手(分)", "経過(分)", "見直し回数"],
+            var_name="指標",
+            value_name="値",
+        )
+        .dropna(subset=["値"])
+    )
+
+    st.markdown("#### 時間配分ヒートマップ")
+    st.caption("設問ごとの着手タイミング・経過時間・見直し回数を俯瞰できます。")
+    if not heat_df.empty:
+        chart = (
+            alt.Chart(heat_df)
+            .mark_rect()
+            .encode(
+                x=alt.X("設問:N", title=None),
+                y=alt.Y("指標:N", sort=["着手(分)", "経過(分)", "見直し回数"], title=None),
+                color=alt.Color("値:Q", scale=alt.Scale(scheme="tealblues"), title="値"),
+                tooltip=[
+                    alt.Tooltip("設問:N", title="設問"),
+                    alt.Tooltip("指標:N", title="指標"),
+                    alt.Tooltip("値:Q", title="値", format=".2f"),
+                ],
+            )
+            .properties(height=150)
+        )
+        st.altair_chart(chart, use_container_width=True)
+    display_df = df.copy()
+    display_df["経過(分)"] = display_df["経過(分)"].map(
+        lambda value: round(float(value), 1) if isinstance(value, (int, float)) else value
+    )
+    st.data_editor(
+        display_df[["設問", "着手時刻", "経過(分)", "見直し回数", "最終更新"]],
+        hide_index=True,
+        use_container_width=True,
+        disabled=True,
+    )
+
+
+def _build_weakness_drill_items(summaries: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+    collected: Dict[Tuple[str, str], Set[str]] = {}
+    for summary in summaries:
+        case_label = summary.get("case_label") or ""
+        keyword_hits = summary.get("keyword_hits") or {}
+        missing_keywords = [kw for kw, hit in keyword_hits.items() if not hit]
+        for entry in _WEAKNESS_CASE_PATTERNS.get(case_label or "", []):
+            tag = entry.get("tag")
+            patterns = entry.get("patterns", [])
+            for keyword in missing_keywords:
+                if any(pattern in keyword for pattern in patterns):
+                    collected.setdefault((tag, case_label), set()).add(f"「{keyword}」が不足")
+        connector_stats = summary.get("connector_stats") or {}
+        answer_text = summary.get("answer_text", "")
+        if answer_text and connector_stats.get("total_hits", 0) == 0:
+            collected.setdefault(("因果構成", case_label), set()).add("接続詞が検出されませんでした")
+
+    items: List[Dict[str, str]] = []
+    for (tag, case_label), reasons in collected.items():
+        suggestion = _WEAKNESS_DRILL_MESSAGES.get(tag, "関連分野のドリルを復習しましょう。")
+        label = case_label or "全体"
+        items.append(
+            {
+                "tag": tag,
+                "case_label": label,
+                "reason": "、".join(sorted(reasons)),
+                "suggestion": suggestion,
+            }
+        )
+    items.sort(key=lambda item: (item["tag"], item["case_label"]))
+    return items
+
+
+def _render_weakness_drill_section(summaries: List[Dict[str, Any]]) -> None:
+    drill_items = _build_weakness_drill_items(summaries)
+    if not drill_items:
+        return
+    st.markdown("#### 弱点ドリル提案")
+    st.caption("不足タグに対応したドリルで重点復習のプランを組み立てましょう。")
+    for item in drill_items:
+        st.markdown(
+            f"- **{item['tag']}**（{item['case_label']}）: {item['reason']} → {item['suggestion']}"
+        )
+
+
 def render_attempt_results(attempt_id: int) -> None:
     detail = database.fetch_attempt_detail(attempt_id)
     attempt = detail["attempt"]
@@ -10970,23 +11445,34 @@ def render_attempt_results(attempt_id: int) -> None:
         )
         st.caption("各設問の得点とキーワード達成状況を整理しました。弱点分析に活用してください。")
 
+    activities = database.fetch_attempt_activity(attempt_id)
+    if activities:
+        _render_time_allocation_heatmap(attempt, activities)
+
     case_label = answers[0].get("case_label") if answers else None
     bundle_evaluation = scoring.evaluate_case_bundle(case_label=case_label, answers=answers)
     if bundle_evaluation:
         _render_case_bundle_feedback(bundle_evaluation)
 
+    drill_inputs: List[Dict[str, Any]] = []
     for idx, answer in enumerate(answers, start=1):
         with st.expander(f"設問{idx}の結果", expanded=True):
             st.write(f"**得点:** {answer['score']} / {answer['max_score']}")
             st.write("**フィードバック**")
             st.markdown(f"<pre>{answer['feedback']}</pre>", unsafe_allow_html=True)
+            keyword_hits = answer.get("keyword_hits") or {}
+            if keyword_hits:
+                _render_keyword_coverage_from_hits(keyword_hits)
+            else:
+                st.caption("キーワード採点は設定されていません。")
+            connector_stats = _render_causal_connector_indicator(answer.get("answer_text", ""), show_breakdown=True)
             axis_breakdown = answer.get("axis_breakdown") or {}
             if axis_breakdown:
                 st.markdown("**観点別スコアの内訳**")
                 _render_axis_breakdown(axis_breakdown)
-            if answer["keyword_hits"]:
+            if keyword_hits:
                 keyword_df = pd.DataFrame(
-                    [[kw, "○" if hit else "×"] for kw, hit in answer["keyword_hits"].items()],
+                    [[kw, "○" if hit else "×"] for kw, hit in keyword_hits.items()],
                     columns=["キーワード", "判定"],
                 )
                 st.table(keyword_df)
@@ -11004,6 +11490,17 @@ def render_attempt_results(attempt_id: int) -> None:
                     detailed_explanation=answer.get("detailed_explanation"),
                 )
                 st.caption("採点基準: 模範解答の論点とキーワードが盛り込まれているかを中心に評価しています。")
+            drill_inputs.append(
+                {
+                    "case_label": answer.get("case_label"),
+                    "keyword_hits": keyword_hits,
+                    "answer_text": answer.get("answer_text", ""),
+                    "connector_stats": connector_stats,
+                }
+            )
+
+    if drill_inputs:
+        _render_weakness_drill_section(drill_inputs)
 
     st.info("学習履歴ページから過去の答案をいつでも振り返ることができます。")
 
@@ -11463,6 +11960,10 @@ def mock_exam_page(user: Dict) -> None:
                 )
                 case_question_results.append({"question": question, "answer": text, "result": result})
             submitted_at = datetime.utcnow()
+            activity_summary = _summarise_question_activity(problem, submitted_at)
+            for answer in answers:
+                if answer.question_id in activity_summary:
+                    answer.activity = activity_summary[answer.question_id]
             attempt_id = database.record_attempt(
                 user_id=user["id"],
                 problem_id=problem_id,
@@ -11485,6 +11986,7 @@ def mock_exam_page(user: Dict) -> None:
             overall_results.append((problem, attempt_id, weakness_tags))
 
         st.session_state.mock_session = None
+        st.session_state.question_activity = {}
         st.session_state.pop("mock_notice_toggle", None)
         _remove_mock_notice_overlay()
         st.success("模擬試験の採点が完了しました。結果を確認してください。")
