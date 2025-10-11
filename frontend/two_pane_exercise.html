@@ -11,7 +11,7 @@
       rel="stylesheet"
     />
     <style>
-      :root {
+      body[data-app="exercise"] {
         /* カラーと余白のカスタムプロパティ */
         --color-bg: #f2f4f7;
         --color-surface: #ffffff;
@@ -41,7 +41,7 @@
       }
 
       @media (prefers-color-scheme: dark) {
-        :root {
+        body[data-app="exercise"] {
           --color-bg: #0d1424;
           --color-surface: rgba(18, 26, 44, 0.88);
           --color-text: #e7ecf5;
@@ -60,13 +60,13 @@
         }
       }
 
-      *,
-      *::before,
-      *::after {
+      body[data-app="exercise"] *,
+      body[data-app="exercise"] *::before,
+      body[data-app="exercise"] *::after {
         box-sizing: border-box;
       }
 
-      body {
+      body[data-app="exercise"] {
         margin: 0;
         font-family: "Noto Sans JP", system-ui, -apple-system, BlinkMacSystemFont,
           "Segoe UI", sans-serif;
@@ -76,8 +76,8 @@
         text-rendering: optimizeLegibility;
       }
 
-      h1,
-      .heading-xl {
+      body[data-app="exercise"] h1,
+      body[data-app="exercise"] .heading-xl {
         font-size: var(--font-heading-xl);
         font-weight: 700;
         line-height: 1.28;
@@ -87,8 +87,8 @@
         color: var(--color-text-strong);
       }
 
-      h2,
-      .heading-lg {
+      body[data-app="exercise"] h2,
+      body[data-app="exercise"] .heading-lg {
         font-size: var(--font-heading-lg);
         font-weight: 700;
         line-height: 1.3;
@@ -97,8 +97,8 @@
         color: var(--color-text-strong);
       }
 
-      h3,
-      .heading-md {
+      body[data-app="exercise"] h3,
+      body[data-app="exercise"] .heading-md {
         font-size: var(--font-heading-md);
         font-weight: 700;
         line-height: 1.35;
@@ -107,19 +107,19 @@
         color: var(--color-text-strong);
       }
 
-      p {
+      body[data-app="exercise"] p {
         margin: 0 0 var(--spacing-sm);
       }
 
-      .text-muted {
+      body[data-app="exercise"] .text-muted {
         color: var(--color-text-muted);
       }
 
-      a {
+      body[data-app="exercise"] a {
         color: inherit;
       }
 
-      .sr-only {
+      body[data-app="exercise"] .sr-only {
         position: absolute;
         width: 1px;
         height: 1px;
@@ -131,16 +131,16 @@
         border: 0;
       }
 
-      a:focus-visible,
-      button:focus-visible,
-      textarea:focus-visible,
-      [role="button"]:focus-visible {
+      body[data-app="exercise"] a:focus-visible,
+      body[data-app="exercise"] button:focus-visible,
+      body[data-app="exercise"] textarea:focus-visible,
+      body[data-app="exercise"] [role="button"]:focus-visible {
         outline: none;
         box-shadow: 0 0 0 3px var(--color-focus-ring);
         border-radius: 8px;
       }
 
-      .layout {
+      body[data-app="exercise"] .layout {
         display: flex;
         align-items: flex-start;
         gap: var(--spacing-lg);
@@ -149,7 +149,7 @@
         padding: var(--spacing-lg) var(--spacing-md) calc(var(--spacing-lg) * 2);
       }
 
-      .context-pane {
+      body[data-app="exercise"] .context-pane {
         position: sticky;
         top: var(--spacing-lg);
         max-height: calc(100vh - var(--spacing-lg) * 2);
@@ -163,16 +163,16 @@
       }
 
       @media (prefers-color-scheme: dark) {
-        .context-pane {
+        body[data-app="exercise"] .context-pane {
           background-color: var(--color-surface);
         }
       }
 
-      .context-pane__header {
+      body[data-app="exercise"] .context-pane__header {
         margin-bottom: var(--spacing-md);
       }
 
-      .context-pane__miniheader {
+      body[data-app="exercise"] .context-pane__miniheader {
         display: flex;
         flex-wrap: wrap;
         gap: var(--spacing-xs);
@@ -181,11 +181,11 @@
         color: var(--color-text-muted);
       }
 
-      .context-pane__miniheader strong {
+      body[data-app="exercise"] .context-pane__miniheader strong {
         color: var(--color-text);
       }
 
-      .context-pane__meta {
+      body[data-app="exercise"] .context-pane__meta {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: var(--spacing-xs) var(--spacing-sm);
@@ -194,17 +194,17 @@
         font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
       }
 
-      .context-pane__meta dt {
+      body[data-app="exercise"] .context-pane__meta dt {
         font-weight: 600;
         letter-spacing: 0.02em;
       }
 
-      .context-pane__body {
+      body[data-app="exercise"] .context-pane__body {
         font-size: 1rem;
         white-space: pre-line;
       }
 
-      .exercise {
+      body[data-app="exercise"] .exercise {
         flex: 1 1 auto;
         display: flex;
         flex-direction: column;
@@ -212,7 +212,7 @@
         min-width: 0;
       }
 
-      .exercise__tabs {
+      body[data-app="exercise"] .exercise__tabs {
         position: sticky;
         top: var(--spacing-lg);
         z-index: 5;
@@ -232,16 +232,16 @@
         scrollbar-width: thin;
       }
 
-      .exercise__tabs::-webkit-scrollbar {
+      body[data-app="exercise"] .exercise__tabs::-webkit-scrollbar {
         height: 6px;
       }
 
-      .exercise__tabs::-webkit-scrollbar-thumb {
+      body[data-app="exercise"] .exercise__tabs::-webkit-scrollbar-thumb {
         background-color: rgba(27, 35, 55, 0.25);
         border-radius: 999px;
       }
 
-      .exercise-tab {
+      body[data-app="exercise"] .exercise-tab {
         display: inline-flex;
         flex-direction: column;
         align-items: flex-start;
@@ -263,42 +263,42 @@
         scroll-snap-align: start;
       }
 
-      .exercise-tab__label {
+      body[data-app="exercise"] .exercise-tab__label {
         font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
         font-size: 0.78rem;
         text-transform: uppercase;
         color: var(--color-text-muted);
       }
 
-      .exercise-tab__title {
+      body[data-app="exercise"] .exercise-tab__title {
         font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
         font-weight: 700;
         color: var(--color-text-strong);
       }
 
-      .exercise-tab:hover,
-      .exercise-tab:focus-visible {
+      body[data-app="exercise"] .exercise-tab:hover,
+      body[data-app="exercise"] .exercise-tab:focus-visible {
         border-color: var(--color-chip-active);
         box-shadow: 0 0 0 3px var(--color-focus-ring);
       }
 
-      .exercise-tab[aria-selected="true"] {
+      body[data-app="exercise"] .exercise-tab[aria-selected="true"] {
         background-color: var(--color-chip-active);
         color: var(--color-chip-active-text);
       }
 
-      .exercise-tab[aria-selected="true"] .exercise-tab__label,
-      .exercise-tab[aria-selected="true"] .exercise-tab__title {
+      body[data-app="exercise"] .exercise-tab[aria-selected="true"] .exercise-tab__label,
+      body[data-app="exercise"] .exercise-tab[aria-selected="true"] .exercise-tab__title {
         color: var(--color-chip-active-text);
       }
 
-      .exercise__questions {
+      body[data-app="exercise"] .exercise__questions {
         display: flex;
         flex-direction: column;
         gap: var(--spacing-lg);
       }
 
-      .question-card {
+      body[data-app="exercise"] .question-card {
         position: relative;
         padding: var(--spacing-lg);
         border-radius: var(--radius-card);
@@ -309,25 +309,25 @@
           transform var(--transition-duration) ease;
       }
 
-      .question-card:nth-of-type(4n + 2) {
+      body[data-app="exercise"] .question-card:nth-of-type(4n + 2) {
         background-color: var(--color-card-ii);
       }
 
-      .question-card:nth-of-type(4n + 3) {
+      body[data-app="exercise"] .question-card:nth-of-type(4n + 3) {
         background-color: var(--color-card-iii);
       }
 
-      .question-card:nth-of-type(4n + 4) {
+      body[data-app="exercise"] .question-card:nth-of-type(4n + 4) {
         background-color: var(--color-card-iv);
       }
 
-      .question-card:hover,
-      .question-card:focus-within {
+      body[data-app="exercise"] .question-card:hover,
+      body[data-app="exercise"] .question-card:focus-within {
         box-shadow: 0 12px 32px rgba(31, 41, 51, 0.12);
         transform: translateY(-2px);
       }
 
-      .question-card__header {
+      body[data-app="exercise"] .question-card__header {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
@@ -335,7 +335,7 @@
         margin-bottom: var(--spacing-md);
       }
 
-      .question-card__badge {
+      body[data-app="exercise"] .question-card__badge {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -348,7 +348,7 @@
         font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
       }
 
-      .question-card__title {
+      body[data-app="exercise"] .question-card__title {
         font-size: 1.15rem;
         font-weight: 700;
         margin: 0;
@@ -356,7 +356,7 @@
         color: var(--color-text-strong);
       }
 
-      .question-card__meta {
+      body[data-app="exercise"] .question-card__meta {
         margin-left: auto;
         display: flex;
         gap: var(--spacing-sm);
@@ -365,17 +365,17 @@
         font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
       }
 
-      .question-card__body {
+      body[data-app="exercise"] .question-card__body {
         margin-bottom: var(--spacing-md);
       }
 
-      .question-card__input {
+      body[data-app="exercise"] .question-card__input {
         display: flex;
         flex-direction: column;
         gap: var(--spacing-xs);
       }
 
-      .question-card__textarea {
+      body[data-app="exercise"] .question-card__textarea {
         width: 100%;
         min-height: 160px;
         padding: var(--spacing-sm);
@@ -390,36 +390,36 @@
       }
 
       @media (prefers-color-scheme: dark) {
-        .question-card__textarea {
+        body[data-app="exercise"] .question-card__textarea {
           background-color: var(--color-surface);
           border-color: var(--color-border);
         }
       }
 
-      .question-card__textarea:focus {
+      body[data-app="exercise"] .question-card__textarea:focus {
         border-color: var(--color-chip-active);
       }
 
-      .char-counter {
+      body[data-app="exercise"] .char-counter {
         align-self: flex-end;
         font-size: 0.85rem;
         color: var(--color-text-muted);
         font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
       }
 
-      .char-counter--limit {
+      body[data-app="exercise"] .char-counter--limit {
         color: var(--color-warning);
         font-weight: 600;
       }
 
-      .support-block {
+      body[data-app="exercise"] .support-block {
         border-top: 1px solid var(--color-border);
         padding-top: var(--spacing-sm);
         margin-top: var(--spacing-md);
         font-size: 0.9rem;
       }
 
-      .support-block__toggle {
+      body[data-app="exercise"] .support-block__toggle {
         display: inline-flex;
         align-items: center;
         gap: var(--spacing-xs);
@@ -435,13 +435,13 @@
           color var(--transition-duration) ease;
       }
 
-      .support-block__toggle:hover,
-      .support-block__toggle:focus-visible {
+      body[data-app="exercise"] .support-block__toggle:hover,
+      body[data-app="exercise"] .support-block__toggle:focus-visible {
         background-color: var(--color-chip-bg);
         border-color: var(--color-chip-active);
       }
 
-      .support-block__content {
+      body[data-app="exercise"] .support-block__content {
         margin-top: var(--spacing-xs);
         padding: var(--spacing-xs) var(--spacing-sm);
         border-radius: 8px;
@@ -449,17 +449,17 @@
         color: var(--color-text-muted);
       }
 
-      .support-block__content[hidden] {
+      body[data-app="exercise"] .support-block__content[hidden] {
         display: none;
       }
 
       @media (prefers-color-scheme: dark) {
-        .support-block__content {
+        body[data-app="exercise"] .support-block__content {
           background-color: rgba(17, 24, 39, 0.55);
         }
       }
 
-      .icon {
+      body[data-app="exercise"] .icon {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -476,42 +476,42 @@
           color var(--transition-duration) ease;
       }
 
-      .icon--support::before {
+      body[data-app="exercise"] .icon--support::before {
         content: "i";
         font-style: italic;
       }
 
-      .support-block__toggle .icon {
+      body[data-app="exercise"] .support-block__toggle .icon {
         width: 24px;
         height: 24px;
         background-color: rgba(28, 47, 85, 0.12);
         font-size: 0.72rem;
       }
 
-      .support-block__toggle:hover .icon,
-      .support-block__toggle:focus-visible .icon,
-      .support-block__toggle[aria-expanded="true"] .icon {
+      body[data-app="exercise"] .support-block__toggle:hover .icon,
+      body[data-app="exercise"] .support-block__toggle:focus-visible .icon,
+      body[data-app="exercise"] .support-block__toggle[aria-expanded="true"] .icon {
         background-color: var(--color-chip-active);
         color: var(--color-chip-active-text);
       }
 
-      .support-block__label {
+      body[data-app="exercise"] .support-block__label {
         font-weight: 600;
         letter-spacing: 0.01em;
       }
 
       @media (prefers-color-scheme: dark) {
-        .icon {
+        body[data-app="exercise"] .icon {
           background-color: rgba(90, 126, 219, 0.28);
           color: var(--color-chip-active-text);
         }
 
-        .support-block__toggle .icon {
+        body[data-app="exercise"] .support-block__toggle .icon {
           background-color: rgba(90, 126, 219, 0.32);
         }
       }
 
-      .question-card--active::after {
+      body[data-app="exercise"] .question-card--active::after {
         content: "";
         position: absolute;
         inset: 0;
@@ -530,7 +530,7 @@
         }
       }
 
-      .exercise__footer {
+      body[data-app="exercise"] .exercise__footer {
         position: sticky;
         bottom: 0;
         z-index: 10;
@@ -548,7 +548,7 @@
         justify-content: flex-end;
       }
 
-      .cta-button {
+      body[data-app="exercise"] .cta-button {
         display: inline-flex;
         align-items: center;
         gap: var(--spacing-xs);
@@ -565,33 +565,33 @@
           background-color var(--transition-duration) ease;
       }
 
-      .cta-button:hover,
-      .cta-button:focus-visible {
+      body[data-app="exercise"] .cta-button:hover,
+      body[data-app="exercise"] .cta-button:focus-visible {
         box-shadow: 0 0 0 3px var(--color-focus-ring);
         transform: translateY(-1px);
       }
 
-      .cta-button__verb {
+      body[data-app="exercise"] .cta-button__verb {
         font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
       }
 
-      .cta-button__object {
+      body[data-app="exercise"] .cta-button__object {
         font-family: "Noto Sans JP", sans-serif;
         font-weight: 600;
       }
 
       @media (max-width: 1024px) {
-        .context-pane {
+        body[data-app="exercise"] .context-pane {
           flex-basis: 320px;
         }
       }
 
       @media (max-width: 768px) {
-        .layout {
+        body[data-app="exercise"] .layout {
           flex-direction: column;
         }
 
-        .context-pane {
+        body[data-app="exercise"] .context-pane {
           position: relative;
           top: auto;
           max-height: none;
@@ -599,18 +599,18 @@
           flex: 1 1 auto;
         }
 
-        .exercise__tabs {
+        body[data-app="exercise"] .exercise__tabs {
           position: sticky;
           top: 0;
         }
       }
 
       @media (max-width: 600px) {
-        .layout {
+        body[data-app="exercise"] .layout {
           padding: var(--spacing-md);
         }
 
-        .context-pane__miniheader {
+        body[data-app="exercise"] .context-pane__miniheader {
           position: sticky;
           top: 0;
           z-index: 10;
@@ -622,7 +622,7 @@
           background-color: var(--color-bg);
         }
 
-        .context-pane__miniheader a {
+        body[data-app="exercise"] .context-pane__miniheader a {
           color: var(--color-chip-active);
           font-size: 0.85rem;
           text-decoration: underline;
@@ -630,7 +630,7 @@
       }
     </style>
   </head>
-  <body>
+  <body data-app="exercise">
     <div class="layout">
       <aside
         class="context-pane"
