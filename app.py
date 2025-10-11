@@ -4069,7 +4069,27 @@ def _render_committee_heatmap_section(default_year: str = "令和7年度") -> No
     year_label = dataset.get("year", default_year)
 
     st.subheader("試験委員“専門×事例”ヒートマップ")
-    st.caption(f"{year_label}の基本/出題委員の専門領域と担当事例をマッピングしました。")
+    st.caption(
+        f"{year_label}の基本/出題委員の専門領域と担当事例をマッピングしました。色が濃いほど、当該組み合わせの影響度が高いことを示します。"
+    )
+
+    total_committees = int(df["委員"].nunique())
+    case_totals = summary_df.groupby("事例")["重み"].sum().sort_values(ascending=False)
+    domain_totals = summary_df.groupby("専門カテゴリ")["重み"].sum().sort_values(ascending=False)
+
+    top_case_label = case_totals.index[0] if not case_totals.empty else "-"
+    top_domain_label = domain_totals.index[0] if not domain_totals.empty else "-"
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("委員数", f"{total_committees}名")
+    if not case_totals.empty:
+        col2.metric("最注目の事例", top_case_label, f"重み {case_totals.iloc[0]:.1f}")
+    else:
+        col2.metric("最注目の事例", "-", "")
+    if not domain_totals.empty:
+        col3.metric("強みの専門領域", top_domain_label, f"重み {domain_totals.iloc[0]:.1f}")
+    else:
+        col3.metric("強みの専門領域", "-", "")
 
     primary_focus = committee_analysis.identify_primary_focus(dataset, summary_df)
     if primary_focus:
@@ -4084,6 +4104,9 @@ def _render_committee_heatmap_section(default_year: str = "令和7年度") -> No
 
     domain_order = committee_analysis.domain_order(summary_df)
     chart_data = summary_df.copy()
+    max_weight = float(chart_data["重み"].max() or 0)
+    color_scale = alt.Scale(scheme="blues", domain=(0, max_weight if max_weight > 0 else 1), domainMin=0)
+
     chart = (
         alt.Chart(chart_data)
         .mark_rect()
@@ -4092,7 +4115,7 @@ def _render_committee_heatmap_section(default_year: str = "令和7年度") -> No
             y=alt.Y("専門カテゴリ:N", sort=domain_order, title="専門領域"),
             color=alt.Color(
                 "重み:Q",
-                scale=alt.Scale(scheme="blues", domainMin=0),
+                scale=color_scale,
                 title="影響度",
             ),
             tooltip=[
@@ -4105,16 +4128,38 @@ def _render_committee_heatmap_section(default_year: str = "令和7年度") -> No
         )
         .properties(height=320)
     )
-    text_layer = (
+    text_layer_weight = (
         alt.Chart(chart_data)
-        .mark_text(color="#0f172a", fontSize=12)
+        .mark_text(color="#0f172a", fontSize=13, fontWeight="bold", dy=-6)
         .encode(
             x="事例:N",
             y="専門カテゴリ:N",
             text=alt.Text("重み:Q", format=".1f"),
         )
     )
-    st.altair_chart(chart + text_layer, use_container_width=True)
+    text_layer_members = (
+        alt.Chart(chart_data)
+        .mark_text(color="#334155", fontSize=11, dy=10)
+        .encode(
+            x="事例:N",
+            y="専門カテゴリ:N",
+            text=alt.Text("委員数:Q", format=".0f"),
+        )
+    )
+
+    highlight_rows = chart_data.nlargest(3, "重み")
+    highlight_layer = (
+        alt.Chart(highlight_rows)
+        .mark_rect(stroke="#1d4ed8", strokeWidth=2, fillOpacity=0)
+        .encode(
+            x="事例:N",
+            y="専門カテゴリ:N",
+        )
+    )
+
+    st.altair_chart(chart + text_layer_weight + text_layer_members + highlight_layer, use_container_width=True)
+
+    st.caption("セル内の下段の数値は担当委員数を表しています。青枠は特に重みが大きい上位3組み合わせです。")
 
     recommendations = committee_analysis.focus_recommendations(summary_df, limit=5)
     if recommendations:
