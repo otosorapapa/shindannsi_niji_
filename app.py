@@ -1542,48 +1542,6 @@ def _inject_practice_question_styles() -> None:
                 color: var(--practice-text-muted);
                 white-space: nowrap;
             }
-            .practice-anchor-control {
-                display: flex;
-                flex-direction: column;
-                align-items: flex-end;
-                gap: 0.2rem;
-            }
-            .practice-anchor-button {
-                display: inline-flex;
-                align-items: center;
-                gap: 0.35rem;
-                border-radius: 999px;
-                border: 1px solid rgba(37, 99, 235, 0.4);
-                background: rgba(37, 99, 235, 0.08);
-                color: #1d4ed8;
-                font-size: 0.78rem;
-                font-weight: 600;
-                padding: 0.35rem 0.8rem;
-                cursor: pointer;
-                transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
-            }
-            .practice-anchor-button svg {
-                width: 16px;
-                height: 16px;
-            }
-            .practice-anchor-button:hover {
-                background: rgba(37, 99, 235, 0.15);
-                transform: translateY(-1px);
-                box-shadow: 0 6px 18px rgba(37, 99, 235, 0.18);
-            }
-            .practice-anchor-button:focus-visible {
-                outline: 3px solid var(--practice-focus-ring-soft);
-                outline-offset: 3px;
-            }
-            .practice-anchor-button[disabled] {
-                opacity: 0.6;
-                cursor: not-allowed;
-            }
-            .practice-anchor-feedback {
-                min-height: 1em;
-                font-size: 0.72rem;
-                color: #0f766e;
-            }
             .practice-question-summary {
                 margin: 0;
                 font-size: 0.95rem;
@@ -1610,6 +1568,51 @@ def _inject_practice_question_styles() -> None:
                 background: rgba(59, 130, 246, 0.12);
                 color: #1d4ed8;
                 border: 1px solid rgba(59, 130, 246, 0.28);
+            }
+            .practice-return-nav-button {
+                position: fixed;
+                right: 1.5rem;
+                bottom: 1.5rem;
+                z-index: 1050;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.45rem;
+                border-radius: 999px;
+                border: 1px solid rgba(37, 99, 235, 0.58);
+                background: rgba(37, 99, 235, 0.96);
+                color: #f8fafc;
+                font-size: 0.9rem;
+                font-weight: 600;
+                letter-spacing: 0.02em;
+                padding: 0.55rem 1.05rem;
+                box-shadow: 0 18px 36px rgba(37, 99, 235, 0.28);
+                cursor: pointer;
+                transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            }
+            .practice-return-nav-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .practice-return-nav-button svg {
+                width: 18px;
+                height: 18px;
+            }
+            .practice-return-nav-button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 20px 36px rgba(37, 99, 235, 0.32);
+            }
+            .practice-return-nav-button:focus-visible {
+                outline: 3px solid var(--practice-focus-ring-soft);
+                outline-offset: 4px;
+            }
+            .practice-return-nav-button.is-hidden {
+                opacity: 0;
+                pointer-events: none;
+                transform: translateY(12px);
+            }
+            .practice-return-nav-text {
+                white-space: nowrap;
             }
             .practice-autosave-caption {
                 font-size: 0.78rem;
@@ -1672,8 +1675,15 @@ def _inject_practice_question_styles() -> None:
                 .practice-question-meta-items {
                     justify-content: flex-start;
                 }
-                .practice-anchor-control {
-                    align-items: flex-start;
+                .practice-return-nav-button {
+                    right: 1rem;
+                    bottom: 1rem;
+                    font-size: 0.82rem;
+                    padding: 0.5rem 0.95rem;
+                }
+                .practice-return-nav-button svg {
+                    width: 17px;
+                    height: 17px;
                 }
             }
             @media (prefers-color-scheme: dark) {
@@ -1702,13 +1712,14 @@ def _inject_practice_question_styles() -> None:
                     color: #bfdbfe;
                     border-color: rgba(147, 197, 253, 0.45);
                 }
-                .practice-anchor-button {
-                    background: rgba(37, 99, 235, 0.22);
-                    color: #bfdbfe;
-                    border-color: rgba(96, 165, 250, 0.6);
+                .practice-return-nav-button {
+                    background: rgba(59, 130, 246, 0.9);
+                    border-color: rgba(96, 165, 250, 0.65);
+                    color: #e0f2fe;
+                    box-shadow: 0 18px 32px rgba(59, 130, 246, 0.35);
                 }
-                .practice-anchor-feedback {
-                    color: #7dd3fc;
+                .practice-return-nav-button:hover {
+                    box-shadow: 0 20px 36px rgba(59, 130, 246, 0.4);
                 }
                 .practice-autosave-caption {
                     color: rgba(226, 232, 240, 0.78);
@@ -2897,6 +2908,8 @@ def _inject_practice_navigation_script() -> None:
 
                 const sections = Array.from(doc.querySelectorAll('.practice-question-block'));
                 const navLinks = Array.from(doc.querySelectorAll('.practice-toc-link'));
+                const quickNav = doc.getElementById('practice-quick-nav');
+                const returnButton = doc.querySelector('.practice-return-nav-button');
                 if (!sections.length || !navLinks.length) {
                     return;
                 }
@@ -2939,32 +2952,6 @@ def _inject_practice_navigation_script() -> None:
                 });
 
                 let activeAnchor = sectionAnchors[0] || '';
-
-                const copyText = async (text) => {
-                    try {
-                        if (navigator.clipboard && navigator.clipboard.writeText) {
-                            await navigator.clipboard.writeText(text);
-                            return true;
-                        }
-                    } catch (error) {
-                        // fall back below
-                    }
-                    const helper = doc.createElement('textarea');
-                    helper.value = text;
-                    helper.setAttribute('readonly', '');
-                    helper.style.position = 'absolute';
-                    helper.style.left = '-9999px';
-                    doc.body.appendChild(helper);
-                    helper.select();
-                    let succeeded = false;
-                    try {
-                        succeeded = doc.execCommand('copy');
-                    } catch (err) {
-                        succeeded = false;
-                    }
-                    doc.body.removeChild(helper);
-                    return succeeded;
-                };
 
                 const highlightSection = (anchor) => {
                     const data = sectionMap.get(anchor);
@@ -3087,39 +3074,31 @@ def _inject_practice_navigation_script() -> None:
                     });
                 });
 
-                const anchorButtons = Array.from(doc.querySelectorAll('.practice-anchor-button'));
-                anchorButtons.forEach((button) => {
-                    if (button.dataset.enhanced === '1') {
+                const attachReturnButton = () => {
+                    if (!quickNav || !returnButton) {
                         return;
                     }
-                    button.dataset.enhanced = '1';
-                    button.addEventListener('click', async () => {
-                        const anchor = button.dataset.anchor;
-                        if (!anchor) {
-                            return;
+                    const updateVisibility = () => {
+                        const rect = quickNav.getBoundingClientRect();
+                        if (rect.top >= 80) {
+                            returnButton.classList.add('is-hidden');
+                        } else {
+                            returnButton.classList.remove('is-hidden');
                         }
-                        const feedbackId = button.dataset.feedbackId;
-                        const feedback = feedbackId ? doc.getElementById(feedbackId) : null;
-                        const original = button.dataset.label || button.getAttribute('aria-label') || '';
-                        const copied = button.dataset.labelCopied || 'リンクをコピーしました';
-                        const url = new URL(win.location);
-                        url.hash = anchor;
-                        const success = await copyText(url.toString());
-                        if (feedback) {
-                            feedback.textContent = success ? copied : 'コピーに失敗しました';
-                            win.setTimeout(() => {
-                                feedback.textContent = '';
-                            }, 2600);
-                        }
-                        if (original) {
-                            button.setAttribute('aria-label', success ? copied : original);
-                            win.setTimeout(() => button.setAttribute('aria-label', original), 2600);
-                        }
-                        if (success) {
-                            highlightSection(anchor);
-                        }
-                    });
-                });
+                    };
+                    if (returnButton.dataset.enhanced !== '1') {
+                        returnButton.dataset.enhanced = '1';
+                        returnButton.addEventListener('click', (event) => {
+                            event.preventDefault();
+                            quickNav.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        });
+                        win.addEventListener('scroll', updateVisibility, { passive: true });
+                        win.addEventListener('resize', updateVisibility);
+                    }
+                    updateVisibility();
+                };
+
+                attachReturnButton();
 
                 if ('IntersectionObserver' in win) {
                     const observer = new IntersectionObserver(
@@ -3859,34 +3838,6 @@ def _render_question_overview_card(
         for label in frame_labels
     )
 
-    anchor_control_html = ""
-    if anchor_id:
-        escaped_anchor = html.escape(anchor_id)
-        anchor_feedback_id = f"{anchor_id}-feedback"
-        anchor_label = f"{order_label}のリンクをコピー"
-        anchor_control_html = dedent(
-            f"""
-            <div class=\"practice-anchor-control\">
-                <button
-                    type=\"button\"
-                    class=\"practice-anchor-button\"
-                    data-anchor=\"{escaped_anchor}\"
-                    data-feedback-id=\"{html.escape(anchor_feedback_id)}\"
-                    aria-label=\"{html.escape(anchor_label)}\"
-                    data-label=\"{html.escape(anchor_label)}\"
-                    data-label-copied=\"リンクをコピーしました\"
-                >
-                    <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\">
-                        <path d=\"M10.59 13.41a1 1 0 0 1 0-1.41l3.18-3.18a1 1 0 1 1 1.41 1.41l-3.18 3.18a1 1 0 0 1-1.41 0z\" fill=\"currentColor\" />
-                        <path d=\"M11 7a3 3 0 0 1 4.24 0l1.76 1.76a3 3 0 0 1 0 4.24l-.88.88a1 1 0 1 1-1.41-1.41l.88-.88a1 1 0 0 0 0-1.41L14.83 8.4a1 1 0 0 0-1.41 0l-.89.89a1 1 0 0 1-1.41-1.41L11 7zm2 10a3 3 0 0 1-2.12-.88l-1.76-1.76a3 3 0 0 1 0-4.24l.88-.88a1 1 0 0 1 1.41 1.41l-.88.88a1 1 0 0 0 0 1.41l1.76 1.76a1 1 0 0 0 1.41 0l.89-.89a1 1 0 1 1 1.41 1.41l-.89.89A3 3 0 0 1 13 17z\" fill=\"currentColor\" />
-                    </svg>
-                    <span>リンクコピー</span>
-                </button>
-                <span id=\"{html.escape(anchor_feedback_id)}\" class=\"practice-anchor-feedback\" aria-live=\"polite\"></span>
-            </div>
-            """
-        ).strip()
-
     header_attributes = f' id="{html.escape(header_id)}"' if header_id else ""
 
     st.markdown(
@@ -3900,7 +3851,6 @@ def _render_question_overview_card(
                     </div>
                     <div class=\"practice-question-header-meta\">
                         <div class=\"practice-question-meta-items\">{meta_html}</div>
-                        {anchor_control_html}
                     </div>
                 </header>
                 {f'<p class="practice-question-summary">{aim_html}</p>' if aim_html else ''}
@@ -7227,12 +7177,28 @@ def practice_page(user: Dict) -> None:
             st.markdown(
                 dedent(
                     f"""
-                    <nav class=\"practice-toc\" aria-label=\"設問セクション\">
+                    <nav id=\"practice-quick-nav\" class=\"practice-toc\" aria-label=\"設問セクション\">
                         <span class=\"practice-toc-label\">設問ナビ</span>
                         <ol class=\"practice-toc-track\" role=\"list\">{nav_items}</ol>
                     </nav>
                     """
                 ),
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                dedent(
+                    """
+                    <button type=\"button\" class=\"practice-return-nav-button is-hidden\" aria-label=\"設問ナビに戻る\">
+                        <span class=\"practice-return-nav-icon\" aria-hidden=\"true\">
+                            <svg viewBox=\"0 0 24 24\" focusable=\"false\" aria-hidden=\"true\">
+                                <path d=\"M12 5a1 1 0 0 1 .71.29l6 6a1 1 0 0 1-1.42 1.42L12 7.41l-5.29 5.3a1 1 0 0 1-1.42-1.42l6-6A1 1 0 0 1 12 5z\" fill=\"currentColor\" />
+                                <path d=\"M12 5a1 1 0 0 1 1 1v12a1 1 0 0 1-2 0V6a1 1 0 0 1 1-1z\" fill=\"currentColor\" />
+                            </svg>
+                        </span>
+                        <span class=\"practice-return-nav-text\">設問ナビに戻る</span>
+                    </button>
+                    """
+                ).strip(),
                 unsafe_allow_html=True,
             )
 
