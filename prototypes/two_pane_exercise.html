@@ -4,22 +4,30 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>診断士二次 演習UIプロトタイプ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+Mono:wght@500&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
         /* カラーと余白のカスタムプロパティ */
-        --color-bg: #f9fafb;
-        --color-text: #1f2933;
-        --color-border: rgba(31, 41, 51, 0.16);
-        --color-chip-bg: rgba(31, 41, 51, 0.08);
-        --color-chip-active: #2563eb;
+        --color-bg: #f2f4f7;
+        --color-surface: #ffffff;
+        --color-text: #1b2337;
+        --color-text-strong: #111a2b;
+        --color-border: rgba(27, 35, 55, 0.18);
+        --color-chip-bg: rgba(27, 35, 55, 0.12);
+        --color-chip-active: #1c2f55;
         --color-chip-active-text: #ffffff;
-        --color-warning: #dc2626;
-        --color-card-a: #e6f1ff;
-        --color-card-b: #e9f9f1;
-        --color-card-c: #fff6e5;
-        --color-card-d: #ffe9f3;
-        --color-text-muted: #6b7280;
-        --shadow-focus: 0 0 0 2px rgba(37, 99, 235, 0.45);
+        --color-warning: #b11c34;
+        --color-text-muted: #5a6378;
+        --color-card-i: #fbe7ef; /* 桜 */
+        --color-card-ii: #e0f2d8; /* 若草 */
+        --color-card-iii: #ddeafe; /* 空 */
+        --color-card-iv: #dfe2ff; /* 瑠璃 */
+        --color-focus-ring: rgba(39, 71, 128, 0.55);
         --radius-card: 16px;
         --spacing-lg: 32px;
         --spacing-md: 16px;
@@ -34,18 +42,21 @@
 
       @media (prefers-color-scheme: dark) {
         :root {
-          --color-bg: #111827;
-          --color-text: #f3f4f6;
-          --color-border: rgba(243, 244, 246, 0.25);
-          --color-chip-bg: rgba(243, 244, 246, 0.12);
-          --color-chip-active: #60a5fa;
-          --color-chip-active-text: #0b1120;
-          --color-card-a: rgba(96, 165, 250, 0.24);
-          --color-card-b: rgba(52, 211, 153, 0.24);
-          --color-card-c: rgba(251, 191, 36, 0.24);
-          --color-card-d: rgba(248, 113, 113, 0.24);
-          --color-text-muted: rgba(243, 244, 246, 0.7);
-          --shadow-focus: 0 0 0 2px rgba(96, 165, 250, 0.65);
+          --color-bg: #0d1424;
+          --color-surface: rgba(18, 26, 44, 0.88);
+          --color-text: #e7ecf5;
+          --color-text-strong: #f7f9ff;
+          --color-border: rgba(231, 236, 245, 0.2);
+          --color-chip-bg: rgba(231, 236, 245, 0.12);
+          --color-chip-active: #5a7edb;
+          --color-chip-active-text: #0d1424;
+          --color-warning: #f87171;
+          --color-text-muted: rgba(231, 236, 245, 0.76);
+          --color-card-i: rgba(248, 165, 200, 0.24);
+          --color-card-ii: rgba(190, 242, 145, 0.24);
+          --color-card-iii: rgba(147, 197, 253, 0.24);
+          --color-card-iv: rgba(129, 140, 248, 0.24);
+          --color-focus-ring: rgba(120, 150, 240, 0.65);
         }
       }
 
@@ -62,6 +73,7 @@
         background-color: var(--color-bg);
         color: var(--color-text);
         line-height: 1.6;
+        text-rendering: optimizeLegibility;
       }
 
       h1,
@@ -71,6 +83,8 @@
         line-height: 1.28;
         letter-spacing: 0.01em;
         margin: 0 0 var(--spacing-sm);
+        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+        color: var(--color-text-strong);
       }
 
       h2,
@@ -79,6 +93,8 @@
         font-weight: 700;
         line-height: 1.3;
         margin: 0 0 var(--spacing-sm);
+        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+        color: var(--color-text-strong);
       }
 
       h3,
@@ -87,6 +103,8 @@
         font-weight: 700;
         line-height: 1.35;
         margin: 0 0 var(--spacing-xs);
+        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+        color: var(--color-text-strong);
       }
 
       p {
@@ -118,7 +136,7 @@
       textarea:focus-visible,
       [role="button"]:focus-visible {
         outline: none;
-        box-shadow: var(--shadow-focus);
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
         border-radius: 8px;
       }
 
@@ -140,13 +158,13 @@
         padding: var(--spacing-lg) var(--spacing-md);
         border: 1px solid var(--color-border);
         border-radius: var(--radius-card);
-        background-color: rgba(255, 255, 255, 0.82);
-        backdrop-filter: blur(4px);
+        background-color: var(--color-surface);
+        box-shadow: 0 16px 32px rgba(16, 24, 40, 0.08);
       }
 
       @media (prefers-color-scheme: dark) {
         .context-pane {
-          background-color: rgba(17, 24, 39, 0.82);
+          background-color: var(--color-surface);
         }
       }
 
@@ -173,6 +191,7 @@
         gap: var(--spacing-xs) var(--spacing-sm);
         font-size: 0.88rem;
         color: var(--color-text-muted);
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
       }
 
       .context-pane__meta dt {
@@ -193,48 +212,83 @@
         min-width: 0;
       }
 
-      .exercise__toc {
+      .exercise__tabs {
         position: sticky;
         top: var(--spacing-lg);
         z-index: 5;
-        background: linear-gradient(to bottom, var(--color-bg) 80%, transparent);
-        padding: var(--spacing-md) var(--spacing-md) var(--spacing-sm);
+        display: flex;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-sm) var(--spacing-md);
         border: 1px solid var(--color-border);
         border-radius: var(--radius-card);
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--spacing-sm);
-        align-items: center;
+        background-color: var(--color-bg);
+        background: linear-gradient(
+          180deg,
+          var(--color-bg) 0%,
+          color-mix(in srgb, var(--color-bg) 60%, transparent)
+        );
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: thin;
       }
 
-      .toc__link {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: var(--spacing-xs) var(--spacing-sm);
+      .exercise__tabs::-webkit-scrollbar {
+        height: 6px;
+      }
+
+      .exercise__tabs::-webkit-scrollbar-thumb {
+        background-color: rgba(27, 35, 55, 0.25);
         border-radius: 999px;
-        background-color: var(--color-chip-bg);
-        font-size: 0.9rem;
-        border: 1px solid transparent;
-        gap: var(--spacing-xs);
-        transition: background-color var(--transition-duration) ease,
-          color var(--transition-duration) ease,
-          border-color var(--transition-duration) ease;
-        text-decoration: none;
       }
 
-      .toc__label {
+      .exercise-tab {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        min-width: 168px;
+        padding: 10px 14px;
+        border-radius: 14px;
+        border: 1px solid transparent;
+        background-color: var(--color-chip-bg);
+        color: var(--color-text);
+        font-size: 0.95rem;
         font-weight: 600;
         letter-spacing: 0.01em;
+        cursor: pointer;
+        transition: background-color var(--transition-duration) ease,
+          color var(--transition-duration) ease,
+          border-color var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease;
+        scroll-snap-align: start;
       }
 
-      .toc__link:hover,
-      .toc__link:focus-visible {
+      .exercise-tab__label {
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        color: var(--color-text-muted);
+      }
+
+      .exercise-tab__title {
+        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+        font-weight: 700;
+        color: var(--color-text-strong);
+      }
+
+      .exercise-tab:hover,
+      .exercise-tab:focus-visible {
         border-color: var(--color-chip-active);
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
       }
 
-      .toc__link--active {
+      .exercise-tab[aria-selected="true"] {
         background-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
+      }
+
+      .exercise-tab[aria-selected="true"] .exercise-tab__label,
+      .exercise-tab[aria-selected="true"] .exercise-tab__title {
         color: var(--color-chip-active-text);
       }
 
@@ -249,22 +303,22 @@
         padding: var(--spacing-lg);
         border-radius: var(--radius-card);
         border: 1px solid var(--color-border);
-        background-color: var(--color-card-a);
+        background-color: var(--color-card-i);
         box-shadow: none;
         transition: box-shadow var(--transition-duration) ease,
           transform var(--transition-duration) ease;
       }
 
       .question-card:nth-of-type(4n + 2) {
-        background-color: var(--color-card-b);
+        background-color: var(--color-card-ii);
       }
 
       .question-card:nth-of-type(4n + 3) {
-        background-color: var(--color-card-c);
+        background-color: var(--color-card-iii);
       }
 
       .question-card:nth-of-type(4n + 4) {
-        background-color: var(--color-card-d);
+        background-color: var(--color-card-iv);
       }
 
       .question-card:hover,
@@ -288,15 +342,18 @@
         width: 40px;
         height: 40px;
         border-radius: 12px;
-        background-color: rgba(31, 41, 51, 0.85);
-        color: #ffffff;
+        background-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
         font-weight: 700;
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
       }
 
       .question-card__title {
         font-size: 1.15rem;
         font-weight: 700;
         margin: 0;
+        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+        color: var(--color-text-strong);
       }
 
       .question-card__meta {
@@ -305,6 +362,7 @@
         gap: var(--spacing-sm);
         font-size: 0.9rem;
         color: var(--color-text-muted);
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
       }
 
       .question-card__body {
@@ -322,8 +380,8 @@
         min-height: 160px;
         padding: var(--spacing-sm);
         border-radius: 12px;
-        border: 1px solid rgba(31, 41, 51, 0.2);
-        background-color: rgba(255, 255, 255, 0.82);
+        border: 1px solid var(--color-border);
+        background-color: var(--color-surface);
         color: inherit;
         font-size: 1rem;
         resize: vertical;
@@ -333,8 +391,8 @@
 
       @media (prefers-color-scheme: dark) {
         .question-card__textarea {
-          background-color: rgba(17, 24, 39, 0.7);
-          border-color: rgba(243, 244, 246, 0.24);
+          background-color: var(--color-surface);
+          border-color: var(--color-border);
         }
       }
 
@@ -346,6 +404,7 @@
         align-self: flex-end;
         font-size: 0.85rem;
         color: var(--color-text-muted);
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
       }
 
       .char-counter--limit {
@@ -407,7 +466,7 @@
         width: 28px;
         height: 28px;
         border-radius: 8px;
-        background-color: rgba(37, 99, 235, 0.14);
+        background-color: rgba(28, 47, 85, 0.12);
         color: var(--color-chip-active);
         font-size: 0.75rem;
         font-weight: 700;
@@ -417,33 +476,15 @@
           color var(--transition-duration) ease;
       }
 
-      .icon--toc::before {
-        content: "Q";
-      }
-
       .icon--support::before {
         content: "i";
         font-style: italic;
       }
 
-      .toc__link .icon {
-        margin-right: 2px;
-      }
-
-      .toc__link:hover .icon,
-      .toc__link:focus-visible .icon {
-        background-color: rgba(37, 99, 235, 0.18);
-      }
-
-      .toc__link--active .icon {
-        background-color: var(--color-chip-active-text);
-        color: var(--color-chip-active);
-      }
-
       .support-block__toggle .icon {
         width: 24px;
         height: 24px;
-        background-color: rgba(37, 99, 235, 0.12);
+        background-color: rgba(28, 47, 85, 0.12);
         font-size: 0.72rem;
       }
 
@@ -461,16 +502,12 @@
 
       @media (prefers-color-scheme: dark) {
         .icon {
-          background-color: rgba(96, 165, 250, 0.22);
-          color: var(--color-chip-active);
-        }
-
-        .toc__link--active .icon {
-          background-color: var(--color-chip-active-text);
+          background-color: rgba(90, 126, 219, 0.28);
+          color: var(--color-chip-active-text);
         }
 
         .support-block__toggle .icon {
-          background-color: rgba(96, 165, 250, 0.24);
+          background-color: rgba(90, 126, 219, 0.32);
         }
       }
 
@@ -493,6 +530,56 @@
         }
       }
 
+      .exercise__footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+        margin-top: auto;
+        background-color: var(--color-bg);
+        background: linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--color-bg) 90%, transparent) 0%,
+          var(--color-bg) 55%,
+          var(--color-bg) 100%
+        );
+        border-top: 1px solid var(--color-border);
+        padding: var(--spacing-md) var(--spacing-md) calc(var(--spacing-md) + 4px);
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .cta-button {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        padding: 12px 20px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        background-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
+        font-weight: 700;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: transform var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease,
+          background-color var(--transition-duration) ease;
+      }
+
+      .cta-button:hover,
+      .cta-button:focus-visible {
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
+        transform: translateY(-1px);
+      }
+
+      .cta-button__verb {
+        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+      }
+
+      .cta-button__object {
+        font-family: "Noto Sans JP", sans-serif;
+        font-weight: 600;
+      }
+
       @media (max-width: 1024px) {
         .context-pane {
           flex-basis: 320px;
@@ -512,7 +599,7 @@
           flex: 1 1 auto;
         }
 
-        .exercise__toc {
+        .exercise__tabs {
           position: sticky;
           top: 0;
         }
@@ -588,24 +675,65 @@
 
       <main class="exercise" role="main" aria-labelledby="exercise-heading">
         <h2 id="exercise-heading" class="sr-only">演習と設問</h2>
-        <nav class="exercise__toc" aria-label="設問目次">
-          <!-- TOCチップで現在の設問位置を可視化 -->
-          <a class="toc__link" href="#question-1">
-            <span class="icon icon--toc" aria-hidden="true"></span>
-            <span class="toc__label">設問1</span>
-          </a>
-          <a class="toc__link" href="#question-2">
-            <span class="icon icon--toc" aria-hidden="true"></span>
-            <span class="toc__label">設問2</span>
-          </a>
-          <a class="toc__link" href="#question-3">
-            <span class="icon icon--toc" aria-hidden="true"></span>
-            <span class="toc__label">設問3</span>
-          </a>
-          <a class="toc__link" href="#question-4">
-            <span class="icon icon--toc" aria-hidden="true"></span>
-            <span class="toc__label">設問4</span>
-          </a>
+        <nav
+          class="exercise__tabs"
+          role="tablist"
+          aria-label="設問タブ"
+          data-wheel-scroll="true"
+        >
+          <!-- ホイールでも操作できる設問タブ -->
+          <button
+            id="tab-question-1"
+            class="exercise-tab"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="question-1"
+            tabindex="0"
+            data-target="question-1"
+          >
+            <span class="exercise-tab__label">Q1</span>
+            <span class="exercise-tab__title">経営課題の整理</span>
+          </button>
+          <button
+            id="tab-question-2"
+            class="exercise-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="question-2"
+            tabindex="-1"
+            data-target="question-2"
+          >
+            <span class="exercise-tab__label">Q2</span>
+            <span class="exercise-tab__title">顧客共創の提案</span>
+          </button>
+          <button
+            id="tab-question-3"
+            class="exercise-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="question-3"
+            tabindex="-1"
+            data-target="question-3"
+          >
+            <span class="exercise-tab__label">Q3</span>
+            <span class="exercise-tab__title">技能伝承の仕組み</span>
+          </button>
+          <button
+            id="tab-question-4"
+            class="exercise-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="question-4"
+            tabindex="-1"
+            data-target="question-4"
+          >
+            <span class="exercise-tab__label">Q4</span>
+            <span class="exercise-tab__title">評価制度の再設計</span>
+          </button>
         </nav>
         <section class="exercise__questions" aria-live="polite">
           <article
@@ -651,7 +779,7 @@
                 data-support-id="support-1"
               >
                 <span class="icon icon--support" aria-hidden="true"></span>
-                <span class="support-block__label">思考補助</span>
+                <span class="support-block__label">活用する 思考補助</span>
               </button>
               <div id="support-1" class="support-block__content" hidden>
                 設計部門のDX化、BOM連携、技能伝承、人材評価の整合性など、
@@ -703,7 +831,7 @@
                 data-support-id="support-2"
               >
                 <span class="icon icon--support" aria-hidden="true"></span>
-                <span class="support-block__label">注意事項</span>
+                <span class="support-block__label">確認する 注意事項</span>
               </button>
               <div id="support-2" class="support-block__content" hidden>
                 顧客接点の情報共有タイミング、設計部門の早期参画、試作段
@@ -755,7 +883,7 @@
                 data-support-id="support-3"
               >
                 <span class="icon icon--support" aria-hidden="true"></span>
-                <span class="support-block__label">Tips</span>
+                <span class="support-block__label">参照する Tips</span>
               </button>
               <div id="support-3" class="support-block__content" hidden>
                 指導員制度、ペアワーク、動画記録、工程別のナレッジカード
@@ -807,7 +935,7 @@
                 data-support-id="support-4"
               >
                 <span class="icon icon--support" aria-hidden="true"></span>
-                <span class="support-block__label">ゴール像</span>
+                <span class="support-block__label">確認する ゴール像</span>
               </button>
               <div id="support-4" class="support-block__content" hidden>
                 DXで創出した知見の共有や後進育成を評価指標に組み込み、成
@@ -816,13 +944,31 @@
             </div>
           </article>
         </section>
+        <footer class="exercise__footer">
+          <button
+            type="button"
+            class="cta-button"
+            id="next-question-button"
+            data-target="question-2"
+            aria-label="次の設問へ進む"
+          >
+            <span class="cta-button__verb">進む</span>
+            <span class="cta-button__object">次の設問へ</span>
+          </button>
+        </footer>
       </main>
     </div>
 
     <script>
-      // 現在の設問位置とTOCの同期、スムーススクロール、ハイライト
-      const tocLinks = document.querySelectorAll('.toc__link');
-      const questionCards = document.querySelectorAll('.question-card');
+      // 現在の設問位置とタブ／CTAの同期、スムーススクロール、ハイライト
+      const tabButtons = Array.from(
+        document.querySelectorAll('.exercise-tab')
+      );
+      const tabList = document.querySelector('.exercise__tabs');
+      const nextButton = document.getElementById('next-question-button');
+      const questionCards = Array.from(
+        document.querySelectorAll('.question-card')
+      );
 
       const activateCard = (card) => {
         questionCards.forEach((c) => c.classList.remove('question-card--active'));
@@ -837,34 +983,119 @@
         }
       };
 
-      tocLinks.forEach((link) => {
-        link.addEventListener('click', (event) => {
-          event.preventDefault();
-          const targetId = link.getAttribute('href').substring(1);
-          const target = document.getElementById(targetId);
-          target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          if (target?.focus) {
-            try {
-              target.focus({ preventScroll: true });
-            } catch (error) {
-              target.focus();
-            }
+      const updateTabs = (activeId) => {
+        tabButtons.forEach((button) => {
+          const isActive = button.dataset.target === activeId;
+          button.setAttribute('aria-selected', String(isActive));
+          button.setAttribute('tabindex', isActive ? '0' : '-1');
+        });
+      };
+
+      const updateFooterCta = (activeId) => {
+        if (!nextButton) return;
+        const currentIndex = questionCards.findIndex(
+          (card) => card.id === activeId
+        );
+        if (currentIndex === -1) {
+          return;
+        }
+
+        const verb = nextButton.querySelector('.cta-button__verb');
+        const object = nextButton.querySelector('.cta-button__object');
+        const isLast = currentIndex === questionCards.length - 1;
+        const nextIndex = isLast ? 0 : currentIndex + 1;
+        nextButton.dataset.target = questionCards[nextIndex].id;
+        if (verb && object) {
+          if (isLast) {
+            verb.textContent = '見直す';
+            object.textContent = '1問目へ';
+            nextButton.setAttribute('aria-label', '1問目へ戻る');
+          } else {
+            verb.textContent = '進む';
+            object.textContent = '次の設問へ';
+            nextButton.setAttribute('aria-label', '次の設問へ進む');
           }
-          activateCard(target);
+        }
+      };
+
+      const scrollToQuestion = (targetId) => {
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (target.focus) {
+          try {
+            target.focus({ preventScroll: true });
+          } catch (error) {
+            target.focus();
+          }
+        }
+        activateCard(target);
+        updateTabs(targetId);
+        updateFooterCta(targetId);
+      };
+
+      tabButtons.forEach((button, index) => {
+        button.addEventListener('click', () => {
+          scrollToQuestion(button.dataset.target);
+        });
+
+        button.addEventListener('keydown', (event) => {
+          const { key } = event;
+          let nextIndex = index;
+          if (key === 'ArrowRight' || key === 'ArrowDown') {
+            nextIndex = (index + 1) % tabButtons.length;
+          } else if (key === 'ArrowLeft' || key === 'ArrowUp') {
+            nextIndex = (index - 1 + tabButtons.length) % tabButtons.length;
+          } else if (key === 'Home') {
+            nextIndex = 0;
+          } else if (key === 'End') {
+            nextIndex = tabButtons.length - 1;
+          } else {
+            return;
+          }
+          event.preventDefault();
+          const nextButtonEl = tabButtons[nextIndex];
+          nextButtonEl.focus();
+          scrollToQuestion(nextButtonEl.dataset.target);
         });
       });
+
+      if (tabList?.dataset.wheelScroll === 'true') {
+        tabList.addEventListener(
+          'wheel',
+          (event) => {
+            if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
+              return;
+            }
+            event.preventDefault();
+            tabList.scrollBy({
+              left: event.deltaY,
+              behavior: 'smooth',
+            });
+          },
+          { passive: false }
+        );
+      }
+
+      nextButton?.addEventListener('click', () => {
+        const targetId = nextButton.dataset.target;
+        if (targetId) {
+          scrollToQuestion(targetId);
+        }
+      });
+
+      if (questionCards.length) {
+        updateFooterCta(questionCards[0].id);
+      }
 
       const observer = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
             if (entry.isIntersecting) {
               const id = entry.target.getAttribute('id');
-              tocLinks.forEach((link) => {
-                link.classList.toggle(
-                  'toc__link--active',
-                  link.getAttribute('href') === `#${id}`
-                );
-              });
+              updateTabs(id);
+              updateFooterCta(id);
+              activateCard(entry.target);
             }
           });
         },
