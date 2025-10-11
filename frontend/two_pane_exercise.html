@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+Mono:wght@500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+Mono:wght@500&display=swap"
       rel="stylesheet"
     />
     <style>
@@ -17,16 +17,15 @@
         --color-surface: #ffffff;
         --color-text: #1b2337;
         --color-text-strong: #111a2b;
-        --color-border: rgba(27, 35, 55, 0.18);
-        --color-chip-bg: rgba(27, 35, 55, 0.12);
-        --color-chip-active: #1c2f55;
+        --color-border: rgba(27, 35, 55, 0.14);
+        --color-brand: #1c2f55;
+        --color-brand-soft: #e7ecf8;
+        --color-brand-border: rgba(28, 47, 85, 0.18);
+        --color-chip-bg: rgba(28, 47, 85, 0.12);
+        --color-chip-active: var(--color-brand);
         --color-chip-active-text: #ffffff;
         --color-warning: #b11c34;
         --color-text-muted: #5a6378;
-        --color-card-i: #fbe7ef; /* 桜 */
-        --color-card-ii: #e0f2d8; /* 若草 */
-        --color-card-iii: #ddeafe; /* 空 */
-        --color-card-iv: #dfe2ff; /* 瑠璃 */
         --color-focus-ring: rgba(39, 71, 128, 0.55);
         --radius-card: 16px;
         --spacing-lg: 32px;
@@ -37,6 +36,10 @@
         --font-heading-xl: clamp(1.9rem, 1.6rem + 0.5vw, 2.2rem);
         --font-heading-lg: clamp(1.45rem, 1.3rem + 0.3vw, 1.6rem);
         --font-heading-md: clamp(1.2rem, 1.12rem + 0.2vw, 1.32rem);
+        --font-family-base: "Noto Sans JP", system-ui, -apple-system,
+          BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --font-family-heading: "Noto Sans JP", system-ui, -apple-system,
+          BlinkMacSystemFont, "Segoe UI", sans-serif;
         font-size: 16px;
       }
 
@@ -47,15 +50,14 @@
           --color-text: #e7ecf5;
           --color-text-strong: #f7f9ff;
           --color-border: rgba(231, 236, 245, 0.2);
+          --color-brand: #5a7edb;
+          --color-brand-soft: rgba(90, 126, 219, 0.22);
+          --color-brand-border: rgba(129, 149, 215, 0.32);
           --color-chip-bg: rgba(231, 236, 245, 0.12);
-          --color-chip-active: #5a7edb;
+          --color-chip-active: var(--color-brand);
           --color-chip-active-text: #0d1424;
           --color-warning: #f87171;
           --color-text-muted: rgba(231, 236, 245, 0.76);
-          --color-card-i: rgba(248, 165, 200, 0.24);
-          --color-card-ii: rgba(190, 242, 145, 0.24);
-          --color-card-iii: rgba(147, 197, 253, 0.24);
-          --color-card-iv: rgba(129, 140, 248, 0.24);
           --color-focus-ring: rgba(120, 150, 240, 0.65);
         }
       }
@@ -68,8 +70,7 @@
 
       body {
         margin: 0;
-        font-family: "Noto Sans JP", system-ui, -apple-system, BlinkMacSystemFont,
-          "Segoe UI", sans-serif;
+        font-family: var(--font-family-base);
         background-color: var(--color-bg);
         color: var(--color-text);
         line-height: 1.6;
@@ -83,7 +84,7 @@
         line-height: 1.28;
         letter-spacing: 0.01em;
         margin: 0 0 var(--spacing-sm);
-        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+        font-family: var(--font-family-heading);
         color: var(--color-text-strong);
       }
 
@@ -93,7 +94,7 @@
         font-weight: 700;
         line-height: 1.3;
         margin: 0 0 var(--spacing-sm);
-        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+        font-family: var(--font-family-heading);
         color: var(--color-text-strong);
       }
 
@@ -103,7 +104,7 @@
         font-weight: 700;
         line-height: 1.35;
         margin: 0 0 var(--spacing-xs);
-        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+        font-family: var(--font-family-heading);
         color: var(--color-text-strong);
       }
 
@@ -156,7 +157,7 @@
         overflow-y: auto;
         flex: 0 0 380px;
         padding: var(--spacing-lg) var(--spacing-md);
-        border: 1px solid var(--color-border);
+        border: 1px solid var(--color-brand-border);
         border-radius: var(--radius-card);
         background-color: var(--color-surface);
         box-shadow: 0 16px 32px rgba(16, 24, 40, 0.08);
@@ -182,7 +183,7 @@
       }
 
       .context-pane__miniheader strong {
-        color: var(--color-text);
+        color: var(--color-brand);
       }
 
       .context-pane__meta {
@@ -219,13 +220,13 @@
         display: flex;
         gap: var(--spacing-sm);
         padding: var(--spacing-sm) var(--spacing-md);
-        border: 1px solid var(--color-border);
+        border: 1px solid var(--color-brand-border);
         border-radius: var(--radius-card);
-        background-color: var(--color-bg);
+        background-color: var(--color-surface);
         background: linear-gradient(
           180deg,
-          var(--color-bg) 0%,
-          color-mix(in srgb, var(--color-bg) 60%, transparent)
+          var(--color-surface) 0%,
+          var(--color-brand-soft) 100%
         );
         overflow-x: auto;
         scroll-snap-type: x mandatory;
@@ -271,7 +272,7 @@
       }
 
       .exercise-tab__title {
-        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+        font-family: var(--font-family-heading);
         font-weight: 700;
         color: var(--color-text-strong);
       }
@@ -302,23 +303,15 @@
         position: relative;
         padding: var(--spacing-lg);
         border-radius: var(--radius-card);
-        border: 1px solid var(--color-border);
-        background-color: var(--color-card-i);
+        border: 1px solid var(--color-brand-border);
+        background: linear-gradient(
+          180deg,
+          var(--color-surface) 0%,
+          var(--color-brand-soft) 100%
+        );
         box-shadow: none;
         transition: box-shadow var(--transition-duration) ease,
           transform var(--transition-duration) ease;
-      }
-
-      .question-card:nth-of-type(4n + 2) {
-        background-color: var(--color-card-ii);
-      }
-
-      .question-card:nth-of-type(4n + 3) {
-        background-color: var(--color-card-iii);
-      }
-
-      .question-card:nth-of-type(4n + 4) {
-        background-color: var(--color-card-iv);
       }
 
       .question-card:hover,
@@ -352,7 +345,7 @@
         font-size: 1.15rem;
         font-weight: 700;
         margin: 0;
-        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+        font-family: var(--font-family-heading);
         color: var(--color-text-strong);
       }
 
@@ -392,7 +385,7 @@
       @media (prefers-color-scheme: dark) {
         .question-card__textarea {
           background-color: var(--color-surface);
-          border-color: var(--color-border);
+          border-color: var(--color-brand-border);
         }
       }
 
@@ -413,7 +406,7 @@
       }
 
       .support-block {
-        border-top: 1px solid var(--color-border);
+        border-top: 1px solid var(--color-brand-border);
         padding-top: var(--spacing-sm);
         margin-top: var(--spacing-md);
         font-size: 0.9rem;
@@ -445,7 +438,11 @@
         margin-top: var(--spacing-xs);
         padding: var(--spacing-xs) var(--spacing-sm);
         border-radius: 8px;
-        background-color: rgba(255, 255, 255, 0.55);
+        background-color: color-mix(
+          in srgb,
+          var(--color-brand-soft) 70%,
+          #ffffff 30%
+        );
         color: var(--color-text-muted);
       }
 
@@ -455,7 +452,11 @@
 
       @media (prefers-color-scheme: dark) {
         .support-block__content {
-          background-color: rgba(17, 24, 39, 0.55);
+          background-color: color-mix(
+            in srgb,
+            var(--color-brand-soft) 50%,
+            rgba(17, 24, 39, 0.88) 50%
+          );
         }
       }
 
@@ -466,8 +467,8 @@
         width: 28px;
         height: 28px;
         border-radius: 8px;
-        background-color: rgba(28, 47, 85, 0.12);
-        color: var(--color-chip-active);
+        background-color: var(--color-brand-soft);
+        color: var(--color-brand);
         font-size: 0.75rem;
         font-weight: 700;
         line-height: 1;
@@ -484,7 +485,11 @@
       .support-block__toggle .icon {
         width: 24px;
         height: 24px;
-        background-color: rgba(28, 47, 85, 0.12);
+        background-color: color-mix(
+          in srgb,
+          var(--color-brand) 18%,
+          transparent
+        );
         font-size: 0.72rem;
       }
 
@@ -502,12 +507,20 @@
 
       @media (prefers-color-scheme: dark) {
         .icon {
-          background-color: rgba(90, 126, 219, 0.28);
+          background-color: color-mix(
+            in srgb,
+            var(--color-brand) 30%,
+            transparent
+          );
           color: var(--color-chip-active-text);
         }
 
         .support-block__toggle .icon {
-          background-color: rgba(90, 126, 219, 0.32);
+          background-color: color-mix(
+            in srgb,
+            var(--color-brand) 38%,
+            transparent
+          );
         }
       }
 
@@ -542,7 +555,7 @@
           var(--color-bg) 55%,
           var(--color-bg) 100%
         );
-        border-top: 1px solid var(--color-border);
+        border-top: 1px solid var(--color-brand-border);
         padding: var(--spacing-md) var(--spacing-md) calc(var(--spacing-md) + 4px);
         display: flex;
         justify-content: flex-end;
@@ -572,11 +585,11 @@
       }
 
       .cta-button__verb {
-        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+        font-family: var(--font-family-heading);
       }
 
       .cta-button__object {
-        font-family: "Noto Sans JP", sans-serif;
+        font-family: var(--font-family-base);
         font-weight: 600;
       }
 
