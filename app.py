@@ -30,6 +30,7 @@ import pandas as pd
 import pdfplumber
 import streamlit as st
 import streamlit.components.v1 as components
+from xml.sax.saxutils import escape
 
 
 st.set_page_config(
@@ -7755,6 +7756,452 @@ def _compute_progress_overview(history_df: pd.DataFrame) -> Dict[str, Any]:
     }
 
 
+def _build_learning_report(history_df: pd.DataFrame) -> Dict[str, Any]:
+    report: Dict[str, Any] = {
+        "module_summary": pd.DataFrame(),
+        "monthly_summary": pd.DataFrame(),
+        "weekly_summary": pd.DataFrame(),
+        "pdca": {
+            "plan": "",
+            "do": "",
+            "check": "",
+            "act": "",
+        },
+        "export": {},
+    }
+
+    if history_df.empty or "日付" not in history_df.columns:
+        return report
+
+    working = history_df.dropna(subset=["日付"]).copy()
+    if working.empty:
+        return report
+
+    working["日付"] = pd.to_datetime(working["日付"], errors="coerce")
+    working = working.dropna(subset=["日付"])
+    if working.empty:
+        return report
+
+    working = working[working["事例"].notna()].copy()
+    if working.empty:
+        return report
+
+    working["学習時間(分)"] = pd.to_numeric(working.get("学習時間(分)"), errors="coerce").fillna(0.0)
+    working["得点"] = pd.to_numeric(working.get("得点"), errors="coerce")
+    working["満点"] = pd.to_numeric(working.get("満点"), errors="coerce")
+    working["得点率"] = working.apply(
+        lambda row: (row["得点"] / row["満点"]) * 100
+        if pd.notna(row["得点"]) and pd.notna(row["満点"]) and row["満点"]
+        else None,
+        axis=1,
+    )
+
+    module_summary_raw = (
+        working.groupby("事例")
+        .agg(
+            演習回数=("attempt_id", "count"),
+            学習時間分=("学習時間(分)", "sum"),
+            平均得点=("得点", "mean"),
+            平均得点率=("得点率", "mean"),
+        )
+        .reset_index()
+    )
+
+    latest_records = (
+        working.sort_values("日付")
+        .groupby("事例")
+        .tail(1)
+        .loc[:, ["事例", "日付", "得点", "得点率"]]
+    )
+
+    module_summary_raw = module_summary_raw.merge(latest_records, on="事例", how="left")
+    module_summary_raw["学習時間時間"] = module_summary_raw["学習時間分"] / 60.0
+
+    module_summary = module_summary_raw.rename(
+        columns={
+            "事例": "モジュール",
+            "学習時間分": "学習時間(分)",
+            "学習時間時間": "学習時間(時間)",
+            "得点": "直近得点",
+            "得点率": "直近得点率",
+            "日付": "直近実施日",
+        }
+    )
+
+    monthly_summary_raw = _aggregate_module_by_period(working, freq="M")
+    weekly_summary_raw = _aggregate_module_by_period(working, freq="W-MON")
+
+    report.update(
+        {
+            "module_summary": module_summary,
+            "monthly_summary": _format_period_dataframe(monthly_summary_raw),
+            "weekly_summary": _format_period_dataframe(weekly_summary_raw),
+            "pdca": _generate_pdca_insights(
+                module_summary_raw, weekly_summary_raw, working
+            ),
+            "export": {
+                "モジュール別サマリ": module_summary,
+                "月次トレンド": _prepare_export_dataframe(monthly_summary_raw),
+                "週次トレンド": _prepare_export_dataframe(weekly_summary_raw),
+            },
+        }
+    )
+
+    return report
+
+
+def _aggregate_module_by_period(history_df: pd.DataFrame, *, freq: str) -> pd.DataFrame:
+    period_index = history_df["日付"].dt.to_period(freq)
+    period_index.name = "期間"
+    grouped = history_df.groupby([period_index, "事例"])
+    aggregated = grouped.agg(
+        演習回数=("attempt_id", "count"),
+        学習時間分=("学習時間(分)", "sum"),
+        平均得点=("得点", "mean"),
+        平均得点率=("得点率", "mean"),
+    )
+    aggregated = aggregated.reset_index()
+    aggregated["期間開始"] = aggregated["期間"].dt.to_timestamp()
+
+    if freq == "M":
+        aggregated["期間ラベル"] = aggregated["期間開始"].dt.strftime("%Y-%m")
+    else:
+        start = aggregated["期間開始"].dt.strftime("%Y-%m-%d")
+        aggregated["期間ラベル"] = start + " 週"
+
+    aggregated["学習時間時間"] = aggregated["学習時間分"] / 60.0
+    aggregated.rename(columns={"事例": "モジュール"}, inplace=True)
+
+    return aggregated[
+        [
+            "期間",
+            "期間開始",
+            "期間ラベル",
+            "モジュール",
+            "演習回数",
+            "学習時間分",
+            "学習時間時間",
+            "平均得点",
+            "平均得点率",
+        ]
+    ]
+
+
+def _format_period_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    formatted = df.copy()
+    formatted.rename(
+        columns={
+            "学習時間分": "学習時間(分)",
+            "学習時間時間": "学習時間(時間)",
+        },
+        inplace=True,
+    )
+    return formatted
+
+
+def _prepare_export_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    export_df = df.copy()
+    export_df["期間開始"] = pd.to_datetime(export_df["期間開始"], errors="coerce")
+    export_df["期間"] = export_df["期間"].astype(str)
+    export_df.rename(
+        columns={
+            "学習時間分": "学習時間(分)",
+            "学習時間時間": "学習時間(時間)",
+        },
+        inplace=True,
+    )
+    return export_df
+
+
+def _generate_pdca_insights(
+    module_summary: pd.DataFrame,
+    weekly_summary: pd.DataFrame,
+    working_df: pd.DataFrame,
+) -> Dict[str, str]:
+    insights = {"plan": "", "do": "", "check": "", "act": ""}
+
+    if module_summary.empty:
+        return insights
+
+    sorted_by_score = module_summary.sort_values("平均得点率")
+    if not sorted_by_score.empty:
+        focus_row = sorted_by_score.iloc[0]
+        avg_score = focus_row["平均得点率"]
+        insights["plan"] = (
+            f"平均得点率が{avg_score:.1f}%の『{focus_row['事例']}』を重点的に計画に組み込みましょう。"
+        )
+
+    recent_cutoff = working_df["日付"].max() - pd.Timedelta(days=28)
+    recent_slice = working_df[working_df["日付"] >= recent_cutoff]
+    if recent_slice.empty:
+        recent_slice = working_df
+    time_totals = (
+        recent_slice.groupby("事例")["学習時間(分)"].sum().sort_values(ascending=False)
+    )
+    if not time_totals.empty:
+        top_module = time_totals.index[0]
+        minutes = time_totals.iloc[0]
+        insights["do"] = (
+            f"直近4週間で{minutes:.0f}分の学習を行った『{top_module}』の取り組みを継続しましょう。"
+        )
+
+    if not weekly_summary.empty:
+        weekly_sorted = weekly_summary.sort_values(["モジュール", "期間開始"])
+        weekly_sorted["前回得点率"] = (
+            weekly_sorted.groupby("モジュール")["平均得点率"].shift(1)
+        )
+        weekly_sorted["差分"] = weekly_sorted["平均得点率"] - weekly_sorted["前回得点率"]
+        latest_rows = weekly_sorted.groupby("モジュール").tail(1)
+        improvement = latest_rows.dropna(subset=["差分"])
+        if not improvement.empty:
+            best = improvement.sort_values("差分", ascending=False).iloc[0]
+            if best["差分"] > 0:
+                insights["check"] = (
+                    f"『{best['モジュール']}』は直近週で得点率が{best['差分']:.1f}pt向上しています。"
+                )
+            else:
+                insights["check"] = (
+                    "各モジュールの得点率に大きな変化はありませんでした。"
+                )
+
+            worst = improvement.sort_values("差分").iloc[0]
+            if worst["差分"] < 0:
+                insights["act"] = (
+                    f"『{worst['モジュール']}』は得点率が{abs(worst['差分']):.1f}pt低下。復習方針を見直しましょう。"
+                )
+        if not insights["check"]:
+            insights["check"] = "週次データが1件のみのため推移分析はできません。"
+        if not insights["act"]:
+            fallback = sorted_by_score.iloc[0]
+            insights["act"] = (
+                f"平均得点率が伸び悩む『{fallback['事例']}』の復習素材を追加しましょう。"
+            )
+    else:
+        insights["check"] = "週次データが不足しているため、推移把握のために演習を追加しましょう。"
+        fallback = sorted_by_score.iloc[0]
+        insights["act"] = (
+            f"『{fallback['事例']}』の追加演習をスケジュールして改善施策を検証してください。"
+        )
+
+    return insights
+
+
+def _prepare_learning_report_excel(tables: Dict[str, pd.DataFrame]) -> bytes:
+    if not tables:
+        return b""
+
+    for engine in ("xlsxwriter", "openpyxl"):
+        buffer = io.BytesIO()
+        try:
+            with pd.ExcelWriter(buffer, engine=engine) as writer:
+                for sheet_name, df in tables.items():
+                    clean_name = _sanitize_sheet_name(sheet_name)
+                    df.to_excel(writer, index=False, sheet_name=clean_name)
+            buffer.seek(0)
+            return buffer.read()
+        except ModuleNotFoundError:
+            continue
+
+    sanitized_tables: Dict[str, pd.DataFrame] = {}
+    for sheet_name, df in tables.items():
+        prepared = df.copy()
+        for column in prepared.columns:
+            if pd.api.types.is_datetime64_any_dtype(prepared[column]):
+                prepared[column] = prepared[column].dt.strftime("%Y-%m-%d %H:%M:%S")
+        sanitized_tables[_sanitize_sheet_name(sheet_name)] = prepared
+
+    return _simple_xlsx_bytes(sanitized_tables)
+
+
+def _sanitize_sheet_name(name: str) -> str:
+    invalid_chars = set('[]:*?/\\')
+    cleaned = "".join(ch for ch in name if ch not in invalid_chars)
+    if not cleaned:
+        cleaned = "Sheet"
+    return cleaned[:31]
+
+
+def _simple_xlsx_bytes(tables: Dict[str, pd.DataFrame]) -> bytes:
+    timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    sheet_entries: List[Tuple[str, str]] = []
+    sheet_xml_parts: List[Tuple[str, str]] = []
+
+    for idx, (name, df) in enumerate(tables.items(), start=1):
+        sheet_id = f"sheet{idx}"
+        sheet_xml = _dataframe_to_sheet_xml(df)
+        sheet_entries.append((name, sheet_id))
+        sheet_xml_parts.append((sheet_id, sheet_xml))
+
+    content_types = [
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>",
+        "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">",
+        "  <Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>",
+        "  <Default Extension=\"xml\" ContentType=\"application/xml\"/>",
+        "  <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>",
+        "  <Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>",
+        "  <Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/>",
+        "  <Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/>",
+    ]
+    for idx in range(1, len(sheet_entries) + 1):
+        content_types.append(
+            f"  <Override PartName=\"/xl/worksheets/sheet{idx}.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
+        )
+    content_types.append("</Types>")
+    content_types_xml = "\n".join(content_types)
+
+    rels_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>
+"""
+
+    workbook_sheets = []
+    workbook_rels = []
+    for idx, (name, sheet_id) in enumerate(sheet_entries, start=1):
+        workbook_sheets.append(
+            f"  <sheet name=\"{escape(name)}\" sheetId=\"{idx}\" r:id=\"rId{idx}\"/>"
+        )
+        workbook_rels.append(
+            f"  <Relationship Id=\"rId{idx}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/{sheet_id}.xml\"/>"
+        )
+    workbook_rels.append(
+        "  <Relationship Id=\"rId{0}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>".format(
+            len(sheet_entries) + 1
+        )
+    )
+
+    workbook_xml = (
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" "
+        "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">\n"
+        "  <sheets>\n"
+        + "\n".join(workbook_sheets)
+        + "\n  </sheets>\n"
+        + "</workbook>\n"
+    )
+
+    workbook_rels_xml = (
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\n"
+        + "\n".join(workbook_rels)
+        + "\n</Relationships>\n"
+    )
+
+    styles_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="1"><font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/></font></fonts>
+  <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
+  <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>
+"""
+
+    titles_vector = [
+        "    <vt:lpstr>{}</vt:lpstr>".format(escape(name)) for name, _ in sheet_entries
+    ]
+    docprops_app = (
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\" "
+        "xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\">\n"
+        "  <Application>Streamlit Report</Application>\n"
+        "  <HeadingPairs>\n"
+        "    <vt:vector size=\"2\" baseType=\"variant\">\n"
+        "      <vt:variant><vt:lpstr>Worksheets</vt:lpstr></vt:variant>\n"
+        "      <vt:variant><vt:i4>{}</vt:i4></vt:variant>\n"
+        "    </vt:vector>\n"
+        "  </HeadingPairs>\n"
+        "  <TitlesOfParts>\n"
+        "    <vt:vector size=\"{}\" baseType=\"lpstr\">\n"
+        + "\n".join(titles_vector)
+        + "\n    </vt:vector>\n"
+        "  </TitlesOfParts>\n"
+        "</Properties>\n"
+    ).format(len(sheet_entries), len(sheet_entries))
+
+    docprops_core = (
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" "
+        "xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" "
+        "xmlns:dcmitype=\"http://purl.org/dc/dcmitype/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n"
+        "  <dc:creator>Learning Tracker</dc:creator>\n"
+        "  <cp:lastModifiedBy>Learning Tracker</cp:lastModifiedBy>\n"
+        f"  <dcterms:created xsi:type=\"dcterms:W3CDTF\">{timestamp}</dcterms:created>\n"
+        f"  <dcterms:modified xsi:type=\"dcterms:W3CDTF\">{timestamp}</dcterms:modified>\n"
+        "</cp:coreProperties>\n"
+    )
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("[Content_Types].xml", content_types_xml)
+        zf.writestr("_rels/.rels", rels_xml)
+        zf.writestr("xl/workbook.xml", workbook_xml)
+        zf.writestr("xl/_rels/workbook.xml.rels", workbook_rels_xml)
+        zf.writestr("xl/styles.xml", styles_xml)
+        zf.writestr("docProps/app.xml", docprops_app)
+        zf.writestr("docProps/core.xml", docprops_core)
+        for sheet_id, sheet_xml in sheet_xml_parts:
+            zf.writestr(f"xl/worksheets/{sheet_id}.xml", sheet_xml)
+
+    buffer.seek(0)
+    return buffer.read()
+
+
+def _excel_column_name(index: int) -> str:
+    name = ""
+    while index >= 0:
+        index, remainder = divmod(index, 26)
+        name = chr(65 + remainder) + name
+        index -= 1
+    return name
+
+
+def _dataframe_to_sheet_xml(df: pd.DataFrame) -> str:
+    header_cells = []
+    for col_idx, column in enumerate(df.columns, start=1):
+        cell_ref = f"{_excel_column_name(col_idx - 1)}1"
+        header_cells.append(
+            f"<c r=\"{cell_ref}\" t=\"inlineStr\"><is><t>{escape(str(column))}</t></is></c>"
+        )
+
+    rows_xml = [f"<row r=\"1\">{''.join(header_cells)}</row>"]
+
+    for row_idx, row in enumerate(df.itertuples(index=False, name=None), start=2):
+        cell_xmls: List[str] = []
+        for col_idx, value in enumerate(row, start=1):
+            if value is None or (isinstance(value, float) and math.isnan(value)):
+                continue
+            if pd.isna(value):
+                continue
+            cell_ref = f"{_excel_column_name(col_idx - 1)}{row_idx}"
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                cell_xmls.append(f"<c r=\"{cell_ref}\"><v>{value}</v></c>")
+            else:
+                text = escape(str(value))
+                cell_xmls.append(
+                    f"<c r=\"{cell_ref}\" t=\"inlineStr\"><is><t>{text}</t></is></c>"
+                )
+        rows_xml.append(f"<row r=\"{row_idx}\">{''.join(cell_xmls)}</row>")
+
+    sheet_xml = (
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" "
+        "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">\n"
+        "  <sheetData>\n"
+        + "\n".join(rows_xml)
+        + "\n  </sheetData>\n"
+        + "</worksheet>\n"
+    )
+    return sheet_xml
+
+
 def _safe_time_from_string(value: Optional[str]) -> dt_time:
     if not value:
         return dt_time(hour=20, minute=0)
@@ -10431,6 +10878,12 @@ def history_page(user: Dict) -> None:
 
     history_df = pd.DataFrame(history_records)
     history_df["日付"] = pd.to_datetime(history_df["日付"], errors="coerce")
+    if "学習時間(分)" in history_df.columns:
+        history_df["学習時間(分)"] = pd.to_numeric(
+            history_df["学習時間(分)"], errors="coerce"
+        ).fillna(0.0)
+    else:
+        history_df["学習時間(分)"] = 0.0
     history_df.sort_values("日付", inplace=True)
 
     keyword_records = database.fetch_keyword_performance(user["id"])
@@ -10691,9 +11144,10 @@ def history_page(user: Dict) -> None:
         ]
 
     keyword_analysis = _analyze_keyword_records(filtered_keyword_records)
+    report_data = _build_learning_report(filtered_df)
 
-    overview_tab, chart_tab, keyword_tab, detail_tab = st.tabs(
-        ["一覧", "グラフ", "キーワード分析", "詳細・エクスポート"]
+    overview_tab, chart_tab, report_tab, keyword_tab, detail_tab = st.tabs(
+        ["一覧", "グラフ", "分析レポート", "キーワード分析", "詳細・エクスポート"]
     )
 
     with overview_tab:
@@ -10729,6 +11183,253 @@ def history_page(user: Dict) -> None:
             st.subheader("事例別平均点")
             bar_chart = alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="得点:Q")
             st.altair_chart(bar_chart, use_container_width=True)
+
+    with report_tab:
+        module_summary = report_data["module_summary"]
+        if module_summary.empty:
+            st.info("分析レポートを表示するには該当する演習データが必要です。")
+        else:
+            pdca = report_data["pdca"]
+            st.markdown("#### PDCAハイライト")
+            plan_col, do_col = st.columns(2)
+            with plan_col:
+                st.markdown("**Plan**")
+                st.markdown(pdca.get("plan") or "重点対象を選ぶための演習データを蓄積しましょう。")
+            with do_col:
+                st.markdown("**Do**")
+                st.markdown(pdca.get("do") or "直近の学習実績をもとに実行状況を確認します。")
+            check_col, act_col = st.columns(2)
+            with check_col:
+                st.markdown("**Check**")
+                st.markdown(pdca.get("check") or "週次推移を確認できるデータを集めましょう。")
+            with act_col:
+                st.markdown("**Act**")
+                st.markdown(pdca.get("act") or "改善アクションを検討できるよう追加演習を実施しましょう。")
+
+            st.markdown("#### モジュール別サマリ")
+            module_display = module_summary.copy()
+            if "直近実施日" in module_display.columns:
+                module_display["直近実施日"] = pd.to_datetime(
+                    module_display["直近実施日"], errors="coerce"
+                ).dt.strftime("%Y-%m-%d")
+            for column in ["平均得点", "直近得点"]:
+                if column in module_display.columns:
+                    module_display[column] = module_display[column].map(
+                        lambda v: f"{v:.1f}" if pd.notna(v) else "-"
+                    )
+            for column in ["平均得点率", "直近得点率"]:
+                if column in module_display.columns:
+                    module_display[column] = module_display[column].map(
+                        lambda v: f"{v:.1f}%" if pd.notna(v) else "-"
+                    )
+            if "学習時間(分)" in module_display.columns:
+                module_display["学習時間(分)"] = module_display["学習時間(分)"].map(
+                    lambda v: f"{v:.0f}"
+                )
+            if "学習時間(時間)" in module_display.columns:
+                module_display["学習時間(時間)"] = module_display["学習時間(時間)"].map(
+                    lambda v: f"{v:.1f}"
+                )
+            st.dataframe(module_display, use_container_width=True, hide_index=True)
+
+            monthly_df = report_data["monthly_summary"]
+            weekly_df = report_data["weekly_summary"]
+            monthly_tab, weekly_tab_inner = st.tabs(["月次トレンド", "週次トレンド"])
+
+            with monthly_tab:
+                if monthly_df.empty:
+                    st.info("月次トレンドを表示できるデータがありません。")
+                else:
+                    monthly_chart_df = monthly_df.sort_values("期間開始")
+                    unique_months = monthly_chart_df["期間開始"].dropna().unique()
+                    if len(unique_months) > 12:
+                        allowed = set(sorted(unique_months)[-12:])
+                        monthly_chart_df = monthly_chart_df[
+                            monthly_chart_df["期間開始"].isin(allowed)
+                        ]
+
+                    score_chart = (
+                        alt.Chart(monthly_chart_df)
+                        .mark_line(point=True)
+                        .encode(
+                            x=alt.X("期間開始:T", title="月"),
+                            y=alt.Y(
+                                "平均得点率:Q",
+                                title="平均得点率 (%)",
+                                scale=alt.Scale(domain=[0, 100]),
+                            ),
+                            color="モジュール:N",
+                            tooltip=[
+                                "期間ラベル",
+                                "モジュール",
+                                alt.Tooltip("平均得点:Q", format=".1f"),
+                                alt.Tooltip("平均得点率:Q", format=".1f"),
+                                "演習回数",
+                            ],
+                        )
+                    )
+                    st.altair_chart(score_chart, use_container_width=True)
+
+                    time_chart = (
+                        alt.Chart(monthly_chart_df)
+                        .mark_bar(opacity=0.65)
+                        .encode(
+                            x=alt.X("期間開始:T", title="月"),
+                            y=alt.Y(
+                                "学習時間(時間):Q",
+                                title="学習時間 (時間)",
+                                stack="zero",
+                            ),
+                            color="モジュール:N",
+                            tooltip=[
+                                "期間ラベル",
+                                "モジュール",
+                                alt.Tooltip("学習時間(時間):Q", format=".1f"),
+                                "演習回数",
+                            ],
+                        )
+                    )
+                    st.altair_chart(time_chart, use_container_width=True)
+
+                    monthly_table = monthly_chart_df.copy()
+                    monthly_table["期間"] = monthly_table["期間ラベル"]
+                    monthly_table["期間開始"] = monthly_table["期間開始"].dt.strftime("%Y-%m-%d")
+                    monthly_table["平均得点"] = monthly_table["平均得点"].map(
+                        lambda v: f"{v:.1f}" if pd.notna(v) else "-"
+                    )
+                    monthly_table["平均得点率"] = monthly_table["平均得点率"].map(
+                        lambda v: f"{v:.1f}%" if pd.notna(v) else "-"
+                    )
+                    monthly_table["学習時間(時間)"] = monthly_table["学習時間(時間)"].map(
+                        lambda v: f"{v:.1f}"
+                    )
+                    monthly_table["学習時間(分)"] = monthly_table["学習時間(分)"].map(
+                        lambda v: f"{v:.0f}"
+                    )
+                    monthly_display_cols = [
+                        "期間",
+                        "モジュール",
+                        "演習回数",
+                        "学習時間(分)",
+                        "学習時間(時間)",
+                        "平均得点",
+                        "平均得点率",
+                    ]
+                    st.dataframe(
+                        monthly_table[monthly_display_cols],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+            with weekly_tab_inner:
+                if weekly_df.empty:
+                    st.info("週次トレンドを表示できるデータがありません。")
+                else:
+                    weekly_chart_df = weekly_df.sort_values("期間開始")
+                    unique_weeks = weekly_chart_df["期間開始"].dropna().unique()
+                    if len(unique_weeks) > 12:
+                        allowed_weeks = set(sorted(unique_weeks)[-12:])
+                        weekly_chart_df = weekly_chart_df[
+                            weekly_chart_df["期間開始"].isin(allowed_weeks)
+                        ]
+
+                    weekly_score_chart = (
+                        alt.Chart(weekly_chart_df)
+                        .mark_line(point=True)
+                        .encode(
+                            x=alt.X("期間開始:T", title="週"),
+                            y=alt.Y(
+                                "平均得点率:Q",
+                                title="平均得点率 (%)",
+                                scale=alt.Scale(domain=[0, 100]),
+                            ),
+                            color="モジュール:N",
+                            tooltip=[
+                                "期間ラベル",
+                                "モジュール",
+                                alt.Tooltip("平均得点:Q", format=".1f"),
+                                alt.Tooltip("平均得点率:Q", format=".1f"),
+                                "演習回数",
+                            ],
+                        )
+                    )
+                    st.altair_chart(weekly_score_chart, use_container_width=True)
+
+                    weekly_time_chart = (
+                        alt.Chart(weekly_chart_df)
+                        .mark_bar(opacity=0.65)
+                        .encode(
+                            x=alt.X("期間開始:T", title="週"),
+                            y=alt.Y(
+                                "学習時間(時間):Q",
+                                title="学習時間 (時間)",
+                                stack="zero",
+                            ),
+                            color="モジュール:N",
+                            tooltip=[
+                                "期間ラベル",
+                                "モジュール",
+                                alt.Tooltip("学習時間(時間):Q", format=".1f"),
+                                "演習回数",
+                            ],
+                        )
+                    )
+                    st.altair_chart(weekly_time_chart, use_container_width=True)
+
+                    weekly_table = weekly_chart_df.copy()
+                    weekly_table["期間"] = weekly_table["期間ラベル"]
+                    weekly_table["期間開始"] = weekly_table["期間開始"].dt.strftime("%Y-%m-%d")
+                    weekly_table["平均得点"] = weekly_table["平均得点"].map(
+                        lambda v: f"{v:.1f}" if pd.notna(v) else "-"
+                    )
+                    weekly_table["平均得点率"] = weekly_table["平均得点率"].map(
+                        lambda v: f"{v:.1f}%" if pd.notna(v) else "-"
+                    )
+                    weekly_table["学習時間(時間)"] = weekly_table["学習時間(時間)"].map(
+                        lambda v: f"{v:.1f}"
+                    )
+                    weekly_table["学習時間(分)"] = weekly_table["学習時間(分)"].map(
+                        lambda v: f"{v:.0f}"
+                    )
+                    weekly_display_cols = [
+                        "期間",
+                        "モジュール",
+                        "演習回数",
+                        "学習時間(分)",
+                        "学習時間(時間)",
+                        "平均得点",
+                        "平均得点率",
+                    ]
+                    st.dataframe(
+                        weekly_table[weekly_display_cols],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+            export_tables = report_data.get("export", {})
+            module_export = export_tables.get("モジュール別サマリ", pd.DataFrame())
+            if not module_export.empty:
+                module_csv = module_export.copy()
+                if "直近実施日" in module_csv.columns:
+                    module_csv["直近実施日"] = pd.to_datetime(
+                        module_csv["直近実施日"], errors="coerce"
+                    ).dt.strftime("%Y-%m-%d %H:%M:%S")
+                csv_bytes = module_csv.to_csv(index=False).encode("utf-8-sig")
+                st.download_button(
+                    "モジュール別サマリをCSVでダウンロード",
+                    data=csv_bytes,
+                    file_name="learning_report_modules.csv",
+                    mime="text/csv",
+                )
+
+            excel_bytes = _prepare_learning_report_excel(export_tables)
+            if excel_bytes:
+                st.download_button(
+                    "学習レポートをExcelでダウンロード",
+                    data=excel_bytes,
+                    file_name="learning_report.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
 
     with keyword_tab:
         answers_df = keyword_analysis["answers"]
