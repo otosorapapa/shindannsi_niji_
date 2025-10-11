@@ -7401,14 +7401,119 @@ def _analyze_mece_causal(text: str) -> Dict[str, Any]:
     }
 
 
-def _render_mece_causal_scanner(text: str) -> None:
+def _ensure_mece_status_styles() -> None:
+    if st.session_state.get("_mece_status_styles_injected"):
+        return
+    st.markdown(
+        """
+        <style>
+        .mece-status-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            align-items: center;
+            margin: 0.35rem 0 0.5rem;
+        }
+        .mece-status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.76rem;
+            font-weight: 500;
+            border-radius: 999px;
+            padding: 0.25rem 0.65rem;
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+        .mece-status-chip.ok {
+            background: rgba(134, 239, 172, 0.55);
+            color: #14532d;
+        }
+        .mece-status-chip.warn {
+            background: rgba(253, 230, 138, 0.55);
+            color: #92400e;
+        }
+        .mece-status-chip.alert {
+            background: rgba(248, 113, 113, 0.55);
+            color: #991b1b;
+        }
+        .mece-status-chip.neutral {
+            background: rgba(226, 232, 240, 0.65);
+            color: #334155;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state["_mece_status_styles_injected"] = True
+
+
+def _render_mece_status_labels(text: str) -> Optional[Dict[str, Any]]:
+    _ensure_mece_status_styles()
+    if not text.strip():
+        st.markdown(
+            "<div class='mece-status-row'>"
+            "<span class='mece-status-chip neutral'>🧭 文章を入力すると構造ラベルを表示します</span>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        return None
+
+    analysis = _analyze_mece_causal(text)
+    chips: List[str] = []
+
+    duplicates = analysis.get("duplicates", [])
+    synonyms = analysis.get("synonyms", [])
+    enumerations = analysis.get("enumerations", [])
+    suggestions = analysis.get("suggestions", [])
+
+    if duplicates:
+        chips.append(
+            "<span class='mece-status-chip warn' title='重複語: {detail}'>🔁 重複 {count}</span>".format(
+                count=len(duplicates),
+                detail=html.escape("、".join(duplicates)),
+            )
+        )
+    if synonyms:
+        chips.append(
+            "<span class='mece-status-chip warn' title='同義反復: {detail}'>🔄 同義 {count}</span>".format(
+                count=len(synonyms),
+                detail=html.escape("、".join(synonyms)),
+            )
+        )
+    if enumerations:
+        chips.append(
+            "<span class='mece-status-chip warn' title='単純列挙の疑い: {detail}'>📋 列挙 {count}</span>".format(
+                count=len(enumerations),
+                detail=html.escape("、".join(enumerations)),
+            )
+        )
+    if suggestions:
+        chips.append(
+            "<span class='mece-status-chip alert' title='{detail}'>🔗 因果補強</span>".format(
+                detail=html.escape(" / ".join(suggestions[:3])),
+            )
+        )
+
+    if not chips:
+        chips.append("<span class='mece-status-chip ok'>✅ 構造バランス良好</span>")
+
+    st.markdown(
+        "<div class='mece-status-row'>{chips}</div>".format(chips="".join(chips)),
+        unsafe_allow_html=True,
+    )
+    return analysis
+
+
+def _render_mece_causal_scanner(text: str, analysis: Optional[Dict[str, Any]] = None) -> None:
     _inject_mece_scanner_styles()
     st.caption("MECE/因果スキャナ：重複語・列挙・接続詞不足を自動チェックします。")
     if not text.strip():
         st.info("文章を入力するとハイライト結果と因果接続の提案が表示されます。")
         return
 
-    analysis = _analyze_mece_causal(text)
+    if analysis is None:
+        analysis = _analyze_mece_causal(text)
     st.markdown(_build_highlight_html(text, analysis["spans"]), unsafe_allow_html=True)
 
     summary_blocks: List[str] = []
@@ -7538,8 +7643,9 @@ def _question_input(
         disabled=disabled,
     )
     _render_character_counter(text, question.get("character_limit"))
+    analysis = _render_mece_status_labels(text)
     with st.expander("MECE/因果スキャナ", expanded=bool(text.strip())):
-        _render_mece_causal_scanner(text)
+        _render_mece_causal_scanner(text, analysis=analysis)
     st.session_state.drafts[key] = text
     st.session_state.saved_answers.setdefault(key, value)
     status_placeholder = st.empty()
