@@ -5821,26 +5821,27 @@ def practice_page(user: Dict) -> None:
                 right: 2.25rem;
                 display: flex;
                 flex-direction: column;
-                gap: 0.6rem;
-                padding: 0.85rem 1rem;
-                border-radius: 0.75rem;
-                border: 1px solid #e5e7eb;
-                background: rgba(255, 255, 255, 0.96);
-                box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
+                gap: 0.75rem;
+                padding: 1rem 1.15rem;
+                border-radius: 1rem;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: linear-gradient(145deg, #0f172a 0%, #1e293b 55%, #1d4ed8 120%);
+                box-shadow: 0 22px 50px rgba(15, 23, 42, 0.22);
                 z-index: 75;
-                min-width: 92px;
+                min-width: 108px;
+                color: #f8fafc;
             }
             .practice-quick-nav-title {
-                font-size: 0.8rem;
+                font-size: 0.78rem;
                 font-weight: 700;
-                letter-spacing: 0.08em;
+                letter-spacing: 0.18em;
                 text-transform: uppercase;
-                color: #374151;
+                color: #c7d2fe;
             }
             .practice-quick-nav-items {
                 display: flex;
                 flex-direction: column;
-                gap: 0.4rem;
+                gap: 0.5rem;
             }
             .practice-quick-nav a {
                 text-decoration: none;
@@ -5849,22 +5850,25 @@ def practice_page(user: Dict) -> None:
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                padding: 0.42rem 0.95rem;
+                padding: 0.48rem 1rem;
                 border-radius: 999px;
-                font-weight: 600;
+                font-weight: 700;
                 font-size: 0.95rem;
-                border: 1px solid transparent;
-                background-color: #2563eb;
-                color: #ffffff;
-                transition: background-color 120ms ease, transform 120ms ease;
+                border: 1px solid rgba(148, 163, 184, 0.6);
+                background: #facc15;
+                color: #0f172a;
+                letter-spacing: 0.04em;
+                box-shadow: 0 10px 18px rgba(8, 47, 73, 0.25);
+                transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
             }
             .practice-quick-nav-link:hover {
-                background-color: #1d4ed8;
-                transform: translateY(-1px);
+                background-color: #fde047;
+                transform: translateY(-1.5px) scale(1.01);
+                box-shadow: 0 14px 26px rgba(8, 47, 73, 0.3);
             }
             .practice-quick-nav-link:focus-visible {
-                outline: 3px solid rgba(59, 130, 246, 0.5);
-                outline-offset: 2px;
+                outline: 3px solid rgba(248, 250, 252, 0.8);
+                outline-offset: 3px;
             }
             .practice-question-anchor {
                 scroll-margin-top: 80px;
