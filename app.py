@@ -1569,50 +1569,70 @@ def _inject_practice_question_styles() -> None:
                 color: #1d4ed8;
                 border: 1px solid rgba(59, 130, 246, 0.28);
             }
-            .practice-return-nav-button {
+            .practice-floating-buttons {
                 position: fixed;
                 right: 1.5rem;
                 bottom: 1.5rem;
                 z-index: 1050;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 0.75rem;
+            }
+            .practice-return-button {
                 display: inline-flex;
                 align-items: center;
                 gap: 0.45rem;
                 border-radius: 999px;
-                border: 1px solid rgba(37, 99, 235, 0.58);
-                background: rgba(37, 99, 235, 0.96);
-                color: #f8fafc;
                 font-size: 0.9rem;
                 font-weight: 600;
                 letter-spacing: 0.02em;
                 padding: 0.55rem 1.05rem;
-                box-shadow: 0 18px 36px rgba(37, 99, 235, 0.28);
                 cursor: pointer;
+                min-width: 0;
+                transform: translateY(0);
                 transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
             }
-            .practice-return-nav-icon {
+            .practice-return-button:focus-visible {
+                outline: 3px solid var(--practice-focus-ring-soft);
+                outline-offset: 4px;
+            }
+            .practice-return-button.is-hidden {
+                opacity: 0;
+                pointer-events: none;
+                transform: translateY(12px);
+            }
+            .practice-return-button-icon {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
             }
-            .practice-return-nav-button svg {
+            .practice-return-button svg {
                 width: 18px;
                 height: 18px;
+            }
+            .practice-return-nav-button {
+                border: 1px solid rgba(37, 99, 235, 0.58);
+                background: rgba(37, 99, 235, 0.96);
+                color: #f8fafc;
+                box-shadow: 0 18px 36px rgba(37, 99, 235, 0.28);
             }
             .practice-return-nav-button:hover {
                 transform: translateY(-2px);
                 box-shadow: 0 20px 36px rgba(37, 99, 235, 0.32);
             }
-            .practice-return-nav-button:focus-visible {
-                outline: 3px solid var(--practice-focus-ring-soft);
-                outline-offset: 4px;
-            }
-            .practice-return-nav-button.is-hidden {
-                opacity: 0;
-                pointer-events: none;
-                transform: translateY(12px);
-            }
-            .practice-return-nav-text {
+            .practice-return-button-text {
                 white-space: nowrap;
+            }
+            .practice-return-context-button {
+                border: 1px solid rgba(16, 185, 129, 0.55);
+                background: rgba(15, 118, 110, 0.95);
+                color: #ecfeff;
+                box-shadow: 0 18px 32px rgba(13, 148, 136, 0.28);
+            }
+            .practice-return-context-button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 20px 36px rgba(13, 148, 136, 0.32);
             }
             .practice-autosave-caption {
                 font-size: 0.78rem;
@@ -1675,13 +1695,16 @@ def _inject_practice_question_styles() -> None:
                 .practice-question-meta-items {
                     justify-content: flex-start;
                 }
-                .practice-return-nav-button {
+                .practice-floating-buttons {
                     right: 1rem;
                     bottom: 1rem;
+                    gap: 0.6rem;
+                }
+                .practice-return-button {
                     font-size: 0.82rem;
                     padding: 0.5rem 0.95rem;
                 }
-                .practice-return-nav-button svg {
+                .practice-return-button svg {
                     width: 17px;
                     height: 17px;
                 }
@@ -1720,6 +1743,15 @@ def _inject_practice_question_styles() -> None:
                 }
                 .practice-return-nav-button:hover {
                     box-shadow: 0 20px 36px rgba(59, 130, 246, 0.4);
+                }
+                .practice-return-context-button {
+                    background: rgba(20, 184, 166, 0.92);
+                    border-color: rgba(45, 212, 191, 0.65);
+                    color: #ecfeff;
+                    box-shadow: 0 18px 32px rgba(20, 184, 166, 0.35);
+                }
+                .practice-return-context-button:hover {
+                    box-shadow: 0 20px 36px rgba(20, 184, 166, 0.4);
                 }
                 .practice-autosave-caption {
                     color: rgba(226, 232, 240, 0.78);
@@ -2235,6 +2267,11 @@ def _inject_context_column_styles() -> None:
                 flex-direction: column;
                 gap: 0.75rem;
                 overflow: hidden;
+                transition: box-shadow 0.25s ease, transform 0.25s ease;
+            }
+            .context-panel.is-highlighted {
+                box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.28), 0 24px 48px rgba(13, 148, 136, 0.18);
+                transform: translateY(-1px);
             }
             .practice-context-inner > .context-panel {
                 flex: 1 1 auto;
@@ -2910,6 +2947,78 @@ def _inject_practice_navigation_script() -> None:
                 const navLinks = Array.from(doc.querySelectorAll('.practice-toc-link'));
                 const quickNav = doc.getElementById('practice-quick-nav');
                 const returnButton = doc.querySelector('.practice-return-nav-button');
+                const contextButton = doc.querySelector('.practice-return-context-button');
+                const contextPanel = doc.getElementById('context-panel');
+
+                const attachContextButton = () => {
+                    if (!contextButton) {
+                        return;
+                    }
+                    if (!contextPanel) {
+                        contextButton.classList.add('is-hidden');
+                        return;
+                    }
+                    contextButton.classList.remove('is-hidden');
+                    if (contextButton.dataset.enhanced === '1') {
+                        return;
+                    }
+
+                    const triggers = Array.from(doc.querySelectorAll('.context-panel-trigger'));
+                    const scrollArea = contextPanel.querySelector('.context-panel-scroll');
+                    const mediaQuery = win.matchMedia('(max-width: 900px)');
+
+                    const highlightPanel = () => {
+                        contextPanel.classList.add('is-highlighted');
+                        win.setTimeout(() => contextPanel.classList.remove('is-highlighted'), 1600);
+                    };
+
+                    contextButton.dataset.enhanced = '1';
+                    contextButton.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        if (!contextPanel) {
+                            return;
+                        }
+                        if (mediaQuery.matches && triggers.length) {
+                            const trigger =
+                                triggers.find((button) => button.offsetParent !== null) || triggers[0];
+                            if (trigger) {
+                                trigger.click();
+                                win.setTimeout(() => {
+                                    if (scrollArea) {
+                                        scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
+                                        scrollArea.focus({ preventScroll: true });
+                                    }
+                                    highlightPanel();
+                                }, 220);
+                            }
+                            return;
+                        }
+                        contextPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        if (scrollArea) {
+                            scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                        highlightPanel();
+                    });
+
+                    const syncVisibility = () => {
+                        if (!doc.contains(contextPanel)) {
+                            contextButton.classList.add('is-hidden');
+                        } else {
+                            contextButton.classList.remove('is-hidden');
+                        }
+                    };
+
+                    syncVisibility();
+
+                    if (mediaQuery.addEventListener) {
+                        mediaQuery.addEventListener('change', syncVisibility);
+                    } else if (mediaQuery.addListener) {
+                        mediaQuery.addListener(syncVisibility);
+                    }
+                };
+
+                attachContextButton();
+
                 if (!sections.length || !navLinks.length) {
                     return;
                 }
@@ -7873,6 +7982,21 @@ def practice_page(user: Dict) -> None:
         question_count = len(question_entries)
 
         if question_entries:
+            context_return_html = ""
+            if problem_context:
+                context_return_html = "\n" + dedent(
+                    """
+                        <button type=\"button\" class=\"practice-return-button practice-return-context-button\" aria-label=\"与件文に戻る\">
+                            <span class=\"practice-return-button-icon\" aria-hidden=\"true\">
+                                <svg viewBox=\"0 0 24 24\" focusable=\"false\" aria-hidden=\"true\">
+                                    <path d=\"M5.5 4A2.5 2.5 0 0 1 8 1.5h6a1 1 0 0 1 1 1V19l-2.7-1.35a3.5 3.5 0 0 0-3.12 0L6.5 19H6a2 2 0 0 1-2-2V5.5A1.5 1.5 0 0 1 5.5 4z\" fill=\"currentColor\" />
+                                    <path d=\"M19 1.5a1 1 0 0 1 1 1V19a2 2 0 0 1-2 2h-.5l-3.38-1.69a1.5 1.5 0 0 1-.82-1.34V2.5a1 1 0 0 1 1-1H19z\" fill=\"currentColor\" />
+                                </svg>
+                            </span>
+                            <span class=\"practice-return-button-text\">与件文に戻る</span>
+                        </button>
+                    """
+                ).strip()
             nav_items = "".join(
                 (
                     "<li class=\"practice-toc-item\">"
@@ -7899,16 +8023,19 @@ def practice_page(user: Dict) -> None:
             )
             st.markdown(
                 dedent(
-                    """
-                    <button type=\"button\" class=\"practice-return-nav-button is-hidden\" aria-label=\"設問ナビに戻る\">
-                        <span class=\"practice-return-nav-icon\" aria-hidden=\"true\">
-                            <svg viewBox=\"0 0 24 24\" focusable=\"false\" aria-hidden=\"true\">
-                                <path d=\"M12 5a1 1 0 0 1 .71.29l6 6a1 1 0 0 1-1.42 1.42L12 7.41l-5.29 5.3a1 1 0 0 1-1.42-1.42l6-6A1 1 0 0 1 12 5z\" fill=\"currentColor\" />
-                                <path d=\"M12 5a1 1 0 0 1 1 1v12a1 1 0 0 1-2 0V6a1 1 0 0 1 1-1z\" fill=\"currentColor\" />
-                            </svg>
-                        </span>
-                        <span class=\"practice-return-nav-text\">設問ナビに戻る</span>
-                    </button>
+                    f"""
+                    <div class=\"practice-floating-buttons\">
+                        <button type=\"button\" class=\"practice-return-button practice-return-nav-button is-hidden\" aria-label=\"設問ナビに戻る\">
+                            <span class=\"practice-return-button-icon\" aria-hidden=\"true\">
+                                <svg viewBox=\"0 0 24 24\" focusable=\"false\" aria-hidden=\"true\">
+                                    <path d=\"M12 5a1 1 0 0 1 .71.29l6 6a1 1 0 0 1-1.42 1.42L12 7.41l-5.29 5.3a1 1 0 0 1-1.42-1.42l6-6A1 1 0 0 1 12 5z\" fill=\"currentColor\" />
+                                    <path d=\"M12 5a1 1 0 0 1 1 1v12a1 1 0 0 1-2 0V6a1 1 0 0 1 1-1z\" fill=\"currentColor\" />
+                                </svg>
+                            </span>
+                            <span class=\"practice-return-button-text\">設問ナビに戻る</span>
+                        </button>
+                        {context_return_html}
+                    </div>
                     """
                 ).strip(),
                 unsafe_allow_html=True,
