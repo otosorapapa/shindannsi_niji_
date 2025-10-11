@@ -3787,16 +3787,40 @@ def _inject_dashboard_styles() -> None:
             """
             <style>
             [data-testid="stAppViewContainer"] {
-                background: linear-gradient(180deg, #f3f6fb 0%, #ffffff 45%);
+                background: linear-gradient(180deg, #fefaf6 0%, #f5f8ff 40%, #ffffff 100%);
             }
             .block-container {
-                padding: 1.2rem 1.8rem 3rem;
+                padding: 1.35rem 1.9rem 3.2rem;
                 max-width: min(1500px, 96vw);
+            }
+            .section-divider {
+                height: 1px;
+                background: linear-gradient(90deg, rgba(148, 163, 184, 0), rgba(148, 163, 184, 0.45), rgba(148, 163, 184, 0));
+                margin: 1.25rem 0;
+            }
+            .section-divider.section-tight {
+                margin: 0.6rem 0 1rem;
+            }
+            .section-divider.section-break {
+                margin: 1.8rem 0 1.2rem;
+            }
+            .section-divider.section-top-divider {
+                margin-top: 0.75rem;
+            }
+            .section-card {
+                border-radius: 20px;
+                padding: 1.35rem 1.5rem;
+                background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.96));
+                border: 1.5px solid rgba(148, 163, 184, 0.28);
+                box-shadow: 0 14px 26px rgba(15, 23, 42, 0.12);
+            }
+            .section-card + .section-card {
+                margin-top: 1rem;
             }
             .metric-row {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-                gap: 1rem;
+                gap: 1.05rem;
                 margin-top: 1rem;
             }
             .metric-card {
@@ -3804,28 +3828,29 @@ def _inject_dashboard_styles() -> None:
                 border-radius: 18px;
                 padding: 1.4rem;
                 color: #0f172a;
-                background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(241,245,249,0.95));
-                border: 1px solid rgba(148, 163, 184, 0.35);
-                box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(244, 247, 254, 0.96));
+                border: 1.5px solid rgba(148, 163, 184, 0.24);
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
             }
             .metric-card::after {
                 content: "";
                 position: absolute;
                 inset: 1px;
                 border-radius: 16px;
-                border: 1px solid rgba(255,255,255,0.5);
+                border: 1px solid rgba(255, 255, 255, 0.65);
             }
             .metric-card .metric-label {
-                font-size: 0.9rem;
+                font-size: 0.88rem;
                 font-weight: 600;
                 color: #475569;
                 letter-spacing: 0.04em;
                 text-transform: uppercase;
             }
             .metric-card .metric-value {
-                font-size: 2rem;
+                font-size: 1.95rem;
                 font-weight: 700;
-                margin: 0.4rem 0;
+                margin: 0.35rem 0;
+                color: #0f172a;
             }
             .metric-card .metric-desc {
                 font-size: 0.85rem;
@@ -3833,39 +3858,43 @@ def _inject_dashboard_styles() -> None:
                 margin: 0;
             }
             .metric-card.progress {
-                background: linear-gradient(135deg, #1d4ed8, #2563eb);
-                color: #f8fafc;
+                background: linear-gradient(135deg, #e0f2fe, #f0f9ff);
+                border-color: rgba(59, 130, 246, 0.25);
             }
             .metric-card.progress .metric-label,
             .metric-card.progress .metric-desc {
-                color: rgba(248, 250, 252, 0.85);
+                color: #1d4ed8;
             }
             .metric-card.score {
-                background: linear-gradient(135deg, #15803d, #22c55e);
-                color: #0f172a;
+                background: linear-gradient(135deg, #dcfce7, #f0fdf4);
+                border-color: rgba(34, 197, 94, 0.28);
+            }
+            .metric-card.score .metric-label,
+            .metric-card.score .metric-desc {
+                color: #047857;
             }
             .metric-card.alert {
-                background: linear-gradient(135deg, #f97316, #fb923c);
-                color: #0f172a;
+                background: linear-gradient(135deg, #fef3c7, #fff7ed);
+                border-color: rgba(234, 179, 8, 0.32);
+                color: #92400e;
             }
             .insight-grid {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                gap: 1rem;
-                margin: 1.5rem 0 0;
+                gap: 1.2rem;
             }
             .insight-card {
                 display: flex;
                 gap: 1rem;
                 align-items: center;
                 border-radius: 18px;
-                padding: 1.2rem 1.4rem;
-                background: #ffffff;
-                border: 1px solid rgba(148, 163, 184, 0.28);
-                box-shadow: 0 20px 32px rgba(15, 23, 42, 0.12);
+                padding: 1.15rem 1.35rem;
+                background: linear-gradient(135deg, rgba(254, 249, 245, 0.95), rgba(248, 251, 255, 0.96));
+                border: 1.5px solid rgba(236, 72, 153, 0.14);
+                box-shadow: 0 10px 22px rgba(236, 72, 153, 0.08);
             }
             .insight-icon {
-                font-size: 1.8rem;
+                font-size: 1.9rem;
             }
             .insight-title {
                 font-weight: 600;
@@ -3873,34 +3902,33 @@ def _inject_dashboard_styles() -> None:
                 color: #475569;
             }
             .insight-value {
-                font-size: 1.35rem;
+                font-size: 1.32rem;
                 font-weight: 700;
-                margin: 0.2rem 0 0.3rem;
+                margin: 0.15rem 0 0.35rem;
                 color: #0f172a;
             }
             .insight-desc {
-                font-size: 0.85rem;
+                font-size: 0.84rem;
                 margin: 0;
-                color: #64748b;
+                color: #6b7280;
             }
             .action-grid {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-                gap: 1rem;
-                margin-top: 1rem;
+                gap: 1.05rem;
             }
             .action-card {
                 border-radius: 16px;
                 padding: 1.2rem 1.3rem;
-                background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(14,165,233,0.08));
-                border: 1px solid rgba(148, 163, 184, 0.3);
-                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+                background: linear-gradient(135deg, rgba(236, 254, 255, 0.92), rgba(255, 249, 245, 0.92));
+                border: 1.5px dashed rgba(14, 165, 233, 0.35);
+                box-shadow: 0 8px 18px rgba(14, 165, 233, 0.12);
             }
             .action-card strong {
                 display: block;
-                font-size: 1.05rem;
-                margin-bottom: 0.4rem;
-                color: #1e293b;
+                font-size: 1.03rem;
+                margin-bottom: 0.35rem;
+                color: #0f172a;
             }
             .action-card p {
                 margin: 0;
@@ -3908,28 +3936,29 @@ def _inject_dashboard_styles() -> None:
                 color: #475569;
             }
             .table-card {
-                border-radius: 18px;
-                padding: 1.2rem 1rem 0.6rem;
-                background: rgba(255, 255, 255, 0.95);
-                border: 1px solid rgba(226, 232, 240, 0.7);
-                box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+                border-radius: 20px;
+                padding: 1.3rem 1rem 0.75rem;
+                background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(240, 249, 255, 0.96));
+                border: 1.5px solid rgba(148, 163, 184, 0.28);
+                box-shadow: 0 10px 22px rgba(148, 163, 184, 0.18);
             }
             .stTabs [data-baseweb="tab-list"] {
                 gap: 0.6rem;
-                padding: 0.4rem;
-                background: rgba(226, 232, 240, 0.5);
+                padding: 0.5rem;
+                background: rgba(226, 232, 240, 0.3);
                 border-radius: 999px;
+                border: 1px solid rgba(148, 163, 184, 0.24);
             }
             .stTabs [data-baseweb="tab"] {
                 border-radius: 999px;
-                padding: 0.4rem 1.4rem;
-                background: rgba(255,255,255,0.7);
-                border: 1px solid transparent;
+                padding: 0.45rem 1.45rem;
+                background: rgba(255, 255, 255, 0.82);
+                border: 1px solid rgba(148, 163, 184, 0.18);
             }
             .stTabs [aria-selected="true"] {
-                background: rgba(37, 99, 235, 0.14) !important;
-                border-color: rgba(59, 130, 246, 0.4) !important;
-                color: #1d4ed8 !important;
+                background: rgba(14, 165, 233, 0.18) !important;
+                border-color: rgba(14, 165, 233, 0.4) !important;
+                color: #0ea5e9 !important;
             }
             </style>
             """
@@ -4324,6 +4353,7 @@ def dashboard_page(user: Dict) -> None:
 
     st.title("ホームダッシュボード")
     st.caption("学習状況のサマリと機能へのショートカット")
+    st.markdown("<div class='section-divider section-top-divider'></div>", unsafe_allow_html=True)
 
     attempts = database.list_attempts(user_id=user["id"])
     gamification = _calculate_gamification(attempts)
@@ -4426,12 +4456,14 @@ def dashboard_page(user: Dict) -> None:
         ).strip(),
         unsafe_allow_html=True,
     )
+    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
 
     _render_committee_heatmap_section()
     _render_study_planner(user)
 
     upcoming_reviews = database.list_upcoming_reviews(user_id=user["id"], limit=6)
     due_review_count = database.count_due_reviews(user_id=user["id"])
+    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
     st.subheader("復習スケジュール（間隔反復）")
     if upcoming_reviews:
         if due_review_count:
@@ -4452,12 +4484,14 @@ def dashboard_page(user: Dict) -> None:
                 for review in upcoming_reviews
             ]
         )
+        st.markdown('<div class="section-card table-card table-card--schedule">', unsafe_allow_html=True)
         st.data_editor(
             schedule_df,
             hide_index=True,
             use_container_width=True,
             disabled=True,
         )
+        st.markdown('</div>', unsafe_allow_html=True)
         st.caption("演習結果に応じて次回の復習タイミングを自動で提案します。")
     else:
         st.info("演習データが蓄積されると復習スケジュールがここに表示されます。")
@@ -4481,7 +4515,7 @@ def dashboard_page(user: Dict) -> None:
                     for row in attempts
                 ]
             )
-            st.markdown('<div class="table-card">', unsafe_allow_html=True)
+            st.markdown('<div class="section-card table-card table-card--summary">', unsafe_allow_html=True)
             st.data_editor(
                 summary_df,
                 use_container_width=True,
@@ -4528,6 +4562,10 @@ def dashboard_page(user: Dict) -> None:
             st.altair_chart(bar + target_line, use_container_width=True)
         else:
             st.info("演習データが蓄積すると事例別の分析が表示されます。")
+
+    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
+    st.markdown("### 学習ハイライト")
+    st.markdown("<div class='section-divider section-tight'></div>", unsafe_allow_html=True)
 
     latest_attempt = attempts[0] if attempts else None
     next_focus_card = {
@@ -4599,30 +4637,36 @@ def dashboard_page(user: Dict) -> None:
     st.markdown(
         dedent(
             f"""
-            <div class="insight-grid">
-            {insight_cards}
+            <div class="section-card">
+                <div class="insight-grid">
+                {insight_cards}
+                </div>
             </div>
             """
         ).strip(),
         unsafe_allow_html=True,
     )
 
+    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
+    st.markdown("### 次のアクション")
+    st.markdown("<div class='section-divider section-tight'></div>", unsafe_allow_html=True)
     st.markdown(
         dedent(
             """
-            ### 次のアクション
-            <div class="action-grid">
-                <div class="action-card">
-                    <strong>過去問演習</strong>
-                    <p>年度・事例を指定して弱点補強の演習を行いましょう。</p>
-                </div>
-                <div class="action-card">
-                    <strong>模擬試験</strong>
-                    <p>タイマー付きの本番形式で得点力とタイムマネジメントを鍛えます。</p>
-                </div>
-                <div class="action-card">
-                    <strong>学習履歴</strong>
-                    <p>得点推移を可視化し、改善の兆しや課題を振り返りましょう。</p>
+            <div class="section-card">
+                <div class="action-grid">
+                    <div class="action-card">
+                        <strong>過去問演習</strong>
+                        <p>年度・事例を指定して弱点補強の演習を行いましょう。</p>
+                    </div>
+                    <div class="action-card">
+                        <strong>模擬試験</strong>
+                        <p>タイマー付きの本番形式で得点力とタイムマネジメントを鍛えます。</p>
+                    </div>
+                    <div class="action-card">
+                        <strong>学習履歴</strong>
+                        <p>得点推移を可視化し、改善の兆しや課題を振り返りましょう。</p>
+                    </div>
                 </div>
             </div>
             """
@@ -4630,6 +4674,7 @@ def dashboard_page(user: Dict) -> None:
         unsafe_allow_html=True,
     )
 
+    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
     st.markdown("### 過去問タイムライン")
     st.caption("令和6年から4年にかけての事例III『生産』テーマの変遷を俯瞰できます。ホバーで原紙PDFリンクを確認できます。")
     _render_caseiii_timeline()
