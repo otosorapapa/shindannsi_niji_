@@ -43,6 +43,7 @@ st.set_page_config(
 import committee_analysis
 import database
 import export_utils
+import keyword_analysis
 import mock_exam
 import personalized_recommendation
 import scoring
@@ -12929,6 +12930,129 @@ def history_page(user: Dict) -> None:
                 )
                 st.data_editor(detail_df, hide_index=True, use_container_width=True, disabled=True)
                 st.caption("各設問の到達状況と不足キーワードを一覧化しました。学習計画に反映してください。")
+
+            st.divider()
+            st.subheader("過去問キーワード解析")
+            st.caption("過去問本文を自然言語処理で解析し、学習計画づくりに役立つ頻出テーマを抽出しました。")
+
+            corpus = keyword_analysis.load_question_corpus()
+            available_years = keyword_analysis.list_available_years(corpus)
+            if not available_years:
+                st.info("過去問データが見つからないため、解析を実行できませんでした。")
+            else:
+                default_years = min(3, len(available_years)) or 1
+                recent_years = st.slider(
+                    "解析対象の年度数",
+                    min_value=1,
+                    max_value=len(available_years),
+                    value=default_years,
+                    help="最新から何年分の過去問を集計するかを指定します。",
+                    key="keyword_analysis_recent_years",
+                )
+
+                insights = keyword_analysis.generate_keyword_insights(
+                    corpus=corpus,
+                    recent_years=recent_years,
+                    top_n=36,
+                    min_occurrence=2,
+                    theme_top_n=8,
+                )
+
+                target_years = insights.get("selected_years", [])
+                if target_years:
+                    st.caption(
+                        "対象年度: "
+                        + "、".join(target_years)
+                        + f" / 解析設問数: {insights.get('document_count', 0)}"
+                    )
+                else:
+                    st.caption(f"解析設問数: {insights.get('document_count', 0)}")
+
+                case_options = ["全体"] + insights.get("case_labels", [])
+                selected_case = st.selectbox(
+                    "キーワードクラウド表示対象",
+                    options=case_options,
+                    key="keyword_analysis_case",
+                )
+
+                if selected_case == "全体":
+                    cloud_df = insights.get("cloud_overall", pd.DataFrame())
+                else:
+                    cloud_map = insights.get("cloud_by_case", {})
+                    cloud_df = cloud_map.get(selected_case, pd.DataFrame())
+
+                if cloud_df.empty:
+                    st.info("指定した条件でキーワードを抽出できませんでした。年度や事例を変更して再度お試しください。")
+                else:
+                    cloud_layout = keyword_analysis.prepare_cloud_layout(cloud_df, columns=6)
+                    cloud_layout["weight"] = cloud_layout["weight"].clip(lower=0.1)
+                    if not cloud_layout.empty:
+                        rows = int(cloud_layout["row"].max()) + 1
+                    else:
+                        rows = 1
+                    cloud_chart = (
+                        alt.Chart(cloud_layout)
+                        .mark_text(baseline="middle")
+                        .encode(
+                            x=alt.X("col:O", axis=None),
+                            y=alt.Y("row:O", axis=None, sort="descending"),
+                            text="keyword",
+                            size=alt.Size("weight:Q", legend=None, scale=alt.Scale(range=[18, 68])),
+                            color=alt.Color("weight:Q", legend=None, scale=alt.Scale(scheme="blues")),
+                            tooltip=["keyword", alt.Tooltip("count:Q", title="出現回数")],
+                        )
+                        .properties(width=640, height=max(220, rows * 70))
+                    )
+                    st.altair_chart(cloud_chart, use_container_width=True)
+
+                    cloud_display = cloud_df.copy()
+                    cloud_display["重要度(%)"] = (cloud_display["weight"] * 100).map(lambda v: f"{v:.0f}%")
+                    cloud_display.rename(
+                        columns={"keyword": "キーワード", "count": "出現回数"}, inplace=True
+                    )
+                    st.dataframe(
+                        cloud_display[["キーワード", "出現回数", "重要度(%)"]],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+                theme_case_options = ["全体"] + insights.get("case_labels", [])
+                selected_theme_case = st.selectbox(
+                    "頻出テーマ表示対象",
+                    options=theme_case_options,
+                    key="keyword_analysis_theme_case",
+                )
+
+                if selected_theme_case == "全体":
+                    theme_df = insights.get("themes_overall", pd.DataFrame())
+                else:
+                    theme_map = insights.get("themes_by_case", {})
+                    theme_df = theme_map.get(selected_theme_case, pd.DataFrame())
+
+                if theme_df.empty:
+                    st.info("頻出テーマを算出できませんでした。対象期間や事例を変更してみてください。")
+                else:
+                    theme_display = theme_df.copy()
+                    theme_display["重要度(指数)"] = (
+                        theme_display["score"] * 100
+                    ).map(lambda v: f"{v:.1f}")
+                    theme_display.rename(columns={"keyword": "テーマ"}, inplace=True)
+                    theme_chart = (
+                        alt.Chart(theme_display)
+                        .mark_bar()
+                        .encode(
+                            x=alt.X("score:Q", title="重要度 (TF-IDF平均)", axis=alt.Axis(format=".2f")),
+                            y=alt.Y("テーマ:N", sort="-x"),
+                            tooltip=["テーマ", alt.Tooltip("score:Q", title="重要度", format=".2f")],
+                        )
+                        .properties(height=max(200, 28 * len(theme_display)), width=640)
+                    )
+                    st.altair_chart(theme_chart, use_container_width=True)
+                    st.dataframe(
+                        theme_display[["テーマ", "重要度(指数)"]],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
 
     with detail_tab:
         csv_export = filtered_df.copy()
