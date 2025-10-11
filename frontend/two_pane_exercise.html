@@ -131,6 +131,63 @@
         border: 0;
       }
 
+      body.is-tutorial-open {
+        overflow: hidden;
+      }
+
+      .tooltip-target[data-tooltip]::before,
+      .tooltip-target[data-tooltip]::after {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity var(--transition-duration) ease,
+          transform var(--transition-duration) ease;
+      }
+
+      .tooltip-target[data-tooltip]::before {
+        content: attr(data-tooltip);
+        bottom: calc(100% + 12px);
+        left: 50%;
+        transform: translate(-50%, 6px);
+        padding: 8px 12px;
+        border-radius: 8px;
+        background-color: var(--color-text-strong);
+        color: var(--color-chip-active-text);
+        font-size: 0.85rem;
+        line-height: 1.4;
+        box-shadow: 0 8px 20px rgba(16, 24, 40, 0.18);
+        max-width: 240px;
+        text-align: center;
+        z-index: 20;
+        white-space: normal;
+      }
+
+      .tooltip-target[data-tooltip]::after {
+        content: "";
+        bottom: calc(100% + 4px);
+        left: 50%;
+        transform: translate(-50%, 10px);
+        border-width: 6px;
+        border-style: solid;
+        border-color: var(--color-text-strong) transparent transparent transparent;
+        z-index: 20;
+      }
+
+      .tooltip-target[data-tooltip]:hover::before,
+      .tooltip-target[data-tooltip]:hover::after,
+      .tooltip-target[data-tooltip]:focus-visible::before,
+      .tooltip-target[data-tooltip]:focus-visible::after {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .tooltip-target[data-tooltip]::before,
+        .tooltip-target[data-tooltip]::after {
+          transition: none;
+        }
+      }
+
       a:focus-visible,
       button:focus-visible,
       textarea:focus-visible,
@@ -183,6 +240,27 @@
 
       .context-pane__miniheader strong {
         color: var(--color-text);
+      }
+
+      .context-pane__guide {
+        margin-left: auto;
+        border: 1px solid transparent;
+        background: none;
+        color: var(--color-chip-active);
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 4px 12px;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background-color var(--transition-duration) ease,
+          border-color var(--transition-duration) ease,
+          color var(--transition-duration) ease;
+      }
+
+      .context-pane__guide:hover,
+      .context-pane__guide:focus-visible {
+        background-color: var(--color-chip-bg);
+        border-color: var(--color-chip-active);
       }
 
       .context-pane__meta {
@@ -580,6 +658,84 @@
         font-weight: 600;
       }
 
+      .tutorial {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: var(--spacing-md);
+        background: rgba(11, 17, 27, 0.55);
+        backdrop-filter: blur(3px);
+        z-index: 200;
+      }
+
+      .tutorial[hidden] {
+        display: none;
+      }
+
+      .tutorial__content {
+        position: relative;
+        max-width: 420px;
+        width: min(100%, 420px);
+        padding: var(--spacing-lg);
+        border-radius: var(--radius-card);
+        background-color: var(--color-surface);
+        color: var(--color-text);
+        box-shadow: 0 24px 40px rgba(16, 24, 40, 0.18);
+      }
+
+      .tutorial__title {
+        font-size: 1.3rem;
+        margin-bottom: var(--spacing-sm);
+        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+      }
+
+      .tutorial__indicator {
+        margin-bottom: var(--spacing-xs);
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+      }
+
+      .tutorial__message {
+        margin-bottom: var(--spacing-md);
+        font-size: 1rem;
+      }
+
+      .tutorial__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--spacing-sm);
+      }
+
+      .tutorial__button {
+        border: 1px solid transparent;
+        border-radius: 999px;
+        background-color: var(--color-chip-bg);
+        color: var(--color-text);
+        padding: 8px 16px;
+        font: inherit;
+        cursor: pointer;
+        transition: background-color var(--transition-duration) ease,
+          border-color var(--transition-duration) ease,
+          color var(--transition-duration) ease;
+      }
+
+      .tutorial__button:hover,
+      .tutorial__button:focus-visible {
+        background-color: color-mix(in srgb, var(--color-chip-active) 15%, transparent);
+        border-color: var(--color-chip-active);
+      }
+
+      .tutorial__button--primary {
+        background-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
+      }
+
+      .tutorial__button--primary:hover,
+      .tutorial__button--primary:focus-visible {
+        background-color: color-mix(in srgb, var(--color-chip-active) 88%, #ffffff 12%);
+      }
+
       @media (max-width: 1024px) {
         .context-pane {
           flex-basis: 320px;
@@ -627,6 +783,10 @@
           font-size: 0.85rem;
           text-decoration: underline;
         }
+
+        .context-pane__guide {
+          margin-left: 0;
+        }
       }
     </style>
   </head>
@@ -641,6 +801,14 @@
           <div class="context-pane__miniheader">
             <strong>事例I 令和6年</strong>
             <a class="text-muted" href="#question-1">設問一覧へジャンプ</a>
+            <button
+              type="button"
+              class="context-pane__guide tooltip-target"
+              id="open-tutorial"
+              data-tooltip="画面の使い方ガイドを開いて、操作方法を確認できます"
+            >
+              使い方ガイド
+            </button>
           </div>
           <h1 id="context-heading">B製造業 与件文</h1>
           <dl class="context-pane__meta">
@@ -684,52 +852,56 @@
           <!-- ホイールでも操作できる設問タブ -->
           <button
             id="tab-question-1"
-            class="exercise-tab"
+            class="exercise-tab tooltip-target"
             type="button"
             role="tab"
             aria-selected="true"
             aria-controls="question-1"
             tabindex="0"
             data-target="question-1"
+            data-tooltip="クリックで該当の設問へスクロールします。矢印キーでもタブ移動できます"
           >
             <span class="exercise-tab__label">Q1</span>
             <span class="exercise-tab__title">経営課題の整理</span>
           </button>
           <button
             id="tab-question-2"
-            class="exercise-tab"
+            class="exercise-tab tooltip-target"
             type="button"
             role="tab"
             aria-selected="false"
             aria-controls="question-2"
             tabindex="-1"
             data-target="question-2"
+            data-tooltip="設問2の回答欄へスムーズに移動します"
           >
             <span class="exercise-tab__label">Q2</span>
             <span class="exercise-tab__title">顧客共創の提案</span>
           </button>
           <button
             id="tab-question-3"
-            class="exercise-tab"
+            class="exercise-tab tooltip-target"
             type="button"
             role="tab"
             aria-selected="false"
             aria-controls="question-3"
             tabindex="-1"
             data-target="question-3"
+            data-tooltip="設問3へジャンプし、回答欄にフォーカスします"
           >
             <span class="exercise-tab__label">Q3</span>
             <span class="exercise-tab__title">技能伝承の仕組み</span>
           </button>
           <button
             id="tab-question-4"
-            class="exercise-tab"
+            class="exercise-tab tooltip-target"
             type="button"
             role="tab"
             aria-selected="false"
             aria-controls="question-4"
             tabindex="-1"
             data-target="question-4"
+            data-tooltip="設問4の回答欄へ移動します。最後の設問です"
           >
             <span class="exercise-tab__label">Q4</span>
             <span class="exercise-tab__title">評価制度の再設計</span>
@@ -772,11 +944,12 @@
             </div>
             <div class="support-block">
               <button
-                class="support-block__toggle"
+                class="support-block__toggle tooltip-target"
                 type="button"
                 aria-expanded="false"
                 aria-controls="support-1"
                 data-support-id="support-1"
+                data-tooltip="ヒントを表示して、回答の切り口を確認できます"
               >
                 <span class="icon icon--support" aria-hidden="true"></span>
                 <span class="support-block__label">活用する 思考補助</span>
@@ -824,11 +997,12 @@
             </div>
             <div class="support-block">
               <button
-                class="support-block__toggle"
+                class="support-block__toggle tooltip-target"
                 type="button"
                 aria-expanded="false"
                 aria-controls="support-2"
                 data-support-id="support-2"
+                data-tooltip="助言のポイントを開閉できます"
               >
                 <span class="icon icon--support" aria-hidden="true"></span>
                 <span class="support-block__label">確認する 注意事項</span>
@@ -876,11 +1050,12 @@
             </div>
             <div class="support-block">
               <button
-                class="support-block__toggle"
+                class="support-block__toggle tooltip-target"
                 type="button"
                 aria-expanded="false"
                 aria-controls="support-3"
                 data-support-id="support-3"
+                data-tooltip="技能伝承に役立つTipsを開きます"
               >
                 <span class="icon icon--support" aria-hidden="true"></span>
                 <span class="support-block__label">参照する Tips</span>
@@ -928,11 +1103,12 @@
             </div>
             <div class="support-block">
               <button
-                class="support-block__toggle"
+                class="support-block__toggle tooltip-target"
                 type="button"
                 aria-expanded="false"
                 aria-controls="support-4"
                 data-support-id="support-4"
+                data-tooltip="評価制度のゴール像を確認できます"
               >
                 <span class="icon icon--support" aria-hidden="true"></span>
                 <span class="support-block__label">確認する ゴール像</span>
@@ -947,16 +1123,47 @@
         <footer class="exercise__footer">
           <button
             type="button"
-            class="cta-button"
+            class="cta-button tooltip-target"
             id="next-question-button"
             data-target="question-2"
             aria-label="次の設問へ進む"
+            data-tooltip="次に取り組む設問へ移動します。最後の設問後は1問目に戻ります"
           >
             <span class="cta-button__verb">進む</span>
             <span class="cta-button__object">次の設問へ</span>
           </button>
         </footer>
       </main>
+    </div>
+
+    <div
+      class="tutorial"
+      id="tutorial"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tutorial-title"
+      aria-hidden="true"
+      hidden
+    >
+      <div class="tutorial__content">
+        <h2 class="tutorial__title" id="tutorial-title">はじめてガイド</h2>
+        <p class="tutorial__indicator" data-tutorial-indicator>1 / 4</p>
+        <p class="tutorial__message" data-tutorial-message>
+          左側の与件文は常に表示され、企業の背景を素早く確認できます。
+        </p>
+        <div class="tutorial__actions">
+          <button type="button" class="tutorial__button" data-tutorial-skip>
+            スキップ
+          </button>
+          <button
+            type="button"
+            class="tutorial__button tutorial__button--primary"
+            data-tutorial-next
+          >
+            次へ
+          </button>
+        </div>
+      </div>
     </div>
 
     <script>
@@ -1160,6 +1367,126 @@
           }
         });
       });
+
+      const tutorialOverlay = document.getElementById('tutorial');
+      const tutorialIndicator = tutorialOverlay?.querySelector(
+        '[data-tutorial-indicator]'
+      );
+      const tutorialMessage = tutorialOverlay?.querySelector(
+        '[data-tutorial-message]'
+      );
+      const tutorialNextButton = tutorialOverlay?.querySelector(
+        '[data-tutorial-next]'
+      );
+      const tutorialSkipButton = tutorialOverlay?.querySelector(
+        '[data-tutorial-skip]'
+      );
+      const openTutorialButton = document.getElementById('open-tutorial');
+      const tutorialStorageKey = 'two-pane-tutorial-complete-v1';
+
+      const tutorialSteps = [
+        {
+          message:
+            '左側の与件文は常に表示され、企業の背景を素早く確認できます。',
+        },
+        {
+          message:
+            '上部の設問タブをクリックまたは矢印キーで操作すると、該当する設問にスクロールします。',
+        },
+        {
+          message:
+            '各設問カードでは字数カウンタが自動更新され、下部のTipsから回答のヒントを確認できます。',
+        },
+        {
+          message:
+            '右下のボタンで次の設問へ進み、最後まで終えると1問目に戻って見直しができます。',
+        },
+      ];
+
+      let tutorialIndex = 0;
+
+      const setTutorialVisibility = (isVisible) => {
+        if (!tutorialOverlay) return;
+        tutorialOverlay.hidden = !isVisible;
+        tutorialOverlay.setAttribute('aria-hidden', String(!isVisible));
+        document.body.classList.toggle('is-tutorial-open', isVisible);
+      };
+
+      const updateTutorialStep = () => {
+        if (!tutorialOverlay) return;
+        const step = tutorialSteps[tutorialIndex];
+        if (tutorialIndicator) {
+          tutorialIndicator.textContent = `${tutorialIndex + 1} / ${
+            tutorialSteps.length
+          }`;
+        }
+        if (tutorialMessage && step) {
+          tutorialMessage.textContent = step.message;
+        }
+        if (tutorialNextButton) {
+          tutorialNextButton.textContent =
+            tutorialIndex === tutorialSteps.length - 1 ? '完了' : '次へ';
+        }
+      };
+
+      const closeTutorial = (storeState = false) => {
+        setTutorialVisibility(false);
+        if (storeState) {
+          try {
+            localStorage.setItem(tutorialStorageKey, 'done');
+          } catch (error) {
+            // ローカルストレージ未対応の場合は何もしない
+          }
+        }
+      };
+
+      const openTutorial = (force = false) => {
+        let hasCompleted = false;
+        if (!force) {
+          try {
+            hasCompleted = localStorage.getItem(tutorialStorageKey) === 'done';
+          } catch (error) {
+            hasCompleted = false;
+          }
+        }
+        if (hasCompleted && !force) {
+          return;
+        }
+        tutorialIndex = 0;
+        setTutorialVisibility(true);
+        updateTutorialStep();
+      };
+
+      tutorialNextButton?.addEventListener('click', () => {
+        if (tutorialIndex < tutorialSteps.length - 1) {
+          tutorialIndex += 1;
+          updateTutorialStep();
+        } else {
+          closeTutorial(true);
+        }
+      });
+
+      tutorialSkipButton?.addEventListener('click', () => {
+        closeTutorial(true);
+      });
+
+      tutorialOverlay?.addEventListener('click', (event) => {
+        if (event.target === tutorialOverlay) {
+          closeTutorial(true);
+        }
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && tutorialOverlay && !tutorialOverlay.hidden) {
+          closeTutorial(true);
+        }
+      });
+
+      openTutorialButton?.addEventListener('click', () => {
+        openTutorial(true);
+      });
+
+      openTutorial();
     </script>
   </body>
 </html>
