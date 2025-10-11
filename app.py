@@ -4455,186 +4455,539 @@ def _inject_dashboard_styles() -> None:
         dedent(
             """
             <style>
+            :root {
+                --dashboard-max-width: min(1320px, 96vw);
+                --grid-gap: clamp(1rem, 2vw, 1.75rem);
+                --pastel-blue: #e8f1ff;
+                --pastel-green: #e5f7ed;
+                --pastel-yellow: #fff6da;
+                --pastel-pink: #ffe9f3;
+                --brand: #2563eb;
+                --brand-strong: #1d4ed8;
+                --text-body: #1f2937;
+                --text-muted: #4b5563;
+                --border-soft: rgba(148, 163, 184, 0.4);
+                --border-strong: rgba(71, 85, 105, 0.6);
+                --shadow-card: 0 18px 38px rgba(15, 23, 42, 0.12);
+            }
             [data-testid="stAppViewContainer"] {
-                background: linear-gradient(180deg, #fefaf6 0%, #f5f8ff 40%, #ffffff 100%);
+                background: linear-gradient(180deg, #fdfdfc 0%, #f7f9ff 48%, #ffffff 100%);
             }
             .block-container {
-                padding: 1.35rem 1.9rem 3.2rem;
-                max-width: min(1500px, 96vw);
+                padding: 1.25rem 1.8rem 3rem;
+                max-width: var(--dashboard-max-width);
             }
-            .section-divider {
-                height: 1px;
-                background: linear-gradient(90deg, rgba(148, 163, 184, 0), rgba(148, 163, 184, 0.45), rgba(148, 163, 184, 0));
-                margin: 1.25rem 0;
+            .dashboard-toc {
+                display: flex;
+                gap: 0.75rem;
+                flex-wrap: wrap;
+                align-items: center;
+                margin: 1.5rem 0 2rem;
             }
-            .section-divider.section-tight {
-                margin: 0.6rem 0 1rem;
+            .dashboard-toc__link {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+                border-radius: 999px;
+                padding: 0.45rem 0.95rem;
+                font-size: 0.88rem;
+                font-weight: 600;
+                background: rgba(37, 99, 235, 0.08);
+                color: var(--brand-strong);
+                border: 1px solid rgba(37, 99, 235, 0.18);
+                transition: background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
             }
-            .section-divider.section-break {
-                margin: 1.8rem 0 1.2rem;
+            .dashboard-toc__link[aria-current="location"],
+            .dashboard-toc__link:hover {
+                background: rgba(37, 99, 235, 0.18);
+                border-color: rgba(37, 99, 235, 0.35);
             }
-            .section-divider.section-top-divider {
-                margin-top: 0.75rem;
+            .dashboard-toc__link:focus-visible,
+            .insight-pill:focus-visible,
+            .kpi-tile button:focus-visible,
+            .insight-banner__toggle:focus-visible,
+            .timeline-filter__clear:focus-visible {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
             }
-            .section-card {
-                border-radius: 20px;
-                padding: 1.35rem 1.5rem;
-                background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.96));
-                border: 1.5px solid rgba(148, 163, 184, 0.28);
-                box-shadow: 0 14px 26px rgba(15, 23, 42, 0.12);
-            }
-            .section-card + .section-card {
-                margin-top: 1rem;
-            }
-            .metric-row {
+            .dashboard-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-                gap: 1.05rem;
-                margin-top: 1rem;
+                grid-template-columns: repeat(12, minmax(0, 1fr));
+                gap: var(--grid-gap);
+                width: 100%;
             }
-            .metric-card {
+            .dashboard-lane {
+                grid-column: 1 / -1;
+                display: flex;
+                flex-direction: column;
+                gap: 1.1rem;
+            }
+            .dashboard-lane__header {
+                display: flex;
+                flex-direction: column;
+                gap: 0.15rem;
+            }
+            .dashboard-lane__title {
+                font-size: clamp(1.15rem, 1.6vw, 1.4rem);
+                font-weight: 700;
+                color: var(--text-body);
+                margin: 0;
+            }
+            .dashboard-lane__subtitle {
+                font-size: 0.95rem;
+                color: var(--text-muted);
+                margin: 0;
+            }
+            .dashboard-card {
+                border-radius: 20px;
+                padding: clamp(1rem, 1.6vw, 1.35rem) clamp(1.05rem, 1.8vw, 1.6rem);
+                background: #ffffff;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                box-shadow: var(--shadow-card);
                 position: relative;
-                border-radius: 18px;
-                padding: 1.4rem;
-                color: #0f172a;
-                background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(244, 247, 254, 0.96));
-                border: 1.5px solid rgba(148, 163, 184, 0.24);
-                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+                overflow: hidden;
             }
-            .metric-card::after {
+            .dashboard-card::after {
                 content: "";
                 position: absolute;
-                inset: 1px;
-                border-radius: 16px;
-                border: 1px solid rgba(255, 255, 255, 0.65);
+                inset: 0;
+                border-radius: inherit;
+                border: 1px solid rgba(255, 255, 255, 0.45);
+                pointer-events: none;
             }
-            .metric-card .metric-label {
-                font-size: 0.88rem;
+            .dashboard-card.card--tone-blue {
+                background: linear-gradient(180deg, rgba(232, 241, 255, 0.95), rgba(255, 255, 255, 0.95));
+            }
+            .dashboard-card.card--tone-green {
+                background: linear-gradient(180deg, rgba(229, 247, 237, 0.95), rgba(255, 255, 255, 0.95));
+            }
+            .dashboard-card.card--tone-yellow {
+                background: linear-gradient(180deg, rgba(255, 246, 218, 0.98), rgba(255, 255, 255, 0.95));
+            }
+            .dashboard-card.card--tone-pink {
+                background: linear-gradient(180deg, rgba(255, 233, 243, 0.98), rgba(255, 255, 255, 0.95));
+            }
+            .dashboard-card:focus-within {
+                box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.32), var(--shadow-card);
+            }
+            .kpi-tiles {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+                gap: clamp(1rem, 1.8vw, 1.5rem);
+            }
+            .kpi-tile {
+                position: relative;
+                border-radius: 18px;
+                padding: 1.2rem 1.35rem 1.1rem;
+                border: 1px solid rgba(148, 163, 184, 0.38);
+                background: var(--tile-background, #ffffff);
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.1);
+                display: flex;
+                flex-direction: column;
+                gap: 0.65rem;
+            }
+            .kpi-tile[data-tone="blue"] {
+                --tile-background: var(--pastel-blue);
+            }
+            .kpi-tile[data-tone="green"] {
+                --tile-background: var(--pastel-green);
+            }
+            .kpi-tile[data-tone="pink"] {
+                --tile-background: var(--pastel-pink);
+            }
+            .kpi-tile__label {
+                font-size: 0.95rem;
                 font-weight: 600;
-                color: #475569;
-                letter-spacing: 0.04em;
-                text-transform: uppercase;
+                color: var(--text-muted);
+                margin: 0;
+                letter-spacing: 0.02em;
             }
-            .metric-card .metric-value {
-                font-size: 1.95rem;
+            .kpi-tile__value {
+                font-size: clamp(2.1rem, 3vw, 2.6rem);
                 font-weight: 700;
-                margin: 0.35rem 0;
-                color: #0f172a;
+                margin: 0;
+                color: #111827;
             }
-            .metric-card .metric-desc {
-                font-size: 0.85rem;
-                color: #64748b;
+            .kpi-tile__meta {
+                font-size: 0.9rem;
+                color: var(--text-muted);
                 margin: 0;
             }
-            .metric-card.progress {
-                background: linear-gradient(135deg, #e0f2fe, #f0f9ff);
-                border-color: rgba(59, 130, 246, 0.25);
+            .progress-bar {
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
             }
-            .metric-card.progress .metric-label,
-            .metric-card.progress .metric-desc {
-                color: #1d4ed8;
+            .progress-bar__label {
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: var(--text-muted);
             }
-            .metric-card.score {
-                background: linear-gradient(135deg, #dcfce7, #f0fdf4);
-                border-color: rgba(34, 197, 94, 0.28);
+            .progress-bar__track {
+                position: relative;
+                height: 11px;
+                border-radius: 999px;
+                background: rgba(148, 163, 184, 0.35);
+                overflow: hidden;
             }
-            .metric-card.score .metric-label,
-            .metric-card.score .metric-desc {
-                color: #047857;
+            .progress-bar__fill {
+                position: absolute;
+                inset: 0;
+                width: var(--progress, 0%);
+                border-radius: inherit;
+                background: linear-gradient(90deg, rgba(37, 99, 235, 0.85), rgba(59, 130, 246, 0.85));
+                transition: width 600ms ease;
             }
-            .metric-card.alert {
-                background: linear-gradient(135deg, #fef3c7, #fff7ed);
-                border-color: rgba(234, 179, 8, 0.32);
+            .progress-bar__value {
+                font-size: 0.85rem;
+                color: var(--text-body);
+            }
+            .progress-bar[data-tone="green"] .progress-bar__fill {
+                background: linear-gradient(90deg, rgba(34, 197, 94, 0.85), rgba(22, 163, 74, 0.9));
+            }
+            .progress-bar[data-tone="yellow"] .progress-bar__fill {
+                background: linear-gradient(90deg, rgba(234, 179, 8, 0.85), rgba(217, 119, 6, 0.9));
+            }
+            .metric-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 1rem;
+                margin-top: 1rem;
+            }
+            .metric-chip {
+                border-radius: 16px;
+                padding: 0.95rem 1.1rem;
+                border: 1px solid rgba(148, 163, 184, 0.32);
+                background: rgba(255, 255, 255, 0.92);
+                box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+            }
+            .metric-chip__label {
+                font-size: 0.78rem;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                color: var(--text-muted);
+                margin-bottom: 0.4rem;
+            }
+            .metric-chip__value {
+                font-size: 1.4rem;
+                font-weight: 700;
+                margin: 0;
+            }
+            .metric-chip__desc {
+                margin: 0.35rem 0 0;
+                font-size: 0.85rem;
+                color: var(--text-muted);
+            }
+            .achievement-timeline {
+                position: relative;
+                padding-left: 1.5rem;
+                margin: 0;
+                list-style: none;
+            }
+            .achievement-timeline::before {
+                content: "";
+                position: absolute;
+                left: 0.6rem;
+                top: 0;
+                bottom: 0;
+                width: 2px;
+                background: rgba(148, 163, 184, 0.55);
+            }
+            .achievement-timeline__item {
+                position: relative;
+                padding: 0 0 1.4rem 0;
+            }
+            .achievement-timeline__item:last-child {
+                padding-bottom: 0;
+            }
+            .achievement-timeline__item::before {
+                content: "";
+                position: absolute;
+                left: -1rem;
+                top: 0.35rem;
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background: #ffffff;
+                border: 2px solid var(--brand-strong);
+                box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+            }
+            .achievement-timeline__time {
+                font-size: 0.82rem;
+                color: var(--text-muted);
+                margin-bottom: 0.15rem;
+            }
+            .achievement-timeline__title {
+                margin: 0;
+                font-weight: 600;
+                color: var(--text-body);
+            }
+            .achievement-timeline__meta {
+                margin: 0.25rem 0 0;
+                font-size: 0.85rem;
+                color: var(--text-muted);
+            }
+            .timeline-filter {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 1rem;
+                margin-bottom: 0.85rem;
+            }
+            .timeline-filter__label {
+                font-size: 0.85rem;
+                color: var(--text-muted);
+            }
+            .timeline-filter__actions {
+                display: flex;
+                gap: 0.5rem;
+                flex-wrap: wrap;
+            }
+            .timeline-filter__clear {
+                border-radius: 999px;
+                border: 1px solid rgba(37, 99, 235, 0.25);
+                background: transparent;
+                padding: 0.3rem 0.75rem;
+                font-size: 0.8rem;
+                font-weight: 600;
+                color: var(--brand-strong);
+                cursor: pointer;
+                transition: background 200ms ease, border-color 200ms ease;
+            }
+            .timeline-filter__clear:hover {
+                background: rgba(37, 99, 235, 0.12);
+                border-color: rgba(37, 99, 235, 0.4);
+            }
+            .insight-pill {
+                border-radius: 999px;
+                border: 1px solid rgba(71, 85, 105, 0.28);
+                background: rgba(148, 163, 184, 0.12);
+                padding: 0.4rem 0.85rem;
+                font-size: 0.82rem;
+                font-weight: 600;
+                color: var(--text-body);
+                cursor: pointer;
+                transition: background 200ms ease, border-color 200ms ease, transform 150ms ease;
+            }
+            .insight-pill[data-strength="strong"] {
+                background: rgba(34, 197, 94, 0.16);
+                border-color: rgba(22, 163, 74, 0.35);
+                color: #166534;
+            }
+            .insight-pill[data-strength="watch"] {
+                background: rgba(234, 179, 8, 0.18);
+                border-color: rgba(202, 138, 4, 0.38);
                 color: #92400e;
             }
-            .insight-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                gap: 1.2rem;
+            .insight-pill[aria-pressed="true"] {
+                transform: translateY(-1px);
+                box-shadow: 0 10px 18px rgba(37, 99, 235, 0.18);
+                background: rgba(37, 99, 235, 0.18);
+                border-color: rgba(37, 99, 235, 0.45);
+                color: var(--brand-strong);
             }
-            .insight-card {
-                display: flex;
-                gap: 1rem;
-                align-items: center;
-                border-radius: 18px;
-                padding: 1.15rem 1.35rem;
-                background: linear-gradient(135deg, rgba(254, 249, 245, 0.95), rgba(248, 251, 255, 0.96));
-                border: 1.5px solid rgba(236, 72, 153, 0.14);
-                box-shadow: 0 10px 22px rgba(236, 72, 153, 0.08);
-            }
-            .insight-icon {
-                font-size: 1.9rem;
-            }
-            .insight-title {
-                font-weight: 600;
-                margin: 0;
-                color: #475569;
-            }
-            .insight-value {
-                font-size: 1.32rem;
-                font-weight: 700;
-                margin: 0.15rem 0 0.35rem;
-                color: #0f172a;
-            }
-            .insight-desc {
-                font-size: 0.84rem;
-                margin: 0;
-                color: #6b7280;
-            }
-            .action-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-                gap: 1.05rem;
-            }
-            .action-card {
+            .insight-banner {
                 border-radius: 16px;
-                padding: 1.2rem 1.3rem;
-                background: linear-gradient(135deg, rgba(236, 254, 255, 0.92), rgba(255, 249, 245, 0.92));
-                border: 1.5px dashed rgba(14, 165, 233, 0.35);
-                box-shadow: 0 8px 18px rgba(14, 165, 233, 0.12);
+                border: 1px solid rgba(37, 99, 235, 0.3);
+                background: linear-gradient(180deg, rgba(232, 241, 255, 0.92), rgba(255, 255, 255, 0.95));
+                padding: 0.85rem 1rem;
+                box-shadow: 0 12px 24px rgba(37, 99, 235, 0.12);
             }
-            .action-card strong {
-                display: block;
-                font-size: 1.03rem;
-                margin-bottom: 0.35rem;
-                color: #0f172a;
+            .insight-banner__summary {
+                display: flex;
+                align-items: center;
+                gap: 0.55rem;
+                font-weight: 600;
+                color: var(--brand-strong);
             }
-            .action-card p {
-                margin: 0;
-                font-size: 0.88rem;
-                color: #475569;
+            .insight-banner__content {
+                margin-top: 0.65rem;
+                font-size: 0.9rem;
+                color: var(--text-muted);
             }
-            .table-card {
-                border-radius: 20px;
-                padding: 1.3rem 1rem 0.75rem;
-                background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(240, 249, 255, 0.96));
-                border: 1.5px solid rgba(148, 163, 184, 0.28);
-                box-shadow: 0 10px 22px rgba(148, 163, 184, 0.18);
+            .heatmap-legend {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                margin-top: 1rem;
+                font-size: 0.85rem;
+                color: var(--text-muted);
+                flex-wrap: wrap;
             }
-            .stTabs [data-baseweb="tab-list"] {
+            .heatmap-legend__swatch {
+                width: 84px;
+                height: 12px;
+                border-radius: 999px;
+                background: linear-gradient(90deg, rgba(219, 234, 254, 1) 0%, rgba(37, 99, 235, 1) 100%);
+                border: 1px solid rgba(37, 99, 235, 0.35);
+            }
+            .heatmap-highlight {
+                display: grid;
                 gap: 0.6rem;
-                padding: 0.5rem;
-                background: rgba(226, 232, 240, 0.3);
-                border-radius: 999px;
-                border: 1px solid rgba(148, 163, 184, 0.24);
+                margin-top: 1rem;
+                font-size: 0.9rem;
+                color: var(--text-muted);
             }
-            .stTabs [data-baseweb="tab"] {
-                border-radius: 999px;
-                padding: 0.45rem 1.45rem;
-                background: rgba(255, 255, 255, 0.82);
-                border: 1px solid rgba(148, 163, 184, 0.18);
+            .section-highlight {
+                animation: sectionGlow 2s ease;
             }
-            .stTabs [aria-selected="true"] {
-                background: rgba(14, 165, 233, 0.18) !important;
-                border-color: rgba(14, 165, 233, 0.4) !important;
-                color: #0ea5e9 !important;
+            @keyframes sectionGlow {
+                0% {
+                    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.0);
+                }
+                35% {
+                    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.18);
+                }
+                100% {
+                    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.0);
+                }
+            }
+            .dashboard-lane[data-section-id].is-active {
+                outline: 2px solid rgba(37, 99, 235, 0.35);
+                outline-offset: 4px;
+                transition: outline 200ms ease;
+            }
+            [data-testid="stDataFrame"] table,
+            [data-testid="stDataFrame"] tbody,
+            [data-testid="stDataFrame"] th,
+            [data-testid="stDataFrame"] td {
+                font-size: 0.9rem;
+            }
+            [data-testid="stDataFrame"] table {
+                border-color: rgba(148, 163, 184, 0.4);
+            }
+            @media (min-width: 1120px) {
+                .dashboard-lane--analysis {
+                    grid-column: 1 / span 7;
+                }
+                .dashboard-lane--insight {
+                    grid-column: 8 / span 5;
+                }
+            }
+            @media (max-width: 900px) {
+                .dashboard-toc {
+                    justify-content: flex-start;
+                }
+                .dashboard-card {
+                    padding: 1rem 1.1rem 1.2rem;
+                }
+                .achievement-timeline::before {
+                    left: 0.45rem;
+                }
+                .achievement-timeline__item::before {
+                    left: -1.15rem;
+                }
             }
             </style>
+            <script>
+            (function () {
+                if (window.__dashboardEnhancements) return;
+                window.__dashboardEnhancements = true;
+                const root = document;
+                const navLinks = Array.from(root.querySelectorAll('.dashboard-toc__link'));
+                const sections = Array.from(root.querySelectorAll('[data-section-id]'));
+                const highlight = (sectionId) => {
+                    navLinks.forEach((link) => {
+                        const target = link.getAttribute('data-target');
+                        const isCurrent = target === sectionId;
+                        link.setAttribute('aria-current', isCurrent ? 'location' : 'false');
+                    });
+                    sections.forEach((section) => {
+                        const isTarget = section.getAttribute('data-section-id') === sectionId;
+                        if (isTarget) {
+                            section.classList.add('section-highlight');
+                            setTimeout(() => section.classList.remove('section-highlight'), 2000);
+                        }
+                    });
+                };
+                navLinks.forEach((link) => {
+                    link.addEventListener('click', (event) => {
+                        const href = link.getAttribute('href');
+                        if (!href || !href.startsWith('#')) return;
+                        event.preventDefault();
+                        const targetId = href.slice(1);
+                        const target = root.getElementById(targetId);
+                        if (!target) return;
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        history.replaceState(null, '', '#' + targetId);
+                        highlight(targetId);
+                    });
+                });
+                if ('IntersectionObserver' in window) {
+                    const observer = new IntersectionObserver(
+                        (entries) => {
+                            entries
+                                .filter((entry) => entry.isIntersecting)
+                                .forEach((entry) => {
+                                    const sectionId = entry.target.getAttribute('data-section-id');
+                                    navLinks.forEach((link) => {
+                                        const isCurrent = link.getAttribute('data-target') === sectionId;
+                                        link.setAttribute('aria-current', isCurrent ? 'location' : 'false');
+                                    });
+                                    sections.forEach((section) => {
+                                        section.classList.toggle(
+                                            'is-active',
+                                            section.getAttribute('data-section-id') === sectionId
+                                        );
+                                    });
+                                });
+                        },
+                        { threshold: 0.4 }
+                    );
+                    sections.forEach((section) => observer.observe(section));
+                }
+                const timelineItems = Array.from(root.querySelectorAll('.achievement-timeline__item'));
+                const applyTimelineFilter = (activeCase) => {
+                    timelineItems.forEach((item) => {
+                        const caseKey = item.getAttribute('data-case');
+                        const visible = !activeCase || caseKey === activeCase;
+                        item.style.display = visible ? '' : 'none';
+                    });
+                };
+                const pills = Array.from(root.querySelectorAll('.insight-pill'));
+                pills.forEach((pill) => {
+                    pill.addEventListener('click', () => {
+                        const alreadyActive = pill.getAttribute('aria-pressed') === 'true';
+                        pills.forEach((other) => other.setAttribute('aria-pressed', 'false'));
+                        if (alreadyActive) {
+                            pill.setAttribute('aria-pressed', 'false');
+                            applyTimelineFilter('');
+                            return;
+                        }
+                        pill.setAttribute('aria-pressed', 'true');
+                        applyTimelineFilter(pill.getAttribute('data-case'));
+                    });
+                });
+                const clearButton = root.querySelector('.timeline-filter__clear');
+                if (clearButton) {
+                    clearButton.addEventListener('click', () => {
+                        pills.forEach((pill) => pill.setAttribute('aria-pressed', 'false'));
+                        applyTimelineFilter('');
+                    });
+                }
+                root.querySelectorAll('[data-banner-storage]').forEach((details) => {
+                    const storageKey = details.getAttribute('data-banner-storage');
+                    if (!storageKey || !('localStorage' in window)) return;
+                    const stored = window.localStorage.getItem(storageKey);
+                    if (stored === 'closed') {
+                        details.removeAttribute('open');
+                    }
+                    details.addEventListener('toggle', () => {
+                        if (details.open) {
+                            window.localStorage.setItem(storageKey, 'open');
+                        } else {
+                            window.localStorage.setItem(storageKey, 'closed');
+                        }
+                    });
+                });
+            })();
+            </script>
             """
         ).strip(),
         unsafe_allow_html=True,
     )
     st.session_state["_dashboard_styles_injected"] = True
+
 
 
 def _format_datetime_label(value: datetime | str | None) -> str:
@@ -4751,71 +5104,119 @@ def _build_calendar_export(
     return "\r\n".join(lines).encode("utf-8")
 
 
-def _render_committee_heatmap_section(default_year: str = "令和7年度") -> None:
+def _get_attempt_timestamp(value):
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _build_dashboard_timeline_events(attempts: List[Dict]) -> List[Dict[str, str]]:
+    events: List[Dict[str, str]] = []
+    for attempt in sorted(
+        attempts,
+        key=lambda item: (
+            _get_attempt_timestamp(item.get("submitted_at"))
+            or _get_attempt_timestamp(item.get("created_at"))
+            or datetime.min
+        ),
+        reverse=True,
+    ):
+        timestamp = _get_attempt_timestamp(attempt.get("submitted_at"))
+        if not timestamp:
+            timestamp = _get_attempt_timestamp(attempt.get("created_at"))
+        date_label = _format_datetime_label(timestamp or attempt.get("submitted_at"))
+        case_label = attempt.get("case_label") or "未分類"
+        year_label = attempt.get("year") or ""
+        mode = "模試" if attempt.get("mode") == "mock" else "演習"
+        score = float(attempt.get("total_score") or 0)
+        max_score = float(attempt.get("total_max_score") or 0)
+        ratio = (score / max_score * 100) if max_score else 0.0
+        case_key = (case_label or "case").replace(" ", "").replace("　", "")
+        events.append(
+            {
+                "date": date_label,
+                "title": f"{year_label} {case_label}".strip(),
+                "meta": f"{mode} / {score:.0f}点 / {max_score:.0f}点 ({ratio:.0f}%)" if max_score else f"{mode} / {score:.0f}点",
+                "case_key": case_key or "case",
+            }
+        )
+        if len(events) >= 8:
+            break
+    return events
+
+
+def _calculate_strength_tags(stats: Dict[str, Any]) -> List[Dict[str, Any]]:
+    tags: List[Dict[str, Any]] = []
+    for case_label, values in (stats or {}).items():
+        avg_score = float(values.get("avg_score") or 0)
+        avg_max = float(values.get("avg_max") or 0)
+        ratio = (avg_score / avg_max * 100) if avg_max else 0.0
+        if ratio >= 70:
+            strength = "strong"
+        elif ratio < 50:
+            strength = "watch"
+        else:
+            strength = "neutral"
+        tags.append(
+            {
+                "case": case_label,
+                "ratio": ratio,
+                "strength": strength,
+                "description": f"平均 {avg_score:.1f} / {avg_max:.0f}点" if avg_max else "データ蓄積中",
+            }
+        )
+    tags.sort(key=lambda item: item["ratio"], reverse=True)
+    return tags[:6]
+
+
+def _get_committee_heatmap_context(default_year: str = "令和7年度") -> Optional[Dict[str, Any]]:
     dataset = committee_analysis.load_committee_dataset()
     if not dataset:
-        return
+        return None
 
     df = committee_analysis.flatten_profiles(dataset)
     if df.empty:
-        return
+        return None
 
     summary_df = committee_analysis.aggregate_heatmap(df)
     if summary_df.empty:
-        return
+        return None
 
     year_label = dataset.get("year", default_year)
-
-    st.subheader("試験委員“専門×事例”ヒートマップ")
-    st.caption(
-        f"{year_label}の基本/出題委員の専門領域と担当事例をマッピングしました。色が濃いほど、当該組み合わせの影響度が高いことを示します。"
-    )
-
     total_committees = int(df["委員"].nunique())
     case_totals = summary_df.groupby("事例")["重み"].sum().sort_values(ascending=False)
     domain_totals = summary_df.groupby("専門カテゴリ")["重み"].sum().sort_values(ascending=False)
 
     top_case_label = case_totals.index[0] if not case_totals.empty else "-"
+    top_case_weight = float(case_totals.iloc[0]) if not case_totals.empty else 0.0
     top_domain_label = domain_totals.index[0] if not domain_totals.empty else "-"
+    top_domain_weight = float(domain_totals.iloc[0]) if not domain_totals.empty else 0.0
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("委員数", f"{total_committees}名")
-    if not case_totals.empty:
-        col2.metric("最注目の事例", top_case_label, f"重み {case_totals.iloc[0]:.1f}")
-    else:
-        col2.metric("最注目の事例", "-", "")
-    if not domain_totals.empty:
-        col3.metric("強みの専門領域", top_domain_label, f"重み {domain_totals.iloc[0]:.1f}")
-    else:
-        col3.metric("強みの専門領域", "-", "")
-
-    primary_focus = committee_analysis.identify_primary_focus(dataset, summary_df)
-    if primary_focus:
-        info_lines = [f"今年の“重心”は「{primary_focus['label']}」。"]
-        rationale = primary_focus.get("rationale")
-        if rationale:
-            info_lines.append(str(rationale))
-        study_list = primary_focus.get("study_list") or []
-        if study_list:
-            info_lines.append("推奨テーマ: " + " / ".join(study_list[:3]))
-        st.info("\n".join(info_lines), icon="🎯")
+    weights = summary_df["重み"].astype(float)
+    min_weight = float(weights.min() or 0)
+    max_weight = float(weights.max() or 0)
+    median_weight = float(weights.median() or 0)
 
     domain_order = committee_analysis.domain_order(summary_df)
     chart_data = summary_df.copy()
-    max_weight = float(chart_data["重み"].max() or 0)
-    color_scale = alt.Scale(scheme="blues", domain=(0, max_weight if max_weight > 0 else 1), domainMin=0)
+    color_scale = alt.Scale(
+        scheme="blues",
+        domain=(0, max_weight if max_weight > 0 else 1),
+        domainMin=0,
+    )
 
-    chart = (
+    base_chart = (
         alt.Chart(chart_data)
         .mark_rect()
         .encode(
             x=alt.X("事例:N", sort=CASE_ORDER, title="事例"),
             y=alt.Y("専門カテゴリ:N", sort=domain_order, title="専門領域"),
-            color=alt.Color(
-                "重み:Q",
-                scale=color_scale,
-                title="影響度",
-            ),
+            color=alt.Color("重み:Q", scale=color_scale, title="影響度"),
             tooltip=[
                 alt.Tooltip("専門カテゴリ:N", title="専門領域"),
                 alt.Tooltip("事例:N", title="事例"),
@@ -4829,65 +5230,41 @@ def _render_committee_heatmap_section(default_year: str = "令和7年度") -> No
     text_layer_weight = (
         alt.Chart(chart_data)
         .mark_text(color="#0f172a", fontSize=13, fontWeight="bold", dy=-6)
-        .encode(
-            x="事例:N",
-            y="専門カテゴリ:N",
-            text=alt.Text("重み:Q", format=".1f"),
-        )
+        .encode(x="事例:N", y="専門カテゴリ:N", text=alt.Text("重み:Q", format=".1f"))
     )
     text_layer_members = (
         alt.Chart(chart_data)
         .mark_text(color="#334155", fontSize=11, dy=10)
-        .encode(
-            x="事例:N",
-            y="専門カテゴリ:N",
-            text=alt.Text("委員数:Q", format=".0f"),
-        )
+        .encode(x="事例:N", y="専門カテゴリ:N", text=alt.Text("委員数:Q", format=".0f"))
     )
-
     highlight_rows = chart_data.nlargest(3, "重み")
     highlight_layer = (
         alt.Chart(highlight_rows)
         .mark_rect(stroke="#1d4ed8", strokeWidth=2, fillOpacity=0)
-        .encode(
-            x="事例:N",
-            y="専門カテゴリ:N",
-        )
+        .encode(x="事例:N", y="専門カテゴリ:N")
     )
+    chart = base_chart + text_layer_weight + text_layer_members + highlight_layer
 
-    st.altair_chart(chart + text_layer_weight + text_layer_members + highlight_layer, use_container_width=True)
-
-    st.caption("セル内の下段の数値は担当委員数を表しています。青枠は特に重みが大きい上位3組み合わせです。")
-
+    primary_focus = committee_analysis.identify_primary_focus(dataset, summary_df)
     recommendations = committee_analysis.focus_recommendations(summary_df, limit=5)
-    if recommendations:
-        st.markdown("**狙い撃ち予習リスト**")
-        for item in recommendations:
-            themes = item.get("themes", [])
-            comment = item.get("comment")
-            bullet = f"- **{item.get('case', '')} × {item.get('domain', '')}**"
-            if comment:
-                bullet += f" — {comment}"
-            st.markdown(bullet)
-            if themes:
-                st.caption("推奨演習: " + " / ".join(themes[:3]))
-
     cross_focuses = committee_analysis.cross_focus_highlights(dataset, limit=2)
-    if cross_focuses:
-        st.markdown("**横断テーマ候補**")
-        for entry in cross_focuses:
-            cases = "・".join(entry.get("cases", []))
-            headline = f"- 🔗 **{entry.get('label', '')}**"
-            if cases:
-                headline += f" ({cases})"
-            rationale = entry.get("rationale")
-            if rationale:
-                headline += f" — {rationale}"
-            st.markdown(headline)
-            study_list = entry.get("study_list") or []
-            if study_list:
-                st.caption("推奨演習: " + " / ".join(study_list[:3]))
 
+    return {
+        "year_label": year_label,
+        "total_committees": total_committees,
+        "top_case_label": top_case_label,
+        "top_case_weight": top_case_weight,
+        "top_domain_label": top_domain_label,
+        "top_domain_weight": top_domain_weight,
+        "min_weight": min_weight,
+        "max_weight": max_weight,
+        "median_weight": median_weight,
+        "chart": chart,
+        "summary_df": summary_df,
+        "primary_focus": primary_focus,
+        "recommendations": recommendations,
+        "cross_focuses": cross_focuses,
+    }
 
 def _render_study_planner(user: Dict) -> None:
     today = dt_date.today()
@@ -5067,55 +5444,46 @@ def dashboard_page(user: Dict) -> None:
 
     st.title("ホームダッシュボード")
     st.caption("学習状況のサマリと機能へのショートカット")
-    st.markdown("<div class='section-divider section-top-divider'></div>", unsafe_allow_html=True)
 
     attempts = database.list_attempts(user_id=user["id"])
     gamification = _calculate_gamification(attempts)
+    stats = database.aggregate_statistics(user["id"])
+
     total_attempts = len(attempts)
     total_score = sum(row["total_score"] or 0 for row in attempts)
     total_max = sum(row["total_max_score"] or 0 for row in attempts)
     average_score = round(total_score / total_attempts, 1) if total_attempts else 0
-    completion_rate = (total_score / total_max * 100) if total_max else 0
+    completion_rate = (total_score / total_max * 100) if total_max else 0.0
 
-    point_col, streak_col, badge_col = st.columns([1, 1, 2])
-    with point_col:
-        st.metric("累計ポイント", f"{gamification['points']} pt")
-        level_progress = 0.0
-        if gamification["level_threshold"]:
-            level_progress = gamification["level_progress"] / gamification["level_threshold"]
-        st.progress(min(level_progress, 1.0))
-        if gamification["points"] == 0:
-            st.caption("演習を実施するとポイントが貯まりレベルアップします。")
-        else:
-            st.caption(
-                f"レベル{gamification['level']} / 次のレベルまであと {gamification['points_to_next_level']} pt"
-            )
-    with streak_col:
-        st.metric("連続学習日数", f"{gamification['current_streak']}日")
-        if gamification["next_milestone"]:
-            progress = gamification["attempts"] / gamification["next_milestone"]
-            st.progress(min(progress, 1.0))
-            st.caption(
-                f"次の称号まであと {max(gamification['next_milestone'] - gamification['attempts'], 0)} 回の演習"
-            )
-        else:
-            st.caption("最高ランクに到達しました！継続おめでとうございます。")
-    with badge_col:
-        st.subheader("獲得バッジ")
-        if gamification["badges"]:
-            for badge in gamification["badges"]:
-                st.markdown(f"- 🏅 **{badge['title']}** — {badge['description']}")
-        else:
-            st.caption("バッジはまだありません。演習や模試で獲得を目指しましょう。")
+    total_learning_minutes = sum((row.get("duration_seconds") or 0) for row in attempts) // 60
 
-    stats = database.aggregate_statistics(user["id"])
-    total_learning_minutes = sum((row["duration_seconds"] or 0) for row in attempts) // 60
+    level_threshold = gamification.get("level_threshold") or 0
+    level_progress_ratio = (
+        gamification.get("level_progress", 0) / level_threshold if level_threshold else 0
+    )
+    level_progress_percent = max(0.0, min(level_progress_ratio * 100, 100.0))
+
+    next_milestone = gamification.get("next_milestone") or 0
+    streak_progress_ratio = (
+        gamification.get("attempts", 0) / next_milestone if next_milestone else 1.0
+    )
+    streak_progress_percent = max(0.0, min(streak_progress_ratio * 100, 100.0))
+    remaining_attempts = max(next_milestone - gamification.get("attempts", 0), 0) if next_milestone else 0
+
+    expected_minutes = max(total_attempts * 45, 180)
+    time_ratio = total_learning_minutes / expected_minutes if expected_minutes else 0.0
+    time_percent = max(0.0, min(time_ratio * 100, 100.0))
 
     best_case_label = None
     best_case_rate = 0.0
     if stats:
         case_ratios = [
-            (case_label, (values["avg_score"] / values["avg_max"] * 100) if values["avg_max"] else 0)
+            (
+                case_label,
+                (values.get("avg_score", 0) / values.get("avg_max", 0) * 100)
+                if values.get("avg_max")
+                else 0.0,
+            )
             for case_label, values in stats.items()
         ]
         if case_ratios:
@@ -5126,160 +5494,33 @@ def dashboard_page(user: Dict) -> None:
             "label": "演習回数",
             "value": f"{total_attempts}回",
             "desc": "これまで解いたケースの累計",
-            "class": "progress",
         },
         {
             "label": "平均得点",
             "value": f"{average_score}点",
             "desc": "全演習の平均スコア",
-            "class": "score",
         },
         {
             "label": "得点達成率",
             "value": f"{completion_rate:.0f}%",
             "desc": "満点に対する平均達成度",
-            "class": "score",
         },
         {
             "label": "得意な事例",
             "value": best_case_label or "記録なし",
-            "desc": f"平均達成率 {best_case_rate:.0f}%" if best_case_label else "データが蓄積されると表示されます",
-            "class": "progress",
+            "desc": (
+                f"平均達成率 {best_case_rate:.0f}%" if best_case_label else "データが蓄積されると表示されます"
+            ),
         },
     ]
 
-    card_blocks = "\n".join(
-        dedent(
-            f"""
-            <div class="metric-card {card['class']}">
-                <div class="metric-label">{card['label']}</div>
-                <div class="metric-value">{card['value']}</div>
-                <p class="metric-desc">{card['desc']}</p>
-            </div>
-            """
-        ).strip()
-        for card in metric_cards
-    )
-    st.markdown(
-        dedent(
-            f"""
-            <div class="metric-row">
-            {card_blocks}
-            </div>
-            """
-        ).strip(),
-        unsafe_allow_html=True,
-    )
-    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
-
-    _render_committee_heatmap_section()
-    _render_study_planner(user)
+    timeline_events = _build_dashboard_timeline_events(attempts)
+    heatmap_context = _get_committee_heatmap_context()
 
     upcoming_reviews = database.list_upcoming_reviews(user_id=user["id"], limit=6)
     due_review_count = database.count_due_reviews(user_id=user["id"])
-    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
-    st.subheader("復習スケジュール（間隔反復）")
-    if upcoming_reviews:
-        if due_review_count:
-            st.warning(
-                f"{due_review_count}件の復習が期限到来または超過しています。優先的に取り組みましょう。",
-                icon="⏳",
-            )
-        schedule_df = pd.DataFrame(
-            [
-                {
-                    "次回予定": review["due_at"].strftime("%Y-%m-%d"),
-                    "事例": f"{review['year']} {review['case_label']}",
-                    "タイトル": review["title"],
-                    "前回達成度": f"{(review['last_score_ratio'] or 0) * 100:.0f}%",
-                    "間隔": f"{review['interval_days']}日",
-                    "ステータス": "要復習" if review["due_at"] <= datetime.utcnow() else "予定",
-                }
-                for review in upcoming_reviews
-            ]
-        )
-        st.markdown('<div class="section-card table-card table-card--schedule">', unsafe_allow_html=True)
-        st.data_editor(
-            schedule_df,
-            hide_index=True,
-            use_container_width=True,
-            disabled=True,
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.caption("演習結果に応じて次回の復習タイミングを自動で提案します。")
-    else:
-        st.info("演習データが蓄積されると復習スケジュールがここに表示されます。")
 
-    overview_tab, chart_tab = st.tabs(["進捗サマリ", "事例別分析"])
-
-    with overview_tab:
-        if attempts:
-            summary_df = pd.DataFrame(
-                [
-                    {
-                        "実施日": row["submitted_at"].strftime("%Y-%m-%d")
-                        if isinstance(row["submitted_at"], datetime)
-                        else row["submitted_at"],
-                        "年度": row["year"],
-                        "事例": row["case_label"],
-                        "モード": "模試" if row["mode"] == "mock" else "演習",
-                        "得点": row["total_score"],
-                        "満点": row["total_max_score"],
-                    }
-                    for row in attempts
-                ]
-            )
-            st.markdown('<div class="section-card table-card table-card--summary">', unsafe_allow_html=True)
-            st.data_editor(
-                summary_df,
-                use_container_width=True,
-                hide_index=True,
-                disabled=True,
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-            st.caption("最近の受験結果を表形式で確認できます。列ヘッダーにマウスを合わせるとソートが可能です。")
-        else:
-            st.info("まだ演習結果がありません。『過去問演習』から学習を開始しましょう。")
-
-    with chart_tab:
-        if stats:
-            chart_data = []
-            for case_label, values in stats.items():
-                chart_data.append(
-                    {
-                        "事例": case_label,
-                        "得点": values["avg_score"],
-                        "満点": values["avg_max"],
-                    }
-                )
-            df = pd.DataFrame(chart_data)
-            df["達成率"] = df.apply(
-                lambda row: row["得点"] / row["満点"] * 100 if row["満点"] else 0,
-                axis=1,
-            )
-            st.subheader("事例別平均達成率")
-            bar = (
-                alt.Chart(df)
-                .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
-                .encode(
-                    y=alt.Y("事例:N", sort="-x", title=None),
-                    x=alt.X("達成率:Q", scale=alt.Scale(domain=[0, 100]), title="平均達成率 (%)"),
-                    color=alt.value("#22c55e"),
-                    tooltip=["事例", "得点", "満点", alt.Tooltip("達成率:Q", format=".1f")],
-                )
-            )
-            target_line = (
-                alt.Chart(pd.DataFrame({"ベンチマーク": [60]}))
-                .mark_rule(color="#f97316", strokeDash=[6, 4])
-                .encode(x="ベンチマーク:Q")
-            )
-            st.altair_chart(bar + target_line, use_container_width=True)
-        else:
-            st.info("演習データが蓄積すると事例別の分析が表示されます。")
-
-    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
-    st.markdown("### 学習ハイライト")
-    st.markdown("<div class='section-divider section-tight'></div>", unsafe_allow_html=True)
+    strength_tags = _calculate_strength_tags(stats)
 
     latest_attempt = attempts[0] if attempts else None
     next_focus_card = {
@@ -5292,9 +5533,9 @@ def dashboard_page(user: Dict) -> None:
         focus_case_label = None
         focus_rate = None
         for case_label, values in stats.items():
-            if not values["avg_max"]:
+            if not values.get("avg_max"):
                 continue
-            ratio = values["avg_score"] / values["avg_max"] * 100
+            ratio = values.get("avg_score", 0) / values.get("avg_max", 0) * 100
             if focus_rate is None or ratio < focus_rate:
                 focus_rate = ratio
                 focus_case_label = case_label
@@ -5323,75 +5564,546 @@ def dashboard_page(user: Dict) -> None:
         "desc": "演習を完了すると最新結果が表示されます。",
     }
     if latest_attempt:
-        latest_score = latest_attempt["total_score"] or 0
-        latest_max = latest_attempt["total_max_score"] or 0
+        latest_score = latest_attempt.get("total_score") or 0
+        latest_max = latest_attempt.get("total_max_score") or 0
         latest_ratio = (latest_score / latest_max * 100) if latest_max else 0
         latest_result_card = {
             "icon": "📈",
             "title": "直近の結果",
             "value": f"{latest_score:.0f} / {latest_max:.0f}点 ({latest_ratio:.0f}%)",
-            "desc": f"{_format_datetime_label(latest_attempt['submitted_at'])} 実施",
+            "desc": f"{_format_datetime_label(latest_attempt.get('submitted_at'))} 実施",
         }
 
-    insight_cards = "\n".join(
-        dedent(
-            f"""
-            <div class="insight-card">
-                <div class="insight-icon">{card['icon']}</div>
-                <div>
-                    <p class="insight-title">{card['title']}</p>
-                    <p class="insight-value">{card['value']}</p>
-                    <p class="insight-desc">{card['desc']}</p>
-                </div>
-            </div>
-            """
-        ).strip()
-        for card in [next_focus_card, learning_time_card, latest_result_card]
+    toc_items = [
+        ("kpi-lane", "KPI"),
+        ("progress-lane", "進捗"),
+        ("analysis-lane", "ヒートマップ"),
+        ("insight-lane", "洞察"),
+    ]
+    toc_html = "".join(
+        f"<a href='#" + item_id + f"' class='dashboard-toc__link' data-target='{item_id}' aria-current='false'>{label}</a>"
+        for item_id, label in toc_items
     )
     st.markdown(
-        dedent(
-            f"""
-            <div class="section-card">
-                <div class="insight-grid">
-                {insight_cards}
-                </div>
-            </div>
-            """
-        ).strip(),
+        f"<nav class='dashboard-toc' aria-label='ページ内ナビゲーション'>{toc_html}</nav>",
         unsafe_allow_html=True,
     )
 
-    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
-    st.markdown("### 次のアクション")
-    st.markdown("<div class='section-divider section-tight'></div>", unsafe_allow_html=True)
-    st.markdown(
-        dedent(
-            """
-            <div class="section-card">
-                <div class="action-grid">
-                    <div class="action-card">
-                        <strong>過去問演習</strong>
-                        <p>年度・事例を指定して弱点補強の演習を行いましょう。</p>
+    grid_container = st.container()
+    with grid_container:
+        st.markdown("<div class='dashboard-grid'>", unsafe_allow_html=True)
+
+        kpi_tiles_html = []
+        kpi_tiles_html.append(
+            dedent(
+                f"""
+                <article class="kpi-tile" data-tone="blue" role="article">
+                    <p class="kpi-tile__label">累計ポイント</p>
+                    <p class="kpi-tile__value">{gamification['points']} pt</p>
+                    <p class="kpi-tile__meta">レベル{gamification['level']} / 次のレベルまであと {gamification['points_to_next_level']} pt</p>
+                    <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{level_progress_percent:.0f}" aria-label="次のレベルまで">
+                        <span class="progress-bar__label">次のレベルまで</span>
+                        <div class="progress-bar__track" aria-hidden="true">
+                            <div class="progress-bar__fill" style="--progress: {level_progress_percent:.0f}%"></div>
+                        </div>
+                        <span class="progress-bar__value">{level_progress_percent:.0f}%</span>
                     </div>
-                    <div class="action-card">
-                        <strong>模擬試験</strong>
-                        <p>タイマー付きの本番形式で得点力とタイムマネジメントを鍛えます。</p>
+                </article>
+                """
+            ).strip()
+        )
+        streak_caption = (
+            f"次の称号まであと {remaining_attempts} 回の演習"
+            if next_milestone
+            else "最高ランクに到達しました！継続おめでとうございます。"
+        )
+        kpi_tiles_html.append(
+            dedent(
+                f"""
+                <article class="kpi-tile" data-tone="green" role="article">
+                    <p class="kpi-tile__label">連続学習日数</p>
+                    <p class="kpi-tile__value">{gamification['current_streak']}日</p>
+                    <p class="kpi-tile__meta">{streak_caption}</p>
+                    <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{streak_progress_percent:.0f}" aria-label="称号達成まで">
+                        <span class="progress-bar__label">称号達成まで</span>
+                        <div class="progress-bar__track" aria-hidden="true">
+                            <div class="progress-bar__fill" data-tone="yellow" style="--progress: {streak_progress_percent:.0f}%"></div>
+                        </div>
+                        <span class="progress-bar__value">{streak_progress_percent:.0f}%</span>
                     </div>
-                    <div class="action-card">
-                        <strong>学習履歴</strong>
-                        <p>得点推移を可視化し、改善の兆しや課題を振り返りましょう。</p>
+                </article>
+                """
+            ).strip()
+        )
+        badges = gamification.get("badges") or []
+        if badges:
+            badge_items = "".join(
+                f"<li><span>🏅</span><span>{badge['title']}</span></li>" for badge in badges[:4]
+            )
+            badge_meta = "直近の獲得バッジ"
+        else:
+            badge_items = "<li>バッジはまだありません。演習や模試で獲得を目指しましょう。</li>"
+            badge_meta = "実績が増えるとバッジが表示されます"
+        kpi_tiles_html.append(
+            dedent(
+                f"""
+                <article class="kpi-tile" data-tone="pink" role="article">
+                    <p class="kpi-tile__label">バッジコレクション</p>
+                    <p class="kpi-tile__value">{len(badges)}種</p>
+                    <p class="kpi-tile__meta">{badge_meta}</p>
+                    <ul class="kpi-tile__badges" aria-label="獲得バッジ一覧">{badge_items}</ul>
+                </article>
+                """
+            ).strip()
+        )
+        kpi_section_html = dedent(
+            f"""
+            <section class="dashboard-lane dashboard-lane--kpi" id="kpi-lane" data-section-id="kpi-lane" role="region" aria-labelledby="kpi-lane-title">
+                <header class="dashboard-lane__header">
+                    <h2 id="kpi-lane-title" class="dashboard-lane__title">KPIレーン</h2>
+                    <p class="dashboard-lane__subtitle">ポイントと連続学習の到達度をひと目で確認できます。</p>
+                </header>
+                <div class="dashboard-card card--tone-blue" role="group" aria-label="ポイントと連続学習の指標">
+                    <div class="kpi-tiles">
+                        {''.join(kpi_tiles_html)}
                     </div>
                 </div>
-            </div>
+            </section>
             """
-        ).strip(),
-        unsafe_allow_html=True,
-    )
+        )
+        st.markdown(kpi_section_html, unsafe_allow_html=True)
 
-    st.markdown("<div class='section-divider section-break'></div>", unsafe_allow_html=True)
+        progress_bars = [
+            {
+                "label": "得点達成率",
+                "value": f"{completion_rate:.0f}%",
+                "progress": max(0.0, min(completion_rate, 100.0)),
+                "tone": "green",
+                "helper": f"平均 {average_score:.1f} 点",
+            },
+            {
+                "label": "次のレベルまで",
+                "value": f"{level_progress_percent:.0f}%",
+                "progress": level_progress_percent,
+                "tone": "blue",
+                "helper": f"あと {gamification['points_to_next_level']} pt",
+            },
+            {
+                "label": "称号達成まで",
+                "value": f"{streak_progress_percent:.0f}%",
+                "progress": streak_progress_percent,
+                "tone": "yellow",
+                "helper": f"残り {remaining_attempts} 回" if next_milestone else "達成済",
+            },
+            {
+                "label": "学習時間目安",
+                "value": f"{time_percent:.0f}%",
+                "progress": time_percent,
+                "tone": "blue",
+                "helper": f"{total_learning_minutes}分 / 目安 {expected_minutes}分",
+            },
+        ]
+        progress_bars_html = "".join(
+            dedent(
+                f"""
+                <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{bar['progress']:.0f}" aria-label="{bar['label']}" data-tone="{bar['tone']}">
+                    <span class="progress-bar__label">{bar['label']}</span>
+                    <div class="progress-bar__track" aria-hidden="true">
+                        <div class="progress-bar__fill" style="--progress: {bar['progress']:.0f}%"></div>
+                    </div>
+                    <span class="progress-bar__value">{bar['value']}</span>
+                    <span class="progress-bar__helper">{bar['helper']}</span>
+                </div>
+                """
+            ).strip()
+            for bar in progress_bars
+        )
+        metric_chips_html = "".join(
+            dedent(
+                f"""
+                <div class="metric-chip">
+                    <div class="metric-chip__label">{card['label']}</div>
+                    <p class="metric-chip__value">{card['value']}</p>
+                    <p class="metric-chip__desc">{card['desc']}</p>
+                </div>
+                """
+            ).strip()
+            for card in metric_cards
+        )
+        progress_section_html = dedent(
+            """
+            <section class="dashboard-lane" id="progress-lane" data-section-id="progress-lane" role="region" aria-labelledby="progress-lane-title">
+                <header class="dashboard-lane__header">
+                    <h2 id="progress-lane-title" class="dashboard-lane__title">進捗レーン</h2>
+                    <p class="dashboard-lane__subtitle">主要指標の進捗と履歴を一覧できます。</p>
+                </header>
+                <div class="dashboard-card card--tone-green" role="group" aria-label="進捗バー群">
+                    <div class="progress-grid">
+                        {progress_bars_html}
+                    </div>
+                    <div class="metric-grid">
+                        {metric_chips_html}
+                    </div>
+                </div>
+            </section>
+            """
+        )
+        st.markdown(progress_section_html, unsafe_allow_html=True)
+
+        if timeline_events:
+            timeline_items_html = "".join(
+                dedent(
+                    f"""
+                    <li class="achievement-timeline__item" data-case="{event['case_key']}">
+                        <p class="achievement-timeline__time">{event['date']}</p>
+                        <p class="achievement-timeline__title">{event['title']}</p>
+                        <p class="achievement-timeline__meta">{event['meta']}</p>
+                    </li>
+                    """
+                ).strip()
+                for event in timeline_events
+            )
+            timeline_html = dedent(
+                """
+                <div class="dashboard-card card--tone-pink" role="region" aria-labelledby="achievement-timeline-title">
+                    <div class="timeline-filter">
+                        <p id="achievement-timeline-title" class="timeline-filter__label">実績フィード（最新8件）</p>
+                        <div class="timeline-filter__actions">
+                            <button type="button" class="timeline-filter__clear">フィルタを解除</button>
+                        </div>
+                    </div>
+                    <ol class="achievement-timeline">{timeline_items_html}</ol>
+                </div>
+                """
+            )
+            st.markdown(timeline_html, unsafe_allow_html=True)
+        else:
+            st.markdown(
+                """
+                <div class="dashboard-card" role="region" aria-labelledby="achievement-timeline-title">
+                    <p id="achievement-timeline-title" class="timeline-filter__label">実績フィード</p>
+                    <p class="achievement-timeline__meta">演習を開始すると最新の実績がここに並びます。</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        review_card_header = dedent(
+            """
+            <section class="dashboard-lane" role="region" aria-labelledby="review-lane-title">
+                <header class="dashboard-lane__header">
+                    <h2 id="review-lane-title" class="dashboard-lane__title">復習スケジュール</h2>
+                    <p class="dashboard-lane__subtitle">間隔反復で優先度の高い復習を提示します。</p>
+                </header>
+            """
+        )
+        st.markdown(review_card_header, unsafe_allow_html=True)
+        st.markdown(
+            "<div class='dashboard-card card--tone-blue review-card'>",
+            unsafe_allow_html=True,
+        )
+        if due_review_count:
+            st.markdown(
+                f"<p class='timeline-filter__label'>⏳ {due_review_count}件の復習が期限到来または超過しています。優先的に取り組みましょう。</p>",
+                unsafe_allow_html=True,
+            )
+        if upcoming_reviews:
+            schedule_df = pd.DataFrame(
+                [
+                    {
+                        "次回予定": review["due_at"].strftime("%Y-%m-%d"),
+                        "事例": f"{review['year']} {review['case_label']}",
+                        "タイトル": review["title"],
+                        "前回達成度": f"{(review['last_score_ratio'] or 0) * 100:.0f}%",
+                        "間隔": f"{review['interval_days']}日",
+                        "ステータス": "要復習" if review["due_at"] <= datetime.utcnow() else "予定",
+                    }
+                    for review in upcoming_reviews
+                ]
+            )
+            st.data_editor(
+                schedule_df,
+                hide_index=True,
+                use_container_width=True,
+                disabled=True,
+            )
+            st.caption("演習結果に応じて次回の復習タイミングを自動で提案します。")
+        else:
+            st.info("演習データが蓄積されると復習スケジュールが表示されます。")
+        st.markdown("</div></section>", unsafe_allow_html=True)
+
+        analysis_section_open = dedent(
+            """
+            <section class="dashboard-lane dashboard-lane--analysis" id="analysis-lane" data-section-id="analysis-lane" role="region" aria-labelledby="analysis-lane-title">
+                <header class="dashboard-lane__header">
+                    <h2 id="analysis-lane-title" class="dashboard-lane__title">分析レーン</h2>
+                    <p class="dashboard-lane__subtitle">試験委員の専門×事例ヒートマップと実績分析を確認できます。</p>
+                </header>
+            """
+        )
+        st.markdown(analysis_section_open, unsafe_allow_html=True)
+        st.markdown(
+            "<div class='dashboard-card card--tone-yellow heatmap-card' role='region' aria-labelledby='committee-heatmap-title'>",
+            unsafe_allow_html=True,
+        )
+        if heatmap_context:
+            legend_html = dedent(
+                f"""
+                <div class="heatmap-header">
+                    <p id="committee-heatmap-title" class="timeline-filter__label">{heatmap_context['year_label']} 試験委員“専門×事例”ヒートマップ</p>
+                    <p class="achievement-timeline__meta">色が濃いほど影響度が高い組み合わせです。</p>
+                </div>
+                <div class="heatmap-legend">
+                    <span class="heatmap-legend__swatch" aria-hidden="true"></span>
+                    <span>最小 {heatmap_context['min_weight']:.1f}</span>
+                    <span>中央値 {heatmap_context['median_weight']:.1f}</span>
+                    <span>最大 {heatmap_context['max_weight']:.1f}</span>
+                </div>
+                <div class="heatmap-highlight">
+                    <span>委員数: {heatmap_context['total_committees']} 名</span>
+                    <span>最注目の事例: {heatmap_context['top_case_label']} (重み {heatmap_context['top_case_weight']:.1f})</span>
+                    <span>強みの専門領域: {heatmap_context['top_domain_label']} (重み {heatmap_context['top_domain_weight']:.1f})</span>
+                </div>
+                """
+            )
+            st.markdown(legend_html, unsafe_allow_html=True)
+            st.altair_chart(heatmap_context["chart"], use_container_width=True)
+        else:
+            st.markdown(
+                "<p class='achievement-timeline__meta'>ヒートマップのデータが取得できませんでした。</p>",
+                unsafe_allow_html=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        if heatmap_context:
+            summary_df = heatmap_context["summary_df"]
+            st.markdown(
+                "<div class='dashboard-card card--tone-blue analysis-table-card'>",
+                unsafe_allow_html=True,
+            )
+            overview_tab, chart_tab = st.tabs(["進捗サマリ", "事例別分析"])
+            with overview_tab:
+                if attempts:
+                    summary_df_table = pd.DataFrame(
+                        [
+                            {
+                                "実施日": (
+                                    row["submitted_at"].strftime("%Y-%m-%d")
+                                    if isinstance(row["submitted_at"], datetime)
+                                    else row["submitted_at"]
+                                ),
+                                "年度": row["year"],
+                                "事例": row["case_label"],
+                                "モード": "模試" if row["mode"] == "mock" else "演習",
+                                "得点": row["total_score"],
+                                "満点": row["total_max_score"],
+                            }
+                            for row in attempts
+                        ]
+                    )
+                    st.data_editor(
+                        summary_df_table,
+                        use_container_width=True,
+                        hide_index=True,
+                        disabled=True,
+                    )
+                    st.caption("最近の受験結果を表形式で確認できます。列ヘッダーでソート可能です。")
+                else:
+                    st.info("まだ演習結果がありません。『過去問演習』から学習を開始しましょう。")
+            with chart_tab:
+                if stats:
+                    chart_data = []
+                    for case_label, values in stats.items():
+                        chart_data.append(
+                            {
+                                "事例": case_label,
+                                "得点": values.get("avg_score", 0),
+                                "満点": values.get("avg_max", 0),
+                            }
+                        )
+                    df = pd.DataFrame(chart_data)
+                    df["達成率"] = df.apply(
+                        lambda row: row["得点"] / row["満点"] * 100 if row["満点"] else 0,
+                        axis=1,
+                    )
+                    bar = (
+                        alt.Chart(df)
+                        .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
+                        .encode(
+                            y=alt.Y("事例:N", sort="-x", title=None),
+                            x=alt.X("達成率:Q", scale=alt.Scale(domain=[0, 100]), title="平均達成率 (%)"),
+                            color=alt.value("#22c55e"),
+                            tooltip=["事例", "得点", "満点", alt.Tooltip("達成率:Q", format=".1f")],
+                        )
+                    )
+                    target_line = (
+                        alt.Chart(pd.DataFrame({"ベンチマーク": [60]}))
+                        .mark_rule(color="#f97316", strokeDash=[6, 4])
+                        .encode(x="ベンチマーク:Q")
+                    )
+                    st.altair_chart(bar + target_line, use_container_width=True)
+                else:
+                    st.info("演習データが蓄積すると事例別の分析が表示されます。")
+            st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</section>", unsafe_allow_html=True)
+
+        insight_section_open = dedent(
+            """
+            <section class="dashboard-lane dashboard-lane--insight" id="insight-lane" data-section-id="insight-lane" role="region" aria-labelledby="insight-lane-title">
+                <header class="dashboard-lane__header">
+                    <h2 id="insight-lane-title" class="dashboard-lane__title">洞察レーン</h2>
+                    <p class="dashboard-lane__subtitle">強み・推奨テーマ・アクションプランを表示します。</p>
+                </header>
+            """
+        )
+        st.markdown(insight_section_open, unsafe_allow_html=True)
+
+        if due_review_count:
+            banner_html = dedent(
+                f"""
+                <details class="insight-banner" open data-banner-storage="dashboard-review-banner">
+                    <summary class="insight-banner__summary insight-banner__toggle">ℹ️ 復習アラート ({due_review_count}件)</summary>
+                    <div class="insight-banner__content">期限が到来した復習があります。復習スケジュールを確認し、優先対応しましょう。</div>
+                </details>
+                """
+            )
+            st.markdown(banner_html, unsafe_allow_html=True)
+        elif heatmap_context and heatmap_context.get("primary_focus"):
+            focus = heatmap_context["primary_focus"]
+            rationale = focus.get("rationale") or ""
+            study_list = focus.get("study_list") or []
+            focus_html = dedent(
+                f"""
+                <details class="insight-banner" open data-banner-storage="dashboard-focus-banner">
+                    <summary class="insight-banner__summary insight-banner__toggle">🎯 今年の重心: {focus.get('label')}</summary>
+                    <div class="insight-banner__content">{rationale} {' / '.join(study_list[:3]) if study_list else ''}</div>
+                </details>
+                """
+            )
+            st.markdown(focus_html, unsafe_allow_html=True)
+
+        if strength_tags:
+            tags_html = "".join(
+                dedent(
+                    f"""
+                    <button type="button" class="insight-pill" data-case="{tag['case'].replace(' ', '').replace('　', '')}" data-strength="{tag['strength']}" aria-pressed="false">
+                        {tag['case']} ({tag['ratio']:.0f}%)
+                    </button>
+                    """
+                ).strip()
+                for tag in strength_tags
+            )
+            st.markdown(
+                dedent(
+                    f"""
+                    <div class="dashboard-card card--tone-pink" role="group" aria-label="強みタグ">
+                        <p class="timeline-filter__label">強み・注視したい事例タグ</p>
+                        <div class="insight-pill-group">{tags_html}</div>
+                        <p class="achievement-timeline__meta">タグをクリックすると実績フィードが該当事例でハイライトされます。</p>
+                    </div>
+                    """
+                ),
+                unsafe_allow_html=True,
+            )
+
+        insight_cards_html = "".join(
+            dedent(
+                f"""
+                <div class="insight-card">
+                    <div class="insight-icon">{card['icon']}</div>
+                    <div>
+                        <p class="insight-title">{card['title']}</p>
+                        <p class="insight-value">{card['value']}</p>
+                        <p class="insight-desc">{card['desc']}</p>
+                    </div>
+                </div>
+                """
+            ).strip()
+            for card in [next_focus_card, learning_time_card, latest_result_card]
+        )
+        st.markdown(
+            dedent(
+                f"""
+                <div class="dashboard-card card--tone-green" role="group" aria-label="学習ハイライト">
+                    <div class="insight-grid">{insight_cards_html}</div>
+                </div>
+                """
+            ),
+            unsafe_allow_html=True,
+        )
+
+        if heatmap_context:
+            rec_html_parts = []
+            for item in heatmap_context.get("recommendations") or []:
+                themes = item.get("themes", [])
+                comment = item.get("comment")
+                bullet = f"<li><strong>{item.get('case', '')} × {item.get('domain', '')}</strong>"
+                if comment:
+                    bullet += f" — {comment}"
+                if themes:
+                    bullet += f"<br><span class='achievement-timeline__meta'>推奨演習: {' / '.join(themes[:3])}</span>"
+                bullet += "</li>"
+                rec_html_parts.append(bullet)
+            cross_html_parts = []
+            for entry in heatmap_context.get("cross_focuses") or []:
+                cases = "・".join(entry.get("cases", []))
+                headline = f"<li><strong>{entry.get('label', '')}</strong>"
+                if cases:
+                    headline += f" ({cases})"
+                rationale = entry.get("rationale")
+                if rationale:
+                    headline += f" — {rationale}"
+                study_list = entry.get("study_list") or []
+                if study_list:
+                    headline += f"<br><span class='achievement-timeline__meta'>推奨演習: {' / '.join(study_list[:3])}</span>"
+                headline += "</li>"
+                cross_html_parts.append(headline)
+            st.markdown(
+                dedent(
+                    f"""
+                    <div class="dashboard-card" role="region" aria-label="推奨テーマ">
+                        <p class="timeline-filter__label">推奨テーマと横断候補</p>
+                        <ul>{''.join(rec_html_parts) or '<li>推奨テーマは現在分析中です。</li>'}</ul>
+                        <ul>{''.join(cross_html_parts)}</ul>
+                    </div>
+                    """
+                ),
+                unsafe_allow_html=True,
+            )
+
+        st.markdown(
+            dedent(
+                """
+                <div class="dashboard-card" role="region" aria-label="ショートカット">
+                    <div class="action-grid">
+                        <div class="action-card">
+                            <strong>過去問演習</strong>
+                            <p>年度・事例を指定して弱点補強の演習を行いましょう。</p>
+                        </div>
+                        <div class="action-card">
+                            <strong>模擬試験</strong>
+                            <p>タイマー付きの本番形式で得点力とタイムマネジメントを鍛えます。</p>
+                        </div>
+                        <div class="action-card">
+                            <strong>学習履歴</strong>
+                            <p>得点推移を可視化し、改善の兆しや課題を振り返りましょう。</p>
+                        </div>
+                    </div>
+                </div>
+                """
+            ),
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("</section>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    _render_study_planner(user)
+
     st.markdown("### 過去問タイムライン")
     st.caption("令和6年から4年にかけての事例III『生産』テーマの変遷を俯瞰できます。ホバーで原紙PDFリンクを確認できます。")
     _render_caseiii_timeline()
+
 
 
 def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
