@@ -2704,6 +2704,78 @@ def _inject_practice_navigation_styles() -> None:
         dedent(
             """
             <style>
+            .practice-tab-wrapper {
+                position: sticky;
+                top: calc(env(safe-area-inset-top, 0px) + 0px);
+                z-index: 32;
+                padding: 0.25rem 0 0.75rem;
+                margin-bottom: -0.25rem;
+                background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(248, 250, 252, 0));
+                backdrop-filter: blur(4px);
+            }
+            .practice-question-tabs {
+                display: flex;
+                align-items: center;
+                width: 100%;
+                padding: 0.5rem 0.85rem;
+                border-radius: 999px;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: rgba(255, 255, 255, 0.92);
+                box-shadow: 0 10px 26px rgba(15, 23, 42, 0.12);
+            }
+            .practice-tab-track {
+                list-style: none;
+                display: flex;
+                gap: 0.5rem;
+                padding: 0;
+                margin: 0;
+                width: 100%;
+                overflow-x: auto;
+                scrollbar-width: thin;
+            }
+            .practice-tab-track::-webkit-scrollbar {
+                height: 6px;
+            }
+            .practice-tab-track::-webkit-scrollbar-thumb {
+                background: rgba(148, 163, 184, 0.55);
+                border-radius: 999px;
+            }
+            .practice-tab-track::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            .practice-tab-item {
+                flex: 0 0 auto;
+            }
+            .practice-tab-link {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 96px;
+                padding: 0.5rem 0.95rem;
+                border-radius: 999px;
+                border: 1px solid transparent;
+                font-weight: 600;
+                font-size: 0.92rem;
+                color: #1e293b;
+                background: rgba(241, 245, 249, 0.9);
+                text-decoration: none;
+                transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            }
+            .practice-tab-link:hover {
+                background: rgba(219, 234, 254, 0.9);
+                border-color: rgba(59, 130, 246, 0.35);
+                box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+            }
+            .practice-tab-link:focus-visible {
+                outline: 3px solid var(--practice-focus-ring-soft);
+                outline-offset: 2px;
+            }
+            .practice-tab-link[aria-selected="true"],
+            .practice-tab-link.is-active {
+                background: linear-gradient(135deg, #2563eb, #1d4ed8);
+                color: #ffffff;
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+            }
             .practice-main-column {
                 display: flex;
                 flex-direction: column;
@@ -2861,12 +2933,28 @@ def _inject_practice_navigation_styles() -> None:
                 color: #0f172a;
             }
             @media (max-width: 1024px) {
+                .practice-tab-wrapper {
+                    top: 0;
+                }
                 .practice-toc {
                     position: static;
                     box-shadow: none;
                 }
             }
             @media (max-width: 768px) {
+                .practice-tab-wrapper {
+                    padding: 0.35rem 0 0.65rem;
+                    background: rgba(15, 23, 42, 0.04);
+                }
+                .practice-question-tabs {
+                    padding: 0.45rem 0.65rem;
+                    border-radius: 18px;
+                }
+                .practice-tab-link {
+                    min-width: 84px;
+                    font-size: 0.85rem;
+                    padding: 0.45rem 0.75rem;
+                }
                 .practice-toc {
                     padding: 0.65rem 0.75rem 0.85rem;
                 }
@@ -2891,6 +2979,23 @@ def _inject_practice_navigation_styles() -> None:
                 }
             }
             @media (prefers-color-scheme: dark) {
+                .practice-tab-wrapper {
+                    background: linear-gradient(180deg, rgba(17, 24, 39, 0.9), rgba(17, 24, 39, 0));
+                }
+                .practice-question-tabs {
+                    background: rgba(30, 41, 59, 0.94);
+                    border-color: rgba(148, 163, 184, 0.35);
+                    box-shadow: 0 16px 36px rgba(2, 6, 23, 0.55);
+                }
+                .practice-tab-link {
+                    background: rgba(51, 65, 85, 0.85);
+                    color: #e2e8f0;
+                }
+                .practice-tab-link:hover {
+                    background: rgba(96, 165, 250, 0.25);
+                    border-color: rgba(59, 130, 246, 0.45);
+                    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28);
+                }
                 .practice-toc {
                     background: rgba(17, 24, 39, 0.9);
                     border-color: rgba(148, 163, 184, 0.35);
@@ -2944,7 +3049,9 @@ def _inject_practice_navigation_script() -> None:
                 }
 
                 const sections = Array.from(doc.querySelectorAll('.practice-question-block'));
-                const navLinks = Array.from(doc.querySelectorAll('.practice-toc-link'));
+                const navLinks = Array.from(
+                    doc.querySelectorAll('.practice-toc-link, .practice-tab-link')
+                );
                 const quickNav = doc.getElementById('practice-quick-nav');
                 const returnButton = doc.querySelector('.practice-return-nav-button');
                 const contextButton = doc.querySelector('.practice-return-context-button');
@@ -3114,7 +3221,8 @@ def _inject_practice_navigation_script() -> None:
                     const changed = anchor !== activeAnchor;
                     activeAnchor = anchor;
                     navLinks.forEach((link) => {
-                        if (link.dataset.anchor === anchor) {
+                        const isActive = link.dataset.anchor === anchor;
+                        if (isActive) {
                             link.setAttribute('aria-current', 'location');
                             link.classList.add('is-active');
                             if (options.scrollNav) {
@@ -3123,6 +3231,10 @@ def _inject_practice_navigation_script() -> None:
                         } else {
                             link.removeAttribute('aria-current');
                             link.classList.remove('is-active');
+                        }
+                        if (link.classList.contains('practice-tab-link')) {
+                            link.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                            link.setAttribute('tabindex', isActive ? '0' : '-1');
                         }
                     });
                     sections.forEach((section, index) => {
@@ -7982,6 +8094,30 @@ def practice_page(user: Dict) -> None:
         question_count = len(question_entries)
 
         if question_entries:
+            tab_items = "".join(
+                (
+                    "<li class=\"practice-tab-item\" role=\"presentation\">"
+                    f"<a class=\"practice-tab-link\" role=\"tab\" data-anchor=\"{html.escape(entry['anchor'])}\" "
+                    f"href=\"#{html.escape(entry['anchor'])}\" aria-controls=\"{html.escape(entry['anchor'])}\" "
+                    f"title=\"{html.escape(entry['title'], quote=True)}\">{html.escape(entry['label'])}</a>"
+                    "</li>"
+                )
+                for entry in question_entries
+            )
+
+            st.markdown(
+                dedent(
+                    f"""
+                    <div class=\"practice-tab-wrapper\" aria-label=\"設問タブ\">
+                        <nav id=\"practice-question-tabs\" class=\"practice-question-tabs\" role=\"navigation\" aria-label=\"設問タブ\">
+                            <ol class=\"practice-tab-track\" role=\"tablist\">{tab_items}</ol>
+                        </nav>
+                    </div>
+                    """
+                ).strip(),
+                unsafe_allow_html=True,
+            )
+
             context_return_html = ""
             if problem_context:
                 context_return_html = "\n" + dedent(
