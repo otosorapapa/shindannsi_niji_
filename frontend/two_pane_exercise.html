@@ -298,6 +298,50 @@
         gap: var(--spacing-lg);
       }
 
+      .shortcut-hints {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-xs);
+        margin: 0 var(--spacing-md);
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-radius: 12px;
+        border: 1px dashed var(--color-border);
+        background-color: color-mix(
+          in srgb,
+          var(--color-chip-bg) 45%,
+          transparent
+        );
+        font-size: 0.9rem;
+        line-height: 1.5;
+      }
+
+      .shortcut-hints__title {
+        flex-basis: 100%;
+        font-weight: 700;
+        color: var(--color-text-strong);
+        margin-bottom: 2px;
+      }
+
+      .shortcut-hints__item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background-color: rgba(27, 35, 55, 0.08);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .shortcut-hints {
+          border-color: rgba(231, 236, 245, 0.28);
+          background-color: rgba(231, 236, 245, 0.08);
+        }
+
+        .shortcut-hints__item {
+          background-color: rgba(231, 236, 245, 0.12);
+        }
+      }
+
       .question-card {
         position: relative;
         padding: var(--spacing-lg);
@@ -735,6 +779,12 @@
             <span class="exercise-tab__title">評価制度の再設計</span>
           </button>
         </nav>
+        <div class="shortcut-hints" aria-label="キーボードショートカット">
+          <span class="shortcut-hints__title">ショートカット</span>
+          <span class="shortcut-hints__item">Ctrl / ⌘ + Alt + 1〜4：各設問の回答欄へ移動</span>
+          <span class="shortcut-hints__item">Ctrl / ⌘ + Alt + → / ←：次・前の設問へ移動</span>
+          <span class="shortcut-hints__item">Ctrl / ⌘ + Alt + Enter：次の設問へ進む</span>
+        </div>
         <section class="exercise__questions" aria-live="polite">
           <article
             id="question-1"
@@ -1034,6 +1084,30 @@
         updateFooterCta(targetId);
       };
 
+      const focusQuestionByIndex = (index, { focusAnswer = false } = {}) => {
+        if (!questionCards.length) return;
+        const clampedIndex = ((index % questionCards.length) + questionCards.length) %
+          questionCards.length;
+        const card = questionCards[clampedIndex];
+        if (!card) return;
+        scrollToQuestion(card.id);
+        if (!focusAnswer) {
+          return;
+        }
+        const textarea = card.querySelector('.question-card__textarea');
+        if (textarea) {
+          setTimeout(() => {
+            textarea.focus();
+            const valueLength = textarea.value.length;
+            try {
+              textarea.setSelectionRange(valueLength, valueLength);
+            } catch (error) {
+              // 非対応ブラウザでは無視
+            }
+          }, 120);
+        }
+      };
+
       tabButtons.forEach((button, index) => {
         button.addEventListener('click', () => {
           scrollToQuestion(button.dataset.target);
@@ -1108,6 +1182,63 @@
       questionCards.forEach((card) => {
         card.setAttribute('tabindex', '-1');
         observer.observe(card);
+      });
+
+      const isEditableElement = (element) => {
+        if (!element) return false;
+        if (element.closest('[contenteditable="true"]')) {
+          return true;
+        }
+        const tagName = element.tagName;
+        return tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
+      };
+
+      document.addEventListener('keydown', (event) => {
+        const hasPrimaryModifier = event.ctrlKey || event.metaKey;
+        if (!hasPrimaryModifier || !event.altKey) {
+          return;
+        }
+
+        const { key } = event;
+        const activeElement = document.activeElement;
+        const isEditable = isEditableElement(activeElement);
+
+        if (/^\d$/.test(key)) {
+          const numericIndex = Number(key) - 1;
+          if (numericIndex >= 0 && numericIndex < questionCards.length) {
+            event.preventDefault();
+            focusQuestionByIndex(numericIndex, { focusAnswer: true });
+          }
+          return;
+        }
+
+        if (key === 'ArrowRight') {
+          event.preventDefault();
+          const nextId = nextButton?.dataset.target;
+          const targetIndex = questionCards.findIndex((card) => card.id === nextId);
+          if (targetIndex !== -1) {
+            focusQuestionByIndex(targetIndex, { focusAnswer: isEditable });
+          }
+          return;
+        }
+
+        if (key === 'ArrowLeft') {
+          event.preventDefault();
+          const currentTab = tabButtons.find((button) =>
+            button.getAttribute('aria-selected') === 'true'
+          );
+          const currentIndex = currentTab
+            ? questionCards.findIndex((card) => card.id === currentTab.dataset.target)
+            : 0;
+          const previousIndex = currentIndex - 1;
+          focusQuestionByIndex(previousIndex, { focusAnswer: isEditable });
+          return;
+        }
+
+        if (key === 'Enter') {
+          event.preventDefault();
+          nextButton?.click();
+        }
       });
 
       // 字数カウンタ：上限超過時は警告色を適用
