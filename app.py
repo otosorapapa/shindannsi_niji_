@@ -5830,6 +5830,9 @@ def practice_page(user: Dict) -> None:
                 z-index: 75;
                 min-width: 108px;
                 color: #f8fafc;
+                cursor: grab;
+                touch-action: none;
+                user-select: none;
             }
             .practice-quick-nav-title {
                 font-size: 0.78rem;
@@ -5887,6 +5890,121 @@ def practice_page(user: Dict) -> None:
                 }
             }
             </style>
+            """
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        dedent(
+            """
+            <script>
+            (function() {
+                const doc = window.parent?.document || document;
+                const nav = doc.querySelector('.practice-quick-nav');
+                if (!nav || nav.dataset.draggableInitialized === 'true') {
+                    return;
+                }
+
+                const STORAGE_KEY = 'practiceQuickNavPosition';
+
+                const applyStoredPosition = () => {
+                    const stored = window.parent?.localStorage?.getItem(STORAGE_KEY);
+                    if (!stored) {
+                        return;
+                    }
+                    try {
+                        const pos = JSON.parse(stored);
+                        if (
+                            typeof pos === 'object' &&
+                            pos !== null &&
+                            typeof pos.x === 'number' &&
+                            typeof pos.y === 'number'
+                        ) {
+                            nav.style.left = `${pos.x}px`;
+                            nav.style.top = `${pos.y}px`;
+                            nav.style.bottom = 'auto';
+                            nav.style.right = 'auto';
+                        }
+                    } catch (error) {
+                        console.warn('Failed to parse stored Qナビ position', error);
+                    }
+                };
+
+                applyStoredPosition();
+
+                const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+                const savePosition = (left, top) => {
+                    try {
+                        window.parent?.localStorage?.setItem(
+                            STORAGE_KEY,
+                            JSON.stringify({ x: left, y: top })
+                        );
+                    } catch (error) {
+                        console.warn('Failed to store Qナビ position', error);
+                    }
+                };
+
+                const startDrag = (event) => {
+                    if (event.button !== undefined && event.button !== 0) {
+                        return;
+                    }
+                    if (event.target.closest('.practice-quick-nav-link')) {
+                        return;
+                    }
+                    event.preventDefault();
+                    nav.style.cursor = 'grabbing';
+
+                    const rect = nav.getBoundingClientRect();
+                    const offsetX = event.clientX - rect.left;
+                    const offsetY = event.clientY - rect.top;
+
+                    nav.style.bottom = 'auto';
+                    nav.style.right = 'auto';
+
+                    const onPointerMove = (moveEvent) => {
+                        const availableWidth = doc.documentElement.clientWidth;
+                        const availableHeight = doc.documentElement.clientHeight;
+                        const navWidth = nav.offsetWidth;
+                        const navHeight = nav.offsetHeight;
+                        const targetLeft = clamp(
+                            moveEvent.clientX - offsetX,
+                            12,
+                            Math.max(12, availableWidth - navWidth - 12)
+                        );
+                        const targetTop = clamp(
+                            moveEvent.clientY - offsetY,
+                            12,
+                            Math.max(12, availableHeight - navHeight - 12)
+                        );
+
+                        nav.style.left = `${targetLeft}px`;
+                        nav.style.top = `${targetTop}px`;
+                    };
+
+                    const onPointerUp = () => {
+                        doc.removeEventListener('pointermove', onPointerMove);
+                        doc.removeEventListener('pointerup', onPointerUp);
+                        doc.removeEventListener('pointercancel', onPointerUp);
+                        nav.style.cursor = 'grab';
+
+                        const left = parseFloat(nav.style.left || '0');
+                        const top = parseFloat(nav.style.top || '0');
+                        if (!Number.isNaN(left) && !Number.isNaN(top)) {
+                            savePosition(left, top);
+                        }
+                    };
+
+                    doc.addEventListener('pointermove', onPointerMove);
+                    doc.addEventListener('pointerup', onPointerUp);
+                    doc.addEventListener('pointercancel', onPointerUp);
+                };
+
+                nav.addEventListener('pointerdown', startDrag);
+                nav.dataset.draggableInitialized = 'true';
+            })();
+            </script>
             """
         ).strip(),
         unsafe_allow_html=True,
