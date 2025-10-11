@@ -5897,14 +5897,14 @@ def practice_page(user: Dict) -> None:
             <script>
             (function() {
                 const doc = window.parent?.document || document;
-                const nav = doc.querySelector('.practice-quick-nav');
-                if (!nav || nav.dataset.draggableInitialized === 'true') {
+                if (!doc?.body) {
                     return;
                 }
 
                 const STORAGE_KEY = 'practiceQuickNavPosition';
+                const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
-                const applyStoredPosition = () => {
+                const applyStoredPosition = (nav) => {
                     const stored = window.parent?.localStorage?.getItem(STORAGE_KEY);
                     if (!stored) {
                         return;
@@ -5927,10 +5927,6 @@ def practice_page(user: Dict) -> None:
                     }
                 };
 
-                applyStoredPosition();
-
-                const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-
                 const savePosition = (left, top) => {
                     try {
                         window.parent?.localStorage?.setItem(
@@ -5942,63 +5938,87 @@ def practice_page(user: Dict) -> None:
                     }
                 };
 
-                const startDrag = (event) => {
-                    if (event.button !== undefined && event.button !== 0) {
-                        return;
+                const initializeNav = () => {
+                    const nav = doc.querySelector('.practice-quick-nav');
+                    if (!nav) {
+                        return false;
                     }
-                    if (event.target.closest('.practice-quick-nav-link')) {
-                        return;
+                    if (nav.dataset.draggableInitialized === 'true') {
+                        return true;
                     }
-                    event.preventDefault();
-                    nav.style.cursor = 'grabbing';
 
-                    const rect = nav.getBoundingClientRect();
-                    const offsetX = event.clientX - rect.left;
-                    const offsetY = event.clientY - rect.top;
+                    applyStoredPosition(nav);
 
-                    nav.style.bottom = 'auto';
-                    nav.style.right = 'auto';
-
-                    const onPointerMove = (moveEvent) => {
-                        const availableWidth = doc.documentElement.clientWidth;
-                        const availableHeight = doc.documentElement.clientHeight;
-                        const navWidth = nav.offsetWidth;
-                        const navHeight = nav.offsetHeight;
-                        const targetLeft = clamp(
-                            moveEvent.clientX - offsetX,
-                            12,
-                            Math.max(12, availableWidth - navWidth - 12)
-                        );
-                        const targetTop = clamp(
-                            moveEvent.clientY - offsetY,
-                            12,
-                            Math.max(12, availableHeight - navHeight - 12)
-                        );
-
-                        nav.style.left = `${targetLeft}px`;
-                        nav.style.top = `${targetTop}px`;
-                    };
-
-                    const onPointerUp = () => {
-                        doc.removeEventListener('pointermove', onPointerMove);
-                        doc.removeEventListener('pointerup', onPointerUp);
-                        doc.removeEventListener('pointercancel', onPointerUp);
-                        nav.style.cursor = 'grab';
-
-                        const left = parseFloat(nav.style.left || '0');
-                        const top = parseFloat(nav.style.top || '0');
-                        if (!Number.isNaN(left) && !Number.isNaN(top)) {
-                            savePosition(left, top);
+                    const startDrag = (event) => {
+                        if (event.button !== undefined && event.button !== 0) {
+                            return;
                         }
+                        if (event.target.closest('.practice-quick-nav-link')) {
+                            return;
+                        }
+                        event.preventDefault();
+                        nav.style.cursor = 'grabbing';
+
+                        const rect = nav.getBoundingClientRect();
+                        const offsetX = event.clientX - rect.left;
+                        const offsetY = event.clientY - rect.top;
+
+                        nav.style.bottom = 'auto';
+                        nav.style.right = 'auto';
+
+                        const onPointerMove = (moveEvent) => {
+                            const availableWidth = doc.documentElement.clientWidth;
+                            const availableHeight = doc.documentElement.clientHeight;
+                            const navWidth = nav.offsetWidth;
+                            const navHeight = nav.offsetHeight;
+                            const targetLeft = clamp(
+                                moveEvent.clientX - offsetX,
+                                12,
+                                Math.max(12, availableWidth - navWidth - 12)
+                            );
+                            const targetTop = clamp(
+                                moveEvent.clientY - offsetY,
+                                12,
+                                Math.max(12, availableHeight - navHeight - 12)
+                            );
+
+                            nav.style.left = `${targetLeft}px`;
+                            nav.style.top = `${targetTop}px`;
+                        };
+
+                        const onPointerUp = () => {
+                            doc.removeEventListener('pointermove', onPointerMove);
+                            doc.removeEventListener('pointerup', onPointerUp);
+                            doc.removeEventListener('pointercancel', onPointerUp);
+                            nav.style.cursor = 'grab';
+
+                            const left = parseFloat(nav.style.left || '0');
+                            const top = parseFloat(nav.style.top || '0');
+                            if (!Number.isNaN(left) && !Number.isNaN(top)) {
+                                savePosition(left, top);
+                            }
+                        };
+
+                        doc.addEventListener('pointermove', onPointerMove);
+                        doc.addEventListener('pointerup', onPointerUp);
+                        doc.addEventListener('pointercancel', onPointerUp);
                     };
 
-                    doc.addEventListener('pointermove', onPointerMove);
-                    doc.addEventListener('pointerup', onPointerUp);
-                    doc.addEventListener('pointercancel', onPointerUp);
+                    nav.addEventListener('pointerdown', startDrag);
+                    nav.dataset.draggableInitialized = 'true';
+                    return true;
                 };
 
-                nav.addEventListener('pointerdown', startDrag);
-                nav.dataset.draggableInitialized = 'true';
+                if (!initializeNav()) {
+                    const observer = new MutationObserver(() => {
+                        if (initializeNav()) {
+                            observer.disconnect();
+                        }
+                    });
+                    observer.observe(doc.body, { childList: true, subtree: true });
+
+                    setTimeout(() => observer.disconnect(), 10000);
+                }
             })();
             </script>
             """
