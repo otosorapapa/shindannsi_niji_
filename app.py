@@ -1417,47 +1417,107 @@ def _inject_intent_card_styles() -> None:
             <style>
             .intent-card-header {
                 font-weight: 700;
-                color: #1f2937;
-                margin-bottom: 0.15rem;
-                font-size: 0.9rem;
+                color: #0f172a;
+                margin-bottom: 0.1rem;
+                font-size: 0.92rem;
+                letter-spacing: 0.01em;
+            }
+            .intent-card-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+                gap: 0.65rem;
+                margin-top: 0.35rem;
+                margin-bottom: 0.5rem;
             }
             .intent-card-wrapper {
-                background: rgba(248, 250, 252, 0.9);
-                border: 1px solid rgba(99, 102, 241, 0.22);
-                border-radius: 14px;
-                padding: 0.75rem 0.85rem 0.6rem;
-                box-shadow: 0 12px 22px rgba(15, 23, 42, 0.08);
+                background: rgba(248, 250, 252, 0.92);
+                border: 1px solid rgba(99, 102, 241, 0.18);
+                border-radius: 13px;
+                padding: 0.65rem 0.75rem 0.55rem;
+                box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
             }
             .intent-card-wrapper button {
                 width: 100%;
-                border-radius: 10px;
+                border-radius: 9px;
                 border: none;
-                background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(129, 140, 248, 0.24));
+                background: linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(129, 140, 248, 0.22));
                 color: #1e293b;
                 font-weight: 600;
-                padding: 0.5rem 0.6rem;
+                font-size: 0.86rem;
+                padding: 0.45rem 0.5rem;
                 cursor: pointer;
                 transition: transform 0.15s ease, box-shadow 0.15s ease;
             }
             .intent-card-wrapper button:hover {
                 transform: translateY(-1px);
-                box-shadow: 0 8px 20px rgba(99, 102, 241, 0.25);
+                box-shadow: 0 8px 20px rgba(99, 102, 241, 0.22);
             }
             .intent-card-example {
-                margin-top: 0.55rem;
-                font-size: 0.78rem;
-                line-height: 1.5;
-                color: #1e293b;
-                background: rgba(255, 255, 255, 0.75);
+                font-size: 0.76rem;
+                line-height: 1.45;
+                color: #1f2937;
+                background: rgba(255, 255, 255, 0.8);
                 border-radius: 8px;
-                padding: 0.35rem 0.6rem;
+                padding: 0.35rem 0.55rem;
+                border: 1px dashed rgba(99, 102, 241, 0.28);
+                display: -webkit-box;
+                -webkit-line-clamp: 3;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
             }
-            .intent-card-grid {
+            .intent-card-example::before {
+                content: "✏️ ";
+            }
+            .case-frame-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                gap: 0.9rem;
-                margin-top: 0.4rem;
-                margin-bottom: 0.6rem;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 0.6rem;
+                margin: 0.35rem 0 0.45rem;
+            }
+            .case-frame-card {
+                background: rgba(248, 250, 252, 0.92);
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                border-radius: 12px;
+                padding: 0.55rem 0.6rem 0.5rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.3rem;
+            }
+            .case-frame-card button {
+                width: 100%;
+                border-radius: 8px;
+                border: none;
+                background: rgba(255, 255, 255, 0.92);
+                color: #0f172a;
+                font-weight: 600;
+                font-size: 0.85rem;
+                padding: 0.4rem 0.45rem;
+                cursor: pointer;
+                border: 1px solid rgba(59, 130, 246, 0.28);
+                transition: transform 0.12s ease, box-shadow 0.12s ease;
+            }
+            .case-frame-card button:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 6px 16px rgba(59, 130, 246, 0.2);
+            }
+            .case-frame-desc {
+                font-size: 0.74rem;
+                line-height: 1.45;
+                color: #475569;
+                margin: 0;
+            }
+            .case-frame-snippet {
+                font-size: 0.72rem;
+                line-height: 1.4;
+                color: #1f2937;
+                background: rgba(255, 255, 255, 0.85);
+                border-radius: 7px;
+                padding: 0.25rem 0.45rem;
+                border: 1px dashed rgba(148, 163, 184, 0.4);
+                margin: 0;
             }
             </style>
             """
@@ -1465,6 +1525,17 @@ def _inject_intent_card_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_intent_card_styles_injected"] = True
+
+
+def _compact_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _format_preview_text(text: str, max_length: int = 72) -> str:
+    compact = _compact_text(text)
+    if len(compact) <= max_length:
+        return compact
+    return compact[: max_length - 1].rstrip(" 、。.,;・") + "…"
 
 
 def _insert_template_snippet(
@@ -2220,7 +2291,7 @@ def _render_intent_cards(
 
     _inject_intent_card_styles()
     st.markdown("<p class=\"intent-card-header\">設問趣旨カード</p>", unsafe_allow_html=True)
-    st.caption("カードをクリックすると例示表現が解答欄に挿入されます。提言型答案づくりのヒントに活用してください。")
+    st.caption("クリックで例示表現をドラフトに素早く差し込めます。ホバーで全文を確認できます。")
 
     grid_container = st.container()
     with grid_container:
@@ -2232,8 +2303,16 @@ def _render_intent_cards(
                 key=f"intent-card-{draft_key}-{index}",
                 use_container_width=True,
             )
+            example_text = card["example"]
+            preview_text = _format_preview_text(example_text, 90)
             st.markdown(
-                f"<div class=\"intent-card-example\">例: {html.escape(card['example'])}</div>",
+                (
+                    "<div class=\"intent-card-example\" title=\"{title}\">"
+                    "例: {preview}</div>"
+                ).format(
+                    title=html.escape(_compact_text(example_text), quote=True),
+                    preview=html.escape(preview_text),
+                ),
                 unsafe_allow_html=True,
             )
             st.markdown("</div>", unsafe_allow_html=True)
@@ -2257,12 +2336,13 @@ def _render_case_frame_shortcuts(
         return
 
     st.markdown("<p class=\"intent-card-header\">頻出フレーム</p>", unsafe_allow_html=True)
-    st.caption("直近の事例傾向に合わせたフレームをワンクリックで挿入できます。")
+    st.caption("一読で狙いを掴み、クリックで定番フレーズを挿入できます。")
 
-    columns = st.columns(min(len(frames), 3))
-    for index, frame in enumerate(frames):
-        column = columns[index % len(columns)]
-        with column:
+    grid_container = st.container()
+    with grid_container:
+        st.markdown("<div class=\"case-frame-grid\">", unsafe_allow_html=True)
+        for index, frame in enumerate(frames):
+            st.markdown("<div class=\"case-frame-card\">", unsafe_allow_html=True)
             clicked = st.button(
                 frame["label"],
                 key=f"case-frame-{draft_key}-{index}",
@@ -2271,13 +2351,38 @@ def _render_case_frame_shortcuts(
             )
             description = frame.get("description")
             if description:
-                st.caption(description)
+                desc_preview = _format_preview_text(description, 68)
+                st.markdown(
+                    (
+                        "<p class=\"case-frame-desc\" title=\"{title}\">"
+                        "{content}</p>"
+                    ).format(
+                        title=html.escape(_compact_text(description), quote=True),
+                        content=html.escape(desc_preview),
+                    ),
+                    unsafe_allow_html=True,
+                )
+            snippet = frame.get("snippet")
+            if snippet:
+                snippet_preview = _format_preview_text(snippet, 74)
+                st.markdown(
+                    (
+                        "<p class=\"case-frame-snippet\" title=\"{title}\">"
+                        "{content}</p>"
+                    ).format(
+                        title=html.escape(_compact_text(snippet), quote=True),
+                        content=html.escape(snippet_preview),
+                    ),
+                    unsafe_allow_html=True,
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
             if clicked:
                 _insert_template_snippet(draft_key, textarea_state_key, frame["snippet"])
                 st.session_state["_case_frame_notice"] = {
                     "draft_key": draft_key,
                     "label": frame["label"],
                 }
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _format_amount(value: Optional[float]) -> str:
