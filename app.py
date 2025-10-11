@@ -1322,6 +1322,7 @@ def _init_session_state() -> None:
     st.session_state.setdefault("_question_card_styles_injected", False)
     st.session_state.setdefault("_timeline_styles_injected", False)
     st.session_state.setdefault("_practice_question_styles_injected", False)
+    st.session_state.setdefault("_tag_styles_injected", False)
     st.session_state.setdefault("model_answer_slots", {})
 
 
@@ -1906,6 +1907,79 @@ def _inject_intent_card_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_intent_card_styles_injected"] = True
+
+
+def _inject_tag_styles() -> None:
+    if st.session_state.get("_tag_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .tag-pill-group {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.4rem;
+                margin: 0.25rem 0 0.5rem;
+            }
+            .tag-pill {
+                display: inline-flex;
+                align-items: center;
+                padding: 0.15rem 0.55rem 0.2rem;
+                border-radius: 999px;
+                font-size: 0.82rem;
+                font-weight: 600;
+                background: rgba(59, 130, 246, 0.12);
+                color: #1d4ed8;
+                border: 1px solid rgba(59, 130, 246, 0.18);
+                letter-spacing: 0.01em;
+            }
+            .tag-pill[data-tone="warn"] {
+                background: rgba(248, 113, 113, 0.16);
+                color: #b91c1c;
+                border-color: rgba(248, 113, 113, 0.32);
+            }
+            .beta-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0.1rem 0.45rem;
+                margin-left: 0.4rem;
+                font-size: 0.68rem;
+                font-weight: 700;
+                border-radius: 999px;
+                background: rgba(37, 99, 235, 0.16);
+                color: #1d4ed8;
+                border: 1px solid rgba(37, 99, 235, 0.32);
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_tag_styles_injected"] = True
+
+
+def _render_tag_pills(tags: Iterable[str], *, tone: str = "default") -> None:
+    cleaned: List[str] = [str(tag).strip() for tag in tags if str(tag).strip()]
+    if not cleaned:
+        return
+
+    _inject_tag_styles()
+
+    def _tag_span(label: str) -> str:
+        safe_label = html.escape(label)
+        tone_attr = " data-tone=\"warn\"" if tone == "warn" else ""
+        return f"<span class='tag-pill'{tone_attr} role='listitem'>{safe_label}</span>"
+
+    tag_html = "".join(_tag_span(label) for label in cleaned)
+    st.markdown(
+        f"<div class='tag-pill-group' role='list'>{tag_html}</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def _compact_text(text: str) -> str:
@@ -4599,6 +4673,8 @@ def _render_model_answer_section(
 def main_view() -> None:
     user = st.session_state.user
 
+    _inject_tag_styles()
+
     navigation_items = {
         "ホーム": dashboard_page,
         "過去問演習": practice_page,
@@ -5661,8 +5737,12 @@ def _get_committee_heatmap_context(default_year: str = "令和7年度") -> Optio
 
 def _render_study_planner(user: Dict) -> None:
     today = dt_date.today()
-    st.subheader("スタディプランナー")
+    st.markdown(
+        "### スタディプランナー <span class='beta-badge' aria-label='ベータ版機能'>Beta</span>",
+        unsafe_allow_html=True,
+    )
     st.caption("週間・月間の学習目標を設定し、進捗と予定を一括で管理できます。")
+    st.caption("※ベータ版機能のため、想定外の挙動は『設定 > サポート』からご報告ください。")
     weekly_tab, monthly_tab = st.tabs(["週間プラン", "月間プラン"])
     with weekly_tab:
         _render_study_goal_panel(user, period_type="weekly", reference_date=today)
@@ -6733,7 +6813,7 @@ def dashboard_page(user: Dict) -> None:
                 dedent(
                     f"""
                     <div class="dashboard-card card--tone-blue" role="region" aria-label="パーソナライズ推薦">
-                        <p class="timeline-filter__label">パーソナライズ推薦</p>
+                        <p class="timeline-filter__label">パーソナライズ推薦 <span class="beta-badge" aria-label="ベータ版機能">Beta</span></p>
                         {message_html}
                         {sections_html}
                     </div>
@@ -6741,6 +6821,7 @@ def dashboard_page(user: Dict) -> None:
                 ),
                 unsafe_allow_html=True,
             )
+            st.caption("※ベータ版機能です。不具合は『設定 > サポート』からお知らせください。")
 
         st.markdown(
             dedent(
@@ -10972,8 +11053,7 @@ def mock_exam_page(user: Dict) -> None:
             render_attempt_results(attempt_id)
             st.markdown("**弱点タグ**")
             if weakness_tags:
-                chips = "  ".join(f"`{tag}`" for tag in weakness_tags)
-                st.markdown(chips)
+                _render_tag_pills(weakness_tags, tone="warn")
             else:
                 st.caption("特筆すべき弱点は検出されませんでした。")
 
@@ -11747,11 +11827,13 @@ def settings_page(user: Dict) -> None:
             dedent(
                 """
                 - お問い合わせ: support@example.com
-                - 利用規約: coming soon
+                - 不具合報告: support@example.com 宛に件名「バグ報告」でご連絡ください。再現手順やスクリーンショットの共有にご協力ください。
+                - 利用規約: 準備中
                 - 退会をご希望の場合はサポートまでご連絡ください。
                 """
             ).strip()
         )
+        st.caption("サポート窓口へのご連絡で24時間以内の返信を目安としています。")
 
     with learning_tab:
         st.subheader("データアップロード")
