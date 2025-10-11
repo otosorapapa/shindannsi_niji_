@@ -1745,12 +1745,17 @@ def _inject_context_column_styles() -> None:
                 position: sticky;
                 top: var(--context-panel-offset, 72px);
                 align-self: flex-start;
+                display: flex;
+                flex-direction: column;
+                max-height: calc(100vh - var(--context-panel-offset, 72px) - 16px);
+                overflow: hidden;
             }
             .practice-context-inner {
                 display: flex;
                 flex-direction: column;
                 gap: 1rem;
-                height: 100%;
+                flex: 1 1 auto;
+                min-height: 0;
             }
             .context-panel-mobile-bar {
                 display: none;
@@ -1802,6 +1807,10 @@ def _inject_context_column_styles() -> None:
                 flex-direction: column;
                 gap: 0.75rem;
                 overflow: hidden;
+            }
+            .practice-context-inner > .context-panel {
+                flex: 1 1 auto;
+                min-height: 0;
             }
             .context-panel-inner {
                 display: flex;
@@ -1879,17 +1888,11 @@ def _inject_context_column_styles() -> None:
                 color: #475569;
             }
             @media (min-width: 901px) {
-                .practice-context-column {
-                    display: flex;
-                    flex-direction: column;
-                }
                 .practice-context-inner {
-                    max-height: calc(100vh - 96px);
+                    max-height: calc(100vh - var(--context-panel-offset, 72px) - 16px);
                     overflow: visible;
                 }
                 .practice-context-inner > .context-panel {
-                    flex: 1 1 auto;
-                    min-height: 0;
                     max-height: inherit;
                 }
                 .context-panel-inner {
@@ -1904,6 +1907,9 @@ def _inject_context_column_styles() -> None:
                 .practice-context-column {
                     position: static;
                     top: auto;
+                    max-height: none;
+                    overflow: visible;
+                    display: block;
                 }
                 .context-panel-mobile-bar {
                     display: block;
