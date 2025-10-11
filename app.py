@@ -9176,10 +9176,95 @@ def _handle_model_answer_slot_upload(file_bytes: bytes, filename: str) -> bool:
     return True
 
 
+def _build_radar_chart(criteria: Iterable[scoring.ScoreCriterion]) -> Optional[alt.Chart]:
+    """Return an Altair radar chart visualising the given criteria scores."""
+
+    data = list(criteria)
+    if not data:
+        return None
+
+    axis_order = [criterion.label for criterion in data]
+    chart_df = pd.DataFrame(
+        {
+            "軸": axis_order,
+            "スコア": [max(0.0, min(1.0, criterion.score)) for criterion in data],
+            "重み": [criterion.weight for criterion in data],
+            "説明": [criterion.description for criterion in data],
+        }
+    )
+    closed_df = pd.concat([chart_df, chart_df.iloc[:1]], ignore_index=True)
+
+    base = alt.Chart(closed_df)
+    theta_encoding = alt.Theta(
+        "軸:N",
+        sort=axis_order,
+        axis=alt.Axis(labelPadding=12, labelAngle=0, ticks=False, title=None),
+    )
+    radius_encoding = alt.Radius(
+        "スコア:Q",
+        scale=alt.Scale(domain=[0, 1], nice=False),
+        axis=alt.Axis(format="%", labelPadding=6, title=None),
+    )
+
+    area = base.mark_area(opacity=0.15, color="#2563eb", interpolate="linear-closed").encode(
+        theta=theta_encoding,
+        radius=radius_encoding,
+    )
+    line = base.mark_line(
+        color="#2563eb", interpolate="linear-closed", point=alt.OverlayMarkDef(size=70, filled=True)
+    ).encode(
+        theta=theta_encoding,
+        radius=radius_encoding,
+        tooltip=[
+            alt.Tooltip("軸:N", title="評価軸"),
+            alt.Tooltip("スコア:Q", title="スコア", format=".0%"),
+            alt.Tooltip("重み:Q", title="比重", format=".0%"),
+            alt.Tooltip("説明:N", title="評価基準"),
+        ],
+    )
+
+    return (area + line).properties(width=260, height=260).configure_view(stroke=None)
+
+
 def render_attempt_results(attempt_id: int) -> None:
     detail = database.fetch_attempt_detail(attempt_id)
     attempt = detail["attempt"]
     answers = detail["answers"]
+
+    enriched_answers: List[Dict[str, Any]] = []
+    axis_tracker: Dict[str, List[float]] = defaultdict(list)
+    for answer in answers:
+        spec = QuestionSpec(
+            id=answer.get("question_id", 0),
+            prompt=answer.get("prompt", ""),
+            max_score=answer.get("max_score", 0.0),
+            model_answer=answer.get("model_answer", ""),
+            keywords=answer.get("keywords", []),
+        )
+        analysis = scoring.analyse_answer(answer.get("answer_text", ""), spec)
+        enriched = dict(answer)
+        enriched["criteria"] = analysis.criteria
+        enriched_answers.append(enriched)
+        for criterion in analysis.criteria:
+            axis_tracker[criterion.key].append(criterion.score)
+
+    answers = enriched_answers
+
+    axis_summary: List[scoring.ScoreCriterion] = []
+    for definition in scoring.criterion_definitions():
+        values = axis_tracker.get(definition.key)
+        if not values:
+            continue
+        average_score = sum(values) / len(values)
+        axis_summary.append(
+            scoring.ScoreCriterion(
+                key=definition.key,
+                label=definition.label,
+                score=average_score,
+                weight=definition.weight,
+                description=definition.description,
+            )
+        )
 
     st.subheader("採点結果")
     total_score = attempt["total_score"] or 0
@@ -9204,6 +9289,24 @@ def render_attempt_results(attempt_id: int) -> None:
         if ratio >= 0.7:
             st.success("模擬試験クリア！称号『模試コンプリート』を獲得しました。")
             st.balloons()
+
+    if axis_summary:
+        st.markdown("### 評価軸サマリー")
+        chart_col, info_col = st.columns([1.05, 0.95])
+        radar_chart = _build_radar_chart(axis_summary)
+        with chart_col:
+            if radar_chart is not None:
+                st.altair_chart(radar_chart, use_container_width=True)
+        with info_col:
+            st.markdown("**平均スコアと比重**")
+            for criterion in axis_summary:
+                pct = criterion.score * 100
+                weight_pct = criterion.weight * 100
+                st.markdown(
+                    f"- **{criterion.label}**: {pct:.0f}点 (比重 {weight_pct:.0f}%)"
+                )
+                st.caption(criterion.description)
+        st.caption("各軸は0〜1のスケールで、値が高いほど観点で高評価です。")
 
     summary_rows = []
     for idx, answer in enumerate(answers, start=1):
@@ -9235,6 +9338,31 @@ def render_attempt_results(attempt_id: int) -> None:
     for idx, answer in enumerate(answers, start=1):
         with st.expander(f"設問{idx}の結果", expanded=True):
             st.write(f"**得点:** {answer['score']} / {answer['max_score']}")
+            criteria = list(answer.get("criteria", []))
+            if criteria:
+                chart_col, metrics_col = st.columns([1.05, 0.95])
+                radar_chart = _build_radar_chart(criteria)
+                with chart_col:
+                    if radar_chart is not None:
+                        st.altair_chart(radar_chart, use_container_width=True)
+                with metrics_col:
+                    st.markdown("**観点別スコア**")
+                    for criterion in criteria:
+                        score_pct = criterion.score * 100
+                        weight_pct = criterion.weight * 100
+                        if criterion.score >= 0.7:
+                            icon = "🟢"
+                        elif criterion.score >= 0.4:
+                            icon = "🟡"
+                        else:
+                            icon = "🔴"
+                        st.markdown(
+                            f"{icon} **{criterion.label}**: {score_pct:.0f}点 "
+                            f"(比重 {weight_pct:.0f}%)"
+                        )
+                        st.caption(criterion.description)
+                st.caption("レーダーチャートは観点別の達成度を0〜1で表します。")
+
             st.write("**フィードバック**")
             st.markdown(f"<pre>{answer['feedback']}</pre>", unsafe_allow_html=True)
             if answer["keyword_hits"]:

@@ -20,11 +20,56 @@ class QuestionSpec:
     keywords: Iterable[str]
 
 
+@dataclass(frozen=True)
+class CriterionDefinition:
+    """採点観点の定義情報。"""
+
+    key: str
+    label: str
+    weight: float
+    description: str
+
+
+@dataclass
+class ScoreCriterion:
+    """個別観点の得点。"""
+
+    key: str
+    label: str
+    score: float
+    weight: float
+    description: str
+
+
+@dataclass
+class ScoreAnalysis:
+    """単一答案に対する観点別のスコア。"""
+
+    keyword_hits: Dict[str, bool]
+    keyword_ratio: float
+    similarity: float
+    structure_score: float
+    clarity_score: float
+    criteria: List[ScoreCriterion]
+
+    def metric_map(self) -> Dict[str, float]:
+        """Return a mapping of metric identifiers to values."""
+
+        return {
+            "keyword_ratio": self.keyword_ratio,
+            "similarity": self.similarity,
+            "structure_score": self.structure_score,
+            "clarity_score": self.clarity_score,
+        }
+
+
 @dataclass
 class ScoreResult:
     score: float
     feedback: str
     keyword_hits: Dict[str, bool]
+    criteria: List[ScoreCriterion]
+    analysis: ScoreAnalysis
 
 
 @dataclass
@@ -46,6 +91,36 @@ class BundleEvaluation:
     criteria: List[CriterionInsight]
     summary: str
     recommendations: List[str]
+
+
+_CRITERION_DEFINITIONS: Sequence[CriterionDefinition] = (
+    CriterionDefinition(
+        key="keyword_ratio",
+        label="キーワード含有率",
+        weight=0.5,
+        description="採点対象のキーワードに触れている割合を評価します。",
+    ),
+    CriterionDefinition(
+        key="structure_score",
+        label="構成の論理性",
+        weight=0.3,
+        description="模範解答との類似度や接続語の使い方から論理展開を推定します。",
+    ),
+    CriterionDefinition(
+        key="clarity_score",
+        label="表現の明快さ",
+        weight=0.2,
+        description="文の長さと句読点のバランスから読みやすさを評価します。",
+    ),
+)
+
+_CRITERION_LOOKUP = {definition.key: definition for definition in _CRITERION_DEFINITIONS}
+
+
+def criterion_definitions() -> Sequence[CriterionDefinition]:
+    """Return the immutable list of scoring criterion definitions."""
+
+    return _CRITERION_DEFINITIONS
 
 
 def keyword_match_score(answer: str, keywords: Iterable[str]) -> Dict[str, bool]:
@@ -77,20 +152,27 @@ def cosine_similarity_score(answer: str, reference: str) -> float:
 def score_answer(answer: str, question: QuestionSpec) -> ScoreResult:
     """Score a single answer using heuristics that mimic the AI workflow."""
     answer = answer.strip()
+    analysis = analyse_answer(answer, question)
     if not answer:
-        return ScoreResult(score=0.0, feedback="回答が入力されていません。", keyword_hits={})
+        return ScoreResult(
+            score=0.0,
+            feedback="回答が入力されていません。",
+            keyword_hits=analysis.keyword_hits,
+            criteria=analysis.criteria,
+            analysis=analysis,
+        )
 
-    keyword_hits = keyword_match_score(answer, question.keywords)
-    keyword_ratio = sum(keyword_hits.values()) / max(len(keyword_hits), 1)
-
-    similarity = cosine_similarity_score(answer, question.model_answer)
-
-    # Combine keyword ratio and similarity with simple weighting.
-    raw_score = (0.6 * keyword_ratio + 0.4 * similarity) * question.max_score
+    weight_total = sum(criterion.weight for criterion in analysis.criteria) or 1.0
+    combined_ratio = sum(
+        criterion.score * criterion.weight for criterion in analysis.criteria
+    ) / weight_total
+    raw_score = combined_ratio * question.max_score
     score = round(min(question.max_score, max(0.0, raw_score)), 2)
 
+    keyword_hits = analysis.keyword_hits
     missing_keywords = [kw for kw, hit in keyword_hits.items() if not hit]
     positive_points: List[str] = []
+    keyword_ratio = analysis.keyword_ratio
     if keyword_ratio >= 0.8:
         positive_points.append("主要キーワードをバランス良く押さえています。")
     elif keyword_ratio >= 0.4:
@@ -98,10 +180,14 @@ def score_answer(answer: str, question: QuestionSpec) -> ScoreResult:
             f"キーワードに{sum(keyword_hits.values())}件触れており、論点を一部捉えています。"
         )
 
+    similarity = analysis.similarity
     if similarity >= 0.65:
         positive_points.append("模範解答と主旨が近く、論理展開も概ね整っています。")
     elif similarity >= 0.45:
         positive_points.append("模範解答との方向性は合っています。表現を磨くとさらに良くなります。")
+
+    if analysis.clarity_score >= 0.7:
+        positive_points.append("文の区切りが適切で、読み手に伝わる表現になっています。")
 
     if not positive_points:
         positive_points.append("自分の言葉で答案をまとめようとしている点は評価できます。")
@@ -113,6 +199,8 @@ def score_answer(answer: str, question: QuestionSpec) -> ScoreResult:
         improvement_points.append("解答内に重要キーワードが少ないため、設問要求を再確認しましょう。")
     if similarity < 0.45:
         improvement_points.append("模範解答と論点がずれている可能性があります。因果関係を意識した構成を意識してください。")
+    if analysis.clarity_score < 0.5:
+        improvement_points.append("文が長文化している可能性があります。句読点や接続語で段落を整理しましょう。")
     if not improvement_points:
         improvement_points.append("細部の表現を磨くと、より説得力の高い答案になります。")
 
@@ -124,7 +212,13 @@ def score_answer(answer: str, question: QuestionSpec) -> ScoreResult:
     improvement_suggestion = "設問文から与件企業の課題・強みを抜き出し、キーワードを盛り込んだうえで因果を意識して記述しましょう。"
 
     feedback_sections = [
-        f"【得点サマリー】類似度: {similarity:.2f} / キーワード網羅率: {keyword_ratio:.2f}",
+        (
+            "【得点サマリー】"
+            f"キーワード網羅率: {analysis.keyword_ratio:.2f} / "
+            f"論理構成指標: {analysis.structure_score:.2f} / "
+            f"表現明瞭度: {analysis.clarity_score:.2f} / "
+            f"類似度: {analysis.similarity:.2f}"
+        ),
         "【良かった点】\n" + "\n".join(f"- {point}" for point in positive_points),
         "【改善が必要な点】\n" + "\n".join(f"- {point}" for point in improvement_points),
         "【学習すべきキーワード】\n" + "\n".join(f"- {kw}" for kw in study_keywords) if study_keywords else "",
@@ -132,7 +226,129 @@ def score_answer(answer: str, question: QuestionSpec) -> ScoreResult:
     ]
 
     feedback = "\n\n".join(section for section in feedback_sections if section)
-    return ScoreResult(score=score, feedback=feedback, keyword_hits=keyword_hits)
+    return ScoreResult(
+        score=score,
+        feedback=feedback,
+        keyword_hits=keyword_hits,
+        criteria=analysis.criteria,
+        analysis=analysis,
+    )
+
+
+def analyse_answer(answer: str, question: QuestionSpec) -> ScoreAnalysis:
+    """Return the detailed scoring analysis for a single answer."""
+
+    answer = answer.strip()
+    keywords = list(question.keywords)
+    if not answer:
+        keyword_hits = {kw: False for kw in keywords}
+        criteria = [
+            ScoreCriterion(
+                key=definition.key,
+                label=definition.label,
+                score=0.0,
+                weight=definition.weight,
+                description=definition.description,
+            )
+            for definition in _CRITERION_DEFINITIONS
+        ]
+        return ScoreAnalysis(
+            keyword_hits=keyword_hits,
+            keyword_ratio=0.0,
+            similarity=0.0,
+            structure_score=0.0,
+            clarity_score=0.0,
+            criteria=criteria,
+        )
+
+    keyword_hits = keyword_match_score(answer, keywords)
+    keyword_ratio = sum(keyword_hits.values()) / max(len(keyword_hits), 1)
+    similarity = cosine_similarity_score(answer, question.model_answer)
+    structure_score = _normalize_structure_score(similarity)
+    clarity_score = _estimate_clarity_score(answer)
+
+    criteria = [
+        ScoreCriterion(
+            key="keyword_ratio",
+            label=_CRITERION_LOOKUP["keyword_ratio"].label,
+            score=keyword_ratio,
+            weight=_CRITERION_LOOKUP["keyword_ratio"].weight,
+            description=_CRITERION_LOOKUP["keyword_ratio"].description,
+        ),
+        ScoreCriterion(
+            key="structure_score",
+            label=_CRITERION_LOOKUP["structure_score"].label,
+            score=structure_score,
+            weight=_CRITERION_LOOKUP["structure_score"].weight,
+            description=_CRITERION_LOOKUP["structure_score"].description,
+        ),
+        ScoreCriterion(
+            key="clarity_score",
+            label=_CRITERION_LOOKUP["clarity_score"].label,
+            score=clarity_score,
+            weight=_CRITERION_LOOKUP["clarity_score"].weight,
+            description=_CRITERION_LOOKUP["clarity_score"].description,
+        ),
+    ]
+
+    return ScoreAnalysis(
+        keyword_hits=keyword_hits,
+        keyword_ratio=keyword_ratio,
+        similarity=similarity,
+        structure_score=structure_score,
+        clarity_score=clarity_score,
+        criteria=criteria,
+    )
+
+
+def _normalize_structure_score(similarity: float) -> float:
+    """Convert cosine similarity into a 0-1 scale emphasising logical structure."""
+
+    if similarity <= 0:
+        return 0.0
+    # Similarity above 0.8 is treated as a perfect structural match.
+    return min(1.0, similarity / 0.8)
+
+
+def _estimate_clarity_score(answer: str) -> float:
+    """Estimate how clear the prose is based on punctuation and sentence length."""
+
+    text = answer.replace("\n", " ")
+    sentences = [
+        segment.strip()
+        for segment in re.split(r"[。．\.\!\?！？]", text)
+        if segment.strip()
+    ]
+    if not sentences:
+        return 0.0
+
+    avg_length = sum(len(sentence) for sentence in sentences) / len(sentences)
+    if avg_length <= 28:
+        length_score = 1.0
+    elif avg_length <= 40:
+        length_score = 0.85
+    elif avg_length <= 55:
+        length_score = 0.65
+    else:
+        length_score = max(0.0, 1.0 - (avg_length - 55) / 60)
+
+    if avg_length < 12:
+        length_score = max(length_score - 0.2, 0.0)
+
+    comma_count = len(re.findall(r"[、,，]", text))
+    punctuation_density = comma_count / max(len(sentences), 1)
+    punctuation_score = min(1.0, punctuation_density / 2)
+
+    connector_count = len(
+        re.findall(
+            r"(ため|ので|から|しかし|また|さらに|一方|結果|目的|効果|よって|したがって)",
+            answer,
+        )
+    )
+    flow_score = min(1.0, (connector_count / max(len(sentences), 1)) / 1.5 + 0.3)
+
+    clarity = 0.5 * length_score + 0.3 * punctuation_score + 0.2 * flow_score
+    return max(0.0, min(1.0, clarity))
 
 
 def evaluate_case_bundle(

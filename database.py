@@ -1778,6 +1778,7 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
         formatted_answers.append(
             {
                 "prompt": row["prompt"],
+                "question_id": row["question_id"],
                 "answer_text": row["answer_text"],
                 "score": row["score"],
                 "max_score": row["max_score"],
@@ -1785,6 +1786,7 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
                 "model_answer": row["model_answer"],
                 "explanation": row["explanation"],
                 "keyword_hits": json.loads(row["keyword_hits_json"]) if row["keyword_hits_json"] else {},
+                "keywords": json.loads(row["keywords_json"]) if row["keywords_json"] else [],
                 "intent_cards": json.loads(row["intent_cards_json"]) if row["intent_cards_json"] else [],
                 "video_url": row["video_url"],
                 "diagram_path": row["diagram_path"],
