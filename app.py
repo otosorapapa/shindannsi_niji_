@@ -1747,8 +1747,11 @@ def _inject_context_column_styles() -> None:
                 align-self: flex-start;
                 display: flex;
                 flex-direction: column;
-                max-height: calc(100vh - var(--context-panel-offset, 72px) - 16px);
-                overflow: hidden;
+                min-height: var(
+                    --context-column-min-height,
+                    calc(100vh - var(--context-panel-offset, 72px) - 16px)
+                );
+                padding-bottom: 1rem;
             }
             .practice-context-inner {
                 display: flex;
@@ -1907,9 +1910,11 @@ def _inject_context_column_styles() -> None:
                 .practice-context-column {
                     position: static;
                     top: auto;
+                    min-height: 0;
                     max-height: none;
                     overflow: visible;
                     display: block;
+                    padding-bottom: 0;
                 }
                 .context-panel-mobile-bar {
                     display: block;
@@ -1976,12 +1981,21 @@ def _inject_context_panel_behavior() -> None:
                     const doc = window.document;
                     const panel = doc.getElementById('context-panel');
                     const scrollArea = panel ? panel.querySelector('.context-panel-scroll') : null;
+                    const column = panel ? panel.closest('.practice-context-column') : null;
+                    const mainColumn = doc.querySelector('.practice-main-column');
                     const triggers = Array.from(doc.querySelectorAll('.context-panel-trigger'));
                     let lastTrigger = null;
 
                     if (panel && !panel.hasAttribute('aria-hidden')) {
                         panel.setAttribute('aria-hidden', 'true');
                     }
+
+                    const getPanelOffset = () => {
+                        const rootStyles = window.getComputedStyle(doc.documentElement);
+                        const rawOffset = rootStyles.getPropertyValue('--context-panel-offset');
+                        const parsed = parseFloat(rawOffset);
+                        return Number.isFinite(parsed) ? parsed : 72;
+                    };
 
                     const updateScrollbarCompensation = () => {
                         if (!panel || !scrollArea) {
@@ -1995,6 +2009,31 @@ def _inject_context_panel_behavior() -> None:
                             '--context-scrollbar-compensation',
                             `${scrollbarWidth}px`
                         );
+                    };
+
+                    const syncColumnMinHeight = (mq) => {
+                        if (!column) {
+                            return;
+                        }
+                        column.style.removeProperty('--context-column-min-height');
+                        const media = mq || window.matchMedia('(max-width: 900px)');
+                        if (media.matches) {
+                            return;
+                        }
+                        const offset = getPanelOffset();
+                        const viewportHeight = Math.max(0, window.innerHeight - offset - 16);
+                        let mainHeight = 0;
+                        if (mainColumn) {
+                            const rect = mainColumn.getBoundingClientRect();
+                            mainHeight = rect.height;
+                        }
+                        const target = Math.max(viewportHeight, mainHeight);
+                        if (target > 0) {
+                            column.style.setProperty(
+                                '--context-column-min-height',
+                                `${Math.ceil(target)}px`
+                            );
+                        }
                     };
 
                     const setAriaExpanded = (open) => {
@@ -2124,6 +2163,7 @@ def _inject_context_panel_behavior() -> None:
                                 doc.body.classList.remove('context-panel-open');
                             }
                         }
+                        syncColumnMinHeight(mq);
                     };
 
                     syncForViewport(mediaQuery);
@@ -2134,6 +2174,7 @@ def _inject_context_panel_behavior() -> None:
                     }
 
                     updateScrollbarCompensation();
+                    syncColumnMinHeight(mediaQuery);
 
                     if (scrollArea && typeof ResizeObserver !== 'undefined') {
                         if (!scrollArea.__contextPanelResizeObserver) {
@@ -2144,11 +2185,27 @@ def _inject_context_panel_behavior() -> None:
                         }
                     }
 
+                    if (mainColumn && typeof ResizeObserver !== 'undefined') {
+                        if (!mainColumn.__contextColumnResizeObserver) {
+                            mainColumn.__contextColumnResizeObserver = new ResizeObserver(() => {
+                                syncColumnMinHeight(mediaQuery);
+                            });
+                            mainColumn.__contextColumnResizeObserver.observe(mainColumn);
+                        }
+                    }
+
                     if (doc.body && !doc.body.dataset.contextPanelResizeBound) {
                         doc.body.dataset.contextPanelResizeBound = 'true';
-                        window.addEventListener('resize', updateScrollbarCompensation, {
-                            passive: true,
-                        });
+                        window.addEventListener(
+                            'resize',
+                            () => {
+                                updateScrollbarCompensation();
+                                syncColumnMinHeight(mediaQuery);
+                            },
+                            {
+                                passive: true,
+                            }
+                        );
                     }
 
                     if (doc.body && !doc.body.dataset.contextPanelEscapeBound) {
@@ -6131,6 +6188,7 @@ def practice_page(user: Dict) -> None:
     submitted = False
 
     with main_col:
+        st.markdown('<div class="practice-main-column">', unsafe_allow_html=True)
         question_count = len(problem["questions"])
         if question_count:
             nav_items = "".join(
@@ -6301,6 +6359,8 @@ def practice_page(user: Dict) -> None:
         st.markdown('<div id="practice-actions"></div>', unsafe_allow_html=True)
 
         submitted = st.button("AI採点に送信", type="primary")
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
     if submitted:
         answers = []
