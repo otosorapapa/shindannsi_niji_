@@ -4397,7 +4397,7 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
     button_placeholder = st.container()
 
     with button_placeholder:
-        col_reveal, col_next, col_shuffle = st.columns(3)
+        col_reveal, _, col_next, _, col_shuffle = st.columns([1, 0.1, 1, 0.1, 1])
         reveal_clicked = col_reveal.button("キーワードを表示", key=f"flashcard_reveal_{problem['id']}")
         next_clicked = col_next.button("次のカードへ", key=f"flashcard_next_{problem['id']}")
         shuffle_clicked = col_shuffle.button("カードを再シャッフル", key=f"flashcard_shuffle_{problem['id']}")
