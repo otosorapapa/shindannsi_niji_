@@ -6078,20 +6078,17 @@ def practice_page(user: Dict) -> None:
         dedent(
             """
             <style>
-            .practice-tree .stRadio > div[role="radiogroup"] {
-                gap: 0.35rem;
+            .practice-tree .tree-level {
+                margin-bottom: 0.75rem;
             }
-            .practice-tree .tree-level-title {
-                font-size: 0.85rem;
-                font-weight: 600;
-                color: #1f2937;
-                margin-bottom: 0.15rem;
+            .practice-tree .tree-level .stRadio > div[role="radiogroup"] {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
             }
-            .practice-tree .tree-level-year .stRadio > div[role="radiogroup"] label {
-                padding-left: 0.75rem;
-            }
-            .practice-tree .tree-level-question .stRadio > div[role="radiogroup"] label {
-                padding-left: 1.5rem;
+            .practice-tree .tree-level .stRadio > div[role="radiogroup"] label {
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
             }
             </style>
             """
@@ -6114,12 +6111,15 @@ def practice_page(user: Dict) -> None:
         case_key = "practice_tree_case"
         if case_key not in st.session_state or st.session_state[case_key] not in case_options:
             st.session_state[case_key] = case_options[0]
+        st.markdown('<div class="tree-level tree-level-case">', unsafe_allow_html=True)
         selected_case = st.radio(
             "事例I〜IV",
             case_options,
             key=case_key,
             label_visibility="collapsed",
+            horizontal=True,
         )
+        st.markdown("</div>", unsafe_allow_html=True)
 
         year_options = sorted(
             case_map[selected_case].keys(),
@@ -6136,13 +6136,16 @@ def practice_page(user: Dict) -> None:
         else:
             if year_key not in st.session_state or st.session_state[year_key] not in year_options:
                 st.session_state[year_key] = year_options[0]
+            st.markdown('<div class="tree-level tree-level-year">', unsafe_allow_html=True)
             selected_year = st.radio(
                 "↳ 年度 (R6/R5/R4…)",
                 year_options,
                 key=year_key,
                 format_func=_format_reiwa_label,
                 label_visibility="collapsed",
+                horizontal=True,
             )
+            st.markdown("</div>", unsafe_allow_html=True)
 
             problem_id = case_map[selected_case][selected_year]
             raw_problem = _load_problem_detail(problem_id, signature)
@@ -6163,13 +6166,16 @@ def practice_page(user: Dict) -> None:
                     return "設問"
                 return f"設問{question['order']}"
 
+            st.markdown('<div class="tree-level tree-level-question">', unsafe_allow_html=True)
             selected_question_id = st.radio(
                 "↳ 設問1〜",
                 question_options,
                 key=question_key,
                 format_func=_format_question_option,
                 label_visibility="collapsed",
+                horizontal=True,
             )
+            st.markdown("</div>", unsafe_allow_html=True)
             selected_question = question_lookup.get(selected_question_id)
         elif selected_year:
             st.info("この事例の設問データが見つかりません。設定ページから追加してください。", icon="ℹ️")
@@ -6764,12 +6770,15 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         case_key = "uploaded_tree_case"
         if case_key not in st.session_state or st.session_state[case_key] not in case_options:
             st.session_state[case_key] = case_options[0]
+        st.markdown('<div class="tree-level tree-level-case">', unsafe_allow_html=True)
         selected_case = st.radio(
             "事例I〜IV",
             case_options,
             key=case_key,
             label_visibility="collapsed",
+            horizontal=True,
         )
+        st.markdown("</div>", unsafe_allow_html=True)
 
         year_options = sorted(
             case_map[selected_case].keys(),
@@ -6782,13 +6791,16 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             year_key = f"uploaded_tree_year::{selected_case}"
             if year_key not in st.session_state or st.session_state[year_key] not in year_options:
                 st.session_state[year_key] = year_options[0]
+            st.markdown('<div class="tree-level tree-level-year">', unsafe_allow_html=True)
             selected_year = st.radio(
                 "↳ 年度 (R6/R5/R4…)",
                 year_options,
                 key=year_key,
                 format_func=_format_reiwa_label,
                 label_visibility="collapsed",
+                horizontal=True,
             )
+            st.markdown("</div>", unsafe_allow_html=True)
 
             question_keys = case_map[selected_case][selected_year]
 
@@ -6810,13 +6822,16 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
                     or st.session_state[question_key] not in question_keys
                 ):
                     st.session_state[question_key] = question_keys[0]
+                st.markdown('<div class="tree-level tree-level-question">', unsafe_allow_html=True)
                 selected_question_key = st.radio(
                     "↳ 設問1〜",
                     question_keys,
                     key=question_key,
                     format_func=_format_question_option,
                     label_visibility="collapsed",
+                    horizontal=True,
                 )
+                st.markdown("</div>", unsafe_allow_html=True)
                 selected_question = question_lookup.get(selected_question_key)
                 if selected_question:
                     slot_key = selected_question.get("_slot_key")
