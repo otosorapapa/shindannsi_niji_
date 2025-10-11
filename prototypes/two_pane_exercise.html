@@ -18,6 +18,7 @@
         --color-card-b: #e9f9f1;
         --color-card-c: #fff6e5;
         --color-card-d: #ffe9f3;
+        --color-text-muted: #6b7280;
         --shadow-focus: 0 0 0 2px rgba(37, 99, 235, 0.45);
         --radius-card: 16px;
         --spacing-lg: 32px;
@@ -25,6 +26,9 @@
         --spacing-sm: 12px;
         --spacing-xs: 8px;
         --transition-duration: 200ms;
+        --font-heading-xl: clamp(1.9rem, 1.6rem + 0.5vw, 2.2rem);
+        --font-heading-lg: clamp(1.45rem, 1.3rem + 0.3vw, 1.6rem);
+        --font-heading-md: clamp(1.2rem, 1.12rem + 0.2vw, 1.32rem);
         font-size: 16px;
       }
 
@@ -40,6 +44,7 @@
           --color-card-b: rgba(52, 211, 153, 0.24);
           --color-card-c: rgba(251, 191, 36, 0.24);
           --color-card-d: rgba(248, 113, 113, 0.24);
+          --color-text-muted: rgba(243, 244, 246, 0.7);
           --shadow-focus: 0 0 0 2px rgba(96, 165, 250, 0.65);
         }
       }
@@ -57,6 +62,39 @@
         background-color: var(--color-bg);
         color: var(--color-text);
         line-height: 1.6;
+      }
+
+      h1,
+      .heading-xl {
+        font-size: var(--font-heading-xl);
+        font-weight: 700;
+        line-height: 1.28;
+        letter-spacing: 0.01em;
+        margin: 0 0 var(--spacing-sm);
+      }
+
+      h2,
+      .heading-lg {
+        font-size: var(--font-heading-lg);
+        font-weight: 700;
+        line-height: 1.3;
+        margin: 0 0 var(--spacing-sm);
+      }
+
+      h3,
+      .heading-md {
+        font-size: var(--font-heading-md);
+        font-weight: 700;
+        line-height: 1.35;
+        margin: 0 0 var(--spacing-xs);
+      }
+
+      p {
+        margin: 0 0 var(--spacing-sm);
+      }
+
+      .text-muted {
+        color: var(--color-text-muted);
       }
 
       a {
@@ -116,19 +154,34 @@
         margin-bottom: var(--spacing-md);
       }
 
+      .context-pane__miniheader {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-xs);
+        align-items: center;
+        font-size: 0.9rem;
+        color: var(--color-text-muted);
+      }
+
+      .context-pane__miniheader strong {
+        color: var(--color-text);
+      }
+
       .context-pane__meta {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: var(--spacing-xs) var(--spacing-sm);
         font-size: 0.88rem;
+        color: var(--color-text-muted);
       }
 
       .context-pane__meta dt {
         font-weight: 600;
+        letter-spacing: 0.02em;
       }
 
       .context-pane__body {
-        font-size: 0.96rem;
+        font-size: 1rem;
         white-space: pre-line;
       }
 
@@ -151,6 +204,7 @@
         display: flex;
         flex-wrap: wrap;
         gap: var(--spacing-sm);
+        align-items: center;
       }
 
       .toc__link {
@@ -162,10 +216,16 @@
         background-color: var(--color-chip-bg);
         font-size: 0.9rem;
         border: 1px solid transparent;
+        gap: var(--spacing-xs);
         transition: background-color var(--transition-duration) ease,
           color var(--transition-duration) ease,
           border-color var(--transition-duration) ease;
         text-decoration: none;
+      }
+
+      .toc__label {
+        font-weight: 600;
+        letter-spacing: 0.01em;
       }
 
       .toc__link:hover,
@@ -244,6 +304,7 @@
         display: flex;
         gap: var(--spacing-sm);
         font-size: 0.9rem;
+        color: var(--color-text-muted);
       }
 
       .question-card__body {
@@ -284,6 +345,7 @@
       .char-counter {
         align-self: flex-end;
         font-size: 0.85rem;
+        color: var(--color-text-muted);
       }
 
       .char-counter--limit {
@@ -301,13 +363,23 @@
       .support-block__toggle {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: var(--spacing-xs);
         cursor: pointer;
         background: none;
-        border: none;
-        padding: 0;
+        border: 1px solid transparent;
+        padding: var(--spacing-xs) var(--spacing-sm);
         font: inherit;
         color: inherit;
+        border-radius: 999px;
+        transition: background-color var(--transition-duration) ease,
+          border-color var(--transition-duration) ease,
+          color var(--transition-duration) ease;
+      }
+
+      .support-block__toggle:hover,
+      .support-block__toggle:focus-visible {
+        background-color: var(--color-chip-bg);
+        border-color: var(--color-chip-active);
       }
 
       .support-block__content {
@@ -315,6 +387,7 @@
         padding: var(--spacing-xs) var(--spacing-sm);
         border-radius: 8px;
         background-color: rgba(255, 255, 255, 0.55);
+        color: var(--color-text-muted);
       }
 
       .support-block__content[hidden] {
@@ -324,6 +397,80 @@
       @media (prefers-color-scheme: dark) {
         .support-block__content {
           background-color: rgba(17, 24, 39, 0.55);
+        }
+      }
+
+      .icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background-color: rgba(37, 99, 235, 0.14);
+        color: var(--color-chip-active);
+        font-size: 0.75rem;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: 0.05em;
+        transition: background-color var(--transition-duration) ease,
+          color var(--transition-duration) ease;
+      }
+
+      .icon--toc::before {
+        content: "Q";
+      }
+
+      .icon--support::before {
+        content: "i";
+        font-style: italic;
+      }
+
+      .toc__link .icon {
+        margin-right: 2px;
+      }
+
+      .toc__link:hover .icon,
+      .toc__link:focus-visible .icon {
+        background-color: rgba(37, 99, 235, 0.18);
+      }
+
+      .toc__link--active .icon {
+        background-color: var(--color-chip-active-text);
+        color: var(--color-chip-active);
+      }
+
+      .support-block__toggle .icon {
+        width: 24px;
+        height: 24px;
+        background-color: rgba(37, 99, 235, 0.12);
+        font-size: 0.72rem;
+      }
+
+      .support-block__toggle:hover .icon,
+      .support-block__toggle:focus-visible .icon,
+      .support-block__toggle[aria-expanded="true"] .icon {
+        background-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
+      }
+
+      .support-block__label {
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .icon {
+          background-color: rgba(96, 165, 250, 0.22);
+          color: var(--color-chip-active);
+        }
+
+        .toc__link--active .icon {
+          background-color: var(--color-chip-active-text);
+        }
+
+        .support-block__toggle .icon {
+          background-color: rgba(96, 165, 250, 0.24);
         }
       }
 
@@ -406,7 +553,7 @@
         <header class="context-pane__header">
           <div class="context-pane__miniheader">
             <strong>事例I 令和6年</strong>
-            <a href="#question-1">設問一覧へジャンプ</a>
+            <a class="text-muted" href="#question-1">設問一覧へジャンプ</a>
           </div>
           <h1 id="context-heading">B製造業 与件文</h1>
           <dl class="context-pane__meta">
@@ -443,10 +590,22 @@
         <h2 id="exercise-heading" class="sr-only">演習と設問</h2>
         <nav class="exercise__toc" aria-label="設問目次">
           <!-- TOCチップで現在の設問位置を可視化 -->
-          <a class="toc__link" href="#question-1">設問1</a>
-          <a class="toc__link" href="#question-2">設問2</a>
-          <a class="toc__link" href="#question-3">設問3</a>
-          <a class="toc__link" href="#question-4">設問4</a>
+          <a class="toc__link" href="#question-1">
+            <span class="icon icon--toc" aria-hidden="true"></span>
+            <span class="toc__label">設問1</span>
+          </a>
+          <a class="toc__link" href="#question-2">
+            <span class="icon icon--toc" aria-hidden="true"></span>
+            <span class="toc__label">設問2</span>
+          </a>
+          <a class="toc__link" href="#question-3">
+            <span class="icon icon--toc" aria-hidden="true"></span>
+            <span class="toc__label">設問3</span>
+          </a>
+          <a class="toc__link" href="#question-4">
+            <span class="icon icon--toc" aria-hidden="true"></span>
+            <span class="toc__label">設問4</span>
+          </a>
         </nav>
         <section class="exercise__questions" aria-live="polite">
           <article
@@ -491,7 +650,8 @@
                 aria-controls="support-1"
                 data-support-id="support-1"
               >
-                💡 思考補助
+                <span class="icon icon--support" aria-hidden="true"></span>
+                <span class="support-block__label">思考補助</span>
               </button>
               <div id="support-1" class="support-block__content" hidden>
                 設計部門のDX化、BOM連携、技能伝承、人材評価の整合性など、
@@ -542,7 +702,8 @@
                 aria-controls="support-2"
                 data-support-id="support-2"
               >
-                📌 注意事項
+                <span class="icon icon--support" aria-hidden="true"></span>
+                <span class="support-block__label">注意事項</span>
               </button>
               <div id="support-2" class="support-block__content" hidden>
                 顧客接点の情報共有タイミング、設計部門の早期参画、試作段
@@ -593,7 +754,8 @@
                 aria-controls="support-3"
                 data-support-id="support-3"
               >
-                🗂 Tips
+                <span class="icon icon--support" aria-hidden="true"></span>
+                <span class="support-block__label">Tips</span>
               </button>
               <div id="support-3" class="support-block__content" hidden>
                 指導員制度、ペアワーク、動画記録、工程別のナレッジカード
@@ -644,7 +806,8 @@
                 aria-controls="support-4"
                 data-support-id="support-4"
               >
-                ✅ ゴール像
+                <span class="icon icon--support" aria-hidden="true"></span>
+                <span class="support-block__label">ゴール像</span>
               </button>
               <div id="support-4" class="support-block__content" hidden>
                 DXで創出した知見の共有や後進育成を評価指標に組み込み、成
