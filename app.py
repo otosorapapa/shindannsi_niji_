@@ -8571,6 +8571,51 @@ def _compute_learning_stats(history_df: pd.DataFrame) -> Dict[str, Any]:
     return stats
 
 
+def _compute_user_performance_snapshot(history_df: pd.DataFrame) -> Dict[str, Any]:
+    """Return learner-level aggregates used for peer benchmarking."""
+
+    result: Dict[str, Any] = {
+        "attempt_count": 0,
+        "duration_count": 0,
+        "average_accuracy": None,
+        "median_accuracy": None,
+        "average_duration_minutes": None,
+        "median_duration_minutes": None,
+    }
+
+    if history_df.empty:
+        return result
+
+    score_series = pd.to_numeric(history_df.get("得点"), errors="coerce")
+    max_series = pd.to_numeric(history_df.get("満点"), errors="coerce")
+    if score_series is None or max_series is None:
+        return result
+
+    valid_mask = (
+        score_series.notna()
+        & max_series.notna()
+        & (max_series.astype(float) > 0)
+    )
+
+    if valid_mask.any():
+        ratio_series = (score_series[valid_mask] / max_series[valid_mask]).clip(lower=0.0, upper=1.0)
+        if not ratio_series.empty:
+            result["attempt_count"] = int(ratio_series.count())
+            result["average_accuracy"] = float(ratio_series.mean())
+            result["median_accuracy"] = float(ratio_series.median())
+
+    duration_series = pd.to_numeric(history_df.get("学習時間(分)"), errors="coerce")
+    if duration_series is not None:
+        valid_durations = duration_series.dropna()
+        valid_durations = valid_durations[valid_durations > 0]
+        if not valid_durations.empty:
+            result["average_duration_minutes"] = float(valid_durations.mean())
+            result["median_duration_minutes"] = float(valid_durations.median())
+            result["duration_count"] = int(valid_durations.count())
+
+    return result
+
+
 def _calculate_level(total_experience: float) -> Dict[str, float]:
     level = 1
     xp_needed = 200.0
@@ -12272,6 +12317,8 @@ def history_page(user: Dict) -> None:
 
     stats = _compute_learning_stats(history_df)
     progress_overview = _compute_progress_overview(history_df)
+    user_performance = _compute_user_performance_snapshot(history_df)
+    peer_stats = database.compute_peer_attempt_statistics(exclude_user_id=user["id"])
     reminder_settings = database.get_reminder_settings(user["id"])
     review_schedule = database.list_upcoming_reviews(user_id=user["id"], limit=10)
     due_reviews_count = database.count_due_reviews(user_id=user["id"])
@@ -12308,6 +12355,68 @@ def history_page(user: Dict) -> None:
         )
     else:
         st.info("これから学習を始めましょう。初期推奨リマインダーは3日おきです。")
+
+    st.markdown("#### 匿名ベンチマーク比較")
+    if user_performance["attempt_count"] == 0:
+        st.caption("自分の演習データが蓄積されると他ユーザー平均と比較できます。")
+    elif peer_stats["attempt_count"] == 0 or peer_stats["user_count"] == 0:
+        st.caption("他の学習者の匿名統計が集まり次第、比較指標が表示されます。")
+    else:
+        benchmark_col1, benchmark_col2 = st.columns(2)
+
+        user_accuracy = user_performance.get("average_accuracy")
+        peer_accuracy = peer_stats.get("average_accuracy")
+        if user_accuracy is not None and peer_accuracy is not None:
+            delta_accuracy = (user_accuracy - peer_accuracy) * 100
+            benchmark_col1.metric(
+                "平均正答率",
+                f"{user_accuracy * 100:.1f}%",
+                f"{delta_accuracy:+.1f}pt",
+            )
+            median_accuracy = peer_stats.get("median_accuracy")
+            median_text = (
+                f" / 中央値 {median_accuracy * 100:.1f}%"
+                if median_accuracy is not None
+                else ""
+            )
+            benchmark_col1.caption(
+                f"他ユーザー平均 {peer_accuracy * 100:.1f}%{median_text}"
+                f"（{peer_stats['attempt_count']}件の演習を集計）"
+            )
+        else:
+            benchmark_col1.metric("平均正答率", "ー")
+            benchmark_col1.caption("比較に必要なスコアデータが不足しています。")
+
+        user_duration = user_performance.get("average_duration_minutes")
+        peer_duration_seconds = peer_stats.get("average_duration_seconds")
+        peer_duration = (
+            peer_duration_seconds / 60.0 if peer_duration_seconds is not None else None
+        )
+        if user_duration is not None and peer_duration is not None:
+            delta_duration = user_duration - peer_duration
+            benchmark_col2.metric(
+                "平均回答時間",
+                f"{user_duration:.1f}分",
+                f"{delta_duration:+.1f}分",
+                delta_color="inverse",
+            )
+            median_duration_seconds = peer_stats.get("median_duration_seconds")
+            if median_duration_seconds is not None:
+                median_duration = median_duration_seconds / 60.0
+                median_duration_text = f" / 中央値 {median_duration:.1f}分"
+            else:
+                median_duration_text = ""
+            benchmark_col2.caption(
+                f"他ユーザー平均 {peer_duration:.1f}分{median_duration_text}"
+                f"（回答時間記録 {peer_stats['duration_count']}件）"
+            )
+        else:
+            benchmark_col2.metric("平均回答時間", "ー", delta_color="off")
+            benchmark_col2.caption("比較に必要な回答時間データが不足しています。")
+
+        st.caption(
+            "※ 個人が特定されないように全ユーザーの統計量のみを表示しています。"
+        )
 
     if review_schedule:
         st.markdown("#### 復習ハブ予定リスト")
