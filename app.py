@@ -1742,7 +1742,9 @@ def _inject_context_column_styles() -> None:
                 scroll-behavior: smooth;
             }
             .practice-context-column {
-                position: relative;
+                position: sticky;
+                top: var(--context-panel-offset, 72px);
+                align-self: flex-start;
             }
             .practice-context-inner {
                 display: flex;
@@ -1879,10 +1881,9 @@ def _inject_context_column_styles() -> None:
             @media (min-width: 901px) {
                 .practice-context-column {
                     display: flex;
+                    flex-direction: column;
                 }
                 .practice-context-inner {
-                    position: sticky;
-                    top: var(--context-panel-offset, 72px);
                     max-height: calc(100vh - 96px);
                     overflow: visible;
                 }
@@ -1900,6 +1901,10 @@ def _inject_context_column_styles() -> None:
                 }
             }
             @media (max-width: 900px) {
+                .practice-context-column {
+                    position: static;
+                    top: auto;
+                }
                 .context-panel-mobile-bar {
                     display: block;
                     position: sticky;
