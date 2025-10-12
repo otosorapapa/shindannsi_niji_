@@ -181,6 +181,7 @@ CASE_ORDER = ["事例I", "事例II", "事例III", "事例IV"]
 
 
 GLOBAL_STYLESHEET_PATH = Path(__file__).parent / "assets" / "app.css"
+TWO_PANE_EXERCISE_HTML_PATH = Path(__file__).parent / "frontend" / "two_pane_exercise.html"
 
 
 CASEIII_TIMELINE = [
@@ -11860,11 +11861,37 @@ def _format_question_summary_label(
     return head
 
 
+def _render_two_pane_prototype_preview() -> None:
+    if not TWO_PANE_EXERCISE_HTML_PATH.exists():
+        return
+
+    try:
+        prototype_html = TWO_PANE_EXERCISE_HTML_PATH.read_text(encoding="utf-8")
+    except OSError:
+        logger.exception(
+            "Failed to load two-pane exercise prototype HTML from %s",
+            TWO_PANE_EXERCISE_HTML_PATH,
+        )
+        st.info(
+            "演習画面の新レイアウトプレビューを読み込めませんでした。ファイル配置を確認してください。",
+            icon="ℹ️",
+        )
+        return
+
+    with st.expander("新レイアウト（2ペインUI）プレビュー", expanded=False):
+        st.caption(
+            "`frontend/two_pane_exercise.html` の最新内容をそのまま埋め込んだプレビューです。",
+        )
+        components.html(prototype_html, height=940, scrolling=True)
+
+
 def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。与件ハイライトと詳細解説で復習効果を高めましょう。")
 
     _inject_practice_navigation_styles()
+
+    _render_two_pane_prototype_preview()
 
     past_data_df = st.session_state.get("past_data")
     signature = _problem_data_signature()
