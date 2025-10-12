@@ -1,26 +1,32 @@
 :root {
-  --app-bg: #f8fafc;
-  --app-surface: rgba(255, 255, 255, 0.92);
+  --app-bg: linear-gradient(180deg, #f8fafc 0%, #eef2ff 60%, #e0f2fe 100%);
+  --app-surface: rgba(255, 255, 255, 0.94);
+  --app-surface-muted: rgba(255, 255, 255, 0.82);
   --app-border: rgba(148, 163, 184, 0.35);
+  --app-shadow: 0 24px 48px rgba(15, 23, 42, 0.12);
   --app-accent: #2563eb;
   --app-accent-strong: #1d4ed8;
+  --app-success: #16a34a;
+  --app-warning: #f97316;
+  --app-danger: #dc2626;
   --app-text-strong: #0f172a;
   --app-text-muted: #64748b;
+  --app-text-subtle: #94a3b8;
+  --app-radius-lg: 18px;
+  --app-radius-md: 12px;
+  --app-radius-sm: 8px;
+  --app-transition: 160ms ease;
 }
 
 [data-testid="stAppViewContainer"] > .main {
-  background: linear-gradient(180deg, var(--app-bg) 0%, #eef2ff 65%, #e0f2fe 100%);
-  padding: 2.5rem 2.25rem 4rem;
+  background: var(--app-bg);
+  padding: 2.75rem 2.5rem 4rem;
 }
 
 [data-testid="stSidebar"] {
   background: var(--app-surface);
   border-right: 1px solid var(--app-border);
-  box-shadow: 24px 0 60px rgba(15, 23, 42, 0.08);
-}
-
-[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > * + * {
-  margin-top: 0.75rem;
+  box-shadow: 18px 0 60px rgba(15, 23, 42, 0.08);
 }
 
 header[data-testid="stHeader"] {
@@ -32,19 +38,34 @@ header[data-testid="stHeader"] .stMarkdown p {
   color: var(--app-text-muted);
 }
 
+/* Generic typography helpers */
+.stMarkdown h1,
+.stMarkdown h2,
+.stMarkdown h3 {
+  font-family: "Noto Sans JP", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--app-text-strong);
+}
+
+.stMarkdown p,
+.stMarkdown ul,
+.stMarkdown ol {
+  color: var(--app-text-muted);
+}
+
+/* Buttons */
 .stButton > button {
   border-radius: 999px;
-  padding: 0.6rem 1.2rem;
+  padding: 0.6rem 1.3rem;
   border: 1px solid transparent;
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(37, 99, 235, 0.32));
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(37, 99, 235, 0.4));
   color: var(--app-text-strong);
   font-weight: 600;
-  transition: transform 120ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  transition: transform var(--app-transition), box-shadow var(--app-transition), border-color var(--app-transition);
 }
 
 .stButton > button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.22);
+  box-shadow: 0 12px 32px rgba(37, 99, 235, 0.24);
   border-color: rgba(37, 99, 235, 0.45);
 }
 
@@ -53,32 +74,220 @@ header[data-testid="stHeader"] .stMarkdown p {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
 }
 
+.stDownloadButton button,
+.stDownloadButton button:hover {
+  background: var(--app-accent);
+  color: white;
+  border: none;
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.32);
+}
+
+/* Tabs */
 .stTabs [data-baseweb="tab-list"] {
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 .stTabs [data-baseweb="tab"] {
-  border-radius: 12px;
+  border-radius: var(--app-radius-md);
   border: 1px solid transparent;
-  padding: 0.45rem 0.9rem;
+  padding: 0.5rem 1rem;
   color: var(--app-text-muted);
-  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition: background-color var(--app-transition), color var(--app-transition), border-color var(--app-transition);
 }
 
 .stTabs [aria-selected="true"][data-baseweb="tab"] {
-  background: rgba(37, 99, 235, 0.12);
+  background: rgba(37, 99, 235, 0.14);
   color: var(--app-accent-strong);
   border-color: rgba(37, 99, 235, 0.35);
   font-weight: 600;
 }
 
+/* Metrics & cards */
+.metric-card,
+.section-card,
+.analysis-card {
+  background: var(--app-surface);
+  border-radius: var(--app-radius-lg);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 1.4rem 1.6rem;
+  box-shadow: var(--app-shadow);
+  backdrop-filter: blur(8px);
+}
+
+.metric-card h3,
+.section-card h3,
+.analysis-card h3 {
+  margin-bottom: 0.35rem;
+  font-weight: 700;
+  color: var(--app-text-strong);
+}
+
+.metric-card .value {
+  font-size: clamp(1.6rem, 1.2rem + 1vw, 2rem);
+  font-weight: 700;
+  color: var(--app-accent-strong);
+}
+
+.section-card + .section-card {
+  margin-top: 1.25rem;
+}
+
+/* Badges */
+.badge,
+.status-badge,
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--app-accent-strong);
+}
+
+.status-badge[data-variant="success"] {
+  background: rgba(22, 163, 74, 0.12);
+  color: var(--app-success);
+}
+
+.status-badge[data-variant="warning"] {
+  background: rgba(249, 115, 22, 0.12);
+  color: var(--app-warning);
+}
+
+.status-badge[data-variant="danger"] {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--app-danger);
+}
+
+/* Timeline */
+.timeline {
+  position: relative;
+  padding-left: 1.6rem;
+  margin: 1.25rem 0;
+  border-left: 2px solid rgba(37, 99, 235, 0.25);
+}
+
+.timeline-item {
+  position: relative;
+  padding: 0.35rem 0 0.9rem 1rem;
+}
+
+.timeline-item::before {
+  content: "";
+  position: absolute;
+  top: 0.45rem;
+  left: -1.75rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 999px;
+  background: var(--app-accent);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.18);
+}
+
+/* Tables */
+.stTable,
+[data-testid="stTable"] {
+  overflow: hidden;
+  border-radius: var(--app-radius-md);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.12);
+}
+
+.stTable thead tr,
+[data-testid="stTable"] thead tr {
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.stTable th,
+[data-testid="stTable"] th {
+  font-weight: 600;
+  color: var(--app-text-strong);
+}
+
+.stTable tbody tr:nth-child(even),
+[data-testid="stTable"] tbody tr:nth-child(even) {
+  background: rgba(15, 23, 42, 0.02);
+}
+
+/* Inputs */
+.stSelectbox > div > div,
+.stMultiselect > div > div,
+.stTextInput > div > div > input,
+.stTextArea textarea,
+.stNumberInput input {
+  border-radius: var(--app-radius-md);
+  border: 1px solid rgba(148, 163, 184, 0.4) !important;
+  box-shadow: none !important;
+  transition: border-color var(--app-transition), box-shadow var(--app-transition);
+}
+
+.stTextArea textarea:focus,
+.stTextInput > div > div > input:focus,
+.stNumberInput input:focus {
+  border-color: rgba(37, 99, 235, 0.6) !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18) !important;
+}
+
+.stSelectbox > div > div:focus-within,
+.stMultiselect > div > div:focus-within {
+  border-color: rgba(37, 99, 235, 0.6) !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18) !important;
+}
+
+/* Alerts */
+.stAlert {
+  border-radius: var(--app-radius-md);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+/* Expander */
+.streamlit-expanderHeader {
+  font-weight: 600;
+  color: var(--app-text-strong);
+}
+
+/* Progress */
+.stProgress > div > div > div {
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.8), rgba(37, 99, 235, 1));
+}
+
+/* Sidebar radio adjustments */
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > * + * {
+  margin-top: 0.75rem;
+}
+
+[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
+  padding: 0.5rem 0.85rem;
+  border-radius: var(--app-radius-md);
+  transition: background-color var(--app-transition), border-color var(--app-transition);
+}
+
+[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child:hover {
+  border-color: rgba(49, 51, 63, 0.25);
+  background-color: rgba(49, 51, 63, 0.05);
+}
+
+/* Footer helper */
+.app-footer {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.28);
+  color: var(--app-text-subtle);
+}
+
 @media (max-width: 960px) {
   [data-testid="stAppViewContainer"] > .main {
-    padding: 1.25rem 1rem 4.5rem;
+    padding: 1.5rem 1.15rem 4.5rem;
   }
 
-  [data-testid="stSidebar"] {
-    box-shadow: none;
-    border-right: none;
+  .metric-card,
+  .section-card,
+  .analysis-card {
+    padding: 1.1rem 1.2rem;
   }
 }
