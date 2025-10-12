@@ -14134,7 +14134,7 @@ def history_page(user: Dict) -> None:
             record for record in filtered_keyword_records if record["mode"] in selected_modes
         ]
 
-    keyword_analysis = _analyze_keyword_records(filtered_keyword_records)
+    keyword_analysis_data = _analyze_keyword_records(filtered_keyword_records)
     report_data = _build_learning_report(filtered_df)
 
     overview_tab, chart_tab, report_tab, keyword_tab, detail_tab = st.tabs(
@@ -14423,9 +14423,9 @@ def history_page(user: Dict) -> None:
                 )
 
     with keyword_tab:
-        answers_df = keyword_analysis["answers"]
-        summary_df = keyword_analysis["summary"]
-        recommendations = keyword_analysis["recommendations"]
+        answers_df = keyword_analysis_data["answers"]
+        summary_df = keyword_analysis_data["summary"]
+        recommendations = keyword_analysis_data["recommendations"]
 
         if answers_df.empty and summary_df.empty:
             st.info("キーワード採点の記録がまだありません。演習を重ねると分析が表示されます。")
