@@ -962,10 +962,28 @@
     <script>
       (() => {
         const appRoot = document.querySelector('[data-app="exercise"]');
-        if (!appRoot || appRoot.dataset.initialized === 'true') {
+        if (!appRoot) {
           return;
         }
-        appRoot.dataset.initialized = 'true';
+
+        const previousController = appRoot.__exerciseCleanupController;
+        if (previousController) {
+          previousController.abort();
+        }
+
+        const cleanupController = new AbortController();
+        const { signal } = cleanupController;
+        appRoot.__exerciseCleanupController = cleanupController;
+
+        signal.addEventListener(
+          'abort',
+          () => {
+            if (appRoot.__exerciseCleanupController === cleanupController) {
+              delete appRoot.__exerciseCleanupController;
+            }
+          },
+          { once: true }
+        );
 
         const escapeSelector = (value) =>
           typeof value === 'string'
@@ -1054,29 +1072,37 @@
         };
 
         tabButtons.forEach((button, index) => {
-          button.addEventListener('click', () => {
-            scrollToQuestion(button.dataset.target);
-          });
+          button.addEventListener(
+            'click',
+            () => {
+              scrollToQuestion(button.dataset.target);
+            },
+            { signal }
+          );
 
-          button.addEventListener('keydown', (event) => {
-            const { key } = event;
-            let nextIndex = index;
-            if (key === 'ArrowRight' || key === 'ArrowDown') {
-              nextIndex = (index + 1) % tabButtons.length;
-            } else if (key === 'ArrowLeft' || key === 'ArrowUp') {
-              nextIndex = (index - 1 + tabButtons.length) % tabButtons.length;
-            } else if (key === 'Home') {
-              nextIndex = 0;
-            } else if (key === 'End') {
-              nextIndex = tabButtons.length - 1;
-            } else {
-              return;
-            }
-            event.preventDefault();
-            const nextButtonEl = tabButtons[nextIndex];
-            nextButtonEl.focus();
-            scrollToQuestion(nextButtonEl.dataset.target);
-          });
+          button.addEventListener(
+            'keydown',
+            (event) => {
+              const { key } = event;
+              let nextIndex = index;
+              if (key === 'ArrowRight' || key === 'ArrowDown') {
+                nextIndex = (index + 1) % tabButtons.length;
+              } else if (key === 'ArrowLeft' || key === 'ArrowUp') {
+                nextIndex = (index - 1 + tabButtons.length) % tabButtons.length;
+              } else if (key === 'Home') {
+                nextIndex = 0;
+              } else if (key === 'End') {
+                nextIndex = tabButtons.length - 1;
+              } else {
+                return;
+              }
+              event.preventDefault();
+              const nextButtonEl = tabButtons[nextIndex];
+              nextButtonEl.focus();
+              scrollToQuestion(nextButtonEl.dataset.target);
+            },
+            { signal }
+          );
         });
 
         if (tabList?.dataset.wheelScroll === 'true') {
@@ -1092,16 +1118,22 @@
                 behavior: 'smooth',
               });
             },
-            { passive: false }
+            { passive: false, signal }
           );
         }
 
-        nextButton?.addEventListener('click', () => {
-          const targetId = nextButton.dataset.target;
-          if (targetId) {
-            scrollToQuestion(targetId);
-          }
-        });
+        if (nextButton) {
+          nextButton.addEventListener(
+            'click',
+            () => {
+              const targetId = nextButton.dataset.target;
+              if (targetId) {
+                scrollToQuestion(targetId);
+              }
+            },
+            { signal }
+          );
+        }
 
         if (questionCards.length) {
           updateFooterCta(questionCards[0].id);
@@ -1118,10 +1150,18 @@
               }
             });
           },
-          {
+          { 
             rootMargin: '-40% 0px -45% 0px',
             threshold: 0.1,
           }
+        );
+
+        signal.addEventListener(
+          'abort',
+          () => {
+            observer.disconnect();
+          },
+          { once: true }
         );
 
         questionCards.forEach((card) => {
@@ -1204,15 +1244,27 @@
             saveTimer = window.setTimeout(saveDraft, 300);
           };
 
-          textarea.addEventListener('input', () => {
-            if (counter) {
-              updateCounter(textarea, counter);
-            }
-            scheduleSave();
-          });
+          textarea.addEventListener(
+            'input',
+            () => {
+              if (counter) {
+                updateCounter(textarea, counter);
+              }
+              scheduleSave();
+            },
+            { signal }
+          );
 
-          textarea.addEventListener('blur', saveDraft);
-          window.addEventListener('beforeunload', saveDraft);
+          textarea.addEventListener('blur', saveDraft, { signal });
+          window.addEventListener('beforeunload', saveDraft, { signal });
+
+          signal.addEventListener(
+            'abort',
+            () => {
+              clearTimeout(saveTimer);
+            },
+            { once: true }
+          );
         });
 
         // 折りたたみ補助情報：ローカルストレージで既読状態を保持
@@ -1243,17 +1295,21 @@
             content.hidden = false;
           }
 
-          toggle.addEventListener('click', () => {
-            const expanded = toggle.getAttribute('aria-expanded') === 'true';
-            toggle.setAttribute('aria-expanded', String(!expanded));
-            content.hidden = expanded;
-            storedState[supportId] = !expanded;
-            try {
-              localStorage.setItem(storageKey, JSON.stringify(storedState));
-            } catch (error) {
-              // ストレージ未対応環境では静かにフォールバック
-            }
-          });
+          toggle.addEventListener(
+            'click',
+            () => {
+              const expanded = toggle.getAttribute('aria-expanded') === 'true';
+              toggle.setAttribute('aria-expanded', String(!expanded));
+              content.hidden = expanded;
+              storedState[supportId] = !expanded;
+              try {
+                localStorage.setItem(storageKey, JSON.stringify(storedState));
+              } catch (error) {
+                // ストレージ未対応環境では静かにフォールバック
+              }
+            },
+            { signal }
+          );
         });
       })();
     </script>
