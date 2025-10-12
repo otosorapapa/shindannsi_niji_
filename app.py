@@ -1616,6 +1616,17 @@ def _init_session_state() -> None:
     st.session_state.setdefault("flashcard_states", {})
     st.session_state.setdefault("flashcard_progress", {})
     st.session_state.setdefault("ui_theme", "システム設定に合わせる")
+    st.session_state.setdefault("auto_save_enabled", True)
+    st.session_state.setdefault("history_comparison_enabled", True)
+    st.session_state.setdefault("two_pane_layout_enabled", True)
+    st.session_state.setdefault("character_counter_enabled", True)
+    st.session_state.setdefault("composition_guide_enabled", True)
+    st.session_state.setdefault("intent_card_enabled", True)
+    st.session_state.setdefault("highlight_enabled", True)
+    st.session_state.setdefault("keyboard_shortcuts_enabled", True)
+    st.session_state.setdefault("learning_theme_focus", "バランス型")
+    st.session_state.setdefault("analysis_period", "直近6ヶ月")
+    st.session_state.setdefault("analysis_comparison", "直近5回平均")
     st.session_state.setdefault("_global_styles_injected", False)
     st.session_state.setdefault("_intent_card_styles_injected", False)
     st.session_state.setdefault("_question_card_styles_injected", False)
@@ -1637,9 +1648,8 @@ def _init_session_state() -> None:
     if nav_targets:
         nav_value = nav_targets[0]
         if nav_value == "history":
-            st.session_state.page = "学習履歴"
-            st.session_state["navigation_selection"] = "学習履歴"
-            st.session_state["mobile_navigation"] = "学習履歴"
+            st.session_state.page = "履歴"
+            st.session_state["navigation_selection"] = "履歴"
             st.session_state["history_focus_from_notification"] = True
             if attempt_targets:
                 attempt_token = attempt_targets[0]
@@ -5342,195 +5352,56 @@ def main_view() -> None:
 
     navigation_items = {
         "ホーム": dashboard_page,
-        "過去問演習": practice_page,
-        "模擬試験": mock_exam_page,
-        "学習履歴": history_page,
+        "過去問": practice_page,
+        "模試": mock_exam_page,
+        "履歴": history_page,
+        "学習分析": learning_analysis_page,
         "設定": settings_page,
     }
 
-    st.sidebar.title("ナビゲーション")
-    st.sidebar.markdown(
-        dedent(
-            """
-            <style>
-            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] {
-                margin-bottom: 0.3rem;
-            }
-            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:first-child {
-                display: none;
-            }
-            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
-                width: 100%;
-                padding: 0.5rem 0.75rem;
-                border-radius: 0.6rem;
-                border: 1px solid transparent;
-                transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-            }
-            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child:hover {
-                border-color: rgba(49, 51, 63, 0.2);
-                background-color: rgba(49, 51, 63, 0.05);
-            }
-            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > input:checked + div {
-                background-color: rgba(49, 51, 63, 0.06);
-                border-color: var(--primary-color);
-                color: var(--primary-color);
-                box-shadow: 0 0 0 1px var(--primary-color) inset;
-                font-weight: 600;
-            }
-            .mobile-top-nav {
-                display: none;
-            }
-            @media (max-width: 960px) {
-                section[data-testid="stSidebar"] {
-                    display: none !important;
-                }
-                [data-testid="stAppViewContainer"] > .main {
-                    padding-left: 0 !important;
-                }
-                .block-container {
-                    padding: calc(3.8rem + env(safe-area-inset-top, 0px)) 1rem 2.75rem;
-                    max-width: 100%;
-                }
-                .dashboard-grid {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 1.25rem;
-                }
-                .dashboard-toc {
-                    flex-wrap: wrap;
-                    gap: 0.65rem;
-                }
-                .dashboard-toc__link {
-                    flex: 1 1 calc(50% - 0.65rem);
-                    text-align: center;
-                }
-                .dashboard-card {
-                    padding: 1rem 1.05rem 1.1rem;
-                }
-                .summary-card-grid {
-                    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-                }
-                .summary-cta-card__item {
-                    padding: 0.95rem 1rem 0.9rem;
-                }
-                .kpi-tiles,
-                .metric-grid {
-                    grid-template-columns: 1fr;
-                }
-                .mobile-top-nav {
-                    display: block;
-                    position: sticky;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    z-index: 1300;
-                    padding: calc(env(safe-area-inset-top, 0px) + 0.65rem) 1rem 0.65rem;
-                    background: linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.88));
-                    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
-                    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
-                    backdrop-filter: blur(12px);
-                }
-                .mobile-top-nav [role="radiogroup"] {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: stretch;
-                    gap: 0.25rem;
-                }
-                .mobile-top-nav label[data-baseweb="radio"] {
-                    flex: 1 1 0;
-                }
-                .mobile-top-nav label[data-baseweb="radio"] > div:first-child {
-                    display: none;
-                }
-                .mobile-top-nav label[data-baseweb="radio"] > div:last-child {
-                    border-radius: 14px;
-                    border: 1px solid transparent;
-                    padding: 0.45rem 0.35rem 0.4rem;
-                    font-size: 0.78rem;
-                    font-weight: 600;
-                    text-align: center;
-                    color: var(--text-muted);
-                    background: rgba(248, 250, 252, 0.9);
-                    transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
-                }
-                .mobile-top-nav label[data-baseweb="radio"] > input:checked + div {
-                    border-color: rgba(37, 99, 235, 0.45);
-                    color: var(--brand-strong);
-                    background: rgba(219, 234, 254, 0.9);
-                    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.18);
-                }
-            }
-            @media (min-width: 961px) {
-                .mobile-top-nav {
-                    display: none !important;
-                }
-            }
-            </style>
-            """
-        ).strip(),
-        unsafe_allow_html=True,
-    )
-
     nav_labels = list(navigation_items.keys())
-    current_page = st.session_state.get("page")
+    navigation_key = "navigation_selection"
+    current_page = st.session_state.get(navigation_key) or st.session_state.get("page")
     if current_page not in navigation_items:
         current_page = nav_labels[0]
+    st.session_state[navigation_key] = current_page
     st.session_state.page = current_page
 
-    navigation_key = "navigation_selection"
-
-    if navigation_key not in st.session_state:
-        st.session_state[navigation_key] = current_page
-    elif st.session_state[navigation_key] not in navigation_items:
-        st.session_state[navigation_key] = current_page
-
-    selected_page = st.sidebar.radio(
-        "ページを選択",
-        nav_labels,
-        key=navigation_key,
-    )
-
-    st.session_state.page = selected_page
-
-    st.sidebar.divider()
-    st.sidebar.info(f"利用者: {user['name']} ({user['plan']}プラン)")
-    st.sidebar.caption(
-        "必要な情報にすぐアクセスできるよう、ページ別にコンテンツを整理しています。"
-    )
-
-    mobile_nav_key = "mobile_navigation"
-
-    def _sync_mobile_nav_to_sidebar() -> None:
-        selection = st.session_state.get(mobile_nav_key)
-        if selection in navigation_items:
-            st.session_state[navigation_key] = selection
-            st.session_state.page = selection
-
-    current_selection = st.session_state[navigation_key]
-    if st.session_state.get(mobile_nav_key) != current_selection:
-        st.session_state[mobile_nav_key] = current_selection
-
     with st.container():
-        st.markdown(
-            "<div class=\"mobile-top-nav\" role=\"navigation\" aria-label=\"主要メニュー\">",
-            unsafe_allow_html=True,
-        )
-        st.radio(
-            "主要メニュー",  # ラベルはスクリーンリーダー向けに保持
-            nav_labels,
-            key=mobile_nav_key,
-            horizontal=True,
-            label_visibility="collapsed",
-            on_change=_sync_mobile_nav_to_sidebar,
-        )
+        st.markdown("<div class=\"primary-nav__wrapper\">", unsafe_allow_html=True)
+        nav_cols = st.columns([3.6, 1.4], gap="large")
+        with nav_cols[0]:
+            st.markdown(
+                "<div class=\"primary-nav\" role=\"navigation\" aria-label=\"主要メニュー\">",
+                unsafe_allow_html=True,
+            )
+            selected_page = st.radio(
+                "主要メニュー",
+                nav_labels,
+                index=nav_labels.index(current_page),
+                key=navigation_key,
+                horizontal=True,
+                label_visibility="collapsed",
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+        with nav_cols[1]:
+            plan_label = "プレミアム" if user.get("plan") == "premium" else "無料プラン"
+            st.markdown(
+                dedent(
+                    f"""
+                    <div class=\"nav-plan-card\">
+                        <span class=\"nav-plan-card__label\">現在のプラン</span>
+                        <strong>{plan_label}</strong>
+                        <span class=\"nav-plan-card__hint\">利用者: {user['name']}</span>
+                    </div>
+                    """
+                ).strip(),
+                unsafe_allow_html=True,
+            )
         st.markdown("</div>", unsafe_allow_html=True)
 
-    page = st.session_state.get(navigation_key)
-    if page not in navigation_items:
-        page = nav_labels[0]
-        st.session_state[navigation_key] = page
-    st.session_state.page = page
-    navigation_items[page](user)
+    st.session_state.page = selected_page
+    navigation_items[selected_page](user)
 
 
 def _inject_dashboard_styles() -> None:
@@ -7822,8 +7693,8 @@ def dashboard_page(user: Dict) -> None:
     )
 
     def _navigate_to_practice(focus: Optional[Dict[str, Any]] = None) -> None:
-        st.session_state["navigation_selection"] = "過去問演習"
-        st.session_state["page"] = "過去問演習"
+        st.session_state["navigation_selection"] = "過去問"
+        st.session_state["page"] = "過去問"
         if focus:
             st.session_state["practice_focus"] = focus
         st.experimental_rerun()
@@ -14261,6 +14132,7 @@ def _handle_past_data_upload(file_bytes: bytes, filename: str) -> bool:
     if tables:
         message += f" 数表 {len(tables)}件をPandas DataFrameとして抽出しました。"
     st.success(message)
+    st.toast(message, icon="✅")
     return True
 
 
@@ -14292,7 +14164,9 @@ def _handle_model_answer_slot_upload(file_bytes: bytes, filename: str) -> bool:
         existing[key] = slot
 
     st.session_state.model_answer_slots = existing
-    st.success(f"模範解答スロットを登録しました。（新規 {added}件 / 上書き {updated}件）")
+    success_message = f"模範解答スロットを登録しました。（新規 {added}件 / 上書き {updated}件）"
+    st.success(success_message)
+    st.toast(success_message, icon="✅")
     return True
 
 
@@ -15232,20 +15106,21 @@ def _render_mock_exam_sidebar(exam: mock_exam.MockExam) -> None:
     if not (exam.timetable or exam.notices):
         return
 
-    sidebar = st.sidebar.container()
-    sidebar.divider()
-    if exam.timetable:
-        sidebar.markdown("#### 本番時間割")
-        for slot in exam.timetable:
-            detail = slot.get("detail")
-            detail_text = f"（{detail}）" if detail else ""
-            sidebar.markdown(
-                f"- **{slot.get('slot', '')}**: {slot.get('time', '')}{detail_text}"
-            )
-    if exam.notices:
-        sidebar.markdown("#### 注意事項")
-        for note in exam.notices:
-            sidebar.markdown(f"- {note}")
+    with st.container():
+        st.markdown("<div class='mock-support-panel'>", unsafe_allow_html=True)
+        if exam.timetable:
+            st.markdown("#### 本番時間割")
+            for slot in exam.timetable:
+                detail = slot.get("detail")
+                detail_text = f"（{detail}）" if detail else ""
+                st.markdown(
+                    f"- **{slot.get('slot', '')}**: {slot.get('time', '')}{detail_text}"
+                )
+        if exam.notices:
+            st.markdown("#### 注意事項")
+            for note in exam.notices:
+                st.markdown(f"- {note}")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _infer_case_weakness_tags(
@@ -16719,470 +16594,870 @@ def history_page(user: Dict) -> None:
         render_attempt_results(attempt_id)
 
 
-def settings_page(user: Dict) -> None:
-    st.title("設定・プラン管理")
 
-    st.write(
-        f"**ユーザー名:** {user['name']}\n"
-        f"**メールアドレス:** {user['email']}\n"
-        f"**契約プラン:** {user['plan']}"
+
+def learning_analysis_page(user: Dict) -> None:
+    st.title("学習分析")
+    st.caption("過去問や模試の解答履歴を集計し、得点傾向と優先すべき設問タイプを把握します。")
+
+    history_records = database.fetch_learning_history(user["id"])
+    keyword_records = database.fetch_keyword_performance(user["id"])
+
+    if not history_records:
+        st.info("まだ分析対象の演習データがありません。演習を実施するとグラフが表示されます。")
+        return
+
+    history_df = pd.DataFrame(history_records)
+    history_df["日付"] = pd.to_datetime(history_df["日付"], errors="coerce")
+
+    period_days_map = {"直近3ヶ月": 90, "直近6ヶ月": 180, "直近1年": 365, "全期間": None}
+    period_label = st.session_state.get("analysis_period", "直近6ヶ月")
+    days = period_days_map.get(period_label)
+    now = datetime.now(timezone.utc)
+    filtered_history = history_df.copy()
+    if days is not None:
+        period_start = now - timedelta(days=days)
+        filtered_history = history_df[history_df["日付"] >= period_start]
+    else:
+        period_start = history_df["日付"].min()
+
+    if filtered_history.empty:
+        st.warning("指定した期間の演習データがありません。期間設定を変更してください。", icon="⏱️")
+        return
+
+    def _average_ratio(df: pd.DataFrame) -> Optional[float]:
+        if df.empty:
+            return None
+        scores = pd.to_numeric(df["得点"], errors="coerce")
+        max_scores = pd.to_numeric(df["満点"], errors="coerce")
+        valid = max_scores > 0
+        if not valid.any():
+            return None
+        ratios = (scores[valid] / max_scores[valid]) * 100
+        return float(ratios.mean()) if not ratios.empty else None
+
+    current_ratio = _average_ratio(filtered_history)
+
+    comparison_label = st.session_state.get("analysis_comparison", "直近5回平均")
+    baseline_df = pd.DataFrame()
+    if comparison_label == "前年同期" and days is not None:
+        baseline_start = period_start - timedelta(days=365)
+        baseline_end = now - timedelta(days=365)
+        baseline_df = history_df[
+            (history_df["日付"] >= baseline_start)
+            & (history_df["日付"] < baseline_end)
+        ]
+    elif comparison_label == "直近5回平均":
+        baseline_df = history_df.tail(5)
+    elif comparison_label == "初回スコア":
+        baseline_df = history_df.head(1)
+
+    baseline_ratio = _average_ratio(baseline_df) if not baseline_df.empty else None
+    delta_text = None
+    if current_ratio is not None and baseline_ratio is not None:
+        delta_value = current_ratio - baseline_ratio
+        delta_text = f"{delta_value:+.1f} pt（{comparison_label}）"
+
+    metrics_cols = st.columns(3, gap="large")
+    metrics_cols[0].metric(
+        "平均得点率",
+        f"{current_ratio:.1f}%" if current_ratio is not None else "ー",
+        delta=delta_text,
+    )
+    metrics_cols[1].metric("期間内の演習回数", f"{len(filtered_history)}回")
+    avg_minutes_series = pd.to_numeric(
+        filtered_history.get("学習時間(分)"), errors="coerce"
+    ).dropna()
+    avg_minutes = float(avg_minutes_series.mean()) if not avg_minutes_series.empty else None
+    metrics_cols[2].metric(
+        "平均学習時間",
+        f"{avg_minutes:.1f}分" if avg_minutes is not None else "ー",
     )
 
-    plan_tab, learning_tab = st.tabs(["プラン管理", "学習設定"])
+    ratio_df = filtered_history.copy()
+    ratio_df["得点"] = pd.to_numeric(ratio_df["得点"], errors="coerce")
+    ratio_df["満点"] = pd.to_numeric(ratio_df["満点"], errors="coerce")
+    ratio_df["得点率"] = ratio_df.apply(
+        lambda row: (row["得点"] / row["満点"] * 100)
+        if row["満点"] and not pd.isna(row["得点"])
+        else None,
+        axis=1,
+    )
 
+    yearly_summary = (
+        ratio_df.dropna(subset=["得点率", "年度"])
+        .groupby("年度", as_index=False)["得点率"].mean()
+        .sort_values("年度")
+    )
+
+    answers_df = pd.DataFrame(keyword_records)
+    question_type_summary = pd.DataFrame()
+    case_summary = pd.DataFrame()
+    if not answers_df.empty:
+        answers_df["submitted_at"] = pd.to_datetime(
+            answers_df["submitted_at"], errors="coerce"
+        )
+        if days is not None:
+            answers_df = answers_df[answers_df["submitted_at"] >= period_start]
+        answers_df["得点"] = pd.to_numeric(answers_df["score"], errors="coerce")
+        answers_df["満点"] = pd.to_numeric(answers_df["max_score"], errors="coerce")
+        answers_df["得点率"] = answers_df.apply(
+            lambda row: (row["得点"] / row["満点"] * 100)
+            if row["満点"]
+            else None,
+            axis=1,
+        )
+        try:
+            question_type_df = pd.read_csv(QUESTION_TYPE_HISTORY_PATH)
+        except FileNotFoundError:
+            question_type_df = pd.DataFrame()
+        else:
+            question_type_df = question_type_df.rename(
+                columns={"case": "case_label", "question_no": "question_order"}
+            )
+            answers_df = answers_df.merge(
+                question_type_df,
+                how="left",
+                on=["year", "case_label", "question_order"],
+            )
+        answers_df["question_type"] = answers_df.get("question_type", "未分類").fillna("未分類")
+        question_type_summary = (
+            answers_df.dropna(subset=["得点率"])
+            .groupby("question_type", as_index=False)["得点率"].mean()
+            .sort_values("得点率", ascending=False)
+        )
+        case_summary = (
+            answers_df.dropna(subset=["得点率"])
+            .groupby(["year", "case_label"], as_index=False)["得点率"].mean()
+            .sort_values(["year", "case_label"])
+        )
+
+    chart_cols = st.columns(2, gap="large")
+    with chart_cols[0]:
+        if yearly_summary.empty:
+            st.caption("年度別のデータが不足しています。")
+        else:
+            year_chart = (
+                alt.Chart(yearly_summary)
+                .mark_line(point=True, color="#2563eb")
+                .encode(
+                    x=alt.X("年度:N", title="年度"),
+                    y=alt.Y(
+                        "得点率:Q",
+                        title="平均得点率(%)",
+                        scale=alt.Scale(domain=[0, 100]),
+                    ),
+                    tooltip=[
+                        alt.Tooltip("年度:N", title="年度"),
+                        alt.Tooltip("得点率:Q", title="平均得点率", format=".1f"),
+                    ],
+                )
+                .properties(height=280)
+            )
+            st.altair_chart(year_chart, use_container_width=True)
+    with chart_cols[1]:
+        if question_type_summary.empty:
+            st.caption("設問タイプ別の分析にはもう少しデータが必要です。")
+        else:
+            type_chart = (
+                alt.Chart(question_type_summary)
+                .mark_bar(color="#14b8a6")
+                .encode(
+                    y=alt.Y("question_type:N", title="設問タイプ", sort="-x"),
+                    x=alt.X(
+                        "得点率:Q",
+                        title="平均得点率(%)",
+                        scale=alt.Scale(domain=[0, 100]),
+                    ),
+                    tooltip=[
+                        alt.Tooltip("question_type:N", title="タイプ"),
+                        alt.Tooltip("得点率:Q", title="平均得点率", format=".1f"),
+                    ],
+                )
+                .properties(height=280)
+            )
+            st.altair_chart(type_chart, use_container_width=True)
+
+    highlight_messages: List[str] = []
+    if not question_type_summary.empty:
+        top_type = question_type_summary.iloc[0]
+        highlight_messages.append(
+            f"最も得点率が高い設問タイプは『{top_type['question_type']}』で平均{top_type['得点率']:.1f}%です。"
+        )
+    if question_type_summary.shape[0] > 1:
+        tail_type = question_type_summary.iloc[-1]
+        highlight_messages.append(
+            f"伸ばしたい設問タイプは『{tail_type['question_type']}』で平均{tail_type['得点率']:.1f}%です。"
+        )
+    if highlight_messages:
+        st.info("\n".join(highlight_messages))
+
+    with st.expander("年度×事例ごとの詳細", expanded=False):
+        if case_summary.empty:
+            st.caption("年度・事例別の詳細データはまだありません。演習データを蓄積しましょう。")
+        else:
+            detailed_df = case_summary.rename(
+                columns={"year": "年度", "case_label": "事例", "得点率": "平均得点率"}
+            )
+            detailed_df["平均得点率"] = detailed_df["平均得点率"].round(1)
+            st.dataframe(detailed_df, width="stretch", hide_index=True)
+
+    st.caption(
+        f"分析対象期間: {period_label} / 比較方法: {comparison_label}。設定は『設定 > 学習設定』で変更できます。"
+    )
+
+def settings_page(user: Dict) -> None:
+    st.title("設定")
+    st.caption("学習体験を最適化するための設定と管理ツールです。")
+
+    history_records = database.fetch_learning_history(user["id"])
+    history_df = pd.DataFrame(history_records) if history_records else pd.DataFrame()
+    if not history_df.empty and "日付" in history_df.columns:
+        history_df["日付"] = pd.to_datetime(history_df["日付"], errors="coerce")
+
+    keyword_records = database.fetch_keyword_performance(user["id"])
+    score_export_df = (
+        _prepare_history_log_export(history_df) if not history_df.empty else pd.DataFrame()
+    )
+    score_csv_bytes = (
+        score_export_df.to_csv(index=False).encode("utf-8-sig") if not score_export_df.empty else b""
+    )
+    answer_export_df = _prepare_answer_log_export(keyword_records)
+    answer_csv_bytes = (
+        answer_export_df.to_csv(index=False).encode("utf-8-sig")
+        if not answer_export_df.empty
+        else None
+    )
+    archive_bytes = (
+        _build_learning_log_archive(score_csv_bytes, answer_csv_bytes)
+        if score_csv_bytes
+        else b""
+    )
+
+    st.markdown("### よく使う設定")
+    with st.form("priority_settings_form", clear_on_submit=False):
+        primary_cols = st.columns(3, gap="large")
+        with primary_cols[0]:
+            auto_save_choice = st.radio(
+                "解答の自動保存",
+                options=["オン", "オフ"],
+                index=0 if st.session_state.auto_save_enabled else 1,
+                help="演習中に答案を自動保存します。推奨: オン。",
+                horizontal=True,
+            )
+            st.caption("推奨設定: オン。万が一の通信切断でも答案を守ります。")
+        with primary_cols[1]:
+            history_compare_choice = st.radio(
+                "履歴比較",
+                options=["オン", "オフ"],
+                index=0 if st.session_state.history_comparison_enabled else 1,
+                help="最新答案と過去答案を並べて確認します。推奨: オン。",
+                horizontal=True,
+            )
+            st.caption("推奨設定: オン。成長を可視化できます。")
+        with primary_cols[2]:
+            theme_options = ["ライトモード", "ダークモード", "システム設定に合わせる"]
+            current_theme = (
+                st.session_state.ui_theme
+                if st.session_state.ui_theme in theme_options
+                else "システム設定に合わせる"
+            )
+            theme_choice = st.radio(
+                "テーマ",
+                options=theme_options,
+                index=theme_options.index(current_theme),
+                help="アプリ全体の色調を切り替えます。",
+                horizontal=True,
+            )
+            st.caption("推奨設定: ライトモード（長時間の記述で目が疲れたら切り替えましょう）。")
+
+        secondary_cols = st.columns([1.6, 1.4, 1], gap="large")
+        with secondary_cols[0]:
+            theme_focus_options = ["バランス型", "弱点補強", "得点力強化"]
+            focus_index = (
+                theme_focus_options.index(st.session_state.learning_theme_focus)
+                if st.session_state.learning_theme_focus in theme_focus_options
+                else 0
+            )
+            learning_theme_choice = st.selectbox(
+                "学習テーマ",
+                options=theme_focus_options,
+                index=focus_index,
+                help="ダッシュボードや推奨演習のテーマを切り替えます。",
+            )
+            st.caption("推奨設定: バランス型。弱点補強フェーズでは切り替えましょう。")
+        with secondary_cols[1]:
+            st.markdown(
+                "<div class='quick-settings-hint'>履歴ダウンロードは下のボタンから実行できます。</div>",
+                unsafe_allow_html=True,
+            )
+        with secondary_cols[2]:
+            st.empty()
+
+        quick_submitted = st.form_submit_button("変更を保存", type="primary")
+
+    if quick_submitted:
+        st.session_state.auto_save_enabled = auto_save_choice == "オン"
+        st.session_state.history_comparison_enabled = history_compare_choice == "オン"
+        st.session_state.ui_theme = theme_choice
+        st.session_state.learning_theme_focus = learning_theme_choice
+        st.toast("よく使う設定を更新しました。", icon="✅")
+        st.success("よく使う設定を保存しました。")
+
+    download_cols = st.columns([1, 1, 1], gap="large")
+    with download_cols[0]:
+        st.download_button(
+            "履歴をまとめてダウンロード (ZIP)",
+            data=archive_bytes or b"",
+            file_name="learning_logs.zip",
+            mime="application/zip",
+            disabled=not archive_bytes,
+            help="得点推移と解答ログをまとめたZIPファイルを取得します。",
+        )
+    with download_cols[1]:
+        st.download_button(
+            "得点推移CSV",
+            data=score_csv_bytes or b"",
+            file_name="score_history.csv",
+            mime="text/csv",
+            disabled=not score_csv_bytes,
+        )
+    with download_cols[2]:
+        st.download_button(
+            "解答ログCSV",
+            data=answer_csv_bytes or b"",
+            file_name="answer_history.csv",
+            mime="text/csv",
+            disabled=answer_csv_bytes is None,
+        )
+
+    plan_tab, learning_tab, admin_tab = st.tabs(["プラン", "学習設定", "管理者向けツール"])
     with plan_tab:
-        st.subheader("プラン一覧")
+        _render_plan_overview_tab(user, history_df)
+    with learning_tab:
+        _render_learning_preferences_tab()
+    with admin_tab:
+        _render_admin_tools_tab()
 
-        plan_features = pd.DataFrame(
-            [
-                {
-                    "プラン": "無料プラン",
-                    "月額料金": "¥0",
-                    "AI採点": "\u2705 月20回まで",
-                    "詳細解説": "\u26aa 最新3回分のみ",
-                    "学習レポート": "\u26aa ハイライトのみ",
-                },
-                {
-                    "プラン": "プレミアム",
-                    "月額料金": "¥1,480",
-                    "AI採点": "\u2b50\ufe0f 無制限",
-                    "詳細解説": "\u2b50\ufe0f 全設問を無制限閲覧",
-                    "学習レポート": "\u2b50\ufe0f 個別アドバイス付き",
-                },
-            ]
-        )
-        st.dataframe(plan_features, width="stretch", hide_index=True)
 
-        st.caption(
-            "\U0001f4a1 プレミアムプランでは AI 採点の上限が解除され、全ての模擬試験・過去問で詳細解説を好きなだけ閲覧できます。"
-        )
+def _render_plan_overview_tab(user: Dict, history_df: pd.DataFrame) -> None:
+    plan_code = user.get("plan", "free")
+    is_premium = plan_code == "premium"
+    plan_label = "プレミアム" if is_premium else "無料プラン"
 
-        st.subheader("アップグレードのメリット")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(
-                """
-                - 🧠 **AI採点の無制限化**: 事例演習の回数を気にせずフィードバックを受けられます。
-                - 📊 **詳細な学習レポート**: 記述力の伸びや課題を自動分析し、次に取り組むべきテーマを提案します。
-                """
-            )
-        with col2:
-            st.markdown(
-                """
-                - 📚 **詳細解説の読み放題**: 各設問の模範答案・解説を制限なく確認できます。
-                - 🕒 **優先サポート**: 24時間以内のメール返信で学習の悩みをサポートします。
-                """
-            )
+    st.subheader("プラン概要")
+    st.caption("現在の利用状況と利用可能な機能を確認できます。")
 
-        st.subheader("プラン変更")
-        st.write("AI採点の回数制限を拡張し、詳細解説を無制限に閲覧できる有料プランをご用意しています。")
+    attempts_this_month = 0
+    if not history_df.empty and "日付" in history_df.columns:
+        month_series = history_df["日付"].dt.to_period("M")
+        current_period = pd.Timestamp.now(tz=timezone.utc).to_period("M")
+        attempts_this_month = int(month_series[month_series == current_period].count())
+    monthly_limit = 20
+    remaining_attempts = max(0, monthly_limit - attempts_this_month) if not is_premium else None
 
-        pricing_col, action_col = st.columns([1.2, 1])
-        with pricing_col:
-            st.markdown(
-                """
-                - 💳 **月額: 1,480円 (税込)**
-                - 🧾 クレジットカード (Visa / MasterCard / JCB)、デビットカード、主要電子マネーに対応
-                - 🔁 いつでも解約可能。更新日まではプレミアム機能を利用できます。
-                """
-            )
-        with action_col:
-            if user["plan"] == "free":
-                if st.button("有料プランにアップグレードする"):
-                    database.update_user_plan(user_id=user["id"], plan="premium")
-                    st.session_state.user = dict(database.get_user_by_email(user["email"]))
-                    st.success("プレミアムプランに変更しました。")
-            else:
-                st.info("既にプレミアムプランをご利用中です。")
-
-        st.subheader("サポート")
+    overview_cols = st.columns(3, gap="large")
+    with overview_cols[0]:
         st.markdown(
             dedent(
+                f"""
+                <div class='plan-card'>
+                    <span class='plan-card__label'>現在のプラン</span>
+                    <strong>{plan_label}</strong>
+                    <span class='plan-card__meta'>利用者: {user['name']}</span>
+                </div>
                 """
-                - お問い合わせ: support@example.com
-                - 不具合報告: support@example.com 宛に件名「バグ報告」でご連絡ください。再現手順やスクリーンショットの共有にご協力ください。
-                - 利用規約: 準備中
-                - 退会をご希望の場合はサポートまでご連絡ください。
-                """
-            ).strip()
+            ).strip(),
+            unsafe_allow_html=True,
         )
-        st.caption("サポート窓口へのご連絡で24時間以内の返信を目安としています。")
-
-    with learning_tab:
-        st.subheader("データアップロード")
-        st.caption(
-            "過去問・与件文・設問文を1つのCSV/Excel/PDFで一括管理できます。テンプレートを確認しながらアップロードしてください。"
-        )
-
-        st.markdown("#### テンプレートダウンロード")
-        try:
-            bundle_bytes = _load_template_bundle_bytes()
-        except FileNotFoundError:
-            st.warning(
-                "テンプレートファイルの一部を読み込めませんでした。リポジトリの data フォルダを確認してください。"
-            )
+    with overview_cols[1]:
+        st.metric("今月の演習回数", f"{attempts_this_month}回")
+    with overview_cols[2]:
+        if is_premium:
+            st.metric("AI採点上限", "無制限")
         else:
-            st.download_button(
-                "テンプレートを一括ダウンロード (ZIP)",
-                data=bundle_bytes,
-                file_name="templates_bundle.zip",
-                mime="application/zip",
-                help="CSVとJSONのテンプレートをまとめて取得できます。",
-                key="template_bundle_download",
-            )
-            included = " / ".join(name for name, _ in TEMPLATE_BUNDLE_FILES)
-            st.caption(f"含まれるファイル: {included}")
+            st.metric("残りAI採点枠", f"{remaining_attempts}回")
 
-        st.markdown("#### 過去問データ（与件文・設問文を含む）")
-        uploaded_file = st.file_uploader(
-            "過去問データファイルをアップロード (CSV/Excel/PDF/JSON)",
-            type=["csv", "xlsx", "xls", "pdf", "json"],
-            key="past_exam_uploader",
-        )
-        st.caption(
-            "R6/R5 事例III原紙テンプレートを同梱し、自動分解の精度を高めています。PDFとJSONアップロードにも対応しています。"
-        )
-        try:
-            template_bytes = _load_past_exam_template_bytes()
-        except FileNotFoundError:
-            st.warning("テンプレートファイルを読み込めませんでした。リポジトリの data フォルダを確認してください。")
-        else:
-            st.download_button(
-                "テンプレートCSVをダウンロード",
-                data=template_bytes,
-                file_name="past_exam_template.csv",
-                mime="text/csv",
-                help="アップロード用のひな形です。必須列とサンプル設問を含みます。",
-                key="past_exam_template_download",
-            )
-            with st.expander("テンプレートのサンプルを見る", expanded=False):
-                preview_df = _load_past_exam_template_preview()
-                st.dataframe(preview_df, width="stretch", hide_index=True)
-
-        if uploaded_file is not None:
-            st.session_state.pending_past_data_upload = {
-                "name": uploaded_file.name,
-                "data": uploaded_file.getvalue(),
-            }
-
-        pending_past = st.session_state.get("pending_past_data_upload")
-        if pending_past:
-            st.caption(f"選択中のファイル: {pending_past['name']}")
-            exec_col, clear_col = st.columns([1, 1])
-            with exec_col:
-                if st.button(
-                    "過去問データを取り込む",
-                    key="execute_past_data_upload",
-                    type="primary",
-                ):
-                    success = _handle_past_data_upload(
-                        pending_past["data"], pending_past["name"]
-                    )
-                    if success:
-                        st.session_state.pending_past_data_upload = None
-            with clear_col:
-                if st.button("選択中のファイルをクリア", key="reset_past_data_upload"):
-                    st.session_state.pending_past_data_upload = None
-
-        past_df = st.session_state.past_data
-        if past_df is not None:
-            st.caption(f"読み込み済みのレコード数: {len(past_df)}件")
-            st.dataframe(past_df.head(), width="stretch")
-            case_meta = st.session_state.get("uploaded_case_metadata", {}) or {}
-            question_meta = st.session_state.get("uploaded_question_metadata", {}) or {}
-            if case_meta:
-                summary_rows: List[Dict[str, Any]] = []
-                for case_key, meta in case_meta.items():
-                    if not isinstance(case_key, str) or "::" not in case_key:
-                        continue
-                    year_label, case_label = case_key.split("::", 1)
-                    question_keys = [
-                        key
-                        for key in question_meta.keys()
-                        if isinstance(key, str)
-                        and key.startswith(f"{year_label}::{case_label}::")
-                    ]
-                    summary_rows.append(
-                        {
-                            "年度": year_label,
-                            "事例": case_label,
-                            "ケースタイトル": meta.get("title") or "-",
-                            "設問数": len(question_keys),
-                            "詳細解説数": sum(
-                                1
-                                for key in question_keys
-                                if question_meta.get(key, {}).get("detailed_explanation")
-                            ),
-                            "動画リンク数": sum(
-                                1
-                                for key in question_keys
-                                if question_meta.get(key, {}).get("video_url")
-                            ),
-                            "図解数": sum(
-                                1
-                                for key in question_keys
-                                if question_meta.get(key, {}).get("diagram_path")
-                            ),
-                        }
-                    )
-                if summary_rows:
-                    summary_df = pd.DataFrame(summary_rows)
-                    summary_df["_year_sort"] = summary_df["年度"].map(_year_sort_key)
-                    summary_df["_case_sort"] = summary_df["事例"].map(
-                        lambda x: CASE_ORDER.index(x)
-                        if x in CASE_ORDER
-                        else len(CASE_ORDER)
-                    )
-                    summary_df = summary_df.sort_values(
-                        ["_year_sort", "_case_sort"], ascending=[False, True]
-                    ).drop(columns=["_year_sort", "_case_sort"])
-                    st.dataframe(summary_df, width="stretch", hide_index=True)
-                    st.caption("年度・事例ごとの登録状況です。詳細解説や動画リンクの有無を確認できます。")
-            tables = st.session_state.get("past_data_tables") or []
-            if tables:
-                with st.expander("抽出された数表", expanded=False):
-                    for idx, table in enumerate(tables, start=1):
-                        st.markdown(f"**数表 {idx}**")
-                        st.dataframe(table, width="stretch")
-            if st.button("アップロードデータをクリア", key="clear_past_data"):
-                st.session_state.past_data = None
-                st.session_state.past_data_tables = []
-                st.session_state.uploaded_case_metadata = {}
-                st.session_state.uploaded_question_metadata = {}
-                st.session_state.uploaded_case_contexts = {}
-                st.session_state.uploaded_question_texts = {}
-                st.info("アップロードデータを削除しました。")
-        else:
-            st.info("過去問データは未登録です。テンプレートを利用してアップロードしてください。")
-
-        st.markdown("##### 与件文プレビュー")
-        contexts = st.session_state.get("uploaded_case_contexts", {}) or {}
-        if contexts:
-            context_rows = []
-            for case_key, text in contexts.items():
-                if not isinstance(case_key, str):
-                    continue
-                parts = case_key.split("::", 1)
-                year_label = parts[0]
-                case_label = parts[1] if len(parts) > 1 else ""
-                normalized_text = str(text or "").strip()
-                lines = normalized_text.splitlines()
-                first_line = lines[0] if lines else normalized_text
-                preview = first_line[:40]
-                if normalized_text and len(normalized_text) > 40:
-                    preview = preview.rstrip() + "…"
-                context_rows.append(
-                    {
-                        "年度": year_label,
-                        "事例": case_label,
-                        "文字数": len(str(text)),
-                        "冒頭プレビュー": preview,
-                    }
-                )
-            if context_rows:
-                context_df = pd.DataFrame(context_rows)
-                context_df["_year_sort"] = context_df["年度"].map(
-                    lambda x: _year_sort_key(str(x))
-                )
-                context_df["_case_sort"] = context_df["事例"].map(
-                    lambda x: CASE_ORDER.index(x)
-                    if x in CASE_ORDER
-                    else len(CASE_ORDER)
-                )
-                context_df = context_df.sort_values(
-                    ["_year_sort", "_case_sort", "事例"],
-                    ascending=[False, True, True],
-                )
-                context_df = context_df.drop(columns=["_year_sort", "_case_sort"])
-                st.dataframe(context_df, width="stretch", hide_index=True)
-                st.caption("年度・事例ごとに最新の与件文が登録されています。再アップロードすると同じキーの内容は上書きされます。")
-            if st.button("与件文データをクリア", key="clear_case_contexts"):
-                st.session_state.uploaded_case_contexts = {}
-                st.info("登録済みの与件文データを削除しました。")
-        else:
-            st.info(
-                "登録済みの与件文データはありません。テンプレートの『与件文全体』または『与件文』列を入力すると自動で取り込まれます。"
+    feature_cards = [
+        ("AI採点", "月20回まで" if not is_premium else "無制限"),
+        ("詳細解説", "最新3回分まで" if not is_premium else "全問無制限"),
+        ("学習レポート", "ハイライト表示" if not is_premium else "個別アドバイス付き"),
+    ]
+    feature_cols = st.columns(len(feature_cards), gap="large")
+    for col, (title, description) in zip(feature_cols, feature_cards):
+        with col:
+            st.markdown(
+                dedent(
+                    f"""
+                    <div class='plan-feature-card'>
+                        <h4>{title}</h4>
+                        <p>{description}</p>
+                    </div>
+                    """
+                ).strip(),
+                unsafe_allow_html=True,
             )
 
-        st.markdown("##### 設問文プレビュー")
-        question_texts = st.session_state.get("uploaded_question_texts", {}) or {}
-        if question_texts:
-            question_rows = []
-            for slot_key, text in question_texts.items():
-                if not isinstance(slot_key, str):
-                    continue
-                parts = slot_key.split("::")
-                if len(parts) < 3:
-                    continue
-                year_label, case_label, question_no = parts[0], parts[1], parts[2]
-                if isinstance(text, dict):
-                    body_text = text.get("question_text") or text.get("設問文") or ""
-                    insight_text = text.get("question_insight") or text.get("設問インサイト") or ""
-                    aim_text = text.get("question_aim") or text.get("設問の狙い") or ""
-                    output_text = text.get("output_format") or text.get("必要アウトプット形式") or ""
-                    solution_text = text.get("solution_prompt") or text.get("定番解法プロンプト") or ""
-                else:
-                    body_text = text or ""
-                    insight_text = ""
-                    aim_text = ""
-                    output_text = ""
-                    solution_text = ""
-                normalized_text = str(body_text or "").strip()
-                lines = normalized_text.splitlines()
-                first_line = lines[0] if lines else normalized_text
-                preview = first_line[:40]
-                if normalized_text and len(normalized_text) > 40:
-                    preview = preview.rstrip() + "…"
-                question_rows.append(
-                    {
-                        "年度": year_label,
-                        "事例": case_label,
-                        "設問": question_no,
-                        "文字数": len(normalized_text),
-                        "冒頭プレビュー": preview,
-                        "設問インサイト": insight_text or "-",
-                        "設問の狙い": aim_text or "-",
-                        "アウトプット形式": output_text or "-",
-                        "解法プロンプト": solution_text or "-",
-                    }
-                )
-            if question_rows:
-                question_df = pd.DataFrame(question_rows)
-                question_df["_year_sort"] = question_df["年度"].map(
-                    lambda x: _year_sort_key(str(x))
-                )
-                question_df["_case_sort"] = question_df["事例"].map(
-                    lambda x: CASE_ORDER.index(x)
-                    if x in CASE_ORDER
-                    else len(CASE_ORDER)
-                )
-                question_df["_question_sort"] = question_df["設問"].map(
-                    lambda x: _normalize_question_number(x) or 0
-                )
-                question_df = question_df.sort_values(
-                    ["_year_sort", "_case_sort", "_question_sort"],
-                    ascending=[False, True, True],
-                )
-                question_df = question_df.drop(columns=["_year_sort", "_case_sort", "_question_sort"])
-                st.dataframe(question_df, width="stretch", hide_index=True)
-                st.caption("登録済みの設問文です。年度・事例・設問番号ごとに最新の内容が適用されます。")
-            if st.button("設問文データをクリア", key="clear_question_texts"):
-                st.session_state.uploaded_question_texts = {}
-                st.info("登録済みの設問文データを削除しました。")
-        else:
-            st.info("登録済みの設問文データはありません。テンプレートの『問題文』『設問の狙い』列などを入力すると自動で反映されます。")
+    st.markdown("#### プレミアムでできること")
+    st.markdown(
+        "- 🧠 AI採点の無制限利用で演習サイクルを加速\n"
+        "- 📊 設問タイプ別の詳細分析と推移レポート\n"
+        "- 🧑‍🏫 優先サポートで疑問点を素早く解決"
+    )
 
-        st.subheader("ワンクリック模範解答スロット")
-        st.caption("講師別の模範解答・講評セットを JSON でまとめて登録し、設問ごとにワンクリックで参照できます。")
-        slot_file = st.file_uploader(
-            "模範解答スロットJSONをアップロード",
-            type=["json"],
-            key="model_answer_slot_uploader",
-            help="年度・事例・設問番号をキーに、講師A/Bと採点観点を登録します。",
+
+
+    if not is_premium:
+        if st.button("プレミアムへアップグレード", type="primary", use_container_width=True):
+            database.update_user_plan(user_id=user["id"], plan="premium")
+            st.session_state.user = dict(database.get_user_by_email(user["email"]))
+            st.toast("プレミアムプランに変更しました。", icon="🚀")
+            st.success("プレミアムプランに変更しました。")
+            st.experimental_rerun()
+    else:
+        st.info("プレミアムプランをご利用中です。ありがとうございます。")
+
+
+def _render_learning_preferences_tab() -> None:
+    st.subheader("演習設定")
+    st.caption("演習画面の構成やサポート機能をまとめて調整します。")
+
+    with st.form("learning_preferences_form", clear_on_submit=False):
+        toggle_cols = st.columns(2, gap="large")
+        with toggle_cols[0]:
+            two_pane = st.checkbox(
+                "2ペインレイアウトを使用する",
+                value=st.session_state.two_pane_layout_enabled,
+                help="与件と答案を並列表示します。推奨: オン。",
+            )
+            st.caption("推奨設定: オン。設問と答案を同時に確認できます。")
+            word_counter = st.checkbox(
+                "字数カウンターを表示",
+                value=st.session_state.character_counter_enabled,
+                help="制限字数までの残りを常に確認できます。推奨: オン。",
+            )
+            st.caption("推奨設定: オン。時間配分と記述バランスを整えられます。")
+            composition = st.checkbox(
+                "文章構成ガイドを表示",
+                value=st.session_state.composition_guide_enabled,
+                help="序論・本論・結論の骨子例を表示します。推奨: オン。",
+            )
+            st.caption("推奨設定: オン。答案の構成迷子を防ぎます。")
+        with toggle_cols[1]:
+            intent_card = st.checkbox(
+                "設問趣旨カードを表示",
+                value=st.session_state.intent_card_enabled,
+                help="出題者の狙いや採点観点を常時表示します。推奨: オン。",
+            )
+            st.caption("推奨設定: オン。書きながら狙いを再確認できます。")
+            highlight = st.checkbox(
+                "ハイライト機能を有効にする",
+                value=st.session_state.highlight_enabled,
+                help="答案や与件の重要箇所に色を付けて整理します。推奨: オン。",
+            )
+            st.caption("推奨設定: オン。論点の抜け漏れを防ぎます。")
+            shortcuts = st.checkbox(
+                "キーボードショートカットを有効にする",
+                value=st.session_state.keyboard_shortcuts_enabled,
+                help="Ctrl+Enterで保存などのショートカットを利用します。推奨: オン。",
+            )
+            st.caption("推奨設定: オン。タイピング中心の学習を効率化します。")
+
+        option_cols = st.columns(2, gap="large")
+        with option_cols[0]:
+            auto_save_choice = st.radio(
+                "自動保存",
+                options=["オン", "オフ"],
+                index=0 if st.session_state.auto_save_enabled else 1,
+                horizontal=True,
+            )
+        with option_cols[1]:
+            history_compare_choice = st.radio(
+                "履歴比較",
+                options=["オン", "オフ"],
+                index=0 if st.session_state.history_comparison_enabled else 1,
+                horizontal=True,
+            )
+
+        st.markdown("#### 学習分析のデフォルト")
+        analysis_cols = st.columns(2, gap="large")
+        period_options = ["直近3ヶ月", "直近6ヶ月", "直近1年", "全期間"]
+        comparison_options = ["直近5回平均", "前年同期", "初回スコア"]
+        with analysis_cols[0]:
+            period_index = (
+                period_options.index(st.session_state.analysis_period)
+                if st.session_state.analysis_period in period_options
+                else 1
+            )
+            analysis_period_choice = st.selectbox(
+                "分析対象期間",
+                options=period_options,
+                index=period_index,
+                help="学習分析ページでの初期集計期間を指定します。",
+            )
+        with analysis_cols[1]:
+            comparison_index = (
+                comparison_options.index(st.session_state.analysis_comparison)
+                if st.session_state.analysis_comparison in comparison_options
+                else 0
+            )
+            analysis_comparison_choice = st.selectbox(
+                "比較方法",
+                options=comparison_options,
+                index=comparison_index,
+                help="平均得点率を比較する指標を選びます。",
+            )
+
+        submitted = st.form_submit_button("適用", type="primary")
+
+    if submitted:
+        st.session_state.two_pane_layout_enabled = two_pane
+        st.session_state.character_counter_enabled = word_counter
+        st.session_state.composition_guide_enabled = composition
+        st.session_state.intent_card_enabled = intent_card
+        st.session_state.highlight_enabled = highlight
+        st.session_state.keyboard_shortcuts_enabled = shortcuts
+        st.session_state.auto_save_enabled = auto_save_choice == "オン"
+        st.session_state.history_comparison_enabled = history_compare_choice == "オン"
+        st.session_state.analysis_period = analysis_period_choice
+        st.session_state.analysis_comparison = analysis_comparison_choice
+        st.toast("学習設定を保存しました。", icon="✅")
+        st.success("演習設定を保存しました。")
+
+
+def _render_admin_tools_tab() -> None:
+    st.subheader("データアップロード")
+    st.caption(
+        "過去問・与件文・設問文を1つのCSV/Excel/PDFで一括管理できます。テンプレートを確認しながらアップロードしてください。"
+    )
+
+    st.markdown("#### テンプレートダウンロード")
+    try:
+        bundle_bytes = _load_template_bundle_bytes()
+    except FileNotFoundError:
+        st.warning(
+            "テンプレートファイルの一部を読み込めませんでした。リポジトリの data フォルダを確認してください。"
         )
-        if slot_file is not None:
-            st.session_state.pending_model_answer_slot_upload = {
-                "name": slot_file.name,
-                "data": slot_file.getvalue(),
-            }
+    else:
+        st.download_button(
+            "テンプレートを一括ダウンロード (ZIP)",
+            data=bundle_bytes,
+            file_name="templates_bundle.zip",
+            mime="application/zip",
+            help="CSVとJSONのテンプレートをまとめて取得できます。",
+            key="template_bundle_download",
+        )
+        included = " / ".join(name for name, _ in TEMPLATE_BUNDLE_FILES)
+        st.caption(f"含まれるファイル: {included}")
 
-        pending_slots = st.session_state.get("pending_model_answer_slot_upload")
-        if pending_slots:
-            st.caption(f"選択中のファイル: {pending_slots['name']}")
-            exec_col, clear_col = st.columns([1, 1])
-            with exec_col:
-                if st.button(
-                    "模範解答スロットを登録",
-                    key="execute_model_answer_slot_upload",
-                    type="primary",
-                ):
-                    success = _handle_model_answer_slot_upload(
-                        pending_slots["data"], pending_slots["name"]
-                    )
-                    if success:
-                        st.session_state.pending_model_answer_slot_upload = None
-            with clear_col:
-                if st.button(
-                    "選択中のファイルをクリア", key="reset_model_answer_slot_upload"
-                ):
-                    st.session_state.pending_model_answer_slot_upload = None
+    st.markdown("#### 過去問データ（与件文・設問文を含む）")
+    uploaded_file = st.file_uploader(
+        "過去問データファイルをアップロード (CSV/Excel/PDF/JSON)",
+        type=["csv", "xlsx", "xls", "pdf", "json"],
+        key="past_exam_uploader",
+    )
+    st.caption(
+        "R6/R5 事例III原紙テンプレートを同梱し、自動分解の精度を高めています。PDFとJSONアップロードにも対応しています。"
+    )
+    try:
+        template_bytes = _load_past_exam_template_bytes()
+    except FileNotFoundError:
+        st.warning("テンプレートファイルを読み込めませんでした。リポジトリの data フォルダを確認してください。")
+    else:
+        st.download_button(
+            "テンプレートCSVをダウンロード",
+            data=template_bytes,
+            file_name="past_exam_template.csv",
+            mime="text/csv",
+            help="アップロード用のひな形です。必須列とサンプル設問を含みます。",
+            key="past_exam_template_download",
+        )
+        with st.expander("テンプレートのサンプルを見る", expanded=False):
+            preview_df = _load_past_exam_template_preview()
+            st.dataframe(preview_df, width="stretch", hide_index=True)
 
-        slots = st.session_state.get("model_answer_slots", {})
-        if slots:
-            summary_rows = []
-            for slot in sorted(
-                slots.values(), key=lambda x: (x["year"], x["case_label"], x["question_number"])
+    if uploaded_file is not None:
+        st.session_state.pending_past_data_upload = {
+            "name": uploaded_file.name,
+            "data": uploaded_file.getvalue(),
+        }
+
+    pending_past = st.session_state.get("pending_past_data_upload")
+    if pending_past:
+        st.caption(f"選択中のファイル: {pending_past['name']}")
+        exec_col, clear_col = st.columns([1, 1])
+        with exec_col:
+            if st.button(
+                "過去問データを取り込む",
+                key="execute_past_data_upload",
+                type="primary",
             ):
-                scoring = slot.get("scoring", {}) or {}
-                points = scoring.get("points") or []
-                note = scoring.get("note")
-                if points and note:
-                    scoring_summary = f"{len(points)}項目 / コメントあり"
-                elif points:
-                    scoring_summary = f"{len(points)}項目"
-                elif note:
-                    scoring_summary = "コメントあり"
-                else:
-                    scoring_summary = "-"
+                success = _handle_past_data_upload(
+                    pending_past["data"], pending_past["name"]
+                )
+                if success:
+                    st.session_state.pending_past_data_upload = None
+        with clear_col:
+            if st.button("選択中のファイルをクリア", key="reset_past_data_upload"):
+                st.session_state.pending_past_data_upload = None
+
+    past_df = st.session_state.past_data
+    if past_df is not None:
+        st.caption(f"読み込み済みのレコード数: {len(past_df)}件")
+        st.dataframe(past_df.head(), width="stretch")
+        case_meta = st.session_state.get("uploaded_case_metadata", {}) or {}
+        question_meta = st.session_state.get("uploaded_question_metadata", {}) or {}
+        if case_meta:
+            summary_rows: List[Dict[str, Any]] = []
+            for case_key, meta in case_meta.items():
+                if not isinstance(case_key, str) or "::" not in case_key:
+                    continue
+                year_label, case_label = case_key.split("::", 1)
+                question_keys = [
+                    key
+                    for key in question_meta.keys()
+                    if isinstance(key, str)
+                    and key.startswith(f"{year_label}::{case_label}::")
+                ]
                 summary_rows.append(
                     {
-                        "年度": slot["year"],
-                        "事例": slot["case_label"],
-                        "設問": slot["question_number"],
-                        "講師A": "○" if slot.get("lecturer_a") else "-",
-                        "講師B": "○" if slot.get("lecturer_b") else "-",
-                        "採点観点": scoring_summary,
+                        "年度": year_label,
+                        "事例": case_label,
+                        "ケースタイトル": meta.get("title") or "-",
+                        "設問数": len(question_keys),
+                        "詳細解説数": sum(
+                            1
+                            for key in question_keys
+                            if question_meta.get(key, {}).get("detailed_explanation")
+                        ),
+                        "動画リンク数": sum(
+                            1
+                            for key in question_keys
+                            if question_meta.get(key, {}).get("video_url")
+                        ),
+                        "図解数": sum(
+                            1
+                            for key in question_keys
+                            if question_meta.get(key, {}).get("diagram_path")
+                        ),
                     }
                 )
-            st.dataframe(pd.DataFrame(summary_rows), width="stretch", hide_index=True)
-            st.caption("登録済みスロットの一覧です。再アップロードすると同じキーのデータは上書きされます。")
-            if st.button("模範解答スロットをクリア", key="clear_model_answer_slots"):
-                st.session_state.model_answer_slots = {}
-                st.info("模範解答スロットを削除しました。")
-        else:
-            st.info("登録済みの模範解答スロットはありません。JSONをアップロードして利用を開始してください。")
+            if summary_rows:
+                summary_df = pd.DataFrame(summary_rows)
+                summary_df["_year_sort"] = summary_df["年度"].map(_year_sort_key)
+                summary_df["_case_sort"] = summary_df["事例"].map(
+                    lambda x: CASE_ORDER.index(x)
+                    if x in CASE_ORDER
+                    else len(CASE_ORDER)
+                )
+                summary_df = summary_df.sort_values(
+                    ["_year_sort", "_case_sort"], ascending=[False, True]
+                ).drop(columns=["_year_sort", "_case_sort"])
+                st.dataframe(summary_df, width="stretch", hide_index=True)
+                st.caption("年度・事例ごとの登録状況です。詳細解説や動画リンクの有無を確認できます。")
+        tables = st.session_state.get("past_data_tables") or []
+        if tables:
+            with st.expander("抽出された数表", expanded=False):
+                for idx, table in enumerate(tables, start=1):
+                    st.markdown(f"**数表 {idx}**")
+                    st.dataframe(table, width="stretch")
+        if st.button("アップロードデータをクリア", key="clear_past_data"):
+            st.session_state.past_data = None
+            st.session_state.past_data_tables = []
+            st.session_state.uploaded_case_metadata = {}
+            st.session_state.uploaded_question_metadata = {}
+            st.session_state.uploaded_case_contexts = {}
+            st.session_state.uploaded_question_texts = {}
+            st.info("アップロードデータを削除しました。")
+            st.toast("アップロードデータを削除しました。", icon="🗑️")
+    else:
+        st.info("過去問データは未登録です。テンプレートを利用してアップロードしてください。")
 
-        with st.expander("JSONフォーマットのサンプル", expanded=False):
-            sample_payload = {
-                "entries": [
-                    {
-                        "year": "令和5年",
-                        "case": "事例I",
-                        "question": 1,
-                        "lecturer_a": {
-                            "answer": "模範解答の骨子を入力",
-                            "commentary": "講師Aによる講評や書き方のポイントを記載",
-                        },
-                        "lecturer_b": {
-                            "answer": "別の視点の模範解答を入力",
-                            "commentary": "講師Bのフィードバックを記載",
-                        },
-                        "scoring": {
-                            "points": ["与件からの課題抽出", "効果・因果の明示"],
-                            "note": "評価基準や減点要素をメモできます。",
-                        },
-                    }
-                ]
-            }
-            st.code(json.dumps(sample_payload, ensure_ascii=False, indent=2), language="json")
-
-        st.subheader("表示テーマ")
-        theme_options = [
-            "システム設定に合わせる",
-            "ライトモード",
-            "ダークモード",
-        ]
-        selected_theme = st.radio(
-            "アプリのカラーテーマ",
-            options=theme_options,
-            index=theme_options.index(st.session_state.ui_theme)
-            if st.session_state.ui_theme in theme_options
-            else 0,
-            help="視認性に合わせてテーマを切り替えできます。",
+    st.markdown("##### 与件文プレビュー")
+    contexts = st.session_state.get("uploaded_case_contexts", {}) or {}
+    if contexts:
+        context_rows = []
+        for case_key, text in contexts.items():
+            if not isinstance(case_key, str):
+                continue
+            parts = case_key.split("::", 1)
+            year_label = parts[0]
+            case_label = parts[1] if len(parts) > 1 else ""
+            normalized_text = str(text or "").strip()
+            lines = normalized_text.splitlines()
+            first_line = lines[0] if lines else normalized_text
+            preview = first_line[:40]
+            if normalized_text and len(normalized_text) > 40:
+                preview += "…"
+            context_rows.append(
+                {
+                    "年度": year_label,
+                    "事例": case_label,
+                    "冒頭プレビュー": preview,
+                    "文字数": len(normalized_text),
+                }
+            )
+        context_df = pd.DataFrame(context_rows)
+        context_df["_year_sort"] = context_df["年度"].map(lambda x: _year_sort_key(str(x)))
+        context_df["_case_sort"] = context_df["事例"].map(
+            lambda x: CASE_ORDER.index(x) if x in CASE_ORDER else len(CASE_ORDER)
         )
-        if selected_theme != st.session_state.ui_theme:
-            st.session_state.ui_theme = selected_theme
-            st.success(f"テーマを『{selected_theme}』に変更しました。")
+        context_df = context_df.sort_values(
+            ["_year_sort", "_case_sort"], ascending=[False, True]
+        ).drop(columns=["_year_sort", "_case_sort"])
+        st.dataframe(context_df, width="stretch", hide_index=True)
+    else:
+        st.caption("与件文はまだ読み込まれていません。CSV/PDFをアップロードすると自動で登録されます。")
+
+    st.markdown("##### 設問文プレビュー")
+    question_entries = st.session_state.get("uploaded_question_texts", {}) or {}
+    if question_entries:
+        question_rows: List[Dict[str, Any]] = []
+        for key, payload in question_entries.items():
+            if not isinstance(key, str) or "::" not in key:
+                continue
+            parts = key.split("::")
+            if len(parts) != 3:
+                continue
+            year_label, case_label, question_no = parts
+            data = payload or {}
+            question_text = _normalize_text_block(data.get("question_text")) if isinstance(data, dict) else str(data)
+            insight_text = _normalize_text_block(data.get("question_insight")) if isinstance(data, dict) else ""
+            aim_text = _normalize_text_block(data.get("question_aim")) if isinstance(data, dict) else ""
+            output_text = _normalize_text_block(data.get("output_format")) if isinstance(data, dict) else ""
+            solution_text = _normalize_text_block(data.get("solution_prompt")) if isinstance(data, dict) else ""
+            normalized_text = question_text or ""
+            preview = (normalized_text[:40] + "…") if normalized_text and len(normalized_text) > 40 else normalized_text
+            question_rows.append(
+                {
+                    "年度": year_label,
+                    "事例": case_label,
+                    "設問": question_no,
+                    "文字数": len(normalized_text),
+                    "冒頭プレビュー": preview,
+                    "設問インサイト": insight_text or "-",
+                    "設問の狙い": aim_text or "-",
+                    "アウトプット形式": output_text or "-",
+                    "解法プロンプト": solution_text or "-",
+                }
+            )
+        if question_rows:
+            question_df = pd.DataFrame(question_rows)
+            question_df["_year_sort"] = question_df["年度"].map(lambda x: _year_sort_key(str(x)))
+            question_df["_case_sort"] = question_df["事例"].map(
+                lambda x: CASE_ORDER.index(x) if x in CASE_ORDER else len(CASE_ORDER)
+            )
+            question_df["_question_sort"] = question_df["設問"].map(
+                lambda x: _normalize_question_number(x) or 0
+            )
+            question_df = question_df.sort_values(
+                ["_year_sort", "_case_sort", "_question_sort"],
+                ascending=[False, True, True],
+            ).drop(columns=["_year_sort", "_case_sort", "_question_sort"])
+            st.dataframe(question_df, width="stretch", hide_index=True)
+            st.caption("登録済みの設問文です。年度・事例・設問番号ごとに最新の内容が適用されます。")
+        if st.button("設問文データをクリア", key="clear_question_texts"):
+            st.session_state.uploaded_question_texts = {}
+            st.info("登録済みの設問文データを削除しました。")
+            st.toast("登録済みの設問文データを削除しました。", icon="🗑️")
+    else:
+        st.caption("設問文データはまだ登録されていません。テンプレートの『問題文』列を入力すると自動で反映されます。")
+
+    st.subheader("ワンクリック模範解答スロット")
+    st.caption("講師別の模範解答・講評セットを JSON でまとめて登録し、設問ごとにワンクリックで参照できます。")
+    slot_file = st.file_uploader(
+        "模範解答スロットJSONをアップロード",
+        type=["json"],
+        key="model_answer_slot_uploader",
+        help="年度・事例・設問番号をキーに、講師A/Bと採点観点を登録します。",
+    )
+    if slot_file is not None:
+        st.session_state.pending_model_answer_slot_upload = {
+            "name": slot_file.name,
+            "data": slot_file.getvalue(),
+        }
+
+    pending_slots = st.session_state.get("pending_model_answer_slot_upload")
+    if pending_slots:
+        st.caption(f"選択中のファイル: {pending_slots['name']}")
+        exec_col, clear_col = st.columns([1, 1])
+        with exec_col:
+            if st.button(
+                "模範解答スロットを登録",
+                key="execute_model_answer_slot_upload",
+                type="primary",
+            ):
+                success = _handle_model_answer_slot_upload(
+                    pending_slots["data"], pending_slots["name"]
+                )
+                if success:
+                    st.session_state.pending_model_answer_slot_upload = None
+        with clear_col:
+            if st.button(
+                "選択中のファイルをクリア", key="reset_model_answer_slot_upload"
+            ):
+                st.session_state.pending_model_answer_slot_upload = None
+
+    slots = st.session_state.get("model_answer_slots", {})
+    if slots:
+        summary_rows = []
+        for slot in sorted(
+            slots.values(), key=lambda x: (x["year"], x["case_label"], x["question_number"])
+        ):
+            scoring = slot.get("scoring", {}) or {}
+            points = scoring.get("points") or []
+            note = scoring.get("note")
+            if points and note:
+                scoring_summary = f"{len(points)}項目 / コメントあり"
+            elif points:
+                scoring_summary = f"{len(points)}項目"
+            elif note:
+                scoring_summary = "コメントあり"
+            else:
+                scoring_summary = "-"
+            summary_rows.append(
+                {
+                    "年度": slot["year"],
+                    "事例": slot["case_label"],
+                    "設問": slot["question_number"],
+                    "講師A": "○" if slot.get("lecturer_a") else "-",
+                    "講師B": "○" if slot.get("lecturer_b") else "-",
+                    "採点観点": scoring_summary,
+                }
+            )
+        st.dataframe(pd.DataFrame(summary_rows), width="stretch", hide_index=True)
+        st.caption("登録済みスロットの一覧です。再アップロードすると同じキーのデータは上書きされます。")
+        if st.button("模範解答スロットをクリア", key="clear_model_answer_slots"):
+            st.session_state.model_answer_slots = {}
+            st.info("模範解答スロットを削除しました。")
+            st.toast("模範解答スロットを削除しました。", icon="🗑️")
+    else:
+        st.info("登録済みの模範解答スロットはありません。JSONをアップロードして利用を開始してください。")
+
+    with st.expander("JSONフォーマットのサンプル", expanded=False):
+        sample_payload = {
+            "entries": [
+                {
+                    "year": "令和5年",
+                    "case": "事例I",
+                    "question": 1,
+                    "lecturer_a": {
+                        "answer": "模範解答の骨子を入力",
+                        "commentary": "講師Aによる講評や書き方のポイントを記載",
+                    },
+                    "lecturer_b": {
+                        "answer": "別の視点の模範解答を入力",
+                        "commentary": "講師Bのフィードバックを記載",
+                    },
+                    "scoring": {
+                        "points": ["与件からの課題抽出", "効果・因果の明示"],
+                        "note": "評価基準や減点要素をメモできます。",
+                    },
+                }
+            ]
+        }
+        st.code(json.dumps(sample_payload, ensure_ascii=False, indent=2), language="json")
+
 
 
 logger = logging.getLogger(__name__)
