@@ -10,24 +10,26 @@
       href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+Mono:wght@500&display=swap"
       rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css"
+    />
     <style>
       body[data-app="exercise"] {
         /* カラーと余白のカスタムプロパティ */
-        --color-bg: #f2f4f7;
+        --color-bg: #f6f8fb;
         --color-surface: #ffffff;
-        --color-text: #1b2337;
-        --color-text-strong: #111a2b;
-        --color-border: rgba(27, 35, 55, 0.18);
-        --color-chip-bg: rgba(27, 35, 55, 0.12);
-        --color-chip-active: #1c2f55;
+        --color-text: #1f2a3d;
+        --color-text-strong: #0f1b2d;
+        --color-border: rgba(31, 42, 61, 0.12);
+        --color-chip-bg: rgba(47, 90, 168, 0.12);
+        --color-chip-active: #2f5aa8;
         --color-chip-active-text: #ffffff;
-        --color-warning: #b11c34;
-        --color-text-muted: #5a6378;
-        --color-card-i: #fbe7ef; /* 桜 */
-        --color-card-ii: #e0f2d8; /* 若草 */
-        --color-card-iii: #ddeafe; /* 空 */
-        --color-card-iv: #dfe2ff; /* 瑠璃 */
-        --color-focus-ring: rgba(39, 71, 128, 0.55);
+        --color-warning: #c0504d;
+        --color-text-muted: #667185;
+        --color-layer-subtle: #eef2fb;
+        --color-layer-soft: #e3e9f7;
+        --color-focus-ring: rgba(47, 90, 168, 0.45);
         --radius-card: 16px;
         --spacing-xl: 40px;
         --spacing-lg: 32px;
@@ -39,26 +41,26 @@
         --font-heading-lg: clamp(1.45rem, 1.3rem + 0.3vw, 1.6rem);
         --font-heading-md: clamp(1.2rem, 1.12rem + 0.2vw, 1.32rem);
         --content-max-width: min(720px, 100%);
+        --icon-size-sm: 1rem;
+        --icon-size-md: 1.25rem;
         font-size: 16px;
       }
 
       @media (prefers-color-scheme: dark) {
         body[data-app="exercise"] {
-          --color-bg: #0d1424;
-          --color-surface: rgba(18, 26, 44, 0.88);
-          --color-text: #e7ecf5;
-          --color-text-strong: #f7f9ff;
-          --color-border: rgba(231, 236, 245, 0.2);
-          --color-chip-bg: rgba(231, 236, 245, 0.12);
-          --color-chip-active: #5a7edb;
-          --color-chip-active-text: #0d1424;
+          --color-bg: #0f1727;
+          --color-surface: rgba(18, 26, 44, 0.92);
+          --color-text: #e5ecf8;
+          --color-text-strong: #f6f8ff;
+          --color-border: rgba(229, 236, 248, 0.16);
+          --color-chip-bg: rgba(94, 130, 207, 0.18);
+          --color-chip-active: #6f9bf5;
+          --color-chip-active-text: #0f1727;
           --color-warning: #f87171;
-          --color-text-muted: rgba(231, 236, 245, 0.76);
-          --color-card-i: rgba(248, 165, 200, 0.24);
-          --color-card-ii: rgba(190, 242, 145, 0.24);
-          --color-card-iii: rgba(147, 197, 253, 0.24);
-          --color-card-iv: rgba(129, 140, 248, 0.24);
-          --color-focus-ring: rgba(120, 150, 240, 0.65);
+          --color-text-muted: rgba(229, 236, 248, 0.75);
+          --color-layer-subtle: rgba(94, 130, 207, 0.18);
+          --color-layer-soft: rgba(121, 157, 228, 0.22);
+          --color-focus-ring: rgba(111, 155, 245, 0.55);
         }
       }
 
@@ -113,6 +115,19 @@
         margin: 0 0 var(--spacing-sm);
       }
 
+      body[data-app="exercise"] p,
+      body[data-app="exercise"] li,
+      body[data-app="exercise"] dd {
+        font-size: 0.95rem;
+        line-height: 1.75;
+      }
+
+      body[data-app="exercise"] small,
+      body[data-app="exercise"] .text-muted {
+        font-size: 0.85rem;
+        line-height: 1.6;
+      }
+
       body[data-app="exercise"] .text-muted {
         color: var(--color-text-muted);
       }
@@ -164,6 +179,18 @@
           transform var(--transition-duration) ease;
       }
 
+      body[data-app="exercise"] .icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: var(--icon-size-md);
+        line-height: 1;
+      }
+
+      body[data-app="exercise"] .icon--sm {
+        font-size: var(--icon-size-sm);
+      }
+
       body[data-app="exercise"] .ui-button:focus-visible {
         border-radius: 999px;
       }
@@ -193,7 +220,7 @@
       body[data-app="exercise"] .ui-button--subtle {
         justify-content: flex-start;
         padding: var(--spacing-xs) var(--spacing-sm);
-        background-color: var(--color-chip-bg);
+        background-color: var(--color-layer-subtle);
         border-color: transparent;
         color: var(--color-text);
         font-size: 0.92rem;
@@ -204,32 +231,10 @@
         background-color: color-mix(
           in srgb,
           var(--color-chip-active) 18%,
-          transparent
+          var(--color-layer-subtle)
         );
-        border-color: var(--color-chip-active);
+        border-color: transparent;
         color: var(--color-text-strong);
-      }
-
-      body[data-app="exercise"] .ui-icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 24px;
-        height: 24px;
-        border-radius: 8px;
-        background-color: rgba(28, 47, 85, 0.12);
-        color: var(--color-chip-active);
-        font-size: 0.72rem;
-        font-weight: 700;
-        line-height: 1;
-        letter-spacing: 0.05em;
-        transition: background-color var(--transition-duration) ease,
-          color var(--transition-duration) ease;
-      }
-
-      body[data-app="exercise"] .ui-icon--support::before {
-        content: "i";
-        font-style: italic;
       }
 
       body[data-app="exercise"] .app-shell {
@@ -367,8 +372,7 @@
       }
 
       body[data-app="exercise"] .app-header__icon {
-        width: 20px;
-        height: 20px;
+        font-size: var(--icon-size-md);
         color: currentColor;
       }
 
@@ -386,8 +390,9 @@
         gap: var(--spacing-md);
         padding: var(--spacing-sm) var(--spacing-md);
         border-radius: 14px;
-        border: 1px solid var(--color-border);
-        background-color: var(--color-surface);
+        border: none;
+        background-color: var(--color-layer-subtle);
+        box-shadow: 0 8px 20px rgba(15, 23, 39, 0.08);
       }
 
       body[data-app="exercise"] .progress-indicator__bar {
@@ -395,7 +400,7 @@
         flex: 1;
         height: 8px;
         border-radius: 999px;
-        background-color: var(--color-chip-bg);
+        background-color: var(--color-layer-soft);
         overflow: hidden;
       }
 
@@ -448,10 +453,10 @@
         overflow-y: auto;
         flex: 0 0 380px;
         padding: var(--spacing-lg) var(--spacing-md);
-        border: 1px solid var(--color-border);
+        border: none;
         border-radius: var(--radius-card);
-        background-color: var(--color-surface);
-        box-shadow: 0 16px 32px rgba(16, 24, 40, 0.08);
+        background-color: var(--color-layer-soft);
+        box-shadow: 0 18px 36px rgba(15, 23, 39, 0.1);
       }
 
       @media (prefers-color-scheme: dark) {
@@ -517,8 +522,9 @@
         gap: var(--spacing-sm);
         padding: var(--spacing-md);
         border-radius: var(--radius-card);
-        border: 1px solid var(--color-border);
-        background-color: var(--color-surface);
+        border: none;
+        background-color: var(--color-layer-subtle);
+        box-shadow: 0 10px 24px rgba(15, 23, 39, 0.06);
       }
 
       body[data-app="exercise"] .search-field {
@@ -536,11 +542,13 @@
         font-size: 0.95rem;
       }
 
-      body[data-app="exercise"] .search-field svg {
+      body[data-app="exercise"] .search-field__icon {
         position: absolute;
         left: 14px;
-        width: 18px;
-        height: 18px;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .search-field__icon .bx {
         color: var(--color-text-muted);
       }
 
@@ -565,9 +573,8 @@
           background-color var(--transition-duration) ease;
       }
 
-      body[data-app="exercise"] .filter-chip svg {
-        width: 16px;
-        height: 16px;
+      body[data-app="exercise"] .filter-chip .icon {
+        color: inherit;
       }
 
       body[data-app="exercise"] .filter-chip[data-active="true"] {
@@ -672,7 +679,7 @@
         margin-top: var(--spacing-xs);
         padding: var(--spacing-xs) var(--spacing-sm);
         border-radius: 10px;
-        background: color-mix(in srgb, var(--color-card-ii) 45%, white 55%);
+        background: var(--color-layer-subtle);
         color: var(--color-text);
         font-size: 0.85rem;
         line-height: 1.6;
@@ -783,27 +790,15 @@
         padding: calc(var(--spacing-lg) + var(--spacing-sm));
         border-radius: var(--radius-card);
         border: 1px solid var(--color-border);
-        background-color: var(--color-card-i);
-        box-shadow: none;
+        background-color: var(--color-surface);
+        box-shadow: 0 12px 32px rgba(15, 23, 39, 0.08);
         transition: box-shadow var(--transition-duration) ease,
           transform var(--transition-duration) ease;
       }
 
-      body[data-app="exercise"] .question-card:nth-of-type(4n + 2) {
-        background-color: var(--color-card-ii);
-      }
-
-      body[data-app="exercise"] .question-card:nth-of-type(4n + 3) {
-        background-color: var(--color-card-iii);
-      }
-
-      body[data-app="exercise"] .question-card:nth-of-type(4n + 4) {
-        background-color: var(--color-card-iv);
-      }
-
       body[data-app="exercise"] .question-card:hover,
       body[data-app="exercise"] .question-card:focus-within {
-        box-shadow: 0 12px 32px rgba(31, 41, 51, 0.12);
+        box-shadow: 0 16px 36px rgba(15, 23, 39, 0.14);
         transform: translateY(-2px);
       }
 
@@ -901,7 +896,11 @@
       }
 
       body[data-app="exercise"] .support-block {
-        border-top: 1px solid var(--color-border);
+        border-top: 1px solid color-mix(
+          in srgb,
+          var(--color-border) 70%,
+          transparent
+        );
         padding-top: var(--spacing-sm);
         margin-top: var(--spacing-md);
         font-size: 0.9rem;
@@ -923,16 +922,20 @@
       }
 
       body[data-app="exercise"] .support-block__toggle[aria-expanded="true"] {
-        background-color: var(--color-chip-active);
-        border-color: var(--color-chip-active);
-        color: var(--color-chip-active-text);
+        background-color: color-mix(
+          in srgb,
+          var(--color-chip-active) 18%,
+          var(--color-layer-subtle)
+        );
+        border-color: transparent;
+        color: var(--color-text-strong);
       }
 
       body[data-app="exercise"] .support-block__content {
         margin-top: var(--spacing-xs);
         padding: var(--spacing-xs) var(--spacing-sm);
         border-radius: 8px;
-        background-color: rgba(255, 255, 255, 0.55);
+        background-color: var(--color-layer-subtle);
         color: var(--color-text-muted);
       }
 
@@ -942,7 +945,11 @@
 
       @media (prefers-color-scheme: dark) {
         body[data-app="exercise"] .support-block__content {
-          background-color: rgba(17, 24, 39, 0.55);
+          background-color: color-mix(
+            in srgb,
+            var(--color-chip-bg) 55%,
+            transparent
+          );
         }
       }
 
@@ -956,65 +963,60 @@
 
       body[data-app="exercise"] .support-block__chevron {
         flex-shrink: 0;
-        width: 18px;
-        height: 18px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        border-radius: 50%;
-        background: color-mix(in srgb, var(--color-chip-bg) 70%, transparent);
-        color: inherit;
+        border-radius: 999px;
+        font-size: var(--icon-size-sm);
         transition: transform var(--transition-duration) ease,
-          background-color var(--transition-duration) ease;
-      }
-
-      body[data-app="exercise"] .support-block__chevron::before {
-        content: "";
-        border: solid currentColor;
-        border-width: 0 1.8px 1.8px 0;
-        display: inline-block;
-        padding: 3px;
-        transform: rotate(45deg);
-        transition: transform var(--transition-duration) ease;
+          color var(--transition-duration) ease;
       }
 
       body[data-app="exercise"]
         .support-block__toggle[aria-expanded="true"]
         .support-block__chevron {
-        background-color: var(--color-chip-active-text);
         color: var(--color-chip-active);
         transform: rotate(180deg);
       }
 
-      body[data-app="exercise"]
-        .support-block__toggle[aria-expanded="true"]
-        .support-block__chevron::before {
-        transform: rotate(-135deg);
+      body[data-app="exercise"] .support-block__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        background-color: color-mix(
+          in srgb,
+          var(--color-chip-bg) 55%,
+          transparent
+        );
+        color: var(--color-chip-active);
+        font-size: var(--icon-size-sm);
+        transition: background-color var(--transition-duration) ease,
+          color var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .support-block__toggle:hover .support-block__icon,
+      body[data-app="exercise"] .support-block__toggle:focus-visible .support-block__icon,
+      body[data-app="exercise"] .support-block__toggle[aria-expanded="true"]
+        .support-block__icon {
+        background-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
       }
 
       @media (prefers-color-scheme: dark) {
-        body[data-app="exercise"] .ui-button--subtle {
-          background-color: rgba(90, 126, 219, 0.18);
-        }
-
-        body[data-app="exercise"] .ui-icon {
-          background-color: rgba(90, 126, 219, 0.28);
+        body[data-app="exercise"] .support-block__icon {
+          background-color: rgba(111, 155, 245, 0.28);
           color: var(--color-chip-active-text);
         }
-      }
-
-      body[data-app="exercise"] .support-block__toggle:hover .ui-icon,
-      body[data-app="exercise"] .support-block__toggle:focus-visible .ui-icon,
-      body[data-app="exercise"] .support-block__toggle[aria-expanded="true"] .ui-icon {
-        background-color: var(--color-chip-active);
-        color: var(--color-chip-active-text);
       }
 
       body[data-app="exercise"] .analysis-info {
         margin-top: var(--spacing-xs);
         padding: var(--spacing-xs) var(--spacing-sm);
         border-radius: 8px;
-        background: color-mix(in srgb, var(--color-chip-bg) 70%, transparent);
+        background: var(--color-layer-subtle);
         font-size: 0.85rem;
         color: var(--color-text);
       }
@@ -1050,8 +1052,10 @@
       }
 
       body[data-app="exercise"] .analysis-info__icon {
-        font-size: 1.1rem;
-        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: var(--icon-size-md);
         line-height: 1;
       }
 
@@ -1075,7 +1079,7 @@
       }
 
       body[data-app="exercise"] .text-highlight {
-        background: color-mix(in srgb, var(--color-card-iii) 65%, white 35%);
+        background: var(--color-layer-subtle);
         padding-inline: 2px;
         border-radius: 4px;
       }
@@ -1191,7 +1195,7 @@
         margin-top: var(--spacing-lg);
         padding: var(--spacing-md);
         border-radius: var(--radius-card);
-        background: color-mix(in srgb, var(--color-card-iv) 45%, white 55%);
+        background: var(--color-layer-soft);
         display: grid;
         gap: var(--spacing-sm);
       }
@@ -1248,7 +1252,7 @@
       body[data-app="exercise"] .retrieval-card {
         display: grid;
         gap: var(--spacing-xs);
-        background: color-mix(in srgb, var(--color-card-iii) 45%, white 55%);
+        background: var(--color-layer-subtle);
         border-radius: var(--radius-card);
         padding: var(--spacing-md);
         line-height: 1.65;
@@ -1377,6 +1381,7 @@
       @media (max-width: 768px) {
         body[data-app="exercise"] .layout {
           flex-direction: column;
+          gap: var(--spacing-lg);
         }
 
         body[data-app="exercise"] .context-pane {
@@ -1385,11 +1390,34 @@
           max-height: none;
           width: 100%;
           flex: 1 1 auto;
+          order: 2;
+        }
+
+        body[data-app="exercise"] .exercise {
+          order: 1;
+          gap: var(--spacing-lg);
         }
 
         body[data-app="exercise"] .exercise__tabs {
           position: sticky;
           top: 0;
+        }
+
+        body[data-app="exercise"] .app-progress {
+          flex-direction: column;
+          align-items: stretch;
+          padding: 0 var(--spacing-md);
+        }
+
+        body[data-app="exercise"] .progress-indicator {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: var(--spacing-sm);
+        }
+
+        body[data-app="exercise"] .progress-indicator__meta {
+          width: 100%;
+          justify-content: space-between;
         }
       }
 
@@ -1447,21 +1475,9 @@
             type="button"
             aria-label="演習一覧に戻る"
           >
-            <svg
-              class="app-header__icon"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path
-                d="M15.75 19.5 8.25 12l7.5-7.5"
-                fill="none"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.8"
-              />
-            </svg>
+            <span class="icon app-header__icon" aria-hidden="true">
+              <i class="bx bx-left-arrow-alt"></i>
+            </span>
             戻る
           </button>
           <div class="app-header__title">
@@ -1471,39 +1487,15 @@
         </div>
         <div class="app-header__group" role="navigation" aria-label="主要操作">
           <button class="app-header__button" type="button">
-            <svg
-              class="app-header__icon"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path
-                d="M21 21l-4.35-4.35m1.35-4.15a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z"
-                fill="none"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.8"
-              />
-            </svg>
+            <span class="icon app-header__icon" aria-hidden="true">
+              <i class="bx bx-search"></i>
+            </span>
             検索
           </button>
           <button class="app-header__button" type="button">
-            <svg
-              class="app-header__icon"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path
-                d="M6 9h12M4.5 6H19.5M9 12h6m-7.5 3H15"
-                fill="none"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.8"
-              />
-            </svg>
+            <span class="icon app-header__icon" aria-hidden="true">
+              <i class="bx bx-filter"></i>
+            </span>
             フィルタ
           </button>
           <button
@@ -1512,7 +1504,9 @@
             aria-label="キーボードショートカットを表示"
             data-shortcut-open
           >
-            ⌨️
+            <span class="icon" aria-hidden="true">
+              <i class="bx bx-keyboard"></i>
+            </span>
           </button>
         </div>
         <nav
@@ -1608,71 +1602,36 @@
                 name="problem-search"
                 placeholder="キーワードや設問番号で検索"
               />
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path
-                  d="M21 21l-4.35-4.35m1.35-4.15a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.8"
-                />
-              </svg>
+              <span class="icon icon--sm search-field__icon" aria-hidden="true">
+                <i class="bx bx-search"></i>
+              </span>
             </div>
           </div>
           <div class="control-card" role="group" aria-labelledby="filter-heading">
             <h3 id="filter-heading" class="heading-md">検索フィルタ</h3>
             <div class="filter-chips" role="list">
               <button class="filter-chip" type="button" role="listitem" data-active="true">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path
-                    d="m5 12 4 4 10-10"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.8"
-                  />
-                </svg>
+                <span class="icon icon--sm" aria-hidden="true">
+                  <i class="bx bx-check"></i>
+                </span>
                 未回答
               </button>
               <button class="filter-chip" type="button" role="listitem">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path
-                    d="m5 12 4 4 10-10"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.8"
-                  />
-                </svg>
+                <span class="icon icon--sm" aria-hidden="true">
+                  <i class="bx bx-check"></i>
+                </span>
                 解答済み
               </button>
               <button class="filter-chip" type="button" role="listitem">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path
-                    d="m5 12 4 4 10-10"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.8"
-                  />
-                </svg>
+                <span class="icon icon--sm" aria-hidden="true">
+                  <i class="bx bx-check"></i>
+                </span>
                 要復習
               </button>
               <button class="filter-chip" type="button" role="listitem">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path
-                    d="m5 12 4 4 10-10"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.8"
-                  />
-                </svg>
+                <span class="icon icon--sm" aria-hidden="true">
+                  <i class="bx bx-check"></i>
+                </span>
                 解説あり
               </button>
             </div>
@@ -1864,7 +1823,9 @@
                   aria-controls="analysis-info-1"
                   data-info-target="analysis-info-1"
                 >
-                  <span class="analysis-info__icon" aria-hidden="true">i</span>
+                  <span class="analysis-info__icon" aria-hidden="true">
+                    <i class="bx bx-info-circle"></i>
+                  </span>
                   <span class="sr-only">分析ツールの説明を開く</span>
                 </button>
               </div>
@@ -1894,9 +1855,13 @@
                 aria-controls="support-1"
                 data-support-id="support-1"
               >
-                <span class="ui-icon ui-icon--support" aria-hidden="true"></span>
+                <span class="icon icon--sm support-block__icon" aria-hidden="true">
+                  <i class="bx bx-bulb"></i>
+                </span>
                 <span class="support-block__label">活用する 思考補助</span>
-                <span class="support-block__chevron" aria-hidden="true"></span>
+                <span class="icon icon--sm support-block__chevron" aria-hidden="true">
+                  <i class="bx bx-chevron-down"></i>
+                </span>
               </button>
               <div id="support-1" class="support-block__content" hidden>
                 設計部門のDX化、BOM連携、技能伝承、人材評価の整合性など、
@@ -1946,7 +1911,9 @@
                   aria-controls="analysis-info-2"
                   data-info-target="analysis-info-2"
                 >
-                  <span class="analysis-info__icon" aria-hidden="true">i</span>
+                  <span class="analysis-info__icon" aria-hidden="true">
+                    <i class="bx bx-info-circle"></i>
+                  </span>
                   <span class="sr-only">分析ツールの説明を開く</span>
                 </button>
               </div>
@@ -1976,9 +1943,13 @@
                 aria-controls="support-2"
                 data-support-id="support-2"
               >
-                <span class="ui-icon ui-icon--support" aria-hidden="true"></span>
+                <span class="icon icon--sm support-block__icon" aria-hidden="true">
+                  <i class="bx bx-bulb"></i>
+                </span>
                 <span class="support-block__label">確認する 注意事項</span>
-                <span class="support-block__chevron" aria-hidden="true"></span>
+                <span class="icon icon--sm support-block__chevron" aria-hidden="true">
+                  <i class="bx bx-chevron-down"></i>
+                </span>
               </button>
               <div id="support-2" class="support-block__content" hidden>
                 顧客接点の情報共有タイミング、設計部門の早期参画、試作段
@@ -2028,7 +1999,9 @@
                   aria-controls="analysis-info-3"
                   data-info-target="analysis-info-3"
                 >
-                  <span class="analysis-info__icon" aria-hidden="true">i</span>
+                  <span class="analysis-info__icon" aria-hidden="true">
+                    <i class="bx bx-info-circle"></i>
+                  </span>
                   <span class="sr-only">分析ツールの説明を開く</span>
                 </button>
               </div>
@@ -2058,9 +2031,13 @@
                 aria-controls="support-3"
                 data-support-id="support-3"
               >
-                <span class="ui-icon ui-icon--support" aria-hidden="true"></span>
+                <span class="icon icon--sm support-block__icon" aria-hidden="true">
+                  <i class="bx bx-bulb"></i>
+                </span>
                 <span class="support-block__label">参照する Tips</span>
-                <span class="support-block__chevron" aria-hidden="true"></span>
+                <span class="icon icon--sm support-block__chevron" aria-hidden="true">
+                  <i class="bx bx-chevron-down"></i>
+                </span>
               </button>
               <div id="support-3" class="support-block__content" hidden>
                 指導員制度、ペアワーク、動画記録、工程別のナレッジカード
@@ -2110,7 +2087,9 @@
                   aria-controls="analysis-info-4"
                   data-info-target="analysis-info-4"
                 >
-                  <span class="analysis-info__icon" aria-hidden="true">i</span>
+                  <span class="analysis-info__icon" aria-hidden="true">
+                    <i class="bx bx-info-circle"></i>
+                  </span>
                   <span class="sr-only">分析ツールの説明を開く</span>
                 </button>
               </div>
@@ -2140,9 +2119,13 @@
                 aria-controls="support-4"
                 data-support-id="support-4"
               >
-                <span class="ui-icon ui-icon--support" aria-hidden="true"></span>
+                <span class="icon icon--sm support-block__icon" aria-hidden="true">
+                  <i class="bx bx-bulb"></i>
+                </span>
                 <span class="support-block__label">確認する ゴール像</span>
-                <span class="support-block__chevron" aria-hidden="true"></span>
+                <span class="icon icon--sm support-block__chevron" aria-hidden="true">
+                  <i class="bx bx-chevron-down"></i>
+                </span>
               </button>
               <div id="support-4" class="support-block__content" hidden>
                 DXで創出した知見の共有や後進育成を評価指標に組み込み、成
