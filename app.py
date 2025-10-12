@@ -1050,6 +1050,223 @@ def _year_sort_key(year_label: str) -> int:
     return 0
 
 
+def _render_practice_timer(problem_id: Optional[int], *, default_minutes: int = 80) -> Dict[str, Any]:
+    """Render a countdown timer for記述式演習 with start/pause controls."""
+
+    if problem_id is None:
+        st.caption("タイマーは問題選択後に利用できます。")
+        return {}
+
+    state_key = f"practice_timer::{problem_id}"
+    state = st.session_state.setdefault(
+        state_key,
+        {
+            "duration_seconds": int(default_minutes * 60),
+            "running": False,
+            "start_timestamp": None,
+            "accumulated_seconds": 0.0,
+            "expired": False,
+        },
+    )
+
+    duration_key = f"{state_key}::duration"
+    current_minutes = max(10, int(state["duration_seconds"] // 60)) if state["duration_seconds"] else default_minutes
+    selected_minutes = int(
+        st.number_input(
+            "制限時間 (分)",
+            min_value=10,
+            max_value=120,
+            step=5,
+            value=current_minutes,
+            key=duration_key,
+            help="演習時間を設定するとカウントダウンが始められます。80分の本試験形式が基本です。",
+        )
+    )
+    if selected_minutes * 60 != state["duration_seconds"]:
+        state["duration_seconds"] = selected_minutes * 60
+        state["accumulated_seconds"] = 0.0
+        state["start_timestamp"] = None
+        state["running"] = False
+        state["expired"] = False
+
+    control_cols = st.columns([0.34, 0.33, 0.33])
+    if control_cols[0].button("タイマー開始", key=f"{state_key}::start"):
+        state["start_timestamp"] = datetime.now(timezone.utc).timestamp()
+        state["running"] = True
+        state["expired"] = False
+    if control_cols[1].button("一時停止", key=f"{state_key}::pause"):
+        if state["running"] and state.get("start_timestamp") is not None:
+            now_ts = datetime.now(timezone.utc).timestamp()
+            state["accumulated_seconds"] = min(
+                state["duration_seconds"],
+                state["accumulated_seconds"] + max(0.0, now_ts - state["start_timestamp"]),
+            )
+        state["running"] = False
+        state["start_timestamp"] = None
+    if control_cols[2].button("リセット", key=f"{state_key}::reset"):
+        state["running"] = False
+        state["start_timestamp"] = None
+        state["accumulated_seconds"] = 0.0
+        state["expired"] = False
+
+    elapsed = state["accumulated_seconds"]
+    if state["running"] and state.get("start_timestamp") is not None:
+        now_ts = datetime.now(timezone.utc).timestamp()
+        elapsed = min(
+            state["duration_seconds"],
+            state["accumulated_seconds"] + max(0.0, now_ts - state["start_timestamp"]),
+        )
+
+    remaining = max(state["duration_seconds"] - elapsed, 0.0)
+    if state["running"] and remaining <= 0:
+        state["running"] = False
+        state["expired"] = True
+        state["accumulated_seconds"] = float(state["duration_seconds"])
+
+    minutes = int(remaining // 60)
+    seconds = int(remaining % 60)
+    formatted_remaining = f"{minutes:02d}:{seconds:02d}"
+    progress_ratio = (
+        elapsed / state["duration_seconds"] if state["duration_seconds"] else 0.0
+    )
+    progress_ratio = max(0.0, min(progress_ratio, 1.0))
+
+    html_id = f"timer-{problem_id}-{uuid.uuid4().hex}"
+    timer_html = dedent(
+        f"""
+        <div id="{html_id}" data-duration="{state['duration_seconds']}" data-running="{str(state['running']).lower()}"
+             data-start="{state.get('start_timestamp') or ''}" data-accumulated="{state['accumulated_seconds']}"
+             data-expired="{str(state['expired']).lower()}" data-remaining="{remaining}">
+            <div class="timer-wrapper">
+                <div class="timer-display">{formatted_remaining}</div>
+                <div class="timer-progress"><div class="timer-progress__bar" style="width: {progress_ratio * 100:.1f}%"></div></div>
+                <div class="timer-status">{'計測中' if state['running'] else ('時間切れ' if state['expired'] else '待機中')}</div>
+            </div>
+        </div>
+        <style>
+            .timer-wrapper {{
+                border-radius: 16px;
+                padding: 0.85rem 1rem;
+                background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(37,99,235,0.18));
+                box-shadow: inset 0 0 0 1px rgba(59,130,246,0.18);
+            }}
+            .timer-display {{
+                font-size: 2rem;
+                font-weight: 700;
+                color: #1f2937;
+                text-align: center;
+                letter-spacing: 0.04em;
+            }}
+            .timer-progress {{
+                margin-top: 0.6rem;
+                height: 8px;
+                border-radius: 999px;
+                background: rgba(148,163,184,0.25);
+                overflow: hidden;
+            }}
+            .timer-progress__bar {{
+                height: 100%;
+                background: linear-gradient(90deg, #2563eb, #22d3ee);
+            }}
+            .timer-status {{
+                margin-top: 0.4rem;
+                font-size: 0.85rem;
+                text-align: center;
+                color: #475569;
+            }}
+        </style>
+        <script>
+            (function() {{
+                const root = document.getElementById("{html_id}");
+                if (!root) {{
+                    return;
+                }}
+                const duration = parseFloat(root.dataset.duration) || 0;
+                const accumulated = parseFloat(root.dataset.accumulated) || 0;
+                const startTimestamp = parseFloat(root.dataset.start) || null;
+                const running = root.dataset.running === "true";
+                const expired = root.dataset.expired === "true";
+                const initialRemaining = parseFloat(root.dataset.remaining) || 0;
+                const display = root.querySelector('.timer-display');
+                const bar = root.querySelector('.timer-progress__bar');
+                const status = root.querySelector('.timer-status');
+
+                const formatTime = (seconds) => {{
+                    const mins = Math.floor(seconds / 60);
+                    const secs = Math.floor(seconds % 60);
+                    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                }};
+
+                if (!window.Streamlit) {{
+                    window.Streamlit = {{ setComponentValue: () => {{}}, setFrameHeight: () => {{}}, setComponentReady: () => {{}} }};
+                }}
+                if (window.Streamlit.setFrameHeight) {{
+                    window.Streamlit.setFrameHeight();
+                }}
+                if (window.Streamlit.setComponentReady) {{
+                    window.Streamlit.setComponentReady();
+                }}
+
+                const tick = () => {{
+                    const now = Date.now() / 1000;
+                    let elapsed = accumulated;
+                    if (running && startTimestamp) {{
+                        elapsed += Math.max(0, now - startTimestamp);
+                    }}
+                    let remaining = Math.max(0, duration - elapsed);
+                    display.textContent = formatTime(remaining);
+                    if (bar) {{
+                        const ratio = duration ? Math.min(1, Math.max(0, elapsed / duration)) : 0;
+                        bar.style.width = `${ratio * 100}%`;
+                    }}
+                    if (status) {{
+                        status.textContent = running ? '計測中' : (expired || remaining <= 0 ? '時間切れ' : '待機中');
+                    }}
+                    if (!expired && remaining <= 0.01) {{
+                        if (window.Streamlit.setComponentValue) {{
+                            window.Streamlit.setComponentValue(JSON.stringify({{
+                                type: 'timer',
+                                status: 'expired',
+                                timestamp: new Date().toISOString()
+                            }}));
+                        }}
+                        clearInterval(timerId);
+                    }}
+                }};
+
+                if (running || (!running && !expired && initialRemaining !== duration)) {{
+                    const timerId = window.setInterval(tick, 1000);
+                    tick();
+                }} else {{
+                    display.textContent = formatTime(initialRemaining);
+                }}
+            }})();
+        </script>
+        """
+    )
+
+    component_value = components.html(
+        timer_html,
+        height=160,
+        key=f"{state_key}::component",
+    )
+
+    if component_value:
+        try:
+            payload = json.loads(component_value)
+        except json.JSONDecodeError:
+            payload = None
+        if isinstance(payload, dict) and payload.get("type") == "timer" and payload.get("status") == "expired":
+            state["running"] = False
+            state["expired"] = True
+            state["accumulated_seconds"] = float(state["duration_seconds"])
+
+    if state.get("expired"):
+        st.error("時間切れです。本番同様の制限で復習モードに切り替えましょう。", icon="⏰")
+
+    return state
+
+
 def _resolve_question_insight(question: Dict[str, Any]) -> Optional[str]:
     question = question or {}
     for key in (
@@ -3696,11 +3913,14 @@ def _highlight_context_line(
 
 
 def _render_problem_context_block(
-    context_text: str, search_query: Optional[str] = None
-) -> int:
+    context_text: str,
+    search_query: Optional[str] = None,
+    *,
+    snapshot_key: Optional[str] = None,
+) -> Tuple[int, Optional[Dict[str, Any]]]:
     normalized = _normalize_text_block(context_text)
     if not normalized:
-        return 0
+        return 0, None
 
     paragraphs: List[str] = []
     for raw_block in normalized.replace("\r\n", "\n").replace("\r", "\n").split("\n\n"):
@@ -3709,7 +3929,7 @@ def _render_problem_context_block(
             paragraphs.append(paragraph)
 
     if not paragraphs:
-        return 0
+        return 0, None
 
     if len(paragraphs) == 1:
         paragraphs = _split_long_japanese_paragraph(paragraphs[0])
@@ -3734,7 +3954,7 @@ def _render_problem_context_block(
             blocks.append(f"<p>{'<br/>'.join(line_fragments)}</p>")
 
     if not blocks:
-        return total_matches
+        return total_matches, None
 
     element_id = f"problem-context-{uuid.uuid4().hex}"
     toolbar_id = f"{element_id}-toolbar"
@@ -3760,6 +3980,9 @@ def _render_problem_context_block(
                     </button>
                     <button type="button" class="toolbar-button clear" data-action="clear-all" data-target="{element_id}">
                         マーカーを全て解除
+                    </button>
+                    <button type="button" class="toolbar-button save" data-action="capture" data-target="{element_id}">
+                        ハイライトを保存
                     </button>
                 </div>
                 <span class="toolbar-hint">テキストをドラッグして蛍光マーカーを適用できます。</span>
@@ -3981,6 +4204,7 @@ def _render_problem_context_block(
                 const highlightButton = toolbar.querySelector('[data-action="highlight"]');
                 const undoButton = toolbar.querySelector('[data-action="undo"]');
                 const clearButton = toolbar.querySelector('[data-action="clear-all"]');
+                const captureButton = toolbar.querySelector('[data-action="capture"]');
                 const colorButtons = Array.from(toolbar.querySelectorAll('[data-action="set-color"]'));
 
                 let highlightMode = false;
@@ -4063,6 +4287,32 @@ def _render_problem_context_block(
                     return true;
                 }};
 
+                const serializeHighlights = () => {{
+                    const marks = Array.from(container.querySelectorAll("mark.fluorescent-marker"));
+                    const entries = marks.map((mark) => {{
+                        const classes = Array.from(mark.classList || []);
+                        const colorClass = classes.find((cls) => cls.startsWith("color-")) || "color-gold";
+                        return {{
+                            text: mark.textContent || "",
+                            color: colorClass.replace("color-", ""),
+                        }};
+                    }});
+                    return {{
+                        type: 'highlightSnapshot',
+                        html: container.innerHTML,
+                        marks: entries,
+                        plain_text: container.innerText || container.textContent || "",
+                        timestamp: new Date().toISOString(),
+                    }};
+                }};
+
+                const emitSnapshot = () => {{
+                    const payload = serializeHighlights();
+                    if (window.Streamlit && window.Streamlit.setComponentValue) {{
+                        window.Streamlit.setComponentValue(JSON.stringify(payload));
+                    }}
+                }};
+
                 const scheduleAutoHighlight = () => {{
                     if (!highlightMode) {{
                         return;
@@ -4099,6 +4349,14 @@ def _render_problem_context_block(
                         if (selection) {{
                             selection.removeAllRanges();
                         }}
+                    }});
+                }}
+
+                if (captureButton) {{
+                    captureButton.addEventListener("click", () => {{
+                        emitSnapshot();
+                        captureButton.classList.add("saved");
+                        window.setTimeout(() => captureButton.classList.remove("saved"), 1200);
                     }});
                 }}
 
@@ -4195,9 +4453,23 @@ def _render_problem_context_block(
         """
     )
 
-    components.html(highlight_html, height=estimated_height, scrolling=True)
+    component_value = components.html(
+        highlight_html,
+        height=estimated_height,
+        scrolling=True,
+        key=f"context-highlight::{snapshot_key or element_id}",
+    )
 
-    return total_matches
+    snapshot: Optional[Dict[str, Any]] = None
+    if component_value:
+        try:
+            payload = json.loads(component_value)
+        except json.JSONDecodeError:
+            payload = None
+        if isinstance(payload, dict) and payload.get("type") == "highlightSnapshot":
+            snapshot = payload
+
+    return total_matches, snapshot
 
 
 def _render_question_overview_card(
@@ -6502,6 +6774,16 @@ def dashboard_page(user: Dict) -> None:
     gamification = _calculate_gamification(attempts)
     stats = database.aggregate_statistics(user["id"])
     keyword_records = database.fetch_keyword_performance(user["id"])
+    try:
+        question_history_summary = database.fetch_user_question_history_summary(user["id"])
+    except Exception:
+        logger.exception("Failed to load user question history summary for user %s", user.get("id"))
+        question_history_summary = []
+    try:
+        global_question_metrics = database.fetch_question_master_stats()
+    except Exception:
+        logger.exception("Failed to load global question metrics for history view")
+        global_question_metrics = {}
     dashboard_analysis = _prepare_dashboard_analysis_data(keyword_records)
     question_progress = database.get_question_progress_summary(user["id"], recent_limit=5)
     unattempted_questions = database.list_unattempted_questions(user["id"], limit=3)
@@ -8716,6 +8998,46 @@ def _render_causal_connector_indicator(
     return stats
 
 
+def _render_model_answer_diff(learner_answer: str, model_answer: str) -> None:
+    """Render an HTML diff table comparing learnerと模範解答."""
+
+    if "_diff_css_injected" not in st.session_state:
+        st.markdown(
+            dedent(
+                """
+                <style>
+                    table.diff { width: 100%; border-collapse: collapse; }
+                    .diff_header { background: #e2e8f0; font-weight: 600; padding: 0.25rem 0.5rem; }
+                    .diff_next { background: #f8fafc; }
+                    .diff_add { background: #dcfce7; }
+                    .diff_chg { background: #fef3c7; }
+                    .diff_sub { background: #fee2e2; }
+                    table.diff td { padding: 0.2rem 0.4rem; font-size: 0.85rem; vertical-align: top; }
+                </style>
+                """
+            ),
+            unsafe_allow_html=True,
+        )
+        st.session_state["_diff_css_injected"] = True
+
+    if not model_answer:
+        st.caption("模範解答が未登録のため差分を表示できません。")
+        return
+    if not learner_answer.strip():
+        st.caption("解答が未入力のため差分を表示できません。")
+        return
+
+    diff_html = difflib.HtmlDiff(wrapcolumn=42).make_table(
+        learner_answer.splitlines(),
+        model_answer.splitlines(),
+        fromdesc="あなたの解答",
+        todesc="模範解答",
+        context=True,
+        numlines=2,
+    )
+    st.markdown(f"<div class='diff-wrapper'>{diff_html}</div>", unsafe_allow_html=True)
+
+
 def _resolve_question_keywords(question: Mapping[str, Any]) -> List[str]:
     raw = question.get("keywords") or question.get("キーワード")
     if raw is None:
@@ -8726,6 +9048,47 @@ def _resolve_question_keywords(question: Mapping[str, Any]) -> List[str]:
     if isinstance(raw, Iterable):
         return [str(item).strip() for item in raw if str(item).strip()]
     return []
+
+
+def _resolve_question_skill_tags(question: Mapping[str, Any]) -> List[str]:
+    raw = question.get("skill_tags") or question.get("skills")
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        parts = re.split(r"[、,;\n]", raw)
+        return [part.strip() for part in parts if part.strip()]
+    if isinstance(raw, Iterable):
+        return [str(item).strip() for item in raw if str(item).strip()]
+    return []
+
+
+def _classify_difficulty_label(
+    metadata_label: Optional[str], avg_ratio: Optional[float]
+) -> str:
+    label = (metadata_label or "").strip()
+    if label:
+        return label
+    if avg_ratio is None:
+        return "未分類"
+    try:
+        ratio = float(avg_ratio)
+    except (TypeError, ValueError):
+        return "未分類"
+    if ratio >= 0.7:
+        return "易しい"
+    if ratio >= 0.5:
+        return "標準"
+    return "難しい"
+
+
+def _format_difficulty_hint(avg_ratio: Optional[float]) -> str:
+    if avg_ratio is None:
+        return "平均データなし"
+    try:
+        ratio = float(avg_ratio)
+    except (TypeError, ValueError):
+        return "平均データなし"
+    return f"平均得点率 {ratio * 100:.0f}%"
 
 
 def _get_saved_answer_payload(key: str) -> Dict[str, Any]:
@@ -10991,6 +11354,12 @@ def practice_page(user: Dict) -> None:
             logger.exception("Failed to fetch question practice stats for user %s", user.get("id"))
             question_stats = {}
 
+    try:
+        master_stats = database.fetch_question_master_stats()
+    except Exception:
+        logger.exception("Failed to load global question metrics")
+        master_stats = {}
+
     case_options = sorted(
         case_map.keys(),
         key=lambda label: (
@@ -11088,6 +11457,15 @@ def practice_page(user: Dict) -> None:
                 qid: _classify_practice_status(question_stats.get(qid))
                 for qid in question_options
             }
+            difficulty_map: Dict[int, str] = {}
+            for qid in question_options:
+                question_meta = question_lookup.get(qid) or {}
+                meta_label = question_meta.get("difficulty")
+                if not meta_label and problem:
+                    meta_label = problem.get("difficulty")
+                master_entry = master_stats.get(qid) if master_stats else None
+                avg_ratio = master_entry.get("avg_ratio") if master_entry else None
+                difficulty_map[qid] = _classify_difficulty_label(meta_label, avg_ratio)
             search_key = f"practice_tree_search::{selected_case}::{selected_year}"
             sort_key = f"practice_tree_sort::{selected_case}::{selected_year}"
             status_filter_key = f"practice_tree_status::{selected_case}::{selected_year}"
@@ -11129,15 +11507,18 @@ def practice_page(user: Dict) -> None:
 
             score_range: Optional[Tuple[int, int]] = None
             selected_topics: List[str] = []
+            selected_difficulties: List[str] = []
             topic_counter: Counter[str] = Counter()
             for qid in question_options:
                 question = question_lookup.get(qid) or {}
                 for keyword in _resolve_question_keywords(question):
                     topic_counter[keyword] += 1
+                for tag in _resolve_question_skill_tags(question):
+                    topic_counter[tag] += 1
 
             topic_options = [kw for kw, _count in topic_counter.most_common(30)]
             st.markdown('<div class="tree-level tree-level-filter">', unsafe_allow_html=True)
-            filter_cols = st.columns([0.5, 0.5], gap="small")
+            filter_cols = st.columns([0.34, 0.33, 0.33], gap="small")
             with filter_cols[0]:
                 if score_values:
                     min_score = min(score_values)
@@ -11165,6 +11546,18 @@ def practice_page(user: Dict) -> None:
                         key=topic_filter_key,
                         help="SWOT分析やマーケティング戦略など、押さえたい論点で抽出します。",
                     )
+            with filter_cols[2]:
+                difficulty_options = sorted({label for label in difficulty_map.values() if label})
+                if not difficulty_options:
+                    difficulty_options = ["未分類"]
+                difficulty_filter_key = f"practice_tree_difficulty::{selected_case}::{selected_year}"
+                selected_difficulties = st.multiselect(
+                    "難易度",
+                    difficulty_options,
+                    default=difficulty_options,
+                    key=difficulty_filter_key,
+                    help="平均正答率や付与メタデータから推定した難易度で絞り込みます。",
+                )
             st.markdown("</div>", unsafe_allow_html=True)
 
             normalized_query = (search_query or "").strip().lower()
@@ -11183,9 +11576,14 @@ def practice_page(user: Dict) -> None:
                     if numeric_score < score_range[0] or numeric_score > score_range[1]:
                         continue
                 if selected_topics:
-                    question_topics = set(_resolve_question_keywords(question))
+                    question_topics = set(_resolve_question_keywords(question)) | set(
+                        _resolve_question_skill_tags(question)
+                    )
                     if not question_topics or not set(selected_topics).issubset(question_topics):
                         continue
+                difficulty_label = difficulty_map.get(qid, "未分類")
+                if selected_difficulties and difficulty_label not in selected_difficulties:
+                    continue
                 status_label = status_map.get(qid, "未実施")
                 if selected_statuses and status_label not in selected_statuses:
                     continue
@@ -11265,9 +11663,17 @@ def practice_page(user: Dict) -> None:
                     status_label = status_map.get(question_id)
                     if status_label:
                         meta_parts.append(status_label)
+                    difficulty_label = difficulty_map.get(question_id)
+                    if difficulty_label and difficulty_label != "未分類":
+                        meta_parts.append(difficulty_label)
                     attempts = question_stats.get(question_id, {}).get("attempt_count", 0)
                     if attempts:
                         meta_parts.append(f"{attempts}回")
+                    master_entry = master_stats.get(question_id) if master_stats else None
+                    if master_entry and master_entry.get("attempt_count"):
+                        avg_ratio = master_entry.get("avg_ratio")
+                        if isinstance(avg_ratio, (int, float)):
+                            meta_parts.append(f"平均{avg_ratio * 100:.0f}%")
                     meta = f" [{' / '.join(meta_parts)}]" if meta_parts else ""
                     if preview:
                         return f"{' '.join(parts)}：{preview}{meta}"
@@ -11294,6 +11700,17 @@ def practice_page(user: Dict) -> None:
             st.markdown(f"**{selected_case} / {_format_reiwa_label(selected_year)}**")
         if problem:
             st.caption(problem["title"])
+            meta_chunks: List[str] = []
+            if problem.get("difficulty"):
+                meta_chunks.append(f"難易度: {problem['difficulty']}")
+            if problem.get("themes"):
+                meta_chunks.append("テーマ: " + "、".join(str(item) for item in problem.get("themes", [])))
+            if problem.get("tendencies"):
+                meta_chunks.append("出題傾向: " + "、".join(str(item) for item in problem.get("tendencies", [])))
+            if problem.get("tags"):
+                meta_chunks.append("タグ: " + "、".join(str(item) for item in problem.get("tags", [])))
+            if meta_chunks:
+                st.caption(" / ".join(meta_chunks))
 
         short_year = _format_reiwa_label(selected_year or "")
         notice = EXAM_YEAR_NOTICE.get(short_year)
@@ -11305,6 +11722,28 @@ def practice_page(user: Dict) -> None:
             )
 
         if selected_question:
+            question_id = selected_question.get("id")
+            user_stat = question_stats.get(question_id or 0, {}) if question_stats else {}
+            master_entry = master_stats.get(question_id) if master_stats else None
+            difficulty_label = _classify_difficulty_label(
+                selected_question.get("difficulty") or problem.get("difficulty"),
+                master_entry.get("avg_ratio") if master_entry else None,
+            )
+            stats_lines: List[str] = []
+            if difficulty_label:
+                stats_lines.append(f"**想定難易度:** {difficulty_label}")
+            if master_entry and master_entry.get("avg_ratio") is not None:
+                avg_ratio = float(master_entry.get("avg_ratio"))
+                stats_lines.append(
+                    f"**全受験者平均:** {avg_ratio * 100:.0f}%（サンプル{int(master_entry.get('attempt_count') or 0)}件）"
+                )
+            if user_stat and user_stat.get("avg_ratio") is not None:
+                learner_ratio = float(user_stat.get("avg_ratio"))
+                stats_lines.append(
+                    f"**あなたの平均:** {learner_ratio * 100:.0f}%（{int(user_stat.get('attempt_count') or 0)}回）"
+                )
+            if stats_lines:
+                st.markdown("<div class='question-stats-block'>" + "<br/>".join(stats_lines) + "</div>", unsafe_allow_html=True)
             st.markdown(
                 f"**設問{selected_question['order']}：{selected_question['prompt']}**"
             )
@@ -11428,7 +11867,15 @@ def practice_page(user: Dict) -> None:
                 search_feedback = st.empty()
             st.markdown("</div>", unsafe_allow_html=True)
 
-            match_count = _render_problem_context_block(problem_context, search_query)
+            match_count, highlight_snapshot = _render_problem_context_block(
+                problem_context,
+                search_query,
+                snapshot_key=str(problem_identifier),
+            )
+            if highlight_snapshot:
+                highlight_store = st.session_state.setdefault("context_highlights", {})
+                highlight_store[str(problem_identifier)] = highlight_snapshot
+                st.success("ハイライトを保存しました。", icon="💾")
 
             normalized_query = (search_query or "").strip()
             if normalized_query:
@@ -11451,6 +11898,8 @@ def practice_page(user: Dict) -> None:
 
     with main_col:
         st.markdown('<div class="practice-main-column">', unsafe_allow_html=True)
+        current_problem_id = problem.get("id") if problem else None
+        _render_practice_timer(current_problem_id)
         question_entries: List[Dict[str, str]] = []
         for idx, q in enumerate(problem["questions"], start=1):
             anchor_id = f"question-q{idx}"
@@ -12901,10 +13350,22 @@ def render_attempt_results(attempt_id: int) -> None:
                 if normalized:
                     question_context_map[qid] = normalized
                     break
+    highlight_snapshot = None
+    if problem:
+        highlight_store = st.session_state.get("context_highlights") or {}
+        identifier = (
+            problem.get("id")
+            or problem.get("slug")
+            or problem.get("title")
+            or "default"
+        )
+        highlight_snapshot = highlight_store.get(str(identifier))
+
     export_payload = export_utils.build_attempt_export_payload(
         attempt,
         answers,
         problem or {},
+        highlight_snapshot=highlight_snapshot,
     )
     attempt_csv_data = export_utils.attempt_csv_bytes(export_payload)
     attempt_json_data = export_utils.attempt_json_bytes(export_payload)
@@ -12930,6 +13391,13 @@ def render_attempt_results(attempt_id: int) -> None:
         else:
             database.update_scoring_log_self_evaluation(log_id, selected)
         st.session_state[f"{state_key}_saved"] = selected
+
+    def _handle_review_note_update(log_id: Optional[int], state_key: str) -> None:
+        if not log_id:
+            return
+        note_text = st.session_state.get(state_key, "")
+        database.update_scoring_log_notes(log_id, note_text)
+        st.session_state[f"{state_key}_saved_at"] = datetime.now(timezone.utc).isoformat()
 
     st.subheader("採点結果")
     total_score = attempt["total_score"] or 0
@@ -13314,6 +13782,10 @@ def render_attempt_results(attempt_id: int) -> None:
             keyword_hits = answer.get("keyword_hits") or {}
             if keyword_hits:
                 _render_keyword_coverage_from_hits(keyword_hits)
+                missing_keywords = [kw for kw, hit in keyword_hits.items() if not hit]
+                if missing_keywords:
+                    st.markdown("**不足キーワード**")
+                    st.write("、".join(missing_keywords))
             else:
                 st.caption("キーワード採点は設定されていません。")
             answer_text = str(answer.get("answer_text", ""))
@@ -13361,6 +13833,8 @@ def render_attempt_results(attempt_id: int) -> None:
                     st.caption(
                         "与件との対応関係は検出されませんでした。根拠となる記述を引用しながら書きましょう。"
                     )
+            with st.expander("模範解答との差分ハイライト", expanded=False):
+                _render_model_answer_diff(answer_text, answer.get("model_answer") or "")
             log_id = answer.get("scoring_log_id")
             if log_id:
                 state_key = f"self_eval_select_{attempt_id}_{log_id}"
@@ -13376,8 +13850,30 @@ def render_attempt_results(attempt_id: int) -> None:
                 )
                 saved_value = st.session_state.get(f"{state_key}_saved", st.session_state[state_key])
                 st.caption(f"保存済みの評価: {saved_value}")
+                note_key = f"review_note_{attempt_id}_{log_id}"
+                if note_key not in st.session_state:
+                    st.session_state[note_key] = answer.get("review_note") or ""
+                st.text_area(
+                    "復習メモを残す",
+                    key=note_key,
+                    height=120,
+                    placeholder="気づきや次回の改善ポイントをメモしましょう。",
+                    on_change=_handle_review_note_update,
+                    args=(log_id, note_key),
+                )
+                answer["review_note"] = st.session_state.get(note_key, "")
+                note_saved = st.session_state.get(f"{note_key}_saved_at")
+                if note_saved:
+                    st.caption(f"メモ保存: {note_saved}")
             else:
                 st.caption("自己評価ログはこの設問でまだ作成されていません。")
+                st.text_area(
+                    "復習メモを残す",
+                    value=answer.get("review_note") or "",
+                    height=120,
+                    disabled=True,
+                    help="採点ログが生成されるとメモを保存できるようになります。",
+                )
             with st.expander("模範解答と解説", expanded=False):
                 model_answer_text = _normalize_text_block(answer["model_answer"])
                 if answer_text.strip() and model_answer_text:
@@ -14376,8 +14872,8 @@ def history_page(user: Dict) -> None:
     keyword_analysis_data = _analyze_keyword_records(filtered_keyword_records)
     report_data = _build_learning_report(filtered_df)
 
-    overview_tab, chart_tab, report_tab, keyword_tab, detail_tab = st.tabs(
-        ["一覧", "グラフ", "分析レポート", "キーワード分析", "詳細・エクスポート"]
+    overview_tab, chart_tab, report_tab, keyword_tab, question_tab, detail_tab = st.tabs(
+        ["一覧", "グラフ", "分析レポート", "キーワード分析", "設問別分析", "詳細・エクスポート"]
     )
 
     with overview_tab:
@@ -14885,6 +15381,217 @@ def history_page(user: Dict) -> None:
                         theme_display[["テーマ", "重要度(指数)"]],
                         width="stretch",
                         hide_index=True,
+                    )
+
+    with question_tab:
+        if not question_history_summary:
+            st.info("まだ設問別の履歴がありません。演習を進めると自動で集計されます。")
+        else:
+            summary_df = pd.DataFrame(question_history_summary)
+            summary_df["last_attempt_at"] = pd.to_datetime(
+                summary_df["last_attempt_at"], errors="coerce"
+            )
+            for column in ["themes", "tendencies", "topics", "skill_tags"]:
+                summary_df[column] = summary_df[column].apply(
+                    lambda value: value if isinstance(value, list) else []
+                )
+            summary_df["difficulty_label"] = summary_df.apply(
+                lambda row: str(
+                    row.get("question_difficulty")
+                    or row.get("problem_difficulty")
+                    or "未分類"
+                ),
+                axis=1,
+            )
+            available_years = (
+                summary_df["year"].dropna().astype(str).sort_values(ascending=False).unique().tolist()
+            )
+            available_cases = (
+                summary_df["case_label"].dropna().astype(str).unique().tolist()
+            )
+            available_cases.sort(
+                key=lambda label: (
+                    CASE_ORDER.index(label) if label in CASE_ORDER else len(CASE_ORDER),
+                    label,
+                )
+            )
+            available_difficulties = sorted(
+                {label for label in summary_df["difficulty_label"].unique() if label}
+            )
+            concept_tags: Set[str] = set()
+            for column in ("themes", "tendencies", "topics"):
+                for tags in summary_df[column]:
+                    concept_tags.update(tag for tag in tags if tag)
+            skill_tags: Set[str] = set()
+            for tags in summary_df["skill_tags"]:
+                skill_tags.update(tag for tag in tags if tag)
+
+            filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+            with filter_col1:
+                selected_years = st.multiselect("年度", options=available_years)
+            with filter_col2:
+                selected_cases = st.multiselect("事例", options=available_cases)
+            with filter_col3:
+                selected_difficulties = st.multiselect(
+                    "難易度", options=available_difficulties, default=[]
+                )
+            with filter_col4:
+                selected_concepts = st.multiselect(
+                    "テーマ/傾向タグ", options=sorted(concept_tags), default=[]
+                )
+
+            selected_skills = st.multiselect(
+                "スキルタグ", options=sorted(skill_tags), default=[], key="question_skill_filter"
+            )
+
+            filtered_summary = summary_df.copy()
+            if selected_years:
+                filtered_summary = filtered_summary[
+                    filtered_summary["year"].astype(str).isin(selected_years)
+                ]
+            if selected_cases:
+                filtered_summary = filtered_summary[
+                    filtered_summary["case_label"].astype(str).isin(selected_cases)
+                ]
+            if selected_difficulties:
+                filtered_summary = filtered_summary[
+                    filtered_summary["difficulty_label"].isin(selected_difficulties)
+                ]
+            if selected_concepts:
+                concept_set = set(selected_concepts)
+                filtered_summary = filtered_summary[
+                    filtered_summary.apply(
+                        lambda row: bool(
+                            concept_set
+                            & (set(row["themes"]) | set(row["tendencies"]) | set(row["topics"]))
+                        ),
+                        axis=1,
+                    )
+                ]
+            if selected_skills:
+                skill_set = set(selected_skills)
+                filtered_summary = filtered_summary[
+                    filtered_summary["skill_tags"].apply(lambda tags: bool(skill_set & set(tags)))
+                ]
+
+            if filtered_summary.empty:
+                st.warning("選択した条件に一致する設問がありません。フィルタを調整してください。")
+            else:
+                ratio_map = {}
+                if global_question_metrics:
+                    ratio_map = {
+                        qid: metrics.get("avg_ratio")
+                        for qid, metrics in global_question_metrics.items()
+                    }
+
+                display_df = filtered_summary.copy()
+                display_df["年度"] = display_df["year"].astype(str).map(_format_reiwa_label)
+                display_df["事例"] = display_df["case_label"].astype(str)
+                display_df["設問"] = display_df["question_order"].map(
+                    lambda v: f"設問{int(v)}" if pd.notna(v) else "-"
+                )
+                display_df["平均得点"] = display_df["avg_score"].map(
+                    lambda v: f"{v:.1f}" if pd.notna(v) else "-"
+                )
+                display_df["最高得点"] = display_df["best_score"].map(
+                    lambda v: f"{v:.1f}" if pd.notna(v) else "-"
+                )
+                display_df["最低得点"] = display_df["worst_score"].map(
+                    lambda v: f"{v:.1f}" if pd.notna(v) else "-"
+                )
+                display_df["平均得点率(%)"] = display_df["avg_ratio"].map(
+                    lambda v: f"{v * 100:.1f}" if pd.notna(v) else "-"
+                )
+                display_df["平均キーワード網羅率(%)"] = display_df["avg_keyword_coverage"].map(
+                    lambda v: f"{v * 100:.1f}" if pd.notna(v) else "-"
+                )
+                display_df["全体平均得点率(%)"] = display_df["question_id"].map(
+                    lambda qid: f"{ratio_map.get(qid) * 100:.1f}"
+                    if ratio_map.get(qid) is not None
+                    else "-"
+                )
+                display_df["直近実施日"] = display_df["last_attempt_at"].dt.strftime(
+                    "%Y-%m-%d"
+                )
+                display_df["難易度"] = display_df["difficulty_label"]
+                display_df["テーマ"] = display_df["themes"].map(
+                    lambda tags: "、".join(tags) if tags else "-"
+                )
+                display_df["傾向タグ"] = display_df["tendencies"].map(
+                    lambda tags: "、".join(tags) if tags else "-"
+                )
+                display_df["トピックタグ"] = display_df["topics"].map(
+                    lambda tags: "、".join(tags) if tags else "-"
+                )
+                display_df["スキルタグ"] = display_df["skill_tags"].map(
+                    lambda tags: "、".join(tags) if tags else "-"
+                )
+                display_df.sort_values(
+                    by=["year", "case_label", "question_order"],
+                    ascending=[False, True, True],
+                    inplace=True,
+                )
+                table_columns = [
+                    "年度",
+                    "事例",
+                    "設問",
+                    "難易度",
+                    "実施回数",
+                    "平均得点",
+                    "最高得点",
+                    "最低得点",
+                    "平均得点率(%)",
+                    "全体平均得点率(%)",
+                    "平均キーワード網羅率(%)",
+                    "直近実施日",
+                    "テーマ",
+                    "傾向タグ",
+                    "トピックタグ",
+                    "スキルタグ",
+                ]
+                display_df.rename(columns={"attempt_count": "実施回数"}, inplace=True)
+                st.dataframe(
+                    display_df[table_columns],
+                    hide_index=True,
+                    use_container_width=True,
+                )
+                st.caption("演習済みの設問を年度・タグ別に比較できます。列ヘッダをクリックすると並び替えできます。")
+
+                improvement_candidates = display_df[
+                    (display_df["平均得点率(%)"] != "-")
+                    & (display_df["実施回数"] > 0)
+                ].copy()
+                if not improvement_candidates.empty:
+                    improvement_candidates["平均得点率(%)"] = improvement_candidates[
+                        "平均得点率(%)"
+                    ].astype(float)
+                    improvement_candidates.sort_values(
+                        by=["平均得点率(%)", "直近実施日"], ascending=[True, True], inplace=True
+                    )
+                    st.markdown("#### 改善優先度が高い設問")
+                    st.caption("平均得点率が低い順に最大5件まで表示します。重点復習の参考にしてください。")
+                    st.dataframe(
+                        improvement_candidates.head(5)[
+                            ["年度", "事例", "設問", "平均得点率(%)", "最高得点", "実施回数", "直近実施日"]
+                        ],
+                        hide_index=True,
+                        use_container_width=True,
+                    )
+
+                avg_ratio_series = filtered_summary["avg_ratio"].dropna()
+                avg_ratio_pct = avg_ratio_series.mean() * 100 if not avg_ratio_series.empty else None
+                metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
+                with metrics_col1:
+                    st.metric("演習済み設問数", f"{len(filtered_summary)}問")
+                with metrics_col2:
+                    st.metric(
+                        "平均得点率",
+                        f"{avg_ratio_pct:.1f}%" if avg_ratio_pct is not None else "-",
+                    )
+                with metrics_col3:
+                    st.metric(
+                        "平均実施回数",
+                        f"{filtered_summary['attempt_count'].mean():.1f}回",
                     )
 
     with detail_tab:
