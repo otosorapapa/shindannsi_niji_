@@ -267,6 +267,66 @@
         gap: var(--spacing-sm);
       }
 
+      body[data-app="exercise"] .app-header__quicknav {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        margin-left: auto;
+      }
+
+      body[data-app="exercise"] .app-header__anchor {
+        appearance: none;
+        border: none;
+        background: transparent;
+        color: var(--color-text-muted);
+        font-weight: 600;
+        font-size: 0.92rem;
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: 999px;
+        cursor: pointer;
+        position: relative;
+        transition: background-color var(--transition-duration) ease,
+          color var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .app-header__anchor::after {
+        content: "";
+        position: absolute;
+        inset-inline: var(--spacing-xs);
+        bottom: calc(var(--spacing-xs) * -0.5);
+        height: 2px;
+        background-color: transparent;
+        border-radius: 999px;
+        transition: background-color var(--transition-duration) ease,
+          transform var(--transition-duration) ease;
+        transform: scaleX(0);
+        transform-origin: center;
+      }
+
+      body[data-app="exercise"] .app-header__anchor:hover,
+      body[data-app="exercise"] .app-header__anchor:focus-visible {
+        color: var(--color-text-strong);
+        background-color: color-mix(
+          in srgb,
+          var(--color-chip-bg) 70%,
+          transparent
+        );
+      }
+
+      body[data-app="exercise"] .app-header__anchor:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
+      }
+
+      body[data-app="exercise"] .app-header__anchor[data-active="true"] {
+        color: var(--color-chip-active);
+      }
+
+      body[data-app="exercise"] .app-header__anchor[data-active="true"]::after {
+        background-color: var(--color-chip-active);
+        transform: scaleX(1);
+      }
+
       body[data-app="exercise"] .app-header__title {
         display: flex;
         flex-direction: column;
@@ -549,6 +609,79 @@
         color: var(--color-text-muted);
       }
 
+      body[data-app="exercise"] .strategy-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: var(--spacing-sm);
+        margin-top: var(--spacing-sm);
+      }
+
+      body[data-app="exercise"] .strategy-card {
+        position: relative;
+        border: none;
+        border-radius: 12px;
+        padding: var(--spacing-sm) var(--spacing-md);
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.95rem;
+        background: color-mix(in srgb, var(--color-chip-bg) 80%, transparent);
+        color: var(--color-text-strong);
+        cursor: pointer;
+        transition: transform var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease,
+          background-color var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .strategy-card:hover,
+      body[data-app="exercise"] .strategy-card:focus-visible {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 20px rgba(27, 35, 55, 0.12);
+        background: color-mix(in srgb, var(--color-chip-active) 18%, var(--color-bg));
+        color: var(--color-text-strong);
+      }
+
+      body[data-app="exercise"] .strategy-card[aria-pressed="true"] {
+        background: color-mix(in srgb, var(--color-chip-active) 24%, var(--color-bg));
+        color: var(--color-chip-active-text);
+        box-shadow: 0 16px 24px rgba(27, 35, 55, 0.18);
+      }
+
+      body[data-app="exercise"] .strategy-card:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--color-focus-ring),
+          0 12px 20px rgba(27, 35, 55, 0.12);
+      }
+
+      body[data-app="exercise"] .strategy-card[data-tooltip]:hover::after,
+      body[data-app="exercise"] .strategy-card[data-tooltip]:focus-visible::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        inset-inline-start: 16px;
+        inset-block-end: calc(100% + var(--spacing-xs));
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: var(--color-text-strong);
+        color: var(--color-chip-active-text);
+        font-size: 0.8rem;
+        white-space: nowrap;
+        box-shadow: 0 8px 20px rgba(27, 35, 55, 0.16);
+        z-index: 3;
+      }
+
+      body[data-app="exercise"] .strategy-card__preview {
+        margin-top: var(--spacing-xs);
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--color-card-ii) 45%, white 55%);
+        color: var(--color-text);
+        font-size: 0.85rem;
+        line-height: 1.6;
+      }
+
+      body[data-app="exercise"] .strategy-card__preview[hidden] {
+        display: none;
+      }
+
       body[data-app="exercise"] .exercise__tabs {
         position: sticky;
         top: var(--spacing-lg);
@@ -722,6 +855,13 @@
         gap: var(--spacing-xs);
       }
 
+      body[data-app="exercise"] .question-card__tools {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-xs);
+      }
+
       body[data-app="exercise"] .question-card__textarea {
         width: 100%;
         min-height: 160px;
@@ -749,6 +889,7 @@
 
       body[data-app="exercise"] .char-counter {
         align-self: flex-end;
+        margin-left: auto;
         font-size: 0.85rem;
         color: var(--color-text-muted);
         font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
@@ -768,8 +909,12 @@
 
       body[data-app="exercise"] .support-block__toggle {
         width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         border-color: transparent;
         color: var(--color-text);
+        gap: var(--spacing-sm);
       }
 
       body[data-app="exercise"] .support-block__toggle:hover,
@@ -804,6 +949,47 @@
       body[data-app="exercise"] .support-block__label {
         font-weight: 600;
         letter-spacing: 0.01em;
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .support-block__chevron {
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--color-chip-bg) 70%, transparent);
+        color: inherit;
+        transition: transform var(--transition-duration) ease,
+          background-color var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .support-block__chevron::before {
+        content: "";
+        border: solid currentColor;
+        border-width: 0 1.8px 1.8px 0;
+        display: inline-block;
+        padding: 3px;
+        transform: rotate(45deg);
+        transition: transform var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"]
+        .support-block__toggle[aria-expanded="true"]
+        .support-block__chevron {
+        background-color: var(--color-chip-active-text);
+        color: var(--color-chip-active);
+        transform: rotate(180deg);
+      }
+
+      body[data-app="exercise"]
+        .support-block__toggle[aria-expanded="true"]
+        .support-block__chevron::before {
+        transform: rotate(-135deg);
       }
 
       @media (prefers-color-scheme: dark) {
@@ -822,6 +1008,314 @@
       body[data-app="exercise"] .support-block__toggle[aria-expanded="true"] .ui-icon {
         background-color: var(--color-chip-active);
         color: var(--color-chip-active-text);
+      }
+
+      body[data-app="exercise"] .analysis-info {
+        margin-top: var(--spacing-xs);
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--color-chip-bg) 70%, transparent);
+        font-size: 0.85rem;
+        color: var(--color-text);
+      }
+
+      body[data-app="exercise"] .analysis-info[hidden] {
+        display: none;
+      }
+
+      body[data-app="exercise"] .analysis-info__trigger {
+        border: none;
+        background: transparent;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        transition: background-color var(--transition-duration) ease,
+          color var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .analysis-info__trigger:hover,
+      body[data-app="exercise"] .analysis-info__trigger:focus-visible,
+      body[data-app="exercise"] .analysis-info__trigger[aria-expanded="true"] {
+        color: var(--color-chip-active);
+        background-color: color-mix(
+          in srgb,
+          var(--color-chip-bg) 60%,
+          transparent
+        );
+      }
+
+      body[data-app="exercise"] .analysis-info__icon {
+        font-size: 1.1rem;
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      body[data-app="exercise"] .analysis-info__meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-xs);
+        margin-top: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .analysis-info__meta a {
+        color: var(--color-chip-active);
+        font-weight: 600;
+        font-size: 0.82rem;
+      }
+
+      body[data-app="exercise"] .analysis-info__meta a:hover,
+      body[data-app="exercise"] .analysis-info__meta a:focus-visible {
+        text-decoration: underline;
+      }
+
+      body[data-app="exercise"] .text-highlight {
+        background: color-mix(in srgb, var(--color-card-iii) 65%, white 35%);
+        padding-inline: 2px;
+        border-radius: 4px;
+      }
+
+      body[data-app="exercise"] .shortcut-launcher {
+        border: none;
+        background: transparent;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        transition: background-color var(--transition-duration) ease,
+          color var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .shortcut-launcher:hover,
+      body[data-app="exercise"] .shortcut-launcher:focus-visible {
+        color: var(--color-chip-active);
+        background-color: color-mix(
+          in srgb,
+          var(--color-chip-bg) 55%,
+          transparent
+        );
+      }
+
+      body[data-app="exercise"] .shortcut-panel {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: rgba(17, 24, 39, 0.45);
+        backdrop-filter: blur(4px);
+        z-index: 50;
+      }
+
+      body[data-app="exercise"] .shortcut-panel[hidden] {
+        display: none;
+      }
+
+      body[data-app="exercise"] .shortcut-panel__dialog {
+        background: var(--color-surface);
+        color: var(--color-text);
+        border-radius: 20px;
+        padding: var(--spacing-lg);
+        width: min(480px, 92vw);
+        box-shadow: 0 24px 60px rgba(27, 35, 55, 0.25);
+      }
+
+      body[data-app="exercise"] .shortcut-panel__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: var(--spacing-md);
+      }
+
+      body[data-app="exercise"] .shortcut-panel__list {
+        display: grid;
+        gap: var(--spacing-sm);
+        font-size: 0.95rem;
+      }
+
+      body[data-app="exercise"] .shortcut-panel__item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--color-chip-bg) 75%, transparent);
+      }
+
+      body[data-app="exercise"] .shortcut-panel__keys {
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
+        font-size: 0.85rem;
+        display: inline-flex;
+        gap: 6px;
+      }
+
+      body[data-app="exercise"] .shortcut-panel__keys span {
+        padding: 4px 8px;
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--color-chip-active) 12%, var(--color-bg));
+        border: 1px solid color-mix(in srgb, var(--color-chip-active) 35%, transparent);
+      }
+
+      body[data-app="exercise"] .shortcut-panel__close {
+        border: none;
+        background: transparent;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        font-size: 1.2rem;
+        line-height: 1;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+      }
+
+      body[data-app="exercise"] .shortcut-panel__close:hover,
+      body[data-app="exercise"] .shortcut-panel__close:focus-visible {
+        color: var(--color-chip-active);
+        background-color: color-mix(
+          in srgb,
+          var(--color-chip-bg) 50%,
+          transparent
+        );
+      }
+
+      body[data-app="exercise"] .retrieval-preview {
+        margin-top: var(--spacing-lg);
+        padding: var(--spacing-md);
+        border-radius: var(--radius-card);
+        background: color-mix(in srgb, var(--color-card-iv) 45%, white 55%);
+        display: grid;
+        gap: var(--spacing-sm);
+      }
+
+      body[data-app="exercise"] .retrieval-preview__header {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .retrieval-modal {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        z-index: 60;
+      }
+
+      body[data-app="exercise"] .retrieval-modal[hidden] {
+        display: none;
+      }
+
+      body[data-app="exercise"] .retrieval-modal__backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(10, 15, 28, 0.58);
+        backdrop-filter: blur(4px);
+      }
+
+      body[data-app="exercise"] .retrieval-modal__dialog {
+        position: relative;
+        z-index: 1;
+        width: min(560px, 92vw);
+        border-radius: 20px;
+        background: var(--color-surface);
+        color: var(--color-text);
+        padding: var(--spacing-lg);
+        box-shadow: 0 24px 60px rgba(27, 35, 55, 0.3);
+        display: grid;
+        gap: var(--spacing-md);
+      }
+
+      body[data-app="exercise"] .retrieval-modal__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--spacing-sm);
+      }
+
+      body[data-app="exercise"] .retrieval-modal__body {
+        min-height: 160px;
+      }
+
+      body[data-app="exercise"] .retrieval-card {
+        display: grid;
+        gap: var(--spacing-xs);
+        background: color-mix(in srgb, var(--color-card-iii) 45%, white 55%);
+        border-radius: var(--radius-card);
+        padding: var(--spacing-md);
+        line-height: 1.65;
+      }
+
+      body[data-app="exercise"] .retrieval-card[hidden] {
+        display: none;
+      }
+
+      body[data-app="exercise"] .retrieval-card__tag {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--color-chip-active);
+      }
+
+      body[data-app="exercise"] .retrieval-modal__controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-sm);
+      }
+
+      body[data-app="exercise"] .retrieval-progress {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+        flex: 1;
+      }
+
+      body[data-app="exercise"] .retrieval-progress__bar {
+        position: relative;
+        height: 6px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--color-chip-bg) 50%, transparent);
+        overflow: hidden;
+      }
+
+      body[data-app="exercise"] .retrieval-progress__bar span {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: var(--color-chip-active);
+        transform-origin: left center;
+        transform: scaleX(0);
+        transition: transform var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .retrieval-modal__close {
+        border: none;
+        background: transparent;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+      }
+
+      body[data-app="exercise"] .retrieval-modal__close:hover,
+      body[data-app="exercise"] .retrieval-modal__close:focus-visible {
+        color: var(--color-chip-active);
+        background-color: color-mix(
+          in srgb,
+          var(--color-chip-bg) 50%,
+          transparent
+        );
       }
 
       body[data-app="exercise"] .question-card--active::after {
@@ -896,6 +1390,26 @@
         body[data-app="exercise"] .exercise__tabs {
           position: sticky;
           top: 0;
+        }
+      }
+
+      @media (max-width: 960px) {
+        body[data-app="exercise"] .app-header {
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: var(--spacing-sm);
+        }
+
+        body[data-app="exercise"] .app-header__group:last-of-type {
+          order: 2;
+        }
+
+        body[data-app="exercise"] .app-header__quicknav {
+          order: 3;
+          width: 100%;
+          justify-content: center;
+          flex-wrap: wrap;
+          padding-top: var(--spacing-xs);
         }
       }
 
@@ -992,7 +1506,32 @@
             </svg>
             フィルタ
           </button>
+          <button
+            class="shortcut-launcher"
+            type="button"
+            aria-label="キーボードショートカットを表示"
+            data-shortcut-open
+          >
+            ⌨️
+          </button>
         </div>
+        <nav
+          class="app-header__quicknav"
+          aria-label="セクションへのショートカット"
+        >
+          <button class="app-header__anchor" type="button" data-target="section-overview">
+            設問概要
+          </button>
+          <button class="app-header__anchor" type="button" data-target="section-scenario">
+            与件文
+          </button>
+          <button class="app-header__anchor" type="button" data-target="section-retrieval">
+            リトリーバル
+          </button>
+          <button class="app-header__anchor" type="button" data-target="section-answer">
+            解答
+          </button>
+        </nav>
       </header>
       <section class="app-progress" aria-label="進捗状況">
         <div class="progress-indicator" role="status">
@@ -1011,6 +1550,7 @@
       </section>
       <div class="layout">
         <aside
+          id="section-scenario"
           class="context-pane"
           role="region"
           aria-labelledby="context-heading"
@@ -1053,7 +1593,11 @@
 
       <main class="exercise" role="main" aria-labelledby="exercise-heading">
         <h2 id="exercise-heading" class="sr-only">演習と設問</h2>
-        <section class="exercise__controls" aria-label="問題の検索と整理">
+        <section
+          id="section-overview"
+          class="exercise__controls"
+          aria-label="問題の検索と整理"
+        >
           <div class="control-card" role="group" aria-labelledby="search-heading">
             <h3 id="search-heading" class="heading-md">問題検索</h3>
             <label class="sr-only" for="problem-search">問題文やキーワードを検索</label>
@@ -1149,6 +1693,70 @@
               迷ったら、キーワードと因果関係の視点を確認しましょう。
             </div>
           </div>
+          <div class="control-card" role="group" aria-labelledby="expression-heading">
+            <h3 id="expression-heading" class="heading-md">表現カード</h3>
+            <p class="text-muted">
+              クリックすると回答作成のヒントが表示されます。キーボードの
+              Tabで移動し、Enterで決定できます。
+            </p>
+            <div class="strategy-card-grid">
+              <button
+                type="button"
+                class="strategy-card"
+                data-tooltip="2センテンス構成を意識した短文テンプレート"
+                data-strategy="expression"
+              >
+                30字×2の表現
+              </button>
+              <button
+                type="button"
+                class="strategy-card"
+                data-tooltip="原因→施策→効果のフレームを提示"
+                data-strategy="structure"
+              >
+                構造の言葉
+              </button>
+              <button
+                type="button"
+                class="strategy-card"
+                data-tooltip="強み×機会の切り口でアイデアを整理"
+                data-strategy="swot"
+              >
+                強み活用カード
+              </button>
+              <button
+                type="button"
+                class="strategy-card"
+                data-tooltip="一次知識を再確認して具体例を引き出す"
+                data-strategy="knowledge"
+              >
+                定石・知識集
+              </button>
+            </div>
+            <div class="strategy-card__preview" data-strategy-detail hidden></div>
+            <div class="sr-only" aria-live="polite" data-strategy-live></div>
+          </div>
+        </section>
+        <section
+          id="section-retrieval"
+          class="retrieval-preview"
+          aria-labelledby="retrieval-heading"
+        >
+          <div class="retrieval-preview__header">
+            <h3 id="retrieval-heading" class="heading-md">リトリーバル</h3>
+            <p class="text-muted">
+              過去演習で蓄積した知識カードを一枚ずつ確認できます。関連する
+              インサイトを復習してから回答を組み立てましょう。
+            </p>
+          </div>
+          <button
+            type="button"
+            class="ui-button ui-button--primary"
+            data-retrieval-open
+            aria-haspopup="dialog"
+          >
+            カードを開く
+          </button>
         </section>
         <nav
           class="exercise__tabs"
@@ -1210,7 +1818,11 @@
             <span class="exercise-tab__title">評価制度の再設計</span>
           </button>
         </nav>
-        <section class="exercise__questions" aria-live="polite">
+        <section
+          id="section-answer"
+          class="exercise__questions"
+          aria-live="polite"
+        >
           <article
             id="question-1"
             class="question-card"
@@ -1241,8 +1853,37 @@
                 aria-describedby="counter-1"
                 data-max-length="120"
               ></textarea>
-              <div id="counter-1" class="char-counter" aria-live="polite">
-                0 / 120 字
+              <div class="question-card__tools">
+                <div id="counter-1" class="char-counter" aria-live="polite">
+                  0 / 120 字
+                </div>
+                <button
+                  class="analysis-info__trigger"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="analysis-info-1"
+                  data-info-target="analysis-info-1"
+                >
+                  <span class="analysis-info__icon" aria-hidden="true">i</span>
+                  <span class="sr-only">分析ツールの説明を開く</span>
+                </button>
+              </div>
+              <div id="analysis-info-1" class="analysis-info" hidden>
+                <p>
+                  残り字数のカウンターと構造ラベルを合わせて確認し、要素の
+                  抜け漏れをチェックしましょう。配点が高い設問では段落構成を
+                  メモしてから記入するのがおすすめです。
+                </p>
+                <div class="analysis-info__meta">
+                  <span>構造メモ機能の基本操作</span>
+                  <a
+                    href="https://videos.example.jp/tool-demo"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    使い方動画を見る
+                  </a>
+                </div>
               </div>
             </div>
             <div class="support-block">
@@ -1255,6 +1896,7 @@
               >
                 <span class="ui-icon ui-icon--support" aria-hidden="true"></span>
                 <span class="support-block__label">活用する 思考補助</span>
+                <span class="support-block__chevron" aria-hidden="true"></span>
               </button>
               <div id="support-1" class="support-block__content" hidden>
                 設計部門のDX化、BOM連携、技能伝承、人材評価の整合性など、
@@ -1293,8 +1935,37 @@
                 aria-describedby="counter-2"
                 data-max-length="160"
               ></textarea>
-              <div id="counter-2" class="char-counter" aria-live="polite">
-                0 / 160 字
+              <div class="question-card__tools">
+                <div id="counter-2" class="char-counter" aria-live="polite">
+                  0 / 160 字
+                </div>
+                <button
+                  class="analysis-info__trigger"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="analysis-info-2"
+                  data-info-target="analysis-info-2"
+                >
+                  <span class="analysis-info__icon" aria-hidden="true">i</span>
+                  <span class="sr-only">分析ツールの説明を開く</span>
+                </button>
+              </div>
+              <div id="analysis-info-2" class="analysis-info" hidden>
+                <p>
+                  共創提案では、顧客の期待価値と自社資源のマトリクスを用い
+                  ると構造的に整理できます。フレームを選ぶと、要素の順序を
+                  自動で提案します。
+                </p>
+                <div class="analysis-info__meta">
+                  <span>提案骨子テンプレート</span>
+                  <a
+                    href="https://videos.example.jp/template-demo"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    使い方動画を見る
+                  </a>
+                </div>
               </div>
             </div>
             <div class="support-block">
@@ -1307,6 +1978,7 @@
               >
                 <span class="ui-icon ui-icon--support" aria-hidden="true"></span>
                 <span class="support-block__label">確認する 注意事項</span>
+                <span class="support-block__chevron" aria-hidden="true"></span>
               </button>
               <div id="support-2" class="support-block__content" hidden>
                 顧客接点の情報共有タイミング、設計部門の早期参画、試作段
@@ -1345,8 +2017,37 @@
                 aria-describedby="counter-3"
                 data-max-length="160"
               ></textarea>
-              <div id="counter-3" class="char-counter" aria-live="polite">
-                0 / 160 字
+              <div class="question-card__tools">
+                <div id="counter-3" class="char-counter" aria-live="polite">
+                  0 / 160 字
+                </div>
+                <button
+                  class="analysis-info__trigger"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="analysis-info-3"
+                  data-info-target="analysis-info-3"
+                >
+                  <span class="analysis-info__icon" aria-hidden="true">i</span>
+                  <span class="sr-only">分析ツールの説明を開く</span>
+                </button>
+              </div>
+              <div id="analysis-info-3" class="analysis-info" hidden>
+                <p>
+                  技能伝承の設問では、プロセス分解チャートを使うとフェーズ
+                  ごとの課題と施策を紐づけやすくなります。チャートに入力する
+                  と、回答骨子が自動整形されます。
+                </p>
+                <div class="analysis-info__meta">
+                  <span>プロセス分解チャート</span>
+                  <a
+                    href="https://videos.example.jp/chart-demo"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    使い方動画を見る
+                  </a>
+                </div>
               </div>
             </div>
             <div class="support-block">
@@ -1359,6 +2060,7 @@
               >
                 <span class="ui-icon ui-icon--support" aria-hidden="true"></span>
                 <span class="support-block__label">参照する Tips</span>
+                <span class="support-block__chevron" aria-hidden="true"></span>
               </button>
               <div id="support-3" class="support-block__content" hidden>
                 指導員制度、ペアワーク、動画記録、工程別のナレッジカード
@@ -1397,8 +2099,37 @@
                 aria-describedby="counter-4"
                 data-max-length="200"
               ></textarea>
-              <div id="counter-4" class="char-counter" aria-live="polite">
-                0 / 200 字
+              <div class="question-card__tools">
+                <div id="counter-4" class="char-counter" aria-live="polite">
+                  0 / 200 字
+                </div>
+                <button
+                  class="analysis-info__trigger"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="analysis-info-4"
+                  data-info-target="analysis-info-4"
+                >
+                  <span class="analysis-info__icon" aria-hidden="true">i</span>
+                  <span class="sr-only">分析ツールの説明を開く</span>
+                </button>
+              </div>
+              <div id="analysis-info-4" class="analysis-info" hidden>
+                <p>
+                  評価制度の設問では、成果指標と行動指標を二軸で整理し、重
+                  要キーワードをハイライトしておくと記述がぶれません。軸を選
+                  ぶと、テンプレートが展開されます。
+                </p>
+                <div class="analysis-info__meta">
+                  <span>評価指標デザイン</span>
+                  <a
+                    href="https://videos.example.jp/eval-demo"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    使い方動画を見る
+                  </a>
+                </div>
               </div>
             </div>
             <div class="support-block">
@@ -1411,6 +2142,7 @@
               >
                 <span class="ui-icon ui-icon--support" aria-hidden="true"></span>
                 <span class="support-block__label">確認する ゴール像</span>
+                <span class="support-block__chevron" aria-hidden="true"></span>
               </button>
               <div id="support-4" class="support-block__content" hidden>
                 DXで創出した知見の共有や後進育成を評価指標に組み込み、成
@@ -1433,6 +2165,151 @@
         </footer>
       </main>
     </div>
+    </div>
+
+    <div
+      class="retrieval-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="retrieval-modal-heading"
+      hidden
+      data-retrieval-modal
+    >
+      <div class="retrieval-modal__backdrop" data-retrieval-close></div>
+      <div class="retrieval-modal__dialog">
+        <header class="retrieval-modal__header">
+          <h3 id="retrieval-modal-heading" class="heading-md">リトリーバルカード</h3>
+          <button
+            type="button"
+            class="retrieval-modal__close"
+            aria-label="リトリーバルを閉じる"
+            data-retrieval-close
+          >
+            ✕
+          </button>
+        </header>
+        <div class="retrieval-modal__body">
+          <article class="retrieval-card" data-retrieval-card data-index="0">
+            <span class="retrieval-card__tag">顧客共創</span>
+            <h4 class="heading-md">共創設計レビュー</h4>
+            <p>
+              開発初期から設計と営業が参加する共創レビューを設定し、顧客の
+              真因をBOMに反映。議事録をクラウド共有してトレーサビリティを
+              確保する。
+            </p>
+          </article>
+          <article class="retrieval-card" data-retrieval-card data-index="1" hidden>
+            <span class="retrieval-card__tag">技能伝承</span>
+            <h4 class="heading-md">動画×メンター制度</h4>
+            <p>
+              熟練者の作業を動画で記録し、技能のツボを字幕で補足。週次でメ
+              ンターが振り返り面談を実施し、チェックリストで習熟度を可視化。
+            </p>
+          </article>
+          <article class="retrieval-card" data-retrieval-card data-index="2" hidden>
+            <span class="retrieval-card__tag">評価制度</span>
+            <h4 class="heading-md">知識共有インセンティブ</h4>
+            <p>
+              DX基盤に登録したナレッジ件数と活用率を評価指標に組み込み、共
+              有ポイントが昇格面談で参照される仕組みを構築する。
+            </p>
+          </article>
+          <article class="retrieval-card" data-retrieval-card data-index="3" hidden>
+            <span class="retrieval-card__tag">生産連携</span>
+            <h4 class="heading-md">段取りシミュレーション</h4>
+            <p>
+              設計段階で段取り替えシミュレーションを実施し、タクトタイムを
+              共有。結果をもとに製造部門が前倒しで治具準備を行う。
+            </p>
+          </article>
+          <article class="retrieval-card" data-retrieval-card data-index="4" hidden>
+            <span class="retrieval-card__tag">組織開発</span>
+            <h4 class="heading-md">DXアンバサダー制度</h4>
+            <p>
+              若手をDXアンバサダーに任命し、部門横断で改善アイデアを月次報
+              告。成功事例は社内ラジオで共有し、行動指標に紐づける。
+            </p>
+          </article>
+        </div>
+        <footer class="retrieval-modal__controls">
+          <button
+            type="button"
+            class="ui-button"
+            data-retrieval-prev
+            aria-label="前のカードへ"
+          >
+            前へ
+          </button>
+          <div class="retrieval-progress">
+            <span aria-live="polite" data-retrieval-count>1 / 5</span>
+            <div class="retrieval-progress__bar">
+              <span data-retrieval-progress></span>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="ui-button ui-button--primary"
+            data-retrieval-next
+            aria-label="次のカードへ"
+          >
+            次へ
+          </button>
+        </footer>
+      </div>
+    </div>
+
+    <div
+      class="shortcut-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="shortcut-panel-heading"
+      hidden
+      data-shortcut-panel
+    >
+      <div class="shortcut-panel__dialog">
+        <div class="shortcut-panel__header">
+          <h3 id="shortcut-panel-heading" class="heading-md">ショートカット一覧</h3>
+          <button
+            type="button"
+            class="shortcut-panel__close"
+            aria-label="ショートカット一覧を閉じる"
+            data-shortcut-close
+          >
+            ✕
+          </button>
+        </div>
+        <p class="text-muted">
+          キーボード操作でマーカーや支援ツールを呼び出せます。アクセシビ
+          リティ向上のため、全ての操作はフォーカス移動と組み合わせて利用
+          できます。
+        </p>
+        <div class="shortcut-panel__list">
+          <div class="shortcut-panel__item">
+            <span>選択テキストにハイライト</span>
+            <span class="shortcut-panel__keys">
+              <span>Alt</span><span>Shift</span><span>H</span>
+            </span>
+          </div>
+          <div class="shortcut-panel__item">
+            <span>ハイライトを解除</span>
+            <span class="shortcut-panel__keys">
+              <span>Alt</span><span>Shift</span><span>R</span>
+            </span>
+          </div>
+          <div class="shortcut-panel__item">
+            <span>リトリーバルカードを開く</span>
+            <span class="shortcut-panel__keys">
+              <span>Alt</span><span>Shift</span><span>O</span>
+            </span>
+          </div>
+          <div class="shortcut-panel__item">
+            <span>ショートカット一覧を開く</span>
+            <span class="shortcut-panel__keys">
+              <span>Alt</span><span>Shift</span><span>K</span>
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script>
@@ -1465,6 +2342,445 @@
             typeof value === 'string'
               ? value.replace(/([!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, '\\$1')
               : '';
+
+          const headerAnchors = Array.from(
+            appRoot.querySelectorAll('.app-header__anchor')
+          );
+          const anchorEntries = headerAnchors
+            .map((button) => {
+              const targetId = button.dataset.target;
+              if (!targetId) return null;
+              const target = appRoot.querySelector(
+                `#${escapeSelector(targetId)}`
+              );
+              return target ? { button, target, targetId } : null;
+            })
+            .filter(Boolean);
+
+          const setActiveAnchor = (targetId) => {
+            headerAnchors.forEach((button) => {
+              const isActive = button.dataset.target === targetId;
+              button.dataset.active = String(isActive);
+            });
+          };
+
+          const scrollToSection = (targetId) => {
+            const entry = anchorEntries.find(
+              (item) => item.targetId === targetId
+            );
+            if (!entry) return;
+            entry.target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setActiveAnchor(targetId);
+          };
+
+          headerAnchors.forEach((button) => {
+            button.dataset.active = 'false';
+            button.addEventListener(
+              'click',
+              () => {
+                if (button.dataset.target) {
+                  scrollToSection(button.dataset.target);
+                }
+              },
+              { signal }
+            );
+          });
+
+          if (anchorEntries.length) {
+            setActiveAnchor(anchorEntries[0].targetId);
+          }
+
+          if (anchorEntries.length && 'IntersectionObserver' in window) {
+            const anchorObserver = new IntersectionObserver(
+              (entries) => {
+                const visibleEntry = entries
+                  .filter((entry) => entry.isIntersecting)
+                  .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+                if (!visibleEntry) {
+                  return;
+                }
+                const id = visibleEntry.target.getAttribute('id');
+                if (id) {
+                  setActiveAnchor(id);
+                }
+              },
+              {
+                rootMargin: '-45% 0px -45% 0px',
+                threshold: 0.2,
+              }
+            );
+
+            anchorEntries.forEach((entry) => anchorObserver.observe(entry.target));
+            signal.addEventListener(
+              'abort',
+              () => anchorObserver.disconnect(),
+              { once: true }
+            );
+          }
+
+          const strategyCards = Array.from(
+            appRoot.querySelectorAll('.strategy-card')
+          );
+          const strategyDetail = appRoot.querySelector('[data-strategy-detail]');
+          const strategyLiveRegion = appRoot.querySelector('[data-strategy-live]');
+          const strategyMessages = {
+            expression:
+              '導入→結論の2センテンス構成で、課題と対応策を30字ずつ書き出すと要点がぶれません。',
+            structure:
+              '因果→施策→効果の順で骨子を並べ、接続語を揃えると読みやすさが向上します。',
+            swot:
+              '強み×機会の掛け合わせでアイデアを発想し、リスクは弱み×脅威として整理しましょう。',
+            knowledge:
+              '一次知識の定石を再確認し、設問のキーワードと紐づく要素をチェックリスト化します。',
+          };
+
+          const showStrategyDetail = (key) => {
+            if (!strategyDetail) return;
+            const message = key ? strategyMessages[key] : '';
+            if (message) {
+              strategyDetail.textContent = message;
+              strategyDetail.hidden = false;
+              if (strategyLiveRegion) {
+                strategyLiveRegion.textContent = `${message} を参照できます。`;
+              }
+            } else {
+              strategyDetail.hidden = true;
+              if (strategyLiveRegion) {
+                strategyLiveRegion.textContent = '';
+              }
+            }
+          };
+
+          if (strategyCards.length) {
+            strategyCards.forEach((card) => {
+              card.setAttribute('aria-pressed', 'false');
+              card.addEventListener(
+                'click',
+                () => {
+                  strategyCards.forEach((other) =>
+                    other.setAttribute('aria-pressed', 'false')
+                  );
+                  card.setAttribute('aria-pressed', 'true');
+                  showStrategyDetail(card.dataset.strategy);
+                },
+                { signal }
+              );
+            });
+          }
+
+          const infoButtons = Array.from(
+            appRoot.querySelectorAll('.analysis-info__trigger')
+          );
+          infoButtons.forEach((button) => {
+            const targetId = button.dataset.infoTarget;
+            const infoPanel = targetId
+              ? appRoot.querySelector(`#${escapeSelector(targetId)}`)
+              : null;
+            if (!infoPanel) {
+              return;
+            }
+            button.addEventListener(
+              'click',
+              () => {
+                const expanded = button.getAttribute('aria-expanded') === 'true';
+                const nextState = !expanded;
+                button.setAttribute('aria-expanded', String(nextState));
+                infoPanel.hidden = !nextState;
+                if (nextState) {
+                  infoPanel.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                  });
+                }
+              },
+              { signal }
+            );
+          });
+
+          const retrievalModal = appRoot.querySelector('[data-retrieval-modal]');
+          const retrievalOpeners = Array.from(
+            appRoot.querySelectorAll('[data-retrieval-open]')
+          );
+          const retrievalCards = Array.from(
+            retrievalModal?.querySelectorAll('[data-retrieval-card]') || []
+          );
+          const retrievalCount = retrievalModal?.querySelector(
+            '[data-retrieval-count]'
+          );
+          const retrievalProgress = retrievalModal?.querySelector(
+            '[data-retrieval-progress]'
+          );
+          const retrievalPrev = retrievalModal?.querySelector('[data-retrieval-prev]');
+          const retrievalNext = retrievalModal?.querySelector('[data-retrieval-next]');
+          const retrievalClosers = Array.from(
+            retrievalModal?.querySelectorAll('[data-retrieval-close]') || []
+          );
+          let retrievalIndex = 0;
+          let retrievalPreviousFocus = null;
+
+          const updateRetrievalView = () => {
+            if (!retrievalCards.length) return;
+            retrievalCards.forEach((card, index) => {
+              card.hidden = index !== retrievalIndex;
+            });
+            const total = retrievalCards.length;
+            if (retrievalCount) {
+              retrievalCount.textContent = `${retrievalIndex + 1} / ${total}`;
+            }
+            if (retrievalProgress) {
+              const progressRatio = (retrievalIndex + 1) / total;
+              retrievalProgress.style.transform = `scaleX(${progressRatio})`;
+            }
+            if (retrievalPrev) {
+              retrievalPrev.disabled = retrievalIndex === 0;
+            }
+            if (retrievalNext) {
+              retrievalNext.disabled = retrievalIndex === retrievalCards.length - 1;
+            }
+          };
+
+          const openRetrieval = () => {
+            if (!retrievalModal || !retrievalModal.hidden) {
+              return false;
+            }
+            retrievalPreviousFocus =
+              document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+            retrievalModal.hidden = false;
+            updateRetrievalView();
+            const focusTarget =
+              retrievalModal.querySelector('[data-retrieval-close]') ||
+              retrievalModal;
+            if (focusTarget && focusTarget.focus) {
+              focusTarget.focus();
+            }
+            return true;
+          };
+
+          const closeRetrieval = () => {
+            if (!retrievalModal || retrievalModal.hidden) {
+              return false;
+            }
+            retrievalModal.hidden = true;
+            if (retrievalPreviousFocus?.focus) {
+              retrievalPreviousFocus.focus();
+            }
+            return true;
+          };
+
+          if (retrievalOpeners.length) {
+            retrievalOpeners.forEach((button) => {
+              button.addEventListener('click', openRetrieval, { signal });
+            });
+          }
+
+          if (retrievalPrev && retrievalNext) {
+            retrievalPrev.addEventListener(
+              'click',
+              () => {
+                retrievalIndex = Math.max(0, retrievalIndex - 1);
+                updateRetrievalView();
+              },
+              { signal }
+            );
+            retrievalNext.addEventListener(
+              'click',
+              () => {
+                retrievalIndex = Math.min(
+                  retrievalCards.length - 1,
+                  retrievalIndex + 1
+                );
+                updateRetrievalView();
+              },
+              { signal }
+            );
+          }
+
+          if (retrievalClosers.length) {
+            retrievalClosers.forEach((closer) => {
+              closer.addEventListener('click', closeRetrieval, { signal });
+            });
+          }
+
+          if (retrievalModal) {
+            retrievalModal.addEventListener(
+              'click',
+              (event) => {
+                if (event.target === retrievalModal) {
+                  closeRetrieval();
+                }
+              },
+              { signal }
+            );
+          }
+
+          const shortcutPanel = appRoot.querySelector('[data-shortcut-panel]');
+          const shortcutOpeners = Array.from(
+            appRoot.querySelectorAll('[data-shortcut-open]')
+          );
+          const shortcutClosers = Array.from(
+            shortcutPanel?.querySelectorAll('[data-shortcut-close]') || []
+          );
+          let shortcutPreviousFocus = null;
+
+          const openShortcutPanel = () => {
+            if (!shortcutPanel || !shortcutPanel.hidden) {
+              return false;
+            }
+            shortcutPreviousFocus =
+              document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+            shortcutPanel.hidden = false;
+            const focusTarget =
+              shortcutPanel.querySelector('[data-shortcut-close]') || shortcutPanel;
+            focusTarget?.focus?.();
+            return true;
+          };
+
+          const closeShortcutPanel = () => {
+            if (!shortcutPanel || shortcutPanel.hidden) {
+              return false;
+            }
+            shortcutPanel.hidden = true;
+            if (shortcutPreviousFocus?.focus) {
+              shortcutPreviousFocus.focus();
+            }
+            return true;
+          };
+
+          shortcutOpeners.forEach((button) => {
+            button.addEventListener('click', openShortcutPanel, { signal });
+          });
+
+          shortcutClosers.forEach((button) => {
+            button.addEventListener('click', closeShortcutPanel, { signal });
+          });
+
+          if (shortcutPanel) {
+            shortcutPanel.addEventListener(
+              'click',
+              (event) => {
+                if (event.target === shortcutPanel) {
+                  closeShortcutPanel();
+                }
+              },
+              { signal }
+            );
+          }
+
+          const unwrapMark = (mark) => {
+            if (!mark || !mark.parentNode) return;
+            const parent = mark.parentNode;
+            while (mark.firstChild) {
+              parent.insertBefore(mark.firstChild, mark);
+            }
+            parent.removeChild(mark);
+          };
+
+          const highlightSelection = () => {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) {
+              return false;
+            }
+            const range = selection.getRangeAt(0);
+            if (range.collapsed) {
+              return false;
+            }
+            if (!appRoot.contains(range.commonAncestorContainer)) {
+              return false;
+            }
+            const wrapper = document.createElement('mark');
+            wrapper.className = 'text-highlight';
+            try {
+              const contents = range.extractContents();
+              wrapper.appendChild(contents);
+              range.insertNode(wrapper);
+              selection.removeAllRanges();
+              const newRange = document.createRange();
+              newRange.selectNode(wrapper);
+              selection.addRange(newRange);
+              return true;
+            } catch (error) {
+              return false;
+            }
+          };
+
+          const removeHighlight = () => {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) {
+              return false;
+            }
+            const range = selection.getRangeAt(0);
+            if (!appRoot.contains(range.commonAncestorContainer)) {
+              return false;
+            }
+            let removed = false;
+            if (range.collapsed) {
+              const node =
+                selection.anchorNode instanceof Element
+                  ? selection.anchorNode
+                  : selection.anchorNode?.parentElement;
+              const mark = node?.closest?.('mark.text-highlight');
+              if (mark) {
+                unwrapMark(mark);
+                removed = true;
+              }
+            } else {
+              const marks = Array.from(
+                appRoot.querySelectorAll('mark.text-highlight')
+              );
+              marks.forEach((mark) => {
+                try {
+                  if (range.intersectsNode(mark)) {
+                    unwrapMark(mark);
+                    removed = true;
+                  }
+                } catch (error) {
+                  // ignore intersections that throw for detached nodes
+                }
+              });
+            }
+            return removed;
+          };
+
+          document.addEventListener(
+            'keydown',
+            (event) => {
+              if (event.defaultPrevented) {
+                return;
+              }
+              const key = event.key?.toLowerCase?.();
+              const isModifierCombo =
+                event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey;
+
+              if (isModifierCombo && key === 'h') {
+                if (highlightSelection()) {
+                  event.preventDefault();
+                }
+              } else if (isModifierCombo && key === 'r') {
+                if (removeHighlight()) {
+                  event.preventDefault();
+                }
+              } else if (isModifierCombo && key === 'o') {
+                if (openRetrieval()) {
+                  event.preventDefault();
+                }
+              } else if (isModifierCombo && key === 'k') {
+                if (openShortcutPanel()) {
+                  event.preventDefault();
+                }
+              } else if (event.key === 'Escape') {
+                const closedModal = closeRetrieval();
+                const closedShortcuts = closeShortcutPanel();
+                if (closedModal || closedShortcuts) {
+                  event.preventDefault();
+                }
+              }
+            },
+            { signal }
+          );
 
           // 現在の設問位置とタブ／CTAの同期、スムーススクロール、ハイライト
           const tabButtons = Array.from(
@@ -1545,6 +2861,7 @@
             activateCard(target);
             updateTabs(targetId);
             updateFooterCta(targetId);
+            setActiveAnchor('section-answer');
           };
 
           tabButtons.forEach((button, index) => {
@@ -1623,6 +2940,7 @@
                   updateTabs(id);
                   updateFooterCta(id);
                   activateCard(entry.target);
+                  setActiveAnchor('section-answer');
                 }
               });
             },
