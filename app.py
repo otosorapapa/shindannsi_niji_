@@ -8661,15 +8661,17 @@ def _render_keyword_coverage_from_hits(keyword_hits: Mapping[str, bool]) -> None
         coverage = counts["hit"] / total_category
         bar_tone = "good" if coverage >= 0.7 else "warn"
         rows.append(
-            """
-            <div class='coverage-row'>
-                <span class='coverage-row__label'>{label}</span>
-                <div class='coverage-row__bar'>
-                    <div class='coverage-row__fill {tone}' style='width: {width:.0f}%;'></div>
+            dedent(
+                """
+                <div class='coverage-row'>
+                    <span class='coverage-row__label'>{label}</span>
+                    <div class='coverage-row__bar'>
+                        <div class='coverage-row__fill {tone}' style='width: {width:.0f}%;'></div>
+                    </div>
+                    <span class='coverage-row__meta'>{hit} / {total}</span>
                 </div>
-                <span class='coverage-row__meta'>{hit} / {total}</span>
-            </div>
-            """.format(
+                """
+            ).format(
                 label=html.escape(label),
                 tone=bar_tone,
                 width=coverage * 100,
