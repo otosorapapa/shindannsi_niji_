@@ -43,6 +43,27 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+
+def _extract_component_value(
+    component_value: Any, *, key: Optional[str] = None
+) -> Optional[str]:
+    """Return the raw value emitted by a Streamlit component, if available."""
+
+    if isinstance(component_value, str) and component_value:
+        return component_value
+
+    if key:
+        state_value = st.session_state.get(key)
+        if isinstance(state_value, str) and state_value:
+            return state_value
+
+    maybe_value = getattr(component_value, "value", None)
+    if isinstance(maybe_value, str) and maybe_value:
+        return maybe_value
+
+    return None
+
+
 import committee_analysis
 import database
 import export_utils
@@ -1194,7 +1215,7 @@ def _render_practice_timer(problem_id: Optional[int], *, default_minutes: int = 
                 const formatTime = (seconds) => {{
                     const mins = Math.floor(seconds / 60);
                     const secs = Math.floor(seconds % 60);
-                    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    return `${{String(mins).padStart(2, '0')}}:${{String(secs).padStart(2, '0')}}`;
                 }};
 
                 if (!window.Streamlit) {{
@@ -1217,7 +1238,8 @@ def _render_practice_timer(problem_id: Optional[int], *, default_minutes: int = 
                     display.textContent = formatTime(remaining);
                     if (bar) {{
                         const ratio = duration ? Math.min(1, Math.max(0, elapsed / duration)) : 0;
-                        bar.style.width = `${ratio * 100}%`;
+                        const ratioPercent = Math.max(0, Math.min(100, ratio * 100));
+                        bar.style.width = `${{ratioPercent.toFixed(1)}}%`;
                     }}
                     if (status) {{
                         status.textContent = running ? '計測中' : (expired || remaining <= 0 ? '時間切れ' : '待機中');
@@ -1245,21 +1267,28 @@ def _render_practice_timer(problem_id: Optional[int], *, default_minutes: int = 
         """
     )
 
+    component_key = f"{state_key}::component"
     component_value = components.html(
         timer_html,
         height=160,
-        key=f"{state_key}::component",
+        key=component_key,
     )
 
-    if isinstance(component_value, str) and component_value:
+    payload_raw = _extract_component_value(component_value, key=component_key)
+    if payload_raw:
         try:
-            payload = json.loads(component_value)
+            payload = json.loads(payload_raw)
         except json.JSONDecodeError:
             payload = None
-        if isinstance(payload, dict) and payload.get("type") == "timer" and payload.get("status") == "expired":
-            state["running"] = False
-            state["expired"] = True
-            state["accumulated_seconds"] = float(state["duration_seconds"])
+        else:
+            if (
+                isinstance(payload, dict)
+                and payload.get("type") == "timer"
+                and payload.get("status") == "expired"
+            ):
+                state["running"] = False
+                state["expired"] = True
+                state["accumulated_seconds"] = float(state["duration_seconds"])
 
     if state.get("expired"):
         st.error("時間切れです。本番同様の制限で復習モードに切り替えましょう。", icon="⏰")
@@ -4453,20 +4482,31 @@ def _render_problem_context_block(
         """
     )
 
+    component_key = (
+        f"problem-context::{snapshot_key}" if snapshot_key else None
+    )
+    component_kwargs = {
+        "height": estimated_height,
+        "scrolling": True,
+    }
+    if component_key:
+        component_kwargs["key"] = component_key
+
     component_value = components.html(
         highlight_html,
-        height=estimated_height,
-        scrolling=True,
+        **component_kwargs,
     )
 
     snapshot: Optional[Dict[str, Any]] = None
-    if isinstance(component_value, str) and component_value:
+    payload_raw = _extract_component_value(component_value, key=component_key)
+    if payload_raw:
         try:
-            payload = json.loads(component_value)
+            payload = json.loads(payload_raw)
         except json.JSONDecodeError:
             payload = None
-        if isinstance(payload, dict) and payload.get("type") == "highlightSnapshot":
-            snapshot = payload
+        else:
+            if isinstance(payload, dict) and payload.get("type") == "highlightSnapshot":
+                snapshot = payload
 
     return total_matches, snapshot
 
