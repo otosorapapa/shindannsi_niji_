@@ -45,6 +45,27 @@ def _format_keyword_hits(keyword_hits: Mapping[str, bool]) -> Dict[str, List[str
     return {"matched": matched, "missing": missing}
 
 
+def _normalize_mapping(mapping: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
+    """Return a plain dict for mappings such as sqlite3.Row."""
+
+    if mapping is None:
+        return {}
+    if isinstance(mapping, dict):
+        return dict(mapping)
+    if hasattr(mapping, "items"):
+        try:
+            return dict(mapping.items())
+        except TypeError:
+            pass
+    if hasattr(mapping, "keys"):
+        return {key: mapping[key] for key in mapping.keys()}
+    try:
+        return dict(mapping)
+    except TypeError:
+        # Fallback: attempt to build from attribute dictionary if available
+        return dict(getattr(mapping, "__dict__", {}))
+
+
 def build_attempt_export_payload(
     attempt: Mapping[str, Any],
     answers: Sequence[Mapping[str, Any]],
@@ -52,9 +73,11 @@ def build_attempt_export_payload(
     *,
     highlight_snapshot: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
-    problem = problem or {}
+    attempt_dict = _normalize_mapping(attempt)
+    problem_dict = _normalize_mapping(problem)
+    normalized_answers = [_normalize_mapping(answer) for answer in answers]
     sorted_answers = sorted(
-        answers,
+        normalized_answers,
         key=lambda entry: entry.get("question_order") or 0,
     )
 
@@ -84,9 +107,9 @@ def build_attempt_export_payload(
         )
 
     context_text = (
-        problem.get("context_text")
-        or problem.get("context")
-        or problem.get("overview")
+        problem_dict.get("context_text")
+        or problem_dict.get("context")
+        or problem_dict.get("overview")
         or ""
     )
     if context_text and len(str(context_text)) > 1600:
@@ -94,25 +117,27 @@ def build_attempt_export_payload(
 
     payload = {
         "attempt": {
-            "id": attempt.get("id"),
-            "user_id": attempt.get("user_id"),
-            "mode": attempt.get("mode"),
-            "started_at": attempt.get("started_at"),
-            "submitted_at": attempt.get("submitted_at"),
-            "duration_seconds": attempt.get("duration_seconds"),
-            "total_score": attempt.get("total_score"),
-            "total_max_score": attempt.get("total_max_score"),
+            "id": attempt_dict.get("id"),
+            "user_id": attempt_dict.get("user_id"),
+            "mode": attempt_dict.get("mode"),
+            "started_at": attempt_dict.get("started_at"),
+            "submitted_at": attempt_dict.get("submitted_at"),
+            "duration_seconds": attempt_dict.get("duration_seconds"),
+            "total_score": attempt_dict.get("total_score"),
+            "total_max_score": attempt_dict.get("total_max_score"),
         },
         "problem": {
-            "id": attempt.get("problem_id"),
-            "year": problem.get("year"),
-            "case_label": problem.get("case_label"),
-            "title": problem.get("title"),
-            "overview": problem.get("overview"),
+            "id": attempt_dict.get("problem_id"),
+            "year": problem_dict.get("year"),
+            "case_label": problem_dict.get("case_label"),
+            "title": problem_dict.get("title"),
+            "overview": problem_dict.get("overview"),
             "context": context_text,
         },
         "answers": prepared_answers,
-        "context_highlight": highlight_snapshot,
+        "context_highlight": None
+        if highlight_snapshot is None
+        else _normalize_mapping(highlight_snapshot),
     }
     return payload
 

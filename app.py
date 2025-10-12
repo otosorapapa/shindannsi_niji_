@@ -13475,7 +13475,7 @@ def _render_time_allocation_heatmap(
             )
             .properties(height=150)
         )
-        st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, width="stretch")
     display_df = df.copy()
     display_df["経過(分)"] = display_df["経過(分)"].map(
         lambda value: round(float(value), 1) if isinstance(value, (int, float)) else value
@@ -13759,7 +13759,7 @@ def render_attempt_results(attempt_id: int) -> None:
                 )
                 .properties(height=280)
             )
-            st.altair_chart(bar_chart, use_container_width=True)
+            st.altair_chart(bar_chart, width="stretch")
         else:
             st.info("選択条件に該当する設問の得点率データがありません。")
 
@@ -13872,7 +13872,7 @@ def render_attempt_results(attempt_id: int) -> None:
                     )
                     .properties(height=260)
                 )
-                st.altair_chart(hist_chart, use_container_width=True)
+                st.altair_chart(hist_chart, width="stretch")
                 st.caption("選択した設問の得点率分布です。ヒストグラムの山が左寄りなら優先的に復習しましょう。")
             else:
                 st.info("条件に合致する履歴データがありません。演習を重ねるとヒストグラムが生成されます。")
@@ -14205,7 +14205,7 @@ def _render_axis_breakdown(axis_breakdown: Dict[str, Dict[str, object]]) -> None
     )
 
     chart = (area + points + labels).properties(height=320)
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, width="stretch")
 
     detail_df = pd.DataFrame(display_rows)
     st.dataframe(detail_df, hide_index=True, width="stretch")
@@ -14249,7 +14249,7 @@ def _render_case_bundle_feedback(evaluation: scoring.BundleEvaluation) -> None:
                 )
                 .properties(height=180)
             )
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width="stretch")
 
     st.markdown("**観点別コメント**")
     for row in criteria_df.itertuples():
@@ -15050,12 +15050,12 @@ def history_page(user: Dict) -> None:
                 )
                 .properties(height=320)
             )
-            st.altair_chart(line_chart, use_container_width=True)
+            st.altair_chart(line_chart, width="stretch")
 
             avg_df = score_history.groupby("事例", as_index=False)["得点"].mean()
             st.subheader("事例別平均点")
             bar_chart = alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="得点:Q")
-            st.altair_chart(bar_chart, use_container_width=True)
+            st.altair_chart(bar_chart, width="stretch")
 
     with report_tab:
         module_summary = report_data["module_summary"]
@@ -15141,7 +15141,7 @@ def history_page(user: Dict) -> None:
                             ],
                         )
                     )
-                    st.altair_chart(score_chart, use_container_width=True)
+                    st.altair_chart(score_chart, width="stretch")
 
                     time_chart = (
                         alt.Chart(monthly_chart_df)
@@ -15162,7 +15162,7 @@ def history_page(user: Dict) -> None:
                             ],
                         )
                     )
-                    st.altair_chart(time_chart, use_container_width=True)
+                    st.altair_chart(time_chart, width="stretch")
 
                     monthly_table = monthly_chart_df.copy()
                     monthly_table["期間"] = monthly_table["期間ラベル"]
@@ -15226,7 +15226,7 @@ def history_page(user: Dict) -> None:
                             ],
                         )
                     )
-                    st.altair_chart(weekly_score_chart, use_container_width=True)
+                    st.altair_chart(weekly_score_chart, width="stretch")
 
                     weekly_time_chart = (
                         alt.Chart(weekly_chart_df)
@@ -15247,7 +15247,7 @@ def history_page(user: Dict) -> None:
                             ],
                         )
                     )
-                    st.altair_chart(weekly_time_chart, use_container_width=True)
+                    st.altair_chart(weekly_time_chart, width="stretch")
 
                     weekly_table = weekly_chart_df.copy()
                     weekly_table["期間"] = weekly_table["期間ラベル"]
@@ -15342,7 +15342,7 @@ def history_page(user: Dict) -> None:
                         )
                     )
                     st.subheader("キーワード網羅率と得点率の相関")
-                    st.altair_chart(scatter_chart, use_container_width=True)
+                    st.altair_chart(scatter_chart, width="stretch")
                     st.caption("左下に位置する設問はキーワード・得点ともに伸びしろがあります。重点的に復習しましょう。")
                 else:
                     st.info("スコアとキーワード判定が揃った設問がまだありません。")
@@ -15479,7 +15479,7 @@ def history_page(user: Dict) -> None:
                         )
                         .properties(width=640, height=max(220, rows * 70))
                     )
-                    st.altair_chart(cloud_chart, use_container_width=True)
+                    st.altair_chart(cloud_chart, width="stretch")
 
                     cloud_display = cloud_df.copy()
                     cloud_display["重要度(%)"] = (cloud_display["weight"] * 100).map(lambda v: f"{v:.0f}%")
@@ -15523,7 +15523,7 @@ def history_page(user: Dict) -> None:
                         )
                         .properties(height=max(200, 28 * len(theme_display)), width=640)
                     )
-                    st.altair_chart(theme_chart, use_container_width=True)
+                    st.altair_chart(theme_chart, width="stretch")
                     st.dataframe(
                         theme_display[["テーマ", "重要度(指数)"]],
                         width="stretch",
@@ -15700,7 +15700,7 @@ def history_page(user: Dict) -> None:
                 st.dataframe(
                     display_df[table_columns],
                     hide_index=True,
-                    use_container_width=True,
+                    width="stretch",
                 )
                 st.caption("演習済みの設問を年度・タグ別に比較できます。列ヘッダをクリックすると並び替えできます。")
 
@@ -15722,7 +15722,7 @@ def history_page(user: Dict) -> None:
                             ["年度", "事例", "設問", "平均得点率(%)", "最高得点", "実施回数", "直近実施日"]
                         ],
                         hide_index=True,
-                        use_container_width=True,
+                        width="stretch",
                     )
 
                 avg_ratio_series = filtered_summary["avg_ratio"].dropna()
