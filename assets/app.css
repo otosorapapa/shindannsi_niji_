@@ -1,0 +1,84 @@
+:root {
+  --app-bg: #f8fafc;
+  --app-surface: rgba(255, 255, 255, 0.92);
+  --app-border: rgba(148, 163, 184, 0.35);
+  --app-accent: #2563eb;
+  --app-accent-strong: #1d4ed8;
+  --app-text-strong: #0f172a;
+  --app-text-muted: #64748b;
+}
+
+[data-testid="stAppViewContainer"] > .main {
+  background: linear-gradient(180deg, var(--app-bg) 0%, #eef2ff 65%, #e0f2fe 100%);
+  padding: 2.5rem 2.25rem 4rem;
+}
+
+[data-testid="stSidebar"] {
+  background: var(--app-surface);
+  border-right: 1px solid var(--app-border);
+  box-shadow: 24px 0 60px rgba(15, 23, 42, 0.08);
+}
+
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > * + * {
+  margin-top: 0.75rem;
+}
+
+header[data-testid="stHeader"] {
+  background: transparent;
+  box-shadow: none;
+}
+
+header[data-testid="stHeader"] .stMarkdown p {
+  color: var(--app-text-muted);
+}
+
+.stButton > button {
+  border-radius: 999px;
+  padding: 0.6rem 1.2rem;
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(37, 99, 235, 0.32));
+  color: var(--app-text-strong);
+  font-weight: 600;
+  transition: transform 120ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.stButton > button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.22);
+  border-color: rgba(37, 99, 235, 0.45);
+}
+
+.stButton > button:focus-visible {
+  border-color: var(--app-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
+}
+
+.stTabs [data-baseweb="tab-list"] {
+  gap: 0.25rem;
+}
+
+.stTabs [data-baseweb="tab"] {
+  border-radius: 12px;
+  border: 1px solid transparent;
+  padding: 0.45rem 0.9rem;
+  color: var(--app-text-muted);
+  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.stTabs [aria-selected="true"][data-baseweb="tab"] {
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--app-accent-strong);
+  border-color: rgba(37, 99, 235, 0.35);
+  font-weight: 600;
+}
+
+@media (max-width: 960px) {
+  [data-testid="stAppViewContainer"] > .main {
+    padding: 1.25rem 1rem 4.5rem;
+  }
+
+  [data-testid="stSidebar"] {
+    box-shadow: none;
+    border-right: none;
+  }
+}

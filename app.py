@@ -158,6 +158,9 @@ KEYWORD_RESOURCE_MAP = {
 CASE_ORDER = ["事例I", "事例II", "事例III", "事例IV"]
 
 
+GLOBAL_STYLESHEET_PATH = Path(__file__).parent / "assets" / "app.css"
+
+
 CASEIII_TIMELINE = [
     {
         "year": "R6",
@@ -1367,6 +1370,7 @@ def _init_session_state() -> None:
     st.session_state.setdefault("flashcard_states", {})
     st.session_state.setdefault("flashcard_progress", {})
     st.session_state.setdefault("ui_theme", "システム設定に合わせる")
+    st.session_state.setdefault("_global_styles_injected", False)
     st.session_state.setdefault("_intent_card_styles_injected", False)
     st.session_state.setdefault("_question_card_styles_injected", False)
     st.session_state.setdefault("_timeline_styles_injected", False)
@@ -1412,6 +1416,23 @@ def _init_session_state() -> None:
 
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
     return f"guideline_visible::{problem_id}::{question_id}"
+
+
+def _inject_global_styles() -> None:
+    if st.session_state.get("_global_styles_injected"):
+        return
+
+    try:
+        css = GLOBAL_STYLESHEET_PATH.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        logging.getLogger(__name__).warning(
+            "Global stylesheet %s not found; skipping injection", GLOBAL_STYLESHEET_PATH
+        )
+        st.session_state["_global_styles_injected"] = True
+        return
+
+    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+    st.session_state["_global_styles_injected"] = True
 
 
 def _inject_guideline_styles() -> None:
@@ -4798,6 +4819,7 @@ def _render_model_answer_section(
 def main_view() -> None:
     user = st.session_state.user
 
+    _inject_global_styles()
     _inject_tag_styles()
 
     navigation_items = {
