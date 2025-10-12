@@ -26,7 +26,7 @@
         --color-chip-active: #2f5aa8;
         --color-chip-active-text: #ffffff;
         --color-warning: #c0504d;
-        --color-text-muted: #667185;
+        --color-text-muted: #46556f;
         --color-layer-subtle: #eef2fb;
         --color-layer-soft: #e3e9f7;
         --color-focus-ring: rgba(47, 90, 168, 0.45);
@@ -179,6 +179,78 @@
           transform var(--transition-duration) ease;
       }
 
+      body[data-app="exercise"] .ui-button[disabled] {
+        cursor: not-allowed;
+        opacity: 0.5;
+        pointer-events: none;
+      }
+
+      body[data-app="exercise"] .ui-button--ghost {
+        background-color: transparent;
+        border-color: color-mix(in srgb, var(--color-border) 60%, transparent);
+        color: var(--color-text);
+      }
+
+      body[data-app="exercise"] .ui-button--ghost:hover,
+      body[data-app="exercise"] .ui-button--ghost:focus-visible {
+        background-color: color-mix(
+          in srgb,
+          var(--color-chip-bg) 60%,
+          transparent
+        );
+        border-color: var(--color-chip-active);
+        color: var(--color-text-strong);
+      }
+
+      body[data-app="exercise"] .ui-button--icon {
+        padding: 0;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: var(--color-surface);
+        border: 1px solid var(--color-border);
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .ui-button--icon:hover,
+      body[data-app="exercise"] .ui-button--icon:focus-visible {
+        border-color: var(--color-chip-active);
+        color: var(--color-chip-active);
+        background-color: color-mix(
+          in srgb,
+          var(--color-chip-bg) 65%,
+          transparent
+        );
+      }
+
+      body[data-app="exercise"] .ui-button--sm {
+        width: 32px;
+        height: 32px;
+      }
+
+      body[data-app="exercise"] .ui-select {
+        width: 100%;
+        padding: 10px 36px 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--color-border);
+        background-color: var(--color-surface);
+        color: var(--color-text);
+        font-size: 0.92rem;
+        line-height: 1.4;
+        appearance: none;
+        background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+          linear-gradient(135deg, currentColor 50%, transparent 50%);
+        background-position: calc(100% - 24px) 16px, calc(100% - 18px) 16px;
+        background-size: 6px 6px;
+        background-repeat: no-repeat;
+      }
+
+      body[data-app="exercise"] .ui-select:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
+        border-color: var(--color-chip-active);
+      }
+
       body[data-app="exercise"] .icon {
         display: inline-flex;
         align-items: center;
@@ -280,16 +352,11 @@
       }
 
       body[data-app="exercise"] .app-header__anchor {
-        appearance: none;
-        border: none;
-        background: transparent;
-        color: var(--color-text-muted);
+        position: relative;
         font-weight: 600;
         font-size: 0.92rem;
-        padding: var(--spacing-xs) var(--spacing-sm);
-        border-radius: 999px;
-        cursor: pointer;
-        position: relative;
+        color: var(--color-text-muted);
+        background-color: transparent;
         transition: background-color var(--transition-duration) ease,
           color var(--transition-duration) ease;
       }
@@ -316,11 +383,6 @@
           var(--color-chip-bg) 70%,
           transparent
         );
-      }
-
-      body[data-app="exercise"] .app-header__anchor:focus-visible {
-        outline: none;
-        box-shadow: 0 0 0 3px var(--color-focus-ring);
       }
 
       body[data-app="exercise"] .app-header__anchor[data-active="true"] {
@@ -385,25 +447,8 @@
       }
 
       body[data-app="exercise"] .app-header__button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: var(--spacing-xs);
-        padding: 10px 14px;
-        border-radius: 999px;
-        border: 1px solid var(--color-border);
-        background-color: var(--color-surface);
-        color: var(--color-text-strong);
-        font-weight: 600;
-        cursor: pointer;
-        transition: border-color var(--transition-duration) ease,
-          box-shadow var(--transition-duration) ease;
-      }
-
-      body[data-app="exercise"] .app-header__button:hover,
-      body[data-app="exercise"] .app-header__button:focus-visible {
-        border-color: var(--color-chip-active);
-        box-shadow: 0 0 0 3px var(--color-focus-ring);
+        font-size: 0.92rem;
+        color: var(--color-text-muted);
       }
 
       body[data-app="exercise"] .app-header__icon {
@@ -679,31 +724,13 @@
       }
 
       body[data-app="exercise"] .context-pane__search-nav {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        border: 1px solid var(--color-border);
-        background: var(--color-surface);
-        color: var(--color-text);
-        cursor: pointer;
-        transition: border-color var(--transition-duration) ease,
-          color var(--transition-duration) ease,
-          background-color var(--transition-duration) ease;
+        border-radius: 50%;
       }
 
       body[data-app="exercise"] .context-pane__search-nav[disabled] {
         cursor: not-allowed;
-        opacity: 0.5;
-      }
-
-      body[data-app="exercise"] .context-pane__search-nav:not([disabled]):hover,
-      body[data-app="exercise"]
-        .context-pane__search-nav:not([disabled]):focus-visible {
-        border-color: var(--color-chip-active);
-        color: var(--color-chip-active);
+        opacity: 0.45;
+        pointer-events: none;
       }
 
       body[data-app="exercise"] .context-pane__actions {
@@ -746,6 +773,53 @@
         border: none;
         background-color: var(--color-layer-subtle);
         box-shadow: 0 10px 24px rgba(15, 23, 39, 0.06);
+      }
+
+      body[data-app="exercise"] .control-card__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .control-card__header h3 {
+        margin: 0;
+      }
+
+      body[data-app="exercise"] .control-card__toggle {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .collapsible-toggle__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .control-card__body {
+        display: grid;
+        gap: var(--spacing-sm);
+      }
+
+      body[data-app="exercise"]
+        .control-card--collapsible[data-collapsible-open='false']
+        .control-card__body {
+        display: none;
+      }
+
+      body[data-app="exercise"]
+        [data-collapsible-toggle][aria-expanded='true']
+        .collapsible-toggle__icon {
+        transform: rotate(180deg);
+      }
+
+      body[data-app="exercise"]
+        .control-card--collapsible[data-collapsible-open='true']
+        .control-card__toggle {
+        color: var(--color-chip-active);
       }
 
       body[data-app="exercise"] .search-field {
@@ -934,7 +1008,6 @@
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
         gap: var(--spacing-sm);
-        margin-top: var(--spacing-sm);
       }
 
       body[data-app="exercise"] .strategy-card {
@@ -1997,28 +2070,8 @@
       }
 
       body[data-app="exercise"] .shortcut-launcher {
-        border: none;
-        background: transparent;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--color-text-muted);
-        cursor: pointer;
-        border-radius: 50%;
         width: 36px;
         height: 36px;
-        transition: background-color var(--transition-duration) ease,
-          color var(--transition-duration) ease;
-      }
-
-      body[data-app="exercise"] .shortcut-launcher:hover,
-      body[data-app="exercise"] .shortcut-launcher:focus-visible {
-        color: var(--color-chip-active);
-        background-color: color-mix(
-          in srgb,
-          var(--color-chip-bg) 55%,
-          transparent
-        );
       }
 
       body[data-app="exercise"] .shortcut-panel {
@@ -2396,7 +2449,7 @@
       <header class="app-header" role="banner">
         <div class="app-header__group">
           <button
-            class="app-header__button"
+            class="ui-button ui-button--ghost app-header__button"
             type="button"
             aria-label="演習一覧に戻る"
           >
@@ -2431,20 +2484,20 @@
           </div>
         </div>
         <div class="app-header__group" role="navigation" aria-label="主要操作">
-          <button class="app-header__button" type="button">
+          <button class="ui-button ui-button--ghost app-header__button" type="button">
             <span class="icon app-header__icon" aria-hidden="true">
               <i class="bx bx-search"></i>
             </span>
             検索
           </button>
-          <button class="app-header__button" type="button">
+          <button class="ui-button ui-button--ghost app-header__button" type="button">
             <span class="icon app-header__icon" aria-hidden="true">
               <i class="bx bx-filter"></i>
             </span>
             フィルタ
           </button>
           <button
-            class="app-header__button"
+            class="ui-button ui-button--ghost app-header__button"
             type="button"
             data-onboarding-open
             aria-haspopup="dialog"
@@ -2455,7 +2508,7 @@
             使い方ガイド
           </button>
           <button
-            class="shortcut-launcher"
+            class="ui-button ui-button--icon shortcut-launcher"
             type="button"
             aria-label="キーボードショートカットを表示"
             data-shortcut-open
@@ -2469,16 +2522,32 @@
           class="app-header__quicknav"
           aria-label="セクションへのショートカット"
         >
-          <button class="app-header__anchor" type="button" data-target="section-overview">
+          <button
+            class="ui-button ui-button--ghost app-header__anchor"
+            type="button"
+            data-target="section-overview"
+          >
             設問概要
           </button>
-          <button class="app-header__anchor" type="button" data-target="section-scenario">
+          <button
+            class="ui-button ui-button--ghost app-header__anchor"
+            type="button"
+            data-target="section-scenario"
+          >
             与件文
           </button>
-          <button class="app-header__anchor" type="button" data-target="section-retrieval">
+          <button
+            class="ui-button ui-button--ghost app-header__anchor"
+            type="button"
+            data-target="section-retrieval"
+          >
             リトリーバル
           </button>
-          <button class="app-header__anchor" type="button" data-target="section-answer">
+          <button
+            class="ui-button ui-button--ghost app-header__anchor"
+            type="button"
+            data-target="section-answer"
+          >
             解答
           </button>
         </nav>
@@ -2595,7 +2664,7 @@
             <div class="context-pane__search-controls">
               <button
                 type="button"
-                class="context-pane__search-nav"
+                class="ui-button ui-button--icon ui-button--sm context-pane__search-nav"
                 data-scenario-search-prev
                 aria-label="前の一致へ"
                 disabled
@@ -2606,7 +2675,7 @@
               </button>
               <button
                 type="button"
-                class="context-pane__search-nav"
+                class="ui-button ui-button--icon ui-button--sm context-pane__search-nav"
                 data-scenario-search-next
                 aria-label="次の一致へ"
                 disabled
@@ -2937,7 +3006,7 @@
                 <select
                   id="problem-sort"
                   name="problem-sort"
-                  class="sort-control__select"
+                  class="sort-control__select ui-select"
                   aria-describedby="problem-sort-hint"
                 >
                   <option value="recommended">推奨順</option>
@@ -2962,20 +3031,75 @@
               <li><a href="#question-4">Q4 評価制度の再設計</a></li>
             </ol>
           </div>
-          <div class="reference-card" role="complementary" aria-labelledby="reference-heading">
-            <h3 id="reference-heading" class="heading-md">解説メモ</h3>
-            <div class="reference-card__body">
+          <section
+            class="control-card control-card--collapsible reference-card"
+            role="complementary"
+            aria-labelledby="reference-heading"
+            data-collapsible
+            data-collapsible-open="false"
+          >
+            <div class="control-card__header">
+              <h3 id="reference-heading" class="heading-md">解説メモ</h3>
+              <button
+                type="button"
+                class="ui-button ui-button--ghost control-card__toggle"
+                data-collapsible-toggle
+                aria-expanded="false"
+                aria-controls="reference-card-body"
+                data-label-collapsed="メモを表示"
+                data-label-expanded="メモを隠す"
+              >
+                <span class="collapsible-toggle__icon icon icon--sm" aria-hidden="true">
+                  <i class="bx bx-chevron-down"></i>
+                </span>
+                <span data-collapsible-label>メモを表示</span>
+              </button>
+            </div>
+            <div
+              id="reference-card-body"
+              class="control-card__body reference-card__body"
+              data-collapsible-body
+              hidden
+            >
               与件文から導かれるポイントをメモとして整理しています。設問に
               迷ったら、キーワードと因果関係の視点を確認しましょう。
             </div>
-          </div>
-          <div class="control-card" role="group" aria-labelledby="expression-heading">
-            <h3 id="expression-heading" class="heading-md">表現カード</h3>
-            <p class="text-muted">
-              クリックすると回答作成のヒントが表示されます。キーボードの
-              Tabで移動し、Enterで決定できます。
-            </p>
-            <div class="strategy-card-grid">
+          </section>
+          <div
+            class="control-card control-card--collapsible"
+            role="group"
+            aria-labelledby="expression-heading"
+            data-collapsible
+            data-collapsible-open="false"
+          >
+            <div class="control-card__header">
+              <h3 id="expression-heading" class="heading-md">表現カード</h3>
+              <button
+                type="button"
+                class="ui-button ui-button--ghost control-card__toggle"
+                data-collapsible-toggle
+                aria-expanded="false"
+                aria-controls="expression-card-body"
+                data-label-collapsed="一覧を表示"
+                data-label-expanded="一覧を隠す"
+              >
+                <span class="collapsible-toggle__icon icon icon--sm" aria-hidden="true">
+                  <i class="bx bx-chevron-down"></i>
+                </span>
+                <span data-collapsible-label>一覧を表示</span>
+              </button>
+            </div>
+            <div
+              id="expression-card-body"
+              class="control-card__body"
+              data-collapsible-body
+              hidden
+            >
+              <p class="text-muted">
+                クリックすると回答作成のヒントが表示されます。キーボードの
+                Tabで移動し、Enterで決定できます。
+              </p>
+              <div class="strategy-card-grid">
               <button
                 type="button"
                 class="strategy-card"
@@ -4296,6 +4420,60 @@
             scenario: getPanelSections('scenario'),
             answer: getPanelSections('answer'),
           };
+
+          const collapsibleContainers = Array.from(
+            appRoot.querySelectorAll('[data-collapsible]')
+          );
+
+          const resolveCollapsibleBody = (toggle, container) => {
+            const controls = toggle?.getAttribute('aria-controls');
+            if (controls) {
+              return appRoot.querySelector(`#${escapeSelector(controls)}`);
+            }
+            return container?.querySelector('[data-collapsible-body]') || null;
+          };
+
+          collapsibleContainers.forEach((container) => {
+            const toggle = container.querySelector('[data-collapsible-toggle]');
+            if (!toggle) {
+              return;
+            }
+            const body = resolveCollapsibleBody(toggle, container);
+            if (!body) {
+              return;
+            }
+            const labelElement = toggle.querySelector('[data-collapsible-label]');
+            const collapsedLabel =
+              toggle.dataset.labelCollapsed?.trim() || '詳細を表示';
+            const expandedLabel =
+              toggle.dataset.labelExpanded?.trim() || '閉じる';
+
+            const applyState = (expanded) => {
+              const isExpanded = Boolean(expanded);
+              toggle.setAttribute('aria-expanded', String(isExpanded));
+              container.dataset.collapsibleOpen = String(isExpanded);
+              body.hidden = !isExpanded;
+              if (labelElement) {
+                labelElement.textContent = isExpanded
+                  ? expandedLabel
+                  : collapsedLabel;
+              }
+            };
+
+            const initialExpanded =
+              toggle.getAttribute('aria-expanded') === 'true' ||
+              container.dataset.collapsibleOpen === 'true';
+            applyState(initialExpanded);
+
+            toggle.addEventListener(
+              'click',
+              () => {
+                const nextState = toggle.getAttribute('aria-expanded') !== 'true';
+                applyState(nextState);
+              },
+              { signal }
+            );
+          });
 
           const panelBySection = new Map([
             ['section-overview', 'overview'],
