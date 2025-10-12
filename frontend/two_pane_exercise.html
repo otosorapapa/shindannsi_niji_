@@ -1319,13 +1319,81 @@
             .forEach((root) => initializeExerciseApp(root));
         };
 
+        const scheduleInitialization = (() => {
+          let rafId = null;
+          return () => {
+            if (typeof window === 'undefined') {
+              initializeAllRoots();
+              return;
+            }
+
+            if (rafId !== null) {
+              window.cancelAnimationFrame(rafId);
+            }
+
+            rafId = window.requestAnimationFrame(() => {
+              rafId = null;
+              initializeAllRoots();
+            });
+          };
+        })();
+
         if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', initializeAllRoots, {
-            once: true,
-          });
+          document.addEventListener(
+            'DOMContentLoaded',
+            () => {
+              scheduleInitialization();
+            },
+            { once: true }
+          );
         } else {
-          initializeAllRoots();
+          scheduleInitialization();
         }
+
+        const registerSpaHooks = () => {
+          const listeners = [
+            [window, 'pageshow'],
+            [window, 'popstate'],
+            [window, 'hashchange'],
+            [document, 'turbo:load'],
+            [document, 'turbo:frame-load'],
+            [document, 'astro:page-load'],
+            [document, 'astro:after-swap'],
+            [document, 'htmx:afterSettle'],
+          ];
+
+          listeners.forEach(([target, event]) => {
+            if (target && target.addEventListener) {
+              target.addEventListener(event, scheduleInitialization);
+            }
+          });
+
+          if (
+            window.navigation &&
+            typeof window.navigation.addEventListener === 'function'
+          ) {
+            window.navigation.addEventListener('navigate', scheduleInitialization);
+          }
+
+          if (
+            typeof history !== 'undefined' &&
+            !history.__exerciseAppPatched
+          ) {
+            history.__exerciseAppPatched = true;
+            ['pushState', 'replaceState'].forEach((method) => {
+              const original = history[method];
+              if (typeof original === 'function') {
+                history[method] = function (...args) {
+                  const result = original.apply(this, args);
+                  scheduleInitialization();
+                  return result;
+                };
+              }
+            });
+          }
+        };
+
+        registerSpaHooks();
 
         const observer = new MutationObserver((mutations) => {
           mutations.forEach((mutation) => {
@@ -1350,6 +1418,8 @@
         }
 
         window.initializeExerciseApp = initializeExerciseApp;
+        window.initializeAllExerciseApps = initializeAllRoots;
+        window.refreshExerciseApp = scheduleInitialization;
       })();
     </script>
   </body>
