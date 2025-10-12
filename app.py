@@ -4831,6 +4831,7 @@ def main_view() -> None:
         "過去問演習": practice_page,
         "模擬試験": mock_exam_page,
         "学習履歴": history_page,
+        "UI プレビュー": exercise_ui_preview_page,
         "設定": settings_page,
     }
 
@@ -14030,6 +14031,61 @@ def _looks_financial_keyword(keyword: str) -> bool:
     return bool(re.search(r"[A-Z]{2,}", keyword)) or any(
         token in keyword for token in ["率", "利益", "回転", "負債", "CF", "キャッシュ", "NPV", "ROA", "ROE", "ROI", "原価", "損益", "資本"]
     )
+
+
+def exercise_ui_preview_page(user: Dict) -> None:
+    st.title("過去問演習 UI プレビュー")
+    st.caption(
+        "`frontend/two_pane_exercise.html` の最新レイアウトをそのまま表示して、細かな見た目を確認できます。"
+    )
+
+    html_path = Path("frontend/two_pane_exercise.html")
+    if not html_path.exists():
+        st.error(
+            "UI テンプレートが見つかりませんでした。リポジトリの `frontend/two_pane_exercise.html` を確認してください。",
+            icon="⚠️",
+        )
+        return
+
+    try:
+        exercise_ui_html = html_path.read_text(encoding="utf-8")
+    except Exception as exc:  # pragma: no cover - IO guard
+        logger.exception("Failed to load exercise UI preview HTML")
+        st.error(f"UI テンプレートの読み込み中に問題が発生しました: {exc}", icon="⚠️")
+        return
+
+    default_height = st.session_state.get("exercise_ui_preview_height", 960)
+    preview_height = st.slider(
+        "プレビューの高さ (px)",
+        min_value=640,
+        max_value=1400,
+        value=int(default_height),
+        step=20,
+        help="iFrame の高さを調整して、スクロール量を確認できます。",
+    )
+    st.session_state.exercise_ui_preview_height = preview_height
+
+    components.html(exercise_ui_html, height=int(preview_height), scrolling=True)
+
+    st.download_button(
+        "HTML をダウンロード",
+        data=exercise_ui_html,
+        file_name="two_pane_exercise.html",
+        mime="text/html",
+        help="外部共有や Streamlit 以外の環境での検証に利用できます。",
+    )
+
+    st.code(
+        """
+from pathlib import Path
+import streamlit.components.v1 as components
+
+exercise_ui = Path("frontend/two_pane_exercise.html").read_text(encoding="utf-8")
+components.html(exercise_ui, height=900, scrolling=True)
+""".strip(),
+        language="python",
+    )
+    st.caption("上記コードを使うと任意の Streamlit アプリから同じ UI を再利用できます。")
 
 
 def mock_exam_page(user: Dict) -> None:
