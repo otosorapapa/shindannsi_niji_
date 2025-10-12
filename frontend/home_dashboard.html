@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="ja" data-app="dashboard">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>診断士二次・学習ダッシュボード</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@600&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <style>
+      :root {
+        --color-background: #f5f7fb;
+        --color-surface: #ffffff;
+        --color-surface-alt: #eef3ff;
+        --color-border: rgba(30, 45, 75, 0.12);
+        --color-border-strong: rgba(30, 45, 75, 0.2);
+        --color-primary: #3057d5;
+        --color-primary-soft: rgba(48, 87, 213, 0.14);
+        --color-accent: #f59f48;
+        --color-text: #1e2d4b;
+        --color-text-muted: rgba(30, 45, 75, 0.6);
+        --radius-card: 18px;
+        --radius-chip: 999px;
+        --shadow-soft: 0 18px 38px rgba(30, 45, 75, 0.08);
+        --shadow-hover: 0 22px 44px rgba(30, 45, 75, 0.12);
+        --transition: 180ms ease;
+        color-scheme: light;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: radial-gradient(
+            circle at top right,
+            rgba(48, 87, 213, 0.16),
+            transparent 45%
+          ),
+          var(--color-background);
+        font-family: "Noto Sans JP", system-ui, -apple-system, "BlinkMacSystemFont",
+          "Segoe UI", sans-serif;
+        color: var(--color-text);
+        min-height: 100vh;
+      }
+
+      .page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 40px clamp(16px, 3vw, 40px) 72px;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+      }
+
+      header.page-header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .page-title {
+        font-family: "M PLUS Rounded 1c", sans-serif;
+        font-size: clamp(28px, 3vw, 40px);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .page-title i {
+        color: var(--color-primary);
+        font-size: 32px;
+        background: var(--color-primary-soft);
+        padding: 10px;
+        border-radius: 14px;
+      }
+
+      .page-header .cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(48, 87, 213, 0.2);
+        background: var(--color-surface);
+        padding: 10px 18px;
+        color: var(--color-primary);
+        font-weight: 600;
+        text-decoration: none;
+        box-shadow: var(--shadow-soft);
+        transition: transform var(--transition), box-shadow var(--transition);
+      }
+
+      .page-header .cta:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-hover);
+      }
+
+      .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+      }
+
+      .summary-card {
+        background: var(--color-surface);
+        border-radius: var(--radius-card);
+        padding: 20px 24px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-soft);
+        transition: transform var(--transition), box-shadow var(--transition);
+      }
+
+      .summary-card::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          circle at top right,
+          rgba(48, 87, 213, 0.12),
+          transparent 55%
+        );
+        pointer-events: none;
+      }
+
+      .summary-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-hover);
+      }
+
+      .summary-card .icon-wrapper {
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+        border-radius: 14px;
+        background: var(--color-primary-soft);
+        color: var(--color-primary);
+        margin-bottom: 18px;
+        font-size: 24px;
+      }
+
+      .summary-card h3 {
+        margin: 0 0 6px;
+        font-size: 16px;
+        letter-spacing: 0.02em;
+        color: var(--color-text-muted);
+      }
+
+      .summary-card strong {
+        display: block;
+        font-size: clamp(26px, 3vw, 34px);
+        line-height: 1.1;
+      }
+
+      .summary-card span.delta {
+        margin-top: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 13px;
+        color: #17834d;
+        font-weight: 600;
+      }
+
+      .summary-card span.delta.negative {
+        color: #c9343a;
+      }
+
+      .main-area {
+        display: grid;
+        grid-template-columns: 280px minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+      }
+
+      .panel {
+        background: var(--color-surface);
+        border-radius: var(--radius-card);
+        padding: 20px 22px 24px;
+        box-shadow: var(--shadow-soft);
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .panel h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .filter-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--color-text-muted);
+      }
+
+      .chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .chip {
+        padding: 8px 14px;
+        border-radius: var(--radius-chip);
+        border: 1px solid var(--color-border);
+        background: rgba(255, 255, 255, 0.82);
+        font-size: 13px;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--color-text);
+        cursor: pointer;
+        transition: background var(--transition), border-color var(--transition),
+          transform var(--transition);
+      }
+
+      .chip i {
+        font-size: 18px;
+      }
+
+      .chip:hover {
+        background: var(--color-primary-soft);
+        border-color: rgba(48, 87, 213, 0.32);
+        transform: translateY(-1px);
+      }
+
+      .chip.active {
+        background: var(--color-primary);
+        color: #fff;
+        border-color: transparent;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+      }
+
+      .search-box {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .search-box input {
+        width: 100%;
+        padding: 10px 40px 10px 16px;
+        border-radius: var(--radius-chip);
+        border: 1px solid var(--color-border);
+        font-size: 14px;
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--color-text);
+        box-shadow: inset 0 1px 2px rgba(30, 45, 75, 0.08);
+      }
+
+      .search-box i {
+        position: absolute;
+        right: 16px;
+        font-size: 20px;
+        color: var(--color-text-muted);
+      }
+
+      .chart-panel {
+        gap: 24px;
+      }
+
+      .chart-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .chart-switcher {
+        display: inline-flex;
+        padding: 6px;
+        border-radius: var(--radius-chip);
+        background: var(--color-surface-alt);
+        border: 1px solid rgba(48, 87, 213, 0.2);
+        gap: 4px;
+      }
+
+      .chart-switcher button {
+        border: none;
+        background: transparent;
+        padding: 10px 16px;
+        border-radius: var(--radius-chip);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        transition: background var(--transition), color var(--transition),
+          box-shadow var(--transition);
+      }
+
+      .chart-switcher button.active {
+        background: var(--color-surface);
+        color: var(--color-primary);
+        box-shadow: 0 10px 20px rgba(48, 87, 213, 0.16);
+      }
+
+      .chart-body {
+        display: grid;
+        gap: 22px;
+      }
+
+      .chart-body canvas {
+        width: 100% !important;
+        max-height: 280px;
+      }
+
+      .chart-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        font-size: 13px;
+        color: var(--color-text-muted);
+      }
+
+      .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+
+      .table-like {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        font-size: 13px;
+        padding: 10px 14px;
+        background: rgba(48, 87, 213, 0.06);
+        border-radius: 12px;
+      }
+
+      .table-like span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .list-section {
+        display: grid;
+        gap: 18px;
+      }
+
+      .list-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
+      }
+
+      .card-item {
+        background: var(--color-surface);
+        border-radius: var(--radius-card);
+        padding: 18px 20px;
+        display: grid;
+        gap: 10px;
+        box-shadow: var(--shadow-soft);
+        position: relative;
+        overflow: hidden;
+        transition: transform var(--transition), box-shadow var(--transition);
+      }
+
+      .card-item::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          140deg,
+          rgba(48, 87, 213, 0.14),
+          transparent 55%
+        );
+        opacity: 0;
+        transition: opacity var(--transition);
+      }
+
+      .card-item:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-hover);
+      }
+
+      .card-item:hover::after {
+        opacity: 1;
+      }
+
+      .card-item h3 {
+        margin: 0;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .card-item h3 span.tag {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--color-primary);
+        background: var(--color-primary-soft);
+        border-radius: var(--radius-chip);
+        padding: 4px 10px;
+      }
+
+      .meta-line {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        color: var(--color-text-muted);
+      }
+
+      .score-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: var(--radius-chip);
+        background: rgba(23, 131, 77, 0.12);
+        color: #17834d;
+        font-weight: 600;
+      }
+
+      .card-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+        color: var(--color-text-muted);
+      }
+
+      .card-actions a {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--color-primary);
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      footer.page-footer {
+        font-size: 12px;
+        color: var(--color-text-muted);
+        text-align: center;
+        padding: 24px 0 0;
+      }
+
+      @media (max-width: 1080px) {
+        .main-area {
+          grid-template-columns: 100%;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .summary-cards {
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+
+        .card-item {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="page-header">
+        <div class="page-title">
+          <i class="bx bx-line-chart"></i>
+          <span>学習ダッシュボード</span>
+        </div>
+        <a href="#" class="cta"><i class="bx bx-export"></i>CSV エクスポート</a>
+      </header>
+
+      <section class="summary-cards" aria-label="学習サマリー">
+        <article class="summary-card">
+          <div class="icon-wrapper"><i class="bx bx-calendar-check"></i></div>
+          <h3>総解答数</h3>
+          <strong>146 回</strong>
+          <span class="delta"><i class="bx bx-up-arrow-alt"></i>先月比 +18%</span>
+        </article>
+        <article class="summary-card">
+          <div class="icon-wrapper"><i class="bx bx-medal"></i></div>
+          <h3>平均得点</h3>
+          <strong>63.4 点</strong>
+          <span class="delta"><i class="bx bx-up-arrow-alt"></i>連続 4 週上昇</span>
+        </article>
+        <article class="summary-card">
+          <div class="icon-wrapper"><i class="bx bx-target-lock"></i></div>
+          <h3>達成率</h3>
+          <strong>78%</strong>
+          <span class="delta"><i class="bx bx-down-arrow-alt"></i>目標まで -7pt</span>
+        </article>
+        <article class="summary-card">
+          <div class="icon-wrapper"><i class="bx bx-time-five"></i></div>
+          <h3>最新学習日</h3>
+          <strong>2024/05/12</strong>
+          <span class="delta"><i class="bx bx-bolt-circle"></i>連続学習 8 日</span>
+        </article>
+      </section>
+
+      <section class="main-area" aria-label="分析エリア">
+        <aside class="panel">
+          <h2><i class="bx bx-filter-alt"></i> フィルタ</h2>
+          <div class="filter-group">
+            <span class="filter-label">年度</span>
+            <div class="chip-list" role="listbox" aria-label="年度フィルタ">
+              <button class="chip active" type="button"><i class="bx bx-time"></i>全期間</button>
+              <button class="chip" type="button">2023</button>
+              <button class="chip" type="button">2022</button>
+              <button class="chip" type="button">2021</button>
+            </div>
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">事例</span>
+            <div class="chip-list" role="listbox" aria-label="事例フィルタ">
+              <button class="chip active" type="button">全事例</button>
+              <button class="chip" type="button">事例 I</button>
+              <button class="chip" type="button">事例 II</button>
+              <button class="chip" type="button">事例 III</button>
+              <button class="chip" type="button">事例 IV</button>
+            </div>
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">学習モード</span>
+            <div class="chip-list" role="listbox" aria-label="モードフィルタ">
+              <button class="chip active" type="button">通常演習</button>
+              <button class="chip" type="button">模試</button>
+              <button class="chip" type="button">復習</button>
+            </div>
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">キーワード検索</span>
+            <label class="search-box">
+              <input type="search" placeholder="設問・キーワードで検索" />
+              <i class="bx bx-search"></i>
+            </label>
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">タグ</span>
+            <div class="chip-list">
+              <button class="chip" type="button"><i class="bx bx-bookmark"></i>要復習</button>
+              <button class="chip" type="button"><i class="bx bx-bulb"></i>強み</button>
+              <button class="chip" type="button"><i class="bx bx-trending-up"></i>伸びしろ</button>
+            </div>
+          </div>
+        </aside>
+
+        <section class="panel chart-panel">
+          <div class="chart-header">
+            <div>
+              <h2><i class="bx bx-analyse"></i> 学習分析</h2>
+              <p style="margin: 6px 0 0; color: var(--color-text-muted); font-size: 13px;">
+                年月・事例タイプでドリルダウンし、得点傾向やキーワード網羅率を確認できます。
+              </p>
+            </div>
+            <div class="chart-switcher" role="tablist">
+              <button class="active" data-chart="score" role="tab">得点推移</button>
+              <button data-chart="keyword" role="tab">キーワード網羅率</button>
+              <button data-chart="time" role="tab">解答時間</button>
+            </div>
+          </div>
+          <div class="chart-body">
+            <canvas id="primaryChart" aria-label="ダッシュボードグラフ" role="img"></canvas>
+            <div class="chart-legend" id="chartLegend"></div>
+            <div class="table-like">
+              <span><i class="bx bx-calendar"></i> 最新: 2024/05</span>
+              <span><i class="bx bx-trending-up"></i> 直近 3 ヶ月平均: 66.1 点</span>
+              <span><i class="bx bx-rocket"></i> ベスト事例: 事例 II (72.0)</span>
+              <span><i class="bx bx-bulb"></i> 改善余地: 事例 IV (58.4)</span>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="list-section" aria-label="演習リスト">
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 20px; display: flex; align-items: center; gap: 10px;">
+            <i class="bx bx-history"></i> 最近解答した問題
+          </h2>
+          <a href="#" style="font-size: 13px; color: var(--color-primary); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+            すべて見る <i class="bx bx-chevron-right"></i>
+          </a>
+        </div>
+        <div class="list-grid">
+          <article class="card-item">
+            <h3>
+              2023 年度 事例 II 第 2 問
+              <span class="tag">マーケティング</span>
+            </h3>
+            <div class="meta-line">
+              <span class="score-chip"><i class="bx bx-trophy"></i> 72 点</span>
+              <span><i class="bx bx-time-five"></i> 4/28 21:34</span>
+              <span><i class="bx bx-book-open"></i> 模範解答参照済み</span>
+            </div>
+            <div class="card-actions">
+              <span><i class="bx bx-refresh"></i> 次回復習: 5/18</span>
+              <a href="#"><i class="bx bx-link-external"></i>問題へ移動</a>
+            </div>
+          </article>
+          <article class="card-item">
+            <h3>
+              2022 年度 事例 I 第 1 問
+              <span class="tag">組織・人事</span>
+            </h3>
+            <div class="meta-line">
+              <span class="score-chip" style="background: rgba(197, 52, 58, 0.12); color: #c9343a;"><i class="bx bx-low-vision"></i> 56 点</span>
+              <span><i class="bx bx-time-five"></i> 4/25 19:12</span>
+              <span><i class="bx bx-edit-alt"></i> 添削フィードバックあり</span>
+            </div>
+            <div class="card-actions">
+              <span><i class="bx bx-bell"></i> 復習提案: 5/10</span>
+              <a href="#"><i class="bx bx-link-external"></i>問題へ移動</a>
+            </div>
+          </article>
+          <article class="card-item">
+            <h3>
+              2023 年度 事例 IV 第 3 問
+              <span class="tag">財務・会計</span>
+            </h3>
+            <div class="meta-line">
+              <span class="score-chip"><i class="bx bx-timer"></i> 68 点</span>
+              <span><i class="bx bx-time-five"></i> 4/20 22:10</span>
+              <span><i class="bx bx-line-chart"></i> 計算過程 4/5</span>
+            </div>
+            <div class="card-actions">
+              <span><i class="bx bx-target-lock"></i> フォーカス中</span>
+              <a href="#"><i class="bx bx-link-external"></i>問題へ移動</a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="list-section" aria-label="おすすめ問題">
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 20px; display: flex; align-items: center; gap: 10px;">
+            <i class="bx bx-star"></i> おすすめ問題
+          </h2>
+          <a href="#" style="font-size: 13px; color: var(--color-primary); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+            推薦条件を調整 <i class="bx bx-slider"></i>
+          </a>
+        </div>
+        <div class="list-grid">
+          <article class="card-item">
+            <h3>
+              2021 年度 事例 III 第 4 問
+              <span class="tag">生産・オペレーション</span>
+            </h3>
+            <div class="meta-line">
+              <span class="score-chip" style="background: rgba(48, 87, 213, 0.14); color: var(--color-primary);"><i class="bx bx-joystick"></i> 未挑戦</span>
+              <span><i class="bx bx-time"></i> 想定 40 分</span>
+              <span><i class="bx bx-target-lock"></i> 弱点補強</span>
+            </div>
+            <div class="card-actions">
+              <span><i class="bx bx-git-merge"></i> 類似キーワード 6/10</span>
+              <a href="#"><i class="bx bx-play-circle"></i>演習を開始</a>
+            </div>
+          </article>
+          <article class="card-item">
+            <h3>
+              2020 年度 事例 II 第 1 問
+              <span class="tag">マーケティング</span>
+            </h3>
+            <div class="meta-line">
+              <span class="score-chip"><i class="bx bx-brain"></i> AI 推薦</span>
+              <span><i class="bx bx-time"></i> 想定 35 分</span>
+              <span><i class="bx bx-line-chart"></i> 頻出テーマ</span>
+            </div>
+            <div class="card-actions">
+              <span><i class="bx bx-user-voice"></i> 音声解説付き</span>
+              <a href="#"><i class="bx bx-play-circle"></i>演習を開始</a>
+            </div>
+          </article>
+          <article class="card-item">
+            <h3>
+              2022 年度 事例 I 第 4 問
+              <span class="tag">組織・人事</span>
+            </h3>
+            <div class="meta-line">
+              <span class="score-chip"><i class="bx bx-refresh"></i> 復習推奨</span>
+              <span><i class="bx bx-time"></i> 想定 25 分</span>
+              <span><i class="bx bx-pulse"></i> 目標得点 65 点</span>
+            </div>
+            <div class="card-actions">
+              <span><i class="bx bx-message-rounded-dots"></i> フィードバック予定</span>
+              <a href="#"><i class="bx bx-play-circle"></i>演習を開始</a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <footer class="page-footer">
+        &copy; 2024 Shindanshi Learning Hub. 進捗に合わせてダッシュボードをカスタマイズしましょう。
+      </footer>
+    </div>
+
+    <script>
+      const chartCtx = document.getElementById("primaryChart");
+      const legendContainer = document.getElementById("chartLegend");
+      const datasets = {
+        score: {
+          label: "平均得点",
+          borderColor: "#3057d5",
+          backgroundColor: "rgba(48, 87, 213, 0.18)",
+          data: [52, 58, 61, 63, 66, 64, 68, 70, 72, 69, 71, 73],
+          tension: 0.34,
+          fill: true,
+          yAxisID: "y"
+        },
+        keyword: {
+          label: "キーワード網羅率",
+          borderColor: "#21a179",
+          backgroundColor: "rgba(33, 161, 121, 0.18)",
+          data: [48, 54, 58, 57, 62, 65, 67, 66, 70, 72, 74, 78],
+          tension: 0.32,
+          fill: true,
+          yAxisID: "y"
+        },
+        time: {
+          label: "平均解答時間 (分)",
+          borderColor: "#f59f48",
+          backgroundColor: "rgba(245, 159, 72, 0.22)",
+          data: [48, 46, 45, 43, 42, 41, 39, 40, 38, 37, 36, 35],
+          tension: 0.26,
+          fill: true,
+          yAxisID: "y"
+        }
+      };
+
+      const months = [
+        "2023/06",
+        "2023/07",
+        "2023/08",
+        "2023/09",
+        "2023/10",
+        "2023/11",
+        "2023/12",
+        "2024/01",
+        "2024/02",
+        "2024/03",
+        "2024/04",
+        "2024/05"
+      ];
+
+      const chart = new Chart(chartCtx, {
+        type: "line",
+        data: {
+          labels: months,
+          datasets: [datasets.score]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: false,
+              border: { color: "rgba(30, 45, 75, 0.1)" },
+              grid: {
+                color: "rgba(30, 45, 75, 0.08)",
+                drawBorder: false
+              },
+              ticks: {
+                color: "var(--color-text-muted)",
+                font: {
+                  family: "Noto Sans JP"
+                }
+              }
+            },
+            x: {
+              grid: { display: false },
+              ticks: {
+                color: "var(--color-text-muted)",
+                font: {
+                  family: "Noto Sans JP"
+                }
+              }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "rgba(30, 45, 75, 0.92)",
+              padding: 12,
+              titleColor: "#fff",
+              bodyColor: "#fff",
+              titleFont: {
+                family: "Noto Sans JP",
+                weight: "600"
+              },
+              bodyFont: {
+                family: "Noto Sans JP"
+              }
+            }
+          }
+        }
+      });
+
+      function renderLegend(activeKey) {
+        const data = datasets[activeKey];
+        legendContainer.innerHTML = `
+          <span>
+            <span class="legend-dot" style="background: ${data.backgroundColor}; border: 2px solid ${data.borderColor};"></span>
+            ${data.label}
+          </span>
+          <span><i class="bx bx-calendar"></i> 表示期間: 12 ヶ月</span>
+          <span><i class="bx bx-slider-alt"></i> フィルタ適用中</span>
+        `;
+      }
+
+      renderLegend("score");
+
+      document.querySelectorAll(".chart-switcher button").forEach((button) => {
+        button.addEventListener("click", () => {
+          const chartType = button.dataset.chart;
+          document
+            .querySelectorAll(".chart-switcher button")
+            .forEach((btn) => btn.classList.toggle("active", btn === button));
+
+          chart.data.datasets = [datasets[chartType]];
+          chart.update();
+          renderLegend(chartType);
+        });
+      });
+    </script>
+  </body>
+</html>
