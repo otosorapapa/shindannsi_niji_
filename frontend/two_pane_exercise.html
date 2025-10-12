@@ -349,6 +349,41 @@
         color: var(--color-text-muted);
       }
 
+      body[data-app="exercise"] .app-header__selection {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        padding: 6px 12px;
+        border-radius: 999px;
+        background-color: color-mix(
+          in srgb,
+          var(--color-chip-bg) 70%,
+          transparent
+        );
+        color: var(--color-text-strong);
+        font-size: 0.85rem;
+        font-weight: 600;
+        line-height: 1.4;
+      }
+
+      body[data-app="exercise"] .app-header__selection-item--strong {
+        color: var(--color-chip-active);
+      }
+
+      body[data-app="exercise"] .app-header__selection-separator {
+        display: inline-flex;
+        align-items: center;
+        color: var(--color-text-muted);
+      }
+
+      @media (max-width: 960px) {
+        body[data-app="exercise"] .app-header__selection {
+          flex-wrap: wrap;
+          justify-content: center;
+          width: 100%;
+        }
+      }
+
       body[data-app="exercise"] .app-header__button {
         display: inline-flex;
         align-items: center;
@@ -436,63 +471,110 @@
         animation: exercise-spinner 1s linear infinite;
       }
 
-      body[data-app="exercise"] .panel-switcher {
-        padding: var(--spacing-sm) var(--spacing-lg) 0;
-      }
-
-      body[data-app="exercise"] .panel-switcher__inner {
+      body[data-app="exercise"] .section-tabs {
         display: flex;
-        flex-wrap: wrap;
         gap: var(--spacing-sm);
-        justify-content: flex-start;
+        padding: var(--spacing-sm) var(--spacing-lg) 0;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: thin;
       }
 
-      body[data-app="exercise"] .panel-switcher__button {
+      body[data-app="exercise"] .section-tabs::-webkit-scrollbar {
+        height: 6px;
+      }
+
+      body[data-app="exercise"] .section-tabs::-webkit-scrollbar-thumb {
+        background-color: rgba(27, 35, 55, 0.25);
+        border-radius: 999px;
+      }
+
+      body[data-app="exercise"] .section-tab {
         display: inline-flex;
         align-items: center;
-        gap: var(--spacing-xs);
-        padding: 10px 14px;
-        border-radius: 999px;
+        gap: var(--spacing-sm);
+        padding: 12px 18px;
+        min-width: 220px;
+        border-radius: var(--radius-card);
         border: 1px solid var(--color-border);
         background: var(--color-surface);
         color: var(--color-text);
-        font-weight: 600;
-        letter-spacing: 0.01em;
         cursor: pointer;
         transition: background-color var(--transition-duration) ease,
           border-color var(--transition-duration) ease,
           color var(--transition-duration) ease,
           box-shadow var(--transition-duration) ease;
+        scroll-snap-align: start;
       }
 
-      body[data-app="exercise"] .panel-switcher__button[aria-pressed='true'] {
+      body[data-app="exercise"] .section-tab:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
+        border-color: var(--color-chip-active);
+      }
+
+      body[data-app="exercise"] .section-tab:hover {
+        border-color: var(--color-chip-active);
+        color: var(--color-text-strong);
+      }
+
+      body[data-app="exercise"] .section-tab[aria-selected='true'] {
         background: var(--color-chip-active);
         border-color: var(--color-chip-active);
         color: var(--color-chip-active-text);
         box-shadow: 0 0 0 3px color-mix(
           in srgb,
-          var(--color-chip-active) 35%,
+          var(--color-chip-active) 30%,
           transparent
         );
       }
 
-      body[data-app="exercise"] .panel-switcher__button:hover,
-      body[data-app="exercise"] .panel-switcher__button:focus-visible {
-        border-color: var(--color-chip-active);
-        color: var(--color-text-strong);
+      body[data-app="exercise"] .section-tab__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        background: color-mix(
+          in srgb,
+          var(--color-chip-bg) 70%,
+          transparent
+        );
+        color: inherit;
+        font-size: var(--icon-size-md);
       }
 
-      body[data-app="exercise"] .panel-switcher__icon {
-        color: currentColor;
+      body[data-app="exercise"] .section-tab[aria-selected='true'] .section-tab__icon {
+        background: color-mix(in srgb, var(--color-chip-active) 25%, var(--color-bg));
+        color: var(--color-chip-active-text);
+      }
+
+      body[data-app="exercise"] .section-tab__texts {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+      }
+
+      body[data-app="exercise"] .section-tab__title {
+        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+        font-size: 0.98rem;
+        font-weight: 700;
+      }
+
+      body[data-app="exercise"] .section-tab__description {
+        font-size: 0.82rem;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .section-tab[aria-selected='true']
+        .section-tab__description {
+        color: var(--color-chip-active-text);
       }
 
       body[data-app="exercise"] [data-panel-collapsed='true'] {
         display: none !important;
-      }
-
-      body[data-app="exercise"] .panel-switcher__button[aria-pressed='true']
-        .panel-switcher__icon {
-        color: var(--color-chip-active-text);
       }
 
       body[data-app="exercise"] .layout {
@@ -720,6 +802,99 @@
         background-color: var(--color-chip-active);
         border-color: var(--color-chip-active);
         color: var(--color-chip-active-text);
+      }
+
+      body[data-app="exercise"] .has-tooltip {
+        position: relative;
+      }
+
+      body[data-app="exercise"] .has-tooltip::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        inset-inline-start: 0;
+        inset-block-start: calc(100% + 6px);
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: var(--color-text-strong);
+        color: var(--color-chip-active-text);
+        font-size: 0.78rem;
+        line-height: 1.4;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-4px);
+        transition: opacity var(--transition-duration) ease,
+          transform var(--transition-duration) ease;
+        z-index: 5;
+      }
+
+      body[data-app="exercise"] .has-tooltip::before {
+        content: "";
+        position: absolute;
+        inset-inline-start: 12px;
+        inset-block-start: calc(100% + 2px);
+        border: 6px solid transparent;
+        border-top-color: var(--color-text-strong);
+        opacity: 0;
+        transform: translateY(-2px);
+        transition: opacity var(--transition-duration) ease,
+          transform var(--transition-duration) ease;
+        z-index: 5;
+      }
+
+      body[data-app="exercise"] .has-tooltip:hover::after,
+      body[data-app="exercise"] .has-tooltip:hover::before,
+      body[data-app="exercise"] .has-tooltip:focus-visible::after,
+      body[data-app="exercise"] .has-tooltip:focus-visible::before,
+      body[data-app="exercise"] .has-tooltip:focus-within::after,
+      body[data-app="exercise"] .has-tooltip:focus-within::before {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      body[data-app="exercise"] .sort-control {
+        display: grid;
+        gap: var(--spacing-xs);
+        margin-top: var(--spacing-sm);
+      }
+
+      body[data-app="exercise"] .sort-control__label {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .sort-control__field {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        padding: 6px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--color-border);
+        background-color: var(--color-bg);
+        transition: border-color var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .sort-control__field:focus-within {
+        border-color: var(--color-chip-active);
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
+      }
+
+      body[data-app="exercise"] .sort-control__select {
+        flex: 1;
+        border: none;
+        background: transparent;
+        font-size: 0.92rem;
+        color: var(--color-text);
+      }
+
+      body[data-app="exercise"] .sort-control__select:focus {
+        outline: none;
+      }
+
+      body[data-app="exercise"] .sort-control__icon {
+        color: var(--color-text-muted);
       }
 
       body[data-app="exercise"] .question-index {
@@ -1078,6 +1253,15 @@
         color: var(--color-text-muted);
       }
 
+      body[data-app="exercise"] .support-block__content--highlight {
+        animation: supportHighlight 1.2s ease;
+        background-color: color-mix(
+          in srgb,
+          var(--color-chip-active) 20%,
+          var(--color-layer-subtle)
+        );
+      }
+
       body[data-app="exercise"] .support-block__content[hidden] {
         display: none;
       }
@@ -1098,6 +1282,27 @@
         display: flex;
         align-items: center;
         gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .support-block__text {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        flex: 1;
+      }
+
+      body[data-app="exercise"] .support-block__hint {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .support-block__toggle:hover .support-block__hint,
+      body[data-app="exercise"] .support-block__toggle:focus-visible .support-block__hint,
+      body[data-app="exercise"] .support-block__toggle[aria-expanded="true"]
+        .support-block__hint {
+        color: var(--color-text-strong);
       }
 
       body[data-app="exercise"] .support-block__chevron {
@@ -1151,6 +1356,18 @@
         }
       }
 
+      @keyframes supportHighlight {
+        0% {
+          box-shadow: 0 0 0 0 rgba(47, 90, 168, 0.3);
+        }
+        50% {
+          box-shadow: 0 0 0 12px rgba(47, 90, 168, 0.16);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(47, 90, 168, 0);
+        }
+      }
+
       body[data-app="exercise"] .analysis-info {
         margin-top: var(--spacing-xs);
         padding: var(--spacing-xs) var(--spacing-sm);
@@ -1162,6 +1379,32 @@
 
       body[data-app="exercise"] .analysis-info[hidden] {
         display: none;
+      }
+
+      body[data-app="exercise"] .ui-toast {
+        position: fixed;
+        top: 24px;
+        right: 24px;
+        min-width: 220px;
+        max-width: 320px;
+        padding: 12px 16px;
+        border-radius: 14px;
+        background-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
+        box-shadow: 0 18px 40px rgba(27, 35, 55, 0.2);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-12px);
+        transition: opacity var(--transition-duration) ease,
+          transform var(--transition-duration) ease;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        z-index: 30;
+      }
+
+      body[data-app="exercise"] .ui-toast[data-toast-visible='true'] {
+        opacity: 1;
+        transform: translateY(0);
       }
 
       body[data-app="exercise"] .analysis-info__trigger {
@@ -1708,10 +1951,22 @@
           font-size: 0.85rem;
           text-decoration: underline;
         }
+
+        body[data-app="exercise"] .ui-toast {
+          top: auto;
+          right: var(--spacing-md);
+          left: var(--spacing-md);
+          bottom: var(--spacing-md);
+          transform: translateY(12px);
+        }
+
+        body[data-app="exercise"] .ui-toast[data-toast-visible='true'] {
+          transform: translateY(0);
+        }
       }
     </style>
   </head>
-  <body data-app="exercise">
+  <body data-app="exercise" data-section-active="answer">
     <div class="app-shell">
       <header class="app-header" role="banner">
         <div class="app-header__group">
@@ -1727,7 +1982,27 @@
           </button>
           <div class="app-header__title">
             <h1>診断士二次 演習ハブ</h1>
-            <span>事例I / 令和6年度</span>
+            <span>個別最適化された学習モード</span>
+          </div>
+          <div class="app-header__selection" aria-live="polite">
+            <span class="app-header__selection-item" data-selection-case>
+              事例I
+            </span>
+            <span class="app-header__selection-separator" aria-hidden="true"
+              >/</span
+            >
+            <span class="app-header__selection-item" data-selection-year>
+              令和6年
+            </span>
+            <span class="app-header__selection-separator" aria-hidden="true"
+              >/</span
+            >
+            <span
+              class="app-header__selection-item app-header__selection-item--strong"
+              data-selection-question
+            >
+              Q1 経営課題の整理
+            </span>
           </div>
         </div>
         <div class="app-header__group" role="navigation" aria-label="主要操作">
@@ -1787,49 +2062,68 @@
           <span class="sr-only">問題を読み込み中です</span>
         </div>
       </section>
-      <section class="panel-switcher" aria-label="表示するパネルを選択">
-        <div class="panel-switcher__inner" role="toolbar" aria-label="主要パネル">
-          <button
-            type="button"
-            class="panel-switcher__button"
-            data-panel-trigger="overview"
-            aria-pressed="false"
-          >
-            <span class="icon panel-switcher__icon" aria-hidden="true">
-              <i class="bx bx-list-ul"></i>
-            </span>
-            設問
-          </button>
-          <button
-            type="button"
-            class="panel-switcher__button"
-            data-panel-trigger="scenario"
-            aria-pressed="false"
-          >
-            <span class="icon panel-switcher__icon" aria-hidden="true">
-              <i class="bx bx-book-reader"></i>
-            </span>
-            与件文
-          </button>
-          <button
-            type="button"
-            class="panel-switcher__button"
-            data-panel-trigger="answer"
-            aria-pressed="false"
-          >
-            <span class="icon panel-switcher__icon" aria-hidden="true">
-              <i class="bx bx-edit"></i>
-            </span>
-            解答欄
-          </button>
-        </div>
-      </section>
+      <nav class="section-tabs" role="tablist" aria-label="主要セクション">
+        <button
+          id="section-tab-overview"
+          type="button"
+          class="section-tab"
+          role="tab"
+          data-panel-trigger="overview"
+          aria-controls="section-overview"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="icon section-tab__icon" aria-hidden="true">
+            <i class="bx bx-map"></i>
+          </span>
+          <span class="section-tab__texts">
+            <span class="section-tab__title">出題ナビ</span>
+            <span class="section-tab__description">検索とフィルタ</span>
+          </span>
+        </button>
+        <button
+          id="section-tab-scenario"
+          type="button"
+          class="section-tab"
+          role="tab"
+          data-panel-trigger="scenario"
+          aria-controls="section-scenario"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="icon section-tab__icon" aria-hidden="true">
+            <i class="bx bx-book-reader"></i>
+          </span>
+          <span class="section-tab__texts">
+            <span class="section-tab__title">与件文</span>
+            <span class="section-tab__description">背景を読み込む</span>
+          </span>
+        </button>
+        <button
+          id="section-tab-answer"
+          type="button"
+          class="section-tab"
+          role="tab"
+          data-panel-trigger="answer"
+          aria-controls="section-answer"
+          aria-selected="true"
+          tabindex="0"
+        >
+          <span class="icon section-tab__icon" aria-hidden="true">
+            <i class="bx bx-edit"></i>
+          </span>
+          <span class="section-tab__texts">
+            <span class="section-tab__title">設問解答・プラクティス</span>
+            <span class="section-tab__description">回答・リトリーバル</span>
+          </span>
+        </button>
+      </nav>
       <div class="layout">
         <aside
           id="section-scenario"
           class="context-pane"
-          role="region"
-          aria-labelledby="context-heading"
+          role="tabpanel"
+          aria-labelledby="section-tab-scenario context-heading"
           data-panel-section="scenario"
           data-panel-collapsed="true"
         >
@@ -1929,7 +2223,9 @@
         <section
           id="section-overview"
           class="exercise__controls"
+          role="tabpanel"
           aria-label="問題の検索と整理"
+          aria-labelledby="section-tab-overview"
           data-panel-section="overview"
           data-panel-collapsed="true"
         >
@@ -1951,30 +2247,79 @@
           <div class="control-card" role="group" aria-labelledby="filter-heading">
             <h3 id="filter-heading" class="heading-md">検索フィルタ</h3>
             <div class="filter-chips" role="list">
-              <button class="filter-chip" type="button" role="listitem" data-active="true">
+              <button
+                class="filter-chip has-tooltip"
+                type="button"
+                role="listitem"
+                data-active="true"
+                data-tooltip="まだ取り組んでいない問題だけを表示します"
+                aria-label="未回答（まだ取り組んでいない問題だけを表示します）"
+              >
                 <span class="icon icon--sm" aria-hidden="true">
                   <i class="bx bx-check"></i>
                 </span>
                 未回答
               </button>
-              <button class="filter-chip" type="button" role="listitem">
+              <button
+                class="filter-chip has-tooltip"
+                type="button"
+                role="listitem"
+                data-tooltip="提出済みの問題に絞り込んで進捗を確認します"
+                aria-label="解答済み（提出済みの問題に絞り込みます）"
+              >
                 <span class="icon icon--sm" aria-hidden="true">
                   <i class="bx bx-check"></i>
                 </span>
                 解答済み
               </button>
-              <button class="filter-chip" type="button" role="listitem">
+              <button
+                class="filter-chip has-tooltip"
+                type="button"
+                role="listitem"
+                data-tooltip="復習フラグが付いた問題を優先的に表示します"
+                aria-label="要復習（復習フラグが付いた問題を優先的に表示します）"
+              >
                 <span class="icon icon--sm" aria-hidden="true">
                   <i class="bx bx-check"></i>
                 </span>
                 要復習
               </button>
-              <button class="filter-chip" type="button" role="listitem">
+              <button
+                class="filter-chip has-tooltip"
+                type="button"
+                role="listitem"
+                data-tooltip="模範解答や解説が用意された問題だけに限定します"
+                aria-label="解説あり（模範解答や解説が用意された問題だけに限定します）"
+              >
                 <span class="icon icon--sm" aria-hidden="true">
                   <i class="bx bx-check"></i>
                 </span>
                 解説あり
               </button>
+            </div>
+            <div class="sort-control">
+              <label class="sort-control__label" for="problem-sort">並べ替え</label>
+              <div
+                class="sort-control__field has-tooltip"
+                data-tooltip="学習状況に合わせて設問の順序を切り替えます"
+              >
+                <select
+                  id="problem-sort"
+                  name="problem-sort"
+                  class="sort-control__select"
+                  aria-describedby="problem-sort-hint"
+                >
+                  <option value="recommended">推奨順</option>
+                  <option value="status">ステータス順</option>
+                  <option value="recent">最近解いた順</option>
+                </select>
+                <span class="icon icon--sm sort-control__icon" aria-hidden="true">
+                  <i class="bx bx-info-circle"></i>
+                </span>
+              </div>
+              <p id="problem-sort-hint" class="sr-only">
+                推奨順、ステータス順、最近解いた順から選択できます。
+              </p>
             </div>
           </div>
           <div class="control-card" role="group" aria-labelledby="index-heading">
@@ -2041,6 +2386,8 @@
           id="section-retrieval"
           class="retrieval-preview"
           aria-labelledby="retrieval-heading"
+          data-panel-section="answer"
+          data-panel-collapsed="true"
         >
           <div class="retrieval-preview__header">
             <h3 id="retrieval-heading" class="heading-md">リトリーバル</h3>
@@ -2124,6 +2471,8 @@
           id="section-answer"
           class="exercise__questions"
           aria-live="polite"
+          role="tabpanel"
+          aria-labelledby="section-tab-answer"
           data-panel-section="answer"
           data-panel-collapsed="true"
         >
@@ -2133,6 +2482,7 @@
             role="region"
             aria-labelledby="question-1-title"
             data-max-length="120"
+            data-question-label="Q1 経営課題の整理"
           >
             <header class="question-card__header">
               <span class="question-card__badge">1</span>
@@ -2257,7 +2607,10 @@
                 <span class="icon icon--sm support-block__icon" aria-hidden="true">
                   <i class="bx bx-bulb"></i>
                 </span>
-                <span class="support-block__label">活用する 思考補助</span>
+                <span class="support-block__text">
+                  <span class="support-block__label">活用する 思考補助</span>
+                  <span class="support-block__hint">インサイトで骨子を整理</span>
+                </span>
                 <span class="icon icon--sm support-block__chevron" aria-hidden="true">
                   <i class="bx bx-chevron-down"></i>
                 </span>
@@ -2275,6 +2628,7 @@
             role="region"
             aria-labelledby="question-2-title"
             data-max-length="160"
+            data-question-label="Q2 顧客共創の提案"
           >
             <header class="question-card__header">
               <span class="question-card__badge">2</span>
@@ -2399,7 +2753,10 @@
                 <span class="icon icon--sm support-block__icon" aria-hidden="true">
                   <i class="bx bx-bulb"></i>
                 </span>
-                <span class="support-block__label">確認する 注意事項</span>
+                <span class="support-block__text">
+                  <span class="support-block__label">確認する 注意事項</span>
+                  <span class="support-block__hint">共創で外せない視点を確認</span>
+                </span>
                 <span class="icon icon--sm support-block__chevron" aria-hidden="true">
                   <i class="bx bx-chevron-down"></i>
                 </span>
@@ -2417,6 +2774,7 @@
             role="region"
             aria-labelledby="question-3-title"
             data-max-length="160"
+            data-question-label="Q3 技能伝承の仕組み"
           >
             <header class="question-card__header">
               <span class="question-card__badge">3</span>
@@ -2541,7 +2899,10 @@
                 <span class="icon icon--sm support-block__icon" aria-hidden="true">
                   <i class="bx bx-bulb"></i>
                 </span>
-                <span class="support-block__label">参照する Tips</span>
+                <span class="support-block__text">
+                  <span class="support-block__label">参照する Tips</span>
+                  <span class="support-block__hint">技能伝承のヒントを拾う</span>
+                </span>
                 <span class="icon icon--sm support-block__chevron" aria-hidden="true">
                   <i class="bx bx-chevron-down"></i>
                 </span>
@@ -2559,6 +2920,7 @@
             role="region"
             aria-labelledby="question-4-title"
             data-max-length="200"
+            data-question-label="Q4 評価制度の再設計"
           >
             <header class="question-card__header">
               <span class="question-card__badge">4</span>
@@ -2683,7 +3045,10 @@
                 <span class="icon icon--sm support-block__icon" aria-hidden="true">
                   <i class="bx bx-bulb"></i>
                 </span>
-                <span class="support-block__label">確認する ゴール像</span>
+                <span class="support-block__text">
+                  <span class="support-block__label">確認する ゴール像</span>
+                  <span class="support-block__hint">模範解答の方向性を把握</span>
+                </span>
                 <span class="icon icon--sm support-block__chevron" aria-hidden="true">
                   <i class="bx bx-chevron-down"></i>
                 </span>
@@ -2860,6 +3225,14 @@
       </div>
     </div>
 
+    <div
+      class="ui-toast"
+      role="status"
+      aria-live="polite"
+      data-toast
+      data-toast-visible="false"
+    ></div>
+
     <script>
       (() => {
         const initializeExerciseApp = (appRoot) => {
@@ -2905,6 +3278,35 @@
             })
             .filter(Boolean);
 
+          const toastElement = appRoot.querySelector('[data-toast]');
+          let toastTimerId = null;
+
+          const showToast = (message) => {
+            if (!toastElement || typeof message !== 'string') {
+              return;
+            }
+            toastElement.textContent = message;
+            toastElement.dataset.toastVisible = 'true';
+            if (toastTimerId) {
+              window.clearTimeout(toastTimerId);
+            }
+            toastTimerId = window.setTimeout(() => {
+              toastElement.dataset.toastVisible = 'false';
+              toastElement.textContent = '';
+            }, 2600);
+          };
+
+          signal.addEventListener('abort', () => {
+            if (toastTimerId) {
+              window.clearTimeout(toastTimerId);
+              toastTimerId = null;
+            }
+            if (toastElement) {
+              toastElement.dataset.toastVisible = 'false';
+              toastElement.textContent = '';
+            }
+          });
+
           const panelButtons = Array.from(
             appRoot.querySelectorAll('[data-panel-trigger]')
           );
@@ -2919,63 +3321,113 @@
             scenario: getPanelSections('scenario'),
             answer: getPanelSections('answer'),
           };
-          const panelState = new Map();
 
           const panelBySection = new Map([
             ['section-overview', 'overview'],
             ['section-scenario', 'scenario'],
+            ['section-retrieval', 'answer'],
             ['section-answer', 'answer'],
           ]);
 
+          const hasPanel = (panelId) =>
+            Boolean(
+              panelId &&
+                panelSections[panelId] &&
+                panelSections[panelId].length
+            );
+
+          let activePanelId =
+            (appRoot.dataset.sectionActive && hasPanel(appRoot.dataset.sectionActive)
+              ? appRoot.dataset.sectionActive
+              : null) || 'answer';
           let activeQuestionId = null;
 
-          const setPanelState = (panelId, expanded) => {
-            if (!panelId) return;
-            const isExpanded = Boolean(expanded);
-            panelState.set(panelId, isExpanded);
-            const sections = panelSections[panelId] || [];
+          panelButtons.forEach((button) => {
+            button.setAttribute('aria-selected', 'false');
+            button.setAttribute('tabindex', '-1');
+          });
+
+          Object.values(panelSections).forEach((sections) =>
             sections.forEach((section) => {
-              section.dataset.panelCollapsed = String(!isExpanded);
+              section.dataset.panelCollapsed = 'true';
+            })
+          );
+
+          const setPanelState = (panelId, options = {}) => {
+            const resolvedId = hasPanel(panelId) ? panelId : 'answer';
+            activePanelId = resolvedId;
+            Object.entries(panelSections).forEach(([id, sections]) => {
+              const isActive = id === resolvedId;
+              sections.forEach((section) => {
+                section.dataset.panelCollapsed = String(!isActive);
+              });
             });
             panelButtons.forEach((button) => {
-              if (button.dataset.panelTrigger === panelId) {
-                button.setAttribute('aria-pressed', String(isExpanded));
-              }
+              const isActive = button.dataset.panelTrigger === resolvedId;
+              button.setAttribute('aria-selected', String(isActive));
+              button.setAttribute('tabindex', isActive ? '0' : '-1');
             });
-          };
-
-          const ensurePanelOpen = (panelId) => {
-            if (!panelId) return;
-            if (!panelState.get(panelId)) {
-              setPanelState(panelId, true);
+            appRoot.dataset.sectionActive = resolvedId;
+            if (options.scrollIntoView) {
+              const firstSection = panelSections[resolvedId]?.[0];
+              firstSection?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+              });
             }
           };
 
-          panelButtons.forEach((button) => {
-            button.setAttribute('aria-pressed', 'false');
+          const ensurePanelOpen = (panelId) => {
+            if (panelId) {
+              setPanelState(panelId);
+            }
+          };
+
+          panelButtons.forEach((button, index) => {
             button.addEventListener(
               'click',
               () => {
                 const panelId = button.dataset.panelTrigger;
                 if (!panelId) return;
-                const nextState = !(panelState.get(panelId) ?? false);
-                setPanelState(panelId, nextState);
-                if (nextState) {
-                  const firstSection = panelSections[panelId]?.[0];
-                  firstSection?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start',
-                  });
+                setPanelState(panelId, { scrollIntoView: true });
+              },
+              { signal }
+            );
+
+            button.addEventListener(
+              'keydown',
+              (event) => {
+                const { key } = event;
+                const total = panelButtons.length;
+                if (!total) {
+                  return;
+                }
+                let nextIndex = null;
+                if (key === 'ArrowRight' || key === 'ArrowDown') {
+                  nextIndex = (index + 1) % total;
+                } else if (key === 'ArrowLeft' || key === 'ArrowUp') {
+                  nextIndex = (index - 1 + total) % total;
+                } else if (key === 'Home') {
+                  nextIndex = 0;
+                } else if (key === 'End') {
+                  nextIndex = total - 1;
+                }
+                if (nextIndex === null) {
+                  return;
+                }
+                event.preventDefault();
+                const nextButton = panelButtons[nextIndex];
+                nextButton?.focus();
+                const panelId = nextButton?.dataset.panelTrigger;
+                if (panelId) {
+                  setPanelState(panelId, { scrollIntoView: true });
                 }
               },
               { signal }
             );
           });
 
-          Object.keys(panelSections).forEach((panelId) =>
-            setPanelState(panelId, false)
-          );
-          setPanelState('answer', true);
+          setPanelState(activePanelId);
 
           const setActiveAnchor = (targetId) => {
             headerAnchors.forEach((button) => {
@@ -3625,6 +4077,38 @@
           const questionCards = Array.from(
             appRoot.querySelectorAll('.question-card')
           );
+          const selectionQuestionLabel = appRoot.querySelector(
+            '[data-selection-question]'
+          );
+          const getQuestionLabel = (questionId) => {
+            const card = questionCards.find((item) => item.id === questionId);
+            if (!card) {
+              return null;
+            }
+            if (card.dataset.questionLabel) {
+              return card.dataset.questionLabel;
+            }
+            const headingText = card
+              .querySelector('.question-card__title')
+              ?.textContent?.trim();
+            const tabLabel = tabButtons
+              .find((button) => button.dataset.target === questionId)
+              ?.querySelector('.exercise-tab__label')
+              ?.textContent?.trim();
+            if (headingText && tabLabel) {
+              return `${tabLabel} ${headingText}`;
+            }
+            return headingText || null;
+          };
+          const updateSelectionQuestion = (questionId) => {
+            if (!selectionQuestionLabel) {
+              return;
+            }
+            const label = getQuestionLabel(questionId);
+            if (label) {
+              selectionQuestionLabel.textContent = label;
+            }
+          };
           const answerTextareas = appRoot.querySelectorAll(
             '.question-card__textarea'
           );
@@ -3697,6 +4181,7 @@
             activateCard(target);
             updateTabs(targetId);
             updateFooterCta(targetId);
+            updateSelectionQuestion(targetId);
             activeQuestionId = targetId;
             setActiveAnchor('section-answer');
           };
@@ -3767,6 +4252,7 @@
 
           if (questionCards.length) {
             updateFooterCta(questionCards[0].id);
+            updateSelectionQuestion(questionCards[0].id);
             activeQuestionId = questionCards[0].id;
           }
 
@@ -3778,6 +4264,7 @@
                   updateTabs(id);
                   updateFooterCta(id);
                   activateCard(entry.target);
+                  updateSelectionQuestion(id);
                   activeQuestionId = id;
                   setActiveAnchor('section-answer');
                 }
@@ -4104,13 +4591,30 @@
               'click',
               () => {
                 const expanded = toggle.getAttribute('aria-expanded') === 'true';
-                toggle.setAttribute('aria-expanded', String(!expanded));
-                content.hidden = expanded;
-                storedState[supportId] = !expanded;
+                const nextState = !expanded;
+                toggle.setAttribute('aria-expanded', String(nextState));
+                content.hidden = !nextState;
+                storedState[supportId] = nextState;
                 try {
                   localStorage.setItem(storageKey, JSON.stringify(storedState));
                 } catch (error) {
                   // ストレージ未対応環境では静かにフォールバック
+                }
+                const labelText =
+                  toggle
+                    .querySelector('.support-block__label')
+                    ?.textContent?.replace(/\s+/g, ' ')
+                    ?.trim() || 'サポート情報';
+                if (nextState) {
+                  content.classList.remove('support-block__content--highlight');
+                  void content.offsetWidth;
+                  content.classList.add('support-block__content--highlight');
+                  window.setTimeout(() => {
+                    content.classList.remove('support-block__content--highlight');
+                  }, 1200);
+                  showToast(`${labelText}を表示しました`);
+                } else {
+                  showToast(`${labelText}を閉じました`);
                 }
               },
               { signal }
