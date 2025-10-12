@@ -12,6 +12,7 @@ import logging
 
 import base64
 import html
+import hashlib
 import difflib
 import io
 import json
@@ -1419,8 +1420,7 @@ def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
 
 
 def _inject_global_styles() -> None:
-    if st.session_state.get("_global_styles_injected"):
-        return
+    digest_key = "_global_styles_digest"
 
     try:
         css = GLOBAL_STYLESHEET_PATH.read_text(encoding="utf-8")
@@ -1428,11 +1428,15 @@ def _inject_global_styles() -> None:
         logging.getLogger(__name__).warning(
             "Global stylesheet %s not found; skipping injection", GLOBAL_STYLESHEET_PATH
         )
-        st.session_state["_global_styles_injected"] = True
+        st.session_state.pop(digest_key, None)
+        return
+
+    css_digest = hashlib.sha256(css.encode("utf-8")).hexdigest()
+    if st.session_state.get(digest_key) == css_digest:
         return
 
     st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
-    st.session_state["_global_styles_injected"] = True
+    st.session_state[digest_key] = css_digest
 
 
 def _inject_guideline_styles() -> None:
