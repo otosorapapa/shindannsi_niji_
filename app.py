@@ -2512,6 +2512,12 @@ def _inject_context_column_styles() -> None:
                 margin: 0.35rem 0 0;
                 color: #475569;
             }
+            a[title="Manage app"] {
+                position: fixed;
+                right: 1.5rem !important;
+                bottom: calc(env(safe-area-inset-bottom, 0px) + 1.5rem) !important;
+                z-index: 90 !important;
+            }
             @media (min-width: 901px) {
                 .practice-context-inner {
                     max-height: calc(100vh - var(--context-panel-offset, 72px) - 16px);
@@ -2587,6 +2593,10 @@ def _inject_context_column_styles() -> None:
                     flex: 1 1 auto;
                     max-height: none;
                 }
+                a[title="Manage app"] {
+                    bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem) !important;
+                    right: 1rem !important;
+                }
             }
             </style>
             """
@@ -2597,263 +2607,277 @@ def _inject_context_column_styles() -> None:
 
 
 def _inject_context_panel_behavior() -> None:
-    st.markdown(
-        dedent(
-            """
-            <script>
-            (() => {
-                const setupContextPanel = () => {
-                    const doc = window.document;
-                    const panel = doc.getElementById('context-panel');
-                    const scrollArea = panel ? panel.querySelector('.context-panel-scroll') : null;
-                    const column = panel ? panel.closest('.practice-context-column') : null;
-                    const mainColumn = doc.querySelector('.practice-main-column');
-                    const triggers = Array.from(doc.querySelectorAll('.context-panel-trigger'));
-                    let lastTrigger = null;
+    if st.session_state.get("_context_panel_behavior_injected_v2"):
+        return
 
-                    if (panel && !panel.hasAttribute('aria-hidden')) {
-                        panel.setAttribute('aria-hidden', 'true');
+    script = dedent(
+        """
+        <script>
+        (() => {
+            const parentWin = window.parent && window.parent.document ? window.parent : window;
+            let parentDoc = null;
+            try {
+                parentDoc = parentWin.document;
+            } catch (error) {
+                parentDoc = window.document;
+            }
+            if (!parentDoc) {
+                return;
+            }
+
+            const setupContextPanel = () => {
+                const doc = parentDoc;
+                const win = parentWin;
+                const panel = doc.getElementById('context-panel');
+                const scrollArea = panel ? panel.querySelector('.context-panel-scroll') : null;
+                const column = panel ? panel.closest('.practice-context-column') : null;
+                const mainColumn = doc.querySelector('.practice-main-column');
+                const triggers = Array.from(doc.querySelectorAll('.context-panel-trigger'));
+                let lastTrigger = null;
+
+                if (panel && !panel.hasAttribute('aria-hidden')) {
+                    panel.setAttribute('aria-hidden', 'true');
+                }
+
+                const getPanelOffset = () => {
+                    const rootStyles = win.getComputedStyle(doc.documentElement);
+                    const rawOffset = rootStyles.getPropertyValue('--context-panel-offset');
+                    const parsed = parseFloat(rawOffset);
+                    return Number.isFinite(parsed) ? parsed : 72;
+                };
+
+                const updateScrollbarCompensation = () => {
+                    if (!panel || !scrollArea) {
+                        return;
                     }
+                    const scrollbarWidth = Math.max(
+                        0,
+                        scrollArea.offsetWidth - scrollArea.clientWidth
+                    );
+                    panel.style.setProperty(
+                        '--context-scrollbar-compensation',
+                        `${scrollbarWidth}px`
+                    );
+                };
 
-                    const getPanelOffset = () => {
-                        const rootStyles = window.getComputedStyle(doc.documentElement);
-                        const rawOffset = rootStyles.getPropertyValue('--context-panel-offset');
-                        const parsed = parseFloat(rawOffset);
-                        return Number.isFinite(parsed) ? parsed : 72;
-                    };
-
-                    const updateScrollbarCompensation = () => {
-                        if (!panel || !scrollArea) {
-                            return;
-                        }
-                        const scrollbarWidth = Math.max(
-                            0,
-                            scrollArea.offsetWidth - scrollArea.clientWidth
+                const syncColumnMinHeight = (mq) => {
+                    if (!column) {
+                        return;
+                    }
+                    column.style.removeProperty('--context-column-min-height');
+                    const media = mq || win.matchMedia('(max-width: 900px)');
+                    if (media.matches) {
+                        return;
+                    }
+                    const offset = getPanelOffset();
+                    const viewportHeight = Math.max(0, win.innerHeight - offset - 16);
+                    let mainHeight = 0;
+                    if (mainColumn) {
+                        const rect = mainColumn.getBoundingClientRect();
+                        mainHeight = rect.height;
+                    }
+                    const target = Math.max(viewportHeight, mainHeight);
+                    if (target > 0) {
+                        column.style.setProperty(
+                            '--context-column-min-height',
+                            `${Math.ceil(target)}px`
                         );
-                        panel.style.setProperty(
-                            '--context-scrollbar-compensation',
-                            `${scrollbarWidth}px`
-                        );
-                    };
-
-                    const syncColumnMinHeight = (mq) => {
-                        if (!column) {
-                            return;
-                        }
-                        column.style.removeProperty('--context-column-min-height');
-                        const media = mq || window.matchMedia('(max-width: 900px)');
-                        if (media.matches) {
-                            return;
-                        }
-                        const offset = getPanelOffset();
-                        const viewportHeight = Math.max(0, window.innerHeight - offset - 16);
-                        let mainHeight = 0;
-                        if (mainColumn) {
-                            const rect = mainColumn.getBoundingClientRect();
-                            mainHeight = rect.height;
-                        }
-                        const target = Math.max(viewportHeight, mainHeight);
-                        if (target > 0) {
-                            column.style.setProperty(
-                                '--context-column-min-height',
-                                `${Math.ceil(target)}px`
-                            );
-                        }
-                    };
-
-                    const setAriaExpanded = (open) => {
-                        triggers.forEach((button) => {
-                            button.setAttribute('aria-expanded', open ? 'true' : 'false');
-                        });
-                    };
-
-                    const setOpen = (open, options = {}) => {
-                        const {
-                            suppressFocus = false,
-                            skipReturnFocus = false,
-                            trigger = null,
-                            returnFocusTo = null,
-                        } = options;
-
-                        if (!doc.body) {
-                            return;
-                        }
-
-                        if (trigger) {
-                            lastTrigger = trigger;
-                        }
-
-                        doc.body.classList.toggle('context-panel-open', open);
-                        setAriaExpanded(open);
-
-                        if (panel) {
-                            panel.setAttribute('aria-hidden', open ? 'false' : 'true');
-                        }
-
-                        if (open) {
-                            window.requestAnimationFrame(updateScrollbarCompensation);
-                        } else {
-                            updateScrollbarCompensation();
-                        }
-
-                        if (open && scrollArea && !suppressFocus) {
-                            scrollArea.focus({ preventScroll: false });
-                        }
-
-                        if (!open && !skipReturnFocus) {
-                            const focusTarget = returnFocusTo || lastTrigger || triggers[0];
-                            if (focusTarget) {
-                                focusTarget.focus();
-                            }
-                        }
-                    };
-
-                    const handleTrigger = (button) => {
-                        setOpen(true, { trigger: button });
-                    };
-
-                    const handleClose = (options = {}) => {
-                        setOpen(false, options);
-                    };
-
-                    if (triggers.length) {
-                        triggers.forEach((button) => {
-                            if (button.dataset.bound === 'true') {
-                                return;
-                            }
-                            button.dataset.bound = 'true';
-                            button.setAttribute('aria-expanded', 'false');
-                        });
-                    }
-
-                    if (doc.body && doc.body.dataset.contextPanelDelegated !== 'true') {
-                        doc.body.dataset.contextPanelDelegated = 'true';
-
-                        doc.addEventListener(
-                            'click',
-                            (event) => {
-                                const triggerButton = event.target.closest('.context-panel-trigger');
-                                if (triggerButton) {
-                                    event.preventDefault();
-                                    handleTrigger(triggerButton);
-                                    return;
-                                }
-
-                                const closeButton = event.target.closest('.context-panel-close');
-                                if (closeButton) {
-                                    event.preventDefault();
-                                    handleClose();
-                                    return;
-                                }
-
-                                const backdrop = event.target.closest('.context-panel-backdrop');
-                                if (backdrop && event.target === backdrop) {
-                                    handleClose({ suppressFocus: true, skipReturnFocus: true });
-                                }
-                            },
-                            { passive: false }
-                        );
-
-                        doc.addEventListener(
-                            'keydown',
-                            (event) => {
-                                const triggerButton = event.target.closest('.context-panel-trigger');
-                                if (triggerButton && (event.key === 'Enter' || event.key === ' ')) {
-                                    event.preventDefault();
-                                    handleTrigger(triggerButton);
-                                    return;
-                                }
-
-                                const closeButton = event.target.closest('.context-panel-close');
-                                if (closeButton && (event.key === 'Enter' || event.key === ' ')) {
-                                    event.preventDefault();
-                                    handleClose();
-                                }
-                            },
-                            { passive: false }
-                        );
-                    }
-
-                    const mediaQuery = window.matchMedia('(max-width: 900px)');
-                    const syncForViewport = (mq) => {
-                        if (!panel) {
-                            return;
-                        }
-                        if (mq.matches) {
-                            handleClose({ suppressFocus: true, skipReturnFocus: true });
-                        } else {
-                            panel.setAttribute('aria-hidden', 'false');
-                            setAriaExpanded(true);
-                            if (doc.body) {
-                                doc.body.classList.remove('context-panel-open');
-                            }
-                        }
-                        syncColumnMinHeight(mq);
-                    };
-
-                    syncForViewport(mediaQuery);
-                    if (mediaQuery.addEventListener) {
-                        mediaQuery.addEventListener('change', syncForViewport);
-                    } else if (mediaQuery.addListener) {
-                        mediaQuery.addListener(syncForViewport);
-                    }
-
-                    updateScrollbarCompensation();
-                    syncColumnMinHeight(mediaQuery);
-
-                    if (scrollArea && typeof ResizeObserver !== 'undefined') {
-                        if (!scrollArea.__contextPanelResizeObserver) {
-                            scrollArea.__contextPanelResizeObserver = new ResizeObserver(
-                                updateScrollbarCompensation
-                            );
-                            scrollArea.__contextPanelResizeObserver.observe(scrollArea);
-                        }
-                    }
-
-                    if (mainColumn && typeof ResizeObserver !== 'undefined') {
-                        if (!mainColumn.__contextColumnResizeObserver) {
-                            mainColumn.__contextColumnResizeObserver = new ResizeObserver(() => {
-                                syncColumnMinHeight(mediaQuery);
-                            });
-                            mainColumn.__contextColumnResizeObserver.observe(mainColumn);
-                        }
-                    }
-
-                    if (doc.body && !doc.body.dataset.contextPanelResizeBound) {
-                        doc.body.dataset.contextPanelResizeBound = 'true';
-                        window.addEventListener(
-                            'resize',
-                            () => {
-                                updateScrollbarCompensation();
-                                syncColumnMinHeight(mediaQuery);
-                            },
-                            {
-                                passive: true,
-                            }
-                        );
-                    }
-
-                    if (doc.body && !doc.body.dataset.contextPanelEscapeBound) {
-                        doc.body.dataset.contextPanelEscapeBound = 'true';
-                        doc.addEventListener('keydown', (event) => {
-                            if (event.key === 'Escape') {
-                                handleClose({ suppressFocus: true });
-                            }
-                        });
                     }
                 };
 
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', setupContextPanel);
-                } else {
-                    setupContextPanel();
+                const setAriaExpanded = (open) => {
+                    triggers.forEach((button) => {
+                        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+                    });
+                };
+
+                const setOpen = (open, options = {}) => {
+                    const {
+                        suppressFocus = false,
+                        skipReturnFocus = false,
+                        trigger = null,
+                        returnFocusTo = null,
+                    } = options;
+
+                    if (!doc.body) {
+                        return;
+                    }
+
+                    if (trigger) {
+                        lastTrigger = trigger;
+                    }
+
+                    doc.body.classList.toggle('context-panel-open', open);
+                    setAriaExpanded(open);
+
+                    if (panel) {
+                        panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+                    }
+
+                    if (open) {
+                        win.requestAnimationFrame(updateScrollbarCompensation);
+                    } else {
+                        updateScrollbarCompensation();
+                    }
+
+                    if (open && scrollArea && !suppressFocus) {
+                        scrollArea.focus({ preventScroll: false });
+                    }
+
+                    if (!open && !skipReturnFocus) {
+                        const focusTarget = returnFocusTo || lastTrigger || triggers[0];
+                        if (focusTarget) {
+                            focusTarget.focus();
+                        }
+                    }
+                };
+
+                const handleTrigger = (button) => {
+                    setOpen(true, { trigger: button });
+                };
+
+                const handleClose = (options = {}) => {
+                    setOpen(false, options);
+                };
+
+                if (triggers.length) {
+                    triggers.forEach((button) => {
+                        if (button.dataset.bound === 'true') {
+                            return;
+                        }
+                        button.dataset.bound = 'true';
+                        button.setAttribute('aria-expanded', 'false');
+                    });
                 }
-            })();
-            </script>
-            """
-        ),
-        unsafe_allow_html=True,
+
+                if (doc.body && doc.body.dataset.contextPanelDelegated !== 'true') {
+                    doc.body.dataset.contextPanelDelegated = 'true';
+
+                    doc.addEventListener(
+                        'click',
+                        (event) => {
+                            const triggerButton = event.target.closest('.context-panel-trigger');
+                            if (triggerButton) {
+                                event.preventDefault();
+                                handleTrigger(triggerButton);
+                                return;
+                            }
+
+                            const closeButton = event.target.closest('.context-panel-close');
+                            if (closeButton) {
+                                event.preventDefault();
+                                handleClose();
+                                return;
+                            }
+
+                            const backdrop = event.target.closest('.context-panel-backdrop');
+                            if (backdrop && event.target === backdrop) {
+                                handleClose({ suppressFocus: true, skipReturnFocus: true });
+                            }
+                        },
+                        { passive: false }
+                    );
+
+                    doc.addEventListener(
+                        'keydown',
+                        (event) => {
+                            const triggerButton = event.target.closest('.context-panel-trigger');
+                            if (triggerButton && (event.key === 'Enter' || event.key === ' ')) {
+                                event.preventDefault();
+                                handleTrigger(triggerButton);
+                                return;
+                            }
+
+                            const closeButton = event.target.closest('.context-panel-close');
+                            if (closeButton && (event.key === 'Enter' || event.key === ' ')) {
+                                event.preventDefault();
+                                handleClose();
+                            }
+                        },
+                        { passive: false }
+                    );
+                }
+
+                const mediaQuery = win.matchMedia('(max-width: 900px)');
+                const syncForViewport = (mq) => {
+                    if (!panel) {
+                        return;
+                    }
+                    if (mq.matches) {
+                        handleClose({ suppressFocus: true, skipReturnFocus: true });
+                    } else {
+                        panel.setAttribute('aria-hidden', 'false');
+                        setAriaExpanded(true);
+                        if (doc.body) {
+                            doc.body.classList.remove('context-panel-open');
+                        }
+                    }
+                    syncColumnMinHeight(mq);
+                };
+
+                syncForViewport(mediaQuery);
+                if (mediaQuery.addEventListener) {
+                    mediaQuery.addEventListener('change', syncForViewport);
+                } else if (mediaQuery.addListener) {
+                    mediaQuery.addListener(syncForViewport);
+                }
+
+                updateScrollbarCompensation();
+                syncColumnMinHeight(mediaQuery);
+
+                if (scrollArea && typeof ResizeObserver !== 'undefined') {
+                    if (!scrollArea.__contextPanelResizeObserver) {
+                        scrollArea.__contextPanelResizeObserver = new ResizeObserver(
+                            updateScrollbarCompensation
+                        );
+                        scrollArea.__contextPanelResizeObserver.observe(scrollArea);
+                    }
+                }
+
+                if (mainColumn && typeof ResizeObserver !== 'undefined') {
+                    if (!mainColumn.__contextColumnResizeObserver) {
+                        mainColumn.__contextColumnResizeObserver = new ResizeObserver(() => {
+                            syncColumnMinHeight(mediaQuery);
+                        });
+                        mainColumn.__contextColumnResizeObserver.observe(mainColumn);
+                    }
+                }
+
+                if (doc.body && !doc.body.dataset.contextPanelResizeBound) {
+                    doc.body.dataset.contextPanelResizeBound = 'true';
+                    win.addEventListener(
+                        'resize',
+                        () => {
+                            updateScrollbarCompensation();
+                            syncColumnMinHeight(mediaQuery);
+                        },
+                        {
+                            passive: true,
+                        }
+                    );
+                }
+
+                if (doc.body && !doc.body.dataset.contextPanelEscapeBound) {
+                    doc.body.dataset.contextPanelEscapeBound = 'true';
+                    doc.addEventListener('keydown', (event) => {
+                        if (event.key === 'Escape') {
+                            handleClose({ suppressFocus: true });
+                        }
+                    });
+                }
+            };
+
+            if (parentDoc.readyState === 'loading') {
+                parentDoc.addEventListener('DOMContentLoaded', setupContextPanel, { once: true });
+            } else {
+                setupContextPanel();
+            }
+        })();
+        </script>
+        """
     )
+    components.html(script, height=0, width=0)
+    st.session_state["_context_panel_behavior_injected_v2"] = True
 
 
 def _inject_practice_navigation_styles() -> None:
