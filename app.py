@@ -4267,7 +4267,7 @@ def _render_intent_cards(
                 clicked = st.button(
                     card["label"],
                     key=f"intent-card-{draft_key}-{index}",
-                    use_container_width=True,
+                    width="stretch",
                 )
                 example_text = card["example"]
                 preview_text = _format_preview_text(example_text, 90)
@@ -4313,7 +4313,7 @@ def _render_case_frame_shortcuts(
                 clicked = st.button(
                     frame["label"],
                     key=f"case-frame-{draft_key}-{index}",
-                    use_container_width=True,
+                    width="stretch",
                     help=frame.get("description"),
                 )
                 description = frame.get("description")
@@ -5915,7 +5915,7 @@ def _build_calendar_export(
         "PRODID:-//Shindanshi Planner//JP",
         "CALSCALE:GREGORIAN",
     ]
-    now_stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    now_stamp = datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
     summary_label = "週間学習" if goal["period_type"] == "weekly" else "月間学習"
     for index, session in enumerate(sessions):
         start_dt = datetime.combine(session["session_date"], session["start_time"])
@@ -6285,7 +6285,7 @@ def _render_study_goal_panel(
             ]
         )
         st.markdown("### 日々の学習予定")
-        st.data_editor(session_df, hide_index=True, disabled=True, use_container_width=True)
+        st.data_editor(session_df, hide_index=True, disabled=True, width="stretch")
 
         ics_bytes = _build_calendar_export(goal=goal, sessions=sessions, user_name=user["name"])
         st.download_button(
@@ -6899,7 +6899,7 @@ def dashboard_page(user: Dict) -> None:
                         ],
                     )
                 )
-                st.altair_chart(trend_chart + rolling_chart, use_container_width=True)
+                st.altair_chart(trend_chart + rolling_chart, width="stretch")
                 st.caption("折れ線は各演習の得点率、点線は直近3回の移動平均です。右肩上がりなら学習の伸びが定着しています。")
             if not case_perf_df.empty:
                 case_chart = (
@@ -6926,7 +6926,7 @@ def dashboard_page(user: Dict) -> None:
                         text="attempt_label:N",
                     )
                 )
-                st.altair_chart(case_chart + case_text, use_container_width=True)
+                st.altair_chart(case_chart + case_text, width="stretch")
                 st.caption("棒グラフの数値は各事例の平均得点率。ラベルは累積演習回数です。苦手な事例の回数とスコアを可視化しました。")
             st.markdown("</div></section>", unsafe_allow_html=True)
 
@@ -6955,7 +6955,7 @@ def dashboard_page(user: Dict) -> None:
             )
 
         notification_groups: List[str] = []
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
 
         if due_review_items:
             due_items_html = "".join(
@@ -7143,7 +7143,7 @@ def dashboard_page(user: Dict) -> None:
                 unsafe_allow_html=True,
             )
         if upcoming_reviews:
-            now = datetime.utcnow()
+            now = datetime.now(datetime.UTC)
             schedule_df = pd.DataFrame(
                 [
                     {
@@ -7173,7 +7173,7 @@ def dashboard_page(user: Dict) -> None:
             st.data_editor(
                 schedule_df,
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
                 disabled=True,
             )
             st.caption("演習結果に応じて復習ハブが次回の復習タイミングを自動提案します。")
@@ -7217,7 +7217,7 @@ def dashboard_page(user: Dict) -> None:
                 """
             )
             st.markdown(legend_html, unsafe_allow_html=True)
-            st.altair_chart(heatmap_context["chart"], use_container_width=True)
+            st.altair_chart(heatmap_context["chart"], width="stretch")
         else:
             st.markdown(
                 "<p class='achievement-timeline__meta'>ヒートマップのデータが取得できませんでした。</p>",
@@ -7253,7 +7253,7 @@ def dashboard_page(user: Dict) -> None:
                     )
                     st.data_editor(
                         summary_df_table,
-                        use_container_width=True,
+                        width="stretch",
                         hide_index=True,
                         disabled=True,
                     )
@@ -7291,7 +7291,7 @@ def dashboard_page(user: Dict) -> None:
                         .mark_rule(color="#b45309", strokeDash=[6, 4])
                         .encode(x="ベンチマーク:Q")
                     )
-                    st.altair_chart(bar + target_line, use_container_width=True)
+                    st.altair_chart(bar + target_line, width="stretch")
                 else:
                     st.info("演習データが蓄積すると事例別の分析が表示されます。")
             st.markdown("</div>", unsafe_allow_html=True)
@@ -7332,7 +7332,7 @@ def dashboard_page(user: Dict) -> None:
                         )
                         .properties(height=320)
                     )
-                    st.altair_chart(radar_chart, use_container_width=True)
+                    st.altair_chart(radar_chart, width="stretch")
                     improvement_low, improvement_high = dashboard_analysis["improvement_range"]
                     st.caption(
                         f"フェルミ推定では弱点分析を踏まえた学習時間の再配分により平均得点が"
@@ -7390,12 +7390,12 @@ def dashboard_page(user: Dict) -> None:
                     if score_heatmap.data.empty:
                         st.info("得点率ヒートマップを表示するには得点データが必要です。")
                     else:
-                        st.altair_chart(score_heatmap, use_container_width=True)
+                        st.altair_chart(score_heatmap, width="stretch")
                 with heatmap_col2:
                     if coverage_heatmap.data.empty:
                         st.info("キーワード網羅率ヒートマップを表示するには判定データが必要です。")
                     else:
-                        st.altair_chart(coverage_heatmap, use_container_width=True)
+                        st.altair_chart(coverage_heatmap, width="stretch")
                 st.caption("濃淡が薄いセルは優先復習したい設問を示します。")
 
             if has_keyword_heatmap:
@@ -7422,7 +7422,7 @@ def dashboard_page(user: Dict) -> None:
                     )
                     .properties(height=260)
                 )
-                st.altair_chart(keyword_heatmap, use_container_width=True)
+                st.altair_chart(keyword_heatmap, width="stretch")
                 st.caption("特に網羅率が低いテーマは早期に補強しましょう。")
 
             st.markdown("</div>", unsafe_allow_html=True)
@@ -8645,7 +8645,7 @@ def _save_answer_snapshot(key: str, text: str, *, label: Optional[str] = None) -
     payload = _get_saved_answer_payload(key)
     snapshots: List[Dict[str, Any]] = payload.setdefault("snapshots", [])
     snapshot_id = uuid.uuid4().hex
-    timestamp = datetime.utcnow().isoformat()
+    timestamp = datetime.now(datetime.UTC).isoformat()
     normalized_label = label.strip() if label else ""
     if not normalized_label:
         normalized_label = f"案{len(snapshots) + 1}"
@@ -8844,7 +8844,7 @@ def _extract_context_citations(
 
 def _track_question_activity(draft_key: str, text: str) -> Dict[str, Any]:
     activity = st.session_state.setdefault("question_activity", {})
-    now = datetime.utcnow()
+    now = datetime.now(datetime.UTC)
     record = activity.setdefault(
         draft_key,
         {
@@ -10027,7 +10027,7 @@ def _sanitize_sheet_name(name: str) -> str:
 
 
 def _simple_xlsx_bytes(tables: Dict[str, pd.DataFrame]) -> bytes:
-    timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     sheet_entries: List[Tuple[str, str]] = []
     sheet_xml_parts: List[Tuple[str, str]] = []
 
@@ -10837,7 +10837,16 @@ def practice_page(user: Dict) -> None:
     for entry in index:
         case_map[entry["case_label"]][entry["year"]] = entry["id"]
 
-    question_stats = database.fetch_question_practice_stats(user["id"])
+    fetch_practice_stats = getattr(database, "fetch_question_practice_stats", None)
+    if fetch_practice_stats is None:
+        logger.warning("database module missing fetch_question_practice_stats; defaulting to empty stats")
+        question_stats = {}
+    else:
+        try:
+            question_stats = fetch_practice_stats(user["id"])
+        except Exception:
+            logger.exception("Failed to fetch question practice stats for user %s", user.get("id"))
+            question_stats = {}
 
     case_options = sorted(
         case_map.keys(),
@@ -11359,7 +11368,7 @@ def practice_page(user: Dict) -> None:
         st.data_editor(
             question_overview,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             disabled=True,
             column_config={
                 "キーワード": st.column_config.TextColumn(help="採点で評価される重要ポイント"),
@@ -11371,7 +11380,7 @@ def practice_page(user: Dict) -> None:
         _render_retrieval_flashcards(problem)
 
         if not st.session_state.practice_started:
-            st.session_state.practice_started = datetime.utcnow()
+            st.session_state.practice_started = datetime.now(datetime.UTC)
 
         st.markdown('<div id="practice-answers"></div>', unsafe_allow_html=True)
 
@@ -11570,7 +11579,7 @@ def practice_page(user: Dict) -> None:
             )
             return
 
-        submitted_at = datetime.utcnow()
+        submitted_at = datetime.now(datetime.UTC)
         activity_summary = _summarise_question_activity(problem, submitted_at)
         answers = []
         for question, spec in zip(problem["questions"], question_specs):
@@ -12068,7 +12077,7 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         st.data_editor(
             overview_df,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             disabled=True,
             column_config=column_config,
         )
@@ -12611,7 +12620,7 @@ def _render_time_allocation_heatmap(
             )
             .properties(height=150)
         )
-        st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, width="stretch")
     display_df = df.copy()
     display_df["経過(分)"] = display_df["経過(分)"].map(
         lambda value: round(float(value), 1) if isinstance(value, (int, float)) else value
@@ -12619,7 +12628,7 @@ def _render_time_allocation_heatmap(
     st.data_editor(
         display_df[["設問", "着手時刻", "経過(分)", "見直し回数", "最終更新"]],
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         disabled=True,
     )
 
@@ -12728,7 +12737,7 @@ def render_attempt_results(attempt_id: int) -> None:
         recommendation_label = (
             f"推奨: 類題{review_plan['recommended_items']}問 / 約{review_plan['recommended_minutes']}分"
         )
-        if due_at <= datetime.utcnow():
+        if due_at <= datetime.now(datetime.UTC):
             st.warning(
                 f"この事例の復習期限が到来しています。次回目安 {due_at.strftime('%Y-%m-%d %H:%M')}"
                 f" (間隔 {interval}日, {recommendation_label})",
@@ -12806,7 +12815,7 @@ def render_attempt_results(attempt_id: int) -> None:
         st.data_editor(
             pd.DataFrame(summary_rows),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             disabled=True,
         )
         st.caption(
@@ -12876,7 +12885,7 @@ def render_attempt_results(attempt_id: int) -> None:
                 )
                 .properties(height=280)
             )
-            st.altair_chart(bar_chart, use_container_width=True)
+            st.altair_chart(bar_chart, width="stretch")
         else:
             st.info("選択条件に該当する設問の得点率データがありません。")
 
@@ -12989,7 +12998,7 @@ def render_attempt_results(attempt_id: int) -> None:
                     )
                     .properties(height=260)
                 )
-                st.altair_chart(hist_chart, use_container_width=True)
+                st.altair_chart(hist_chart, width="stretch")
                 st.caption("選択した設問の得点率分布です。ヒストグラムの山が左寄りなら優先的に復習しましょう。")
             else:
                 st.info("条件に合致する履歴データがありません。演習を重ねるとヒストグラムが生成されます。")
@@ -13065,7 +13074,7 @@ def render_attempt_results(attempt_id: int) -> None:
                 }
             )
         log_df = pd.DataFrame(log_rows)
-        st.data_editor(log_df, hide_index=True, use_container_width=True, disabled=True)
+        st.data_editor(log_df, hide_index=True, width="stretch", disabled=True)
         st.caption("採点ログは時系列に蓄積され、復習提案の精度向上に利用されます。CSV/JSON/PDFでのバックアップも可能です。")
 
     with st.expander("印刷ビュー（与件＋解答＋講評を1ページに集約）", expanded=False):
@@ -13267,10 +13276,10 @@ def _render_axis_breakdown(axis_breakdown: Dict[str, Dict[str, object]]) -> None
     )
 
     chart = (area + points + labels).properties(height=320)
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, width="stretch")
 
     detail_df = pd.DataFrame(display_rows)
-    st.dataframe(detail_df, hide_index=True, use_container_width=True)
+    st.dataframe(detail_df, hide_index=True, width="stretch")
     st.caption("レーダーチャートは各観点の0〜100%スコアを示し、配点比重は総合得点への寄与度を表します。")
 
 
@@ -13311,7 +13320,7 @@ def _render_case_bundle_feedback(evaluation: scoring.BundleEvaluation) -> None:
                 )
                 .properties(height=180)
             )
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width="stretch")
 
     st.markdown("**観点別コメント**")
     for row in criteria_df.itertuples():
@@ -13520,7 +13529,7 @@ def mock_exam_page(user: Dict) -> None:
         with start_col:
             st.write("")
             start_clicked = st.button(
-                "模試を開始", type="primary", use_container_width=True
+                "模試を開始", type="primary", width="stretch"
             )
 
         case_summaries = []
@@ -13542,7 +13551,7 @@ def mock_exam_page(user: Dict) -> None:
         if start_clicked:
             st.session_state.mock_session = {
                 "exam": selected_exam,
-                "start": datetime.utcnow(),
+                "start": datetime.now(datetime.UTC),
                 "answers": {},
             }
             st.session_state["mock_notice_toggle"] = True
@@ -13551,7 +13560,7 @@ def mock_exam_page(user: Dict) -> None:
 
     exam = session["exam"]
     start_time = session["start"]
-    elapsed = datetime.utcnow() - start_time
+    elapsed = datetime.now(datetime.UTC) - start_time
     elapsed_total_seconds = max(int(elapsed.total_seconds()), 0)
     elapsed_minutes = elapsed_total_seconds // 60
     elapsed_seconds = elapsed_total_seconds % 60
@@ -13675,7 +13684,7 @@ def mock_exam_page(user: Dict) -> None:
                     )
                 )
                 case_question_results.append({"question": question, "answer": text, "result": result})
-            submitted_at = datetime.utcnow()
+            submitted_at = datetime.now(datetime.UTC)
             activity_summary = _summarise_question_activity(problem, submitted_at)
             for answer in answers:
                 if answer.question_id in activity_summary:
@@ -13864,7 +13873,7 @@ def history_page(user: Dict) -> None:
                     ),
                     "復習アクション": (
                         f"今日中に復習（推奨 {item['recommended_items']}問・約{item['recommended_minutes']}分）"
-                        if item["due_at"] <= datetime.utcnow()
+                        if item["due_at"] <= datetime.now(datetime.UTC)
                         else (
                             "次回 {date} に復習（推奨 {items}問・約{minutes}分)".format(
                                 date=item["due_at"].strftime("%Y-%m-%d"),
@@ -13878,7 +13887,7 @@ def history_page(user: Dict) -> None:
                 for item in review_schedule
             ]
         )
-        st.dataframe(review_df, use_container_width=True)
+        st.dataframe(review_df, width="stretch")
     else:
         st.caption("演習完了後に復習ハブの予定が自動生成されます。")
 
@@ -13990,7 +13999,7 @@ def history_page(user: Dict) -> None:
         selected_channels,
         first_event=next_trigger_dt,
     )
-    st.dataframe(schedule_preview, use_container_width=True)
+    st.dataframe(schedule_preview, width="stretch")
     st.caption("今後の通知予定（サンプル）を確認し、リマインダー運用のイメージを掴めます。")
 
     st.caption(
@@ -14088,7 +14097,7 @@ def history_page(user: Dict) -> None:
         st.data_editor(
             display_df.drop(columns=["attempt_id"]),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             disabled=True,
         )
         st.caption("複数条件でフィルタした演習履歴を確認できます。列名をクリックすると並び替えできます。")
@@ -14109,12 +14118,12 @@ def history_page(user: Dict) -> None:
                 )
                 .properties(height=320)
             )
-            st.altair_chart(line_chart, use_container_width=True)
+            st.altair_chart(line_chart, width="stretch")
 
             avg_df = score_history.groupby("事例", as_index=False)["得点"].mean()
             st.subheader("事例別平均点")
             bar_chart = alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="得点:Q")
-            st.altair_chart(bar_chart, use_container_width=True)
+            st.altair_chart(bar_chart, width="stretch")
 
     with report_tab:
         module_summary = report_data["module_summary"]
@@ -14162,7 +14171,7 @@ def history_page(user: Dict) -> None:
                 module_display["学習時間(時間)"] = module_display["学習時間(時間)"].map(
                     lambda v: f"{v:.1f}"
                 )
-            st.dataframe(module_display, use_container_width=True, hide_index=True)
+            st.dataframe(module_display, width="stretch", hide_index=True)
 
             monthly_df = report_data["monthly_summary"]
             weekly_df = report_data["weekly_summary"]
@@ -14200,7 +14209,7 @@ def history_page(user: Dict) -> None:
                             ],
                         )
                     )
-                    st.altair_chart(score_chart, use_container_width=True)
+                    st.altair_chart(score_chart, width="stretch")
 
                     time_chart = (
                         alt.Chart(monthly_chart_df)
@@ -14221,7 +14230,7 @@ def history_page(user: Dict) -> None:
                             ],
                         )
                     )
-                    st.altair_chart(time_chart, use_container_width=True)
+                    st.altair_chart(time_chart, width="stretch")
 
                     monthly_table = monthly_chart_df.copy()
                     monthly_table["期間"] = monthly_table["期間ラベル"]
@@ -14249,7 +14258,7 @@ def history_page(user: Dict) -> None:
                     ]
                     st.dataframe(
                         monthly_table[monthly_display_cols],
-                        use_container_width=True,
+                        width="stretch",
                         hide_index=True,
                     )
 
@@ -14285,7 +14294,7 @@ def history_page(user: Dict) -> None:
                             ],
                         )
                     )
-                    st.altair_chart(weekly_score_chart, use_container_width=True)
+                    st.altair_chart(weekly_score_chart, width="stretch")
 
                     weekly_time_chart = (
                         alt.Chart(weekly_chart_df)
@@ -14306,7 +14315,7 @@ def history_page(user: Dict) -> None:
                             ],
                         )
                     )
-                    st.altair_chart(weekly_time_chart, use_container_width=True)
+                    st.altair_chart(weekly_time_chart, width="stretch")
 
                     weekly_table = weekly_chart_df.copy()
                     weekly_table["期間"] = weekly_table["期間ラベル"]
@@ -14334,7 +14343,7 @@ def history_page(user: Dict) -> None:
                     ]
                     st.dataframe(
                         weekly_table[weekly_display_cols],
-                        use_container_width=True,
+                        width="stretch",
                         hide_index=True,
                     )
 
@@ -14401,7 +14410,7 @@ def history_page(user: Dict) -> None:
                         )
                     )
                     st.subheader("キーワード網羅率と得点率の相関")
-                    st.altair_chart(scatter_chart, use_container_width=True)
+                    st.altair_chart(scatter_chart, width="stretch")
                     st.caption("左下に位置する設問はキーワード・得点ともに伸びしろがあります。重点的に復習しましょう。")
                 else:
                     st.info("スコアとキーワード判定が揃った設問がまだありません。")
@@ -14415,7 +14424,7 @@ def history_page(user: Dict) -> None:
                 st.data_editor(
                     display_summary,
                     hide_index=True,
-                    use_container_width=True,
+                    width="stretch",
                     disabled=True,
                 )
                 st.caption("出題頻度が高いキーワードほど上位に表示されます。達成率が低いキーワードは計画的に復習しましょう。")
@@ -14463,7 +14472,7 @@ def history_page(user: Dict) -> None:
                 detail_df["所要時間(分)"] = detail_df["所要時間(分)"].map(
                     lambda v: f"{v:.1f}" if pd.notna(v) else "-"
                 )
-                st.data_editor(detail_df, hide_index=True, use_container_width=True, disabled=True)
+                st.data_editor(detail_df, hide_index=True, width="stretch", disabled=True)
                 st.caption("各設問の到達状況と不足キーワードを一覧化しました。学習計画に反映してください。")
 
             st.divider()
@@ -14538,7 +14547,7 @@ def history_page(user: Dict) -> None:
                         )
                         .properties(width=640, height=max(220, rows * 70))
                     )
-                    st.altair_chart(cloud_chart, use_container_width=True)
+                    st.altair_chart(cloud_chart, width="stretch")
 
                     cloud_display = cloud_df.copy()
                     cloud_display["重要度(%)"] = (cloud_display["weight"] * 100).map(lambda v: f"{v:.0f}%")
@@ -14547,7 +14556,7 @@ def history_page(user: Dict) -> None:
                     )
                     st.dataframe(
                         cloud_display[["キーワード", "出現回数", "重要度(%)"]],
-                        use_container_width=True,
+                        width="stretch",
                         hide_index=True,
                     )
 
@@ -14582,10 +14591,10 @@ def history_page(user: Dict) -> None:
                         )
                         .properties(height=max(200, 28 * len(theme_display)), width=640)
                     )
-                    st.altair_chart(theme_chart, use_container_width=True)
+                    st.altair_chart(theme_chart, width="stretch")
                     st.dataframe(
                         theme_display[["テーマ", "重要度(指数)"]],
-                        use_container_width=True,
+                        width="stretch",
                         hide_index=True,
                     )
 
@@ -14680,7 +14689,7 @@ def settings_page(user: Dict) -> None:
                 },
             ]
         )
-        st.dataframe(plan_features, use_container_width=True, hide_index=True)
+        st.dataframe(plan_features, width="stretch", hide_index=True)
 
         st.caption(
             "\U0001f4a1 プレミアムプランでは AI 採点の上限が解除され、全ての模擬試験・過去問で詳細解説を好きなだけ閲覧できます。"
@@ -14786,7 +14795,7 @@ def settings_page(user: Dict) -> None:
             )
             with st.expander("テンプレートのサンプルを見る", expanded=False):
                 preview_df = _load_past_exam_template_preview()
-                st.dataframe(preview_df, use_container_width=True, hide_index=True)
+                st.dataframe(preview_df, width="stretch", hide_index=True)
 
         if uploaded_file is not None:
             st.session_state.pending_past_data_upload = {
@@ -14816,7 +14825,7 @@ def settings_page(user: Dict) -> None:
         past_df = st.session_state.past_data
         if past_df is not None:
             st.caption(f"読み込み済みのレコード数: {len(past_df)}件")
-            st.dataframe(past_df.head(), use_container_width=True)
+            st.dataframe(past_df.head(), width="stretch")
             case_meta = st.session_state.get("uploaded_case_metadata", {}) or {}
             question_meta = st.session_state.get("uploaded_question_metadata", {}) or {}
             if case_meta:
@@ -14865,14 +14874,14 @@ def settings_page(user: Dict) -> None:
                     summary_df = summary_df.sort_values(
                         ["_year_sort", "_case_sort"], ascending=[False, True]
                     ).drop(columns=["_year_sort", "_case_sort"])
-                    st.dataframe(summary_df, use_container_width=True, hide_index=True)
+                    st.dataframe(summary_df, width="stretch", hide_index=True)
                     st.caption("年度・事例ごとの登録状況です。詳細解説や動画リンクの有無を確認できます。")
             tables = st.session_state.get("past_data_tables") or []
             if tables:
                 with st.expander("抽出された数表", expanded=False):
                     for idx, table in enumerate(tables, start=1):
                         st.markdown(f"**数表 {idx}**")
-                        st.dataframe(table, use_container_width=True)
+                        st.dataframe(table, width="stretch")
             if st.button("アップロードデータをクリア", key="clear_past_data"):
                 st.session_state.past_data = None
                 st.session_state.past_data_tables = []
@@ -14923,7 +14932,7 @@ def settings_page(user: Dict) -> None:
                     ascending=[False, True, True],
                 )
                 context_df = context_df.drop(columns=["_year_sort", "_case_sort"])
-                st.dataframe(context_df, use_container_width=True, hide_index=True)
+                st.dataframe(context_df, width="stretch", hide_index=True)
                 st.caption("年度・事例ごとに最新の与件文が登録されています。再アップロードすると同じキーの内容は上書きされます。")
             if st.button("与件文データをクリア", key="clear_case_contexts"):
                 st.session_state.uploaded_case_contexts = {}
@@ -14993,7 +15002,7 @@ def settings_page(user: Dict) -> None:
                     ascending=[False, True, True],
                 )
                 question_df = question_df.drop(columns=["_year_sort", "_case_sort", "_question_sort"])
-                st.dataframe(question_df, use_container_width=True, hide_index=True)
+                st.dataframe(question_df, width="stretch", hide_index=True)
                 st.caption("登録済みの設問文です。年度・事例・設問番号ごとに最新の内容が適用されます。")
             if st.button("設問文データをクリア", key="clear_question_texts"):
                 st.session_state.uploaded_question_texts = {}
@@ -15063,7 +15072,7 @@ def settings_page(user: Dict) -> None:
                         "採点観点": scoring_summary,
                     }
                 )
-            st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(summary_rows), width="stretch", hide_index=True)
             st.caption("登録済みスロットの一覧です。再アップロードすると同じキーのデータは上書きされます。")
             if st.button("模範解答スロットをクリア", key="clear_model_answer_slots"):
                 st.session_state.model_answer_slots = {}
