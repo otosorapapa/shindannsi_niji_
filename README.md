@@ -27,6 +27,10 @@ st.components.v1.html(exercise_ui, height=900, scrolling=True)
 
 ※ 旧 `prototypes/` ディレクトリに含まれていたプロトタイプは上記ファイルへ統合しました。
 
+### Streamlit からのプレビュー
+
+アプリ起動後はサイドバーの「UI プレビュー」タブから `frontend/two_pane_exercise.html` を iframe で読み込み、最新の見た目やインタラクションを確認できます。高さスライダーやダウンロードボタンを備えているため、外部レビューや別プロジェクトへの組み込み前チェックに活用してください。
+
 ## 実装済みの主な機能
 
 | 機能 | 概要 |
