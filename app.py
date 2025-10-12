@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 import copy
 from datetime import date as dt_date, datetime, time as dt_time, timedelta, timezone
 from pathlib import Path
@@ -7954,6 +7954,30 @@ def _ensure_character_meter_styles() -> None:
             margin-top: 0.25rem;
             color: #475569;
         }
+        .char-remaining-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            margin: 0.15rem 0 0.35rem;
+            background: #e2e8f0;
+            color: #0f172a;
+            font-weight: 600;
+        }
+        .char-remaining-badge.warn {
+            background: #fde68a;
+            color: #7c2d12;
+        }
+        .char-remaining-badge.over {
+            background: #fecaca;
+            color: #7f1d1d;
+        }
+        .char-remaining-badge.ok {
+            background: #bfdbfe;
+            color: #1e3a8a;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -8012,9 +8036,38 @@ def _render_character_meter(current: float, limit: Optional[int]) -> None:
     )
 
 
+def _render_character_remaining_badge(current: float, limit: Optional[int]) -> None:
+    _ensure_character_meter_styles()
+    if limit is None:
+        st.markdown(
+            "<div class='char-remaining-badge ok' role='status' aria-live='polite'>✍️ 目安は100字前後です</div>",
+            unsafe_allow_html=True,
+        )
+        return
+
+    remaining = limit - current
+    if remaining < 0:
+        tone = "over"
+        icon = "⚠️"
+        label = f"{_format_fullwidth_length(abs(remaining))}字オーバー"
+    elif remaining <= 20:
+        tone = "warn"
+        icon = "⏱️"
+        label = f"残り {_format_fullwidth_length(max(remaining, 0))}字"
+    else:
+        tone = "ok"
+        icon = "✍️"
+        label = f"残り {_format_fullwidth_length(remaining)}字"
+    st.markdown(
+        f"<div class='char-remaining-badge {tone}' role='status' aria-live='polite'>{icon} {label}</div>",
+        unsafe_allow_html=True,
+    )
+
+
 def _render_character_counter(text: str, limit: Optional[int]) -> None:
     fullwidth_length = _compute_fullwidth_length(text)
     if limit is None:
+        _render_character_remaining_badge(fullwidth_length, None)
         st.caption(
             f"現在の文字数: {len(text)}字 ／ 全角換算: {_format_fullwidth_length(fullwidth_length)}字"
         )
@@ -8028,6 +8081,7 @@ def _render_character_counter(text: str, limit: Optional[int]) -> None:
         remaining_text = f"残り {_format_fullwidth_length(remaining)}字"
     else:
         remaining_text = f"{_format_fullwidth_length(abs(remaining))}字オーバー"
+    _render_character_remaining_badge(fullwidth_length, limit)
     st.caption(
         f"文字数: {_format_fullwidth_length(fullwidth_length)} / {limit}字（{remaining_text}）"
     )
@@ -10825,6 +10879,293 @@ def _apply_uploaded_text_overrides(problem: Optional[Dict[str, Any]]) -> Optiona
     return cloned
 
 
+def _format_question_summary_label(
+    question: Mapping[str, Any],
+    *,
+    case_label: Optional[str],
+    year: Optional[str],
+) -> str:
+    prompt = _normalize_text_block(
+        _select_first(
+            question,
+            ["prompt", "設問文", "問題文", "question_text", "body"],
+        )
+    ) or ""
+    preview = prompt.splitlines()[0] if prompt else ""
+    if len(preview) > 24:
+        preview = preview[:24] + "…"
+    order = (
+        question.get("order")
+        or question.get("question_order")
+        or question.get("question_index")
+    )
+    order_label = f"設問{order}" if order else "設問"
+    label_year = _format_reiwa_label(year or "") if year else ""
+    parts = [part for part in [label_year, case_label, order_label] if part]
+    head = " ".join(parts) if parts else order_label
+    if preview:
+        return f"{head}: {preview}"
+    return head
+
+
+def _summarise_filtered_question_set(
+    question_ids: Sequence[int],
+    *,
+    question_lookup: Mapping[int, Mapping[str, Any]],
+    question_stats: Mapping[int, Mapping[str, Any]],
+    status_map: Mapping[int, str],
+    keyword_records: Sequence[Mapping[str, Any]],
+    active_statuses: Sequence[str],
+    selected_case: Optional[str],
+    selected_year: Optional[str],
+) -> Dict[str, Any]:
+    if not question_ids:
+        return {
+            "status_counts": {},
+            "weak_questions": [],
+            "frequent_questions": [],
+            "difficult_questions": [],
+            "keyword_findings": [],
+            "average_weak_ratio": None,
+            "active_question_ids": set(),
+            "active_statuses": list(active_statuses or []),
+            "total_filtered": 0,
+            "status_map": status_map,
+        }
+
+    status_counts: Counter[str] = Counter()
+    active_status_set = set(active_statuses or [])
+    active_question_ids: Set[int] = set()
+    weak_ratios: List[float] = []
+    weak_candidates: List[Dict[str, Any]] = []
+    freq_candidates: List[Dict[str, Any]] = []
+    difficulty_candidates: List[Dict[str, Any]] = []
+
+    for qid in question_ids:
+        question = question_lookup.get(qid) or {}
+        status_label = status_map.get(qid, "未実施")
+        status_counts[status_label] += 1
+        stats = question_stats.get(qid) or {}
+        attempt_count = int(stats.get("attempt_count") or 0)
+        last_ratio = stats.get("last_ratio")
+        label = _format_question_summary_label(
+            question,
+            case_label=question.get("case_label") or selected_case,
+            year=question.get("year") or selected_year,
+        )
+
+        freq_candidates.append(
+            {
+                "question_id": qid,
+                "label": label,
+                "attempt_count": attempt_count,
+            }
+        )
+        if isinstance(last_ratio, (int, float)):
+            ratio_value = float(last_ratio)
+            difficulty_candidates.append(
+                {
+                    "question_id": qid,
+                    "label": label,
+                    "last_ratio": ratio_value,
+                }
+            )
+            if status_label == "要復習" and (
+                not active_status_set or status_label in active_status_set
+            ):
+                weak_ratios.append(ratio_value)
+                weak_candidates.append(
+                    {
+                        "question_id": qid,
+                        "label": label,
+                        "last_ratio": ratio_value,
+                        "attempt_count": attempt_count,
+                    }
+                )
+
+        if not active_status_set or status_label in active_status_set:
+            active_question_ids.add(qid)
+
+    average_weak_ratio = (
+        sum(weak_ratios) / len(weak_ratios) if weak_ratios else None
+    )
+
+    weak_candidates.sort(key=lambda item: (item["last_ratio"], -item["attempt_count"]))
+    frequent_questions = [
+        entry
+        for entry in sorted(
+            freq_candidates,
+            key=lambda item: (item["attempt_count"], item["label"]),
+            reverse=True,
+        )
+        if entry["attempt_count"] > 0
+    ][:3]
+    difficult_questions = [
+        entry
+        for entry in sorted(
+            difficulty_candidates,
+            key=lambda item: (item["last_ratio"], item["label"]),
+        )
+    ][:3]
+
+    keyword_attempt_counter: Counter[str] = Counter()
+    keyword_miss_counter: Counter[str] = Counter()
+    if keyword_records and active_question_ids:
+        active_set = set(active_question_ids)
+        for record in keyword_records:
+            qid = record.get("question_id")
+            if qid not in active_set:
+                continue
+            keyword_hits = record.get("keyword_hits") or {}
+            if not keyword_hits:
+                continue
+            for keyword, hit in keyword_hits.items():
+                keyword_attempt_counter[keyword] += 1
+                if not hit:
+                    keyword_miss_counter[keyword] += 1
+
+    keyword_findings: List[Dict[str, Any]] = []
+    for keyword, miss_count in keyword_miss_counter.most_common(5):
+        total = keyword_attempt_counter.get(keyword, 0)
+        ratio = miss_count / total if total else 0.0
+        keyword_findings.append(
+            {
+                "keyword": keyword,
+                "miss_count": miss_count,
+                "total": total,
+                "miss_ratio": ratio,
+            }
+        )
+
+    return {
+        "status_counts": dict(status_counts),
+        "weak_questions": weak_candidates[:3],
+        "frequent_questions": frequent_questions,
+        "difficult_questions": difficult_questions,
+        "keyword_findings": keyword_findings,
+        "average_weak_ratio": average_weak_ratio,
+        "active_question_ids": active_question_ids,
+        "active_statuses": list(active_status_set) if active_status_set else list(status_counts.keys()),
+        "total_filtered": len(question_ids),
+        "status_map": status_map,
+    }
+
+
+def _render_status_insight_panel(
+    analytics: Mapping[str, Any],
+    *,
+    personalized_bundle: Mapping[str, Any],
+) -> None:
+    if not analytics or analytics.get("total_filtered", 0) == 0:
+        return
+
+    st.markdown("##### ステータス分析とレコメンド")
+    st.caption(
+        "Evidence Based Educationのリトリーバル・プラクティス研究では、テクノロジーを活用した反復想起が長期記憶を強化すると示されています。"
+    )
+
+    status_counts = analytics.get("status_counts") or {}
+    status_order = ["未実施", "要復習", "安定"]
+    ordered_statuses = [
+        status for status in status_order if status in status_counts
+    ] + [
+        status
+        for status in status_counts
+        if status not in status_order
+    ]
+    if ordered_statuses:
+        cols = st.columns(len(ordered_statuses))
+        for col, status in zip(cols, ordered_statuses):
+            col.metric(status, f"{status_counts.get(status, 0)}件")
+
+    avg_ratio = analytics.get("average_weak_ratio")
+    if avg_ratio is not None:
+        st.metric("要復習カテゴリの平均得点率", f"{avg_ratio * 100:.0f}%")
+
+    findings = analytics.get("keyword_findings") or []
+    if findings:
+        keyword_df = pd.DataFrame(
+            [
+                {
+                    "キーワード": item["keyword"],
+                    "ミス回数": item["miss_count"],
+                    "対象回答": item["total"],
+                    "不足率(%)": round(item["miss_ratio"] * 100, 1),
+                }
+                for item in findings
+            ]
+        )
+        st.markdown("**繰り返し漏れているキーワード**")
+        st.dataframe(keyword_df, hide_index=True, use_container_width=True)
+
+    freq_list = analytics.get("frequent_questions") or []
+    diff_list = analytics.get("difficult_questions") or []
+    weak_questions = analytics.get("weak_questions") or []
+    if freq_list or diff_list or weak_questions:
+        block_cols = st.columns(3)
+        if freq_list:
+            with block_cols[0]:
+                st.markdown("**頻出ランキング**")
+                for entry in freq_list:
+                    st.markdown(
+                        f"- {entry['label']} （演習 {entry['attempt_count']}回）"
+                    )
+        if diff_list:
+            with block_cols[1]:
+                st.markdown("**得点が伸び悩む設問**")
+                for entry in diff_list:
+                    st.markdown(
+                        f"- {entry['label']} （直近得点率 {entry['last_ratio'] * 100:.0f}%）"
+                    )
+        if weak_questions:
+            with block_cols[2]:
+                st.markdown("**要復習の優先候補**")
+                for entry in weak_questions:
+                    st.markdown(
+                        f"- {entry['label']} （得点率 {entry['last_ratio'] * 100:.0f}% / 演習 {entry['attempt_count']}回）"
+                    )
+
+    active_ids: Set[int] = analytics.get("active_question_ids") or set()
+    rec_bundle = personalized_bundle or {}
+    question_recs = []
+    for entry in rec_bundle.get("question_recommendations", []):
+        qid = entry.get("question_id")
+        if active_ids and qid and qid not in active_ids:
+            continue
+        question_recs.append(entry)
+
+    if question_recs:
+        st.markdown("**次に解くべき設問**")
+        for entry in question_recs[:3]:
+            year_label = _format_reiwa_label(entry.get("year") or "") if entry.get("year") else ""
+            case_label = entry.get("case_label") or "事例"
+            reason = entry.get("reason") or "復習推奨"
+            missing = entry.get("missing_keywords") or []
+            missing_text = f" （未達: {', '.join(missing[:3])})" if missing else ""
+            st.markdown(
+                f"- **{case_label} {year_label}**: {reason}{missing_text}"
+            )
+
+    problem_recs = rec_bundle.get("problem_recommendations") or []
+    if problem_recs:
+        st.markdown("**推奨問題セット**")
+        for entry in problem_recs[:2]:
+            summary = personalized_recommendation.format_recommendation_summary(entry)
+            st.markdown(f"- {summary}")
+
+    resources = rec_bundle.get("resource_recommendations") or []
+    if resources:
+        st.markdown("**復習リソース**")
+        for resource in resources[:3]:
+            label = resource.get("label") or "リソース"
+            reason = resource.get("reason") or "定番"
+            url = resource.get("url")
+            if url:
+                st.markdown(f"- [{label}]({url}) — {reason}")
+            else:
+                st.markdown(f"- {label} — {reason}")
+
+
 def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。与件ハイライトと詳細解説で復習効果を高めましょう。")
@@ -10878,6 +11219,35 @@ def practice_page(user: Dict) -> None:
     if data_source == "uploaded":
         _practice_with_uploaded_data(past_data_df)
         return
+
+    try:
+        attempts = database.list_attempts(user_id=user["id"])
+    except Exception:
+        logger.exception("Failed to load attempts for practice view")
+        attempts = []
+
+    try:
+        keyword_records = database.fetch_keyword_performance(user["id"])
+    except Exception:
+        logger.exception("Failed to load keyword performance for practice view")
+        keyword_records = []
+
+    try:
+        personalized_bundle = personalized_recommendation.generate_personalised_learning_plan(
+            user_id=user["id"],
+            attempts=attempts,
+            problem_catalog=index,
+            keyword_resource_map=KEYWORD_RESOURCE_MAP,
+            default_resources=DEFAULT_KEYWORD_RESOURCES,
+        )
+    except Exception:
+        logger.exception("Failed to generate personalised recommendations for practice view")
+        personalized_bundle = {
+            "problem_recommendations": [],
+            "question_recommendations": [],
+            "resource_recommendations": [],
+            "context": None,
+        }
 
     if not has_database_data:
         st.warning("問題データが登録されていません。seed_problems.jsonを確認してください。")
@@ -11025,12 +11395,74 @@ def practice_page(user: Dict) -> None:
             )
             st.markdown("</div>", unsafe_allow_html=True)
 
+            score_values: List[int] = []
+            for qid in question_options:
+                question = question_lookup.get(qid) or {}
+                try:
+                    numeric = int(float(question.get("max_score")))
+                except (TypeError, ValueError):
+                    continue
+                score_values.append(numeric)
+
+            score_range: Optional[Tuple[int, int]] = None
+            selected_topics: List[str] = []
+            topic_counter: Counter[str] = Counter()
+            for qid in question_options:
+                question = question_lookup.get(qid) or {}
+                for keyword in _resolve_question_keywords(question):
+                    topic_counter[keyword] += 1
+
+            topic_options = [kw for kw, _count in topic_counter.most_common(30)]
+            st.markdown('<div class="tree-level tree-level-filter">', unsafe_allow_html=True)
+            filter_cols = st.columns([0.5, 0.5], gap="small")
+            with filter_cols[0]:
+                if score_values:
+                    min_score = min(score_values)
+                    max_score = max(score_values)
+                    score_filter_key = f"practice_tree_score::{selected_case}::{selected_year}"
+                    if min_score == max_score:
+                        score_range = (min_score, max_score)
+                        st.caption(f"配点はすべて{min_score}点です。")
+                    else:
+                        score_range = st.slider(
+                            "配点レンジ",
+                            min_value=min_score,
+                            max_value=max_score,
+                            value=(min_score, max_score),
+                            step=1,
+                            key=score_filter_key,
+                            help="狙いたい配点帯で設問を絞り込みます。",
+                        )
+            with filter_cols[1]:
+                if topic_options:
+                    topic_filter_key = f"practice_tree_topics::{selected_case}::{selected_year}"
+                    selected_topics = st.multiselect(
+                        "論点タグ",
+                        topic_options,
+                        key=topic_filter_key,
+                        help="SWOT分析やマーケティング戦略など、押さえたい論点で抽出します。",
+                    )
+            st.markdown("</div>", unsafe_allow_html=True)
+
             normalized_query = (search_query or "").strip().lower()
             filtered_question_ids: List[int] = []
             for qid in question_options:
                 question = question_lookup.get(qid)
                 if not question:
                     continue
+                if score_range:
+                    try:
+                        numeric_score = float(question.get("max_score"))
+                    except (TypeError, ValueError):
+                        numeric_score = None
+                    if numeric_score is None:
+                        numeric_score = 0.0
+                    if numeric_score < score_range[0] or numeric_score > score_range[1]:
+                        continue
+                if selected_topics:
+                    question_topics = set(_resolve_question_keywords(question))
+                    if not question_topics or not set(selected_topics).issubset(question_topics):
+                        continue
                 status_label = status_map.get(qid, "未実施")
                 if selected_statuses and status_label not in selected_statuses:
                     continue
@@ -11076,6 +11508,23 @@ def practice_page(user: Dict) -> None:
                         int(question_lookup.get(qid, {}).get("order") or 0),
                         qid,
                     )
+                )
+
+            analytics = _summarise_filtered_question_set(
+                filtered_question_ids,
+                question_lookup=question_lookup,
+                question_stats=question_stats,
+                status_map=status_map,
+                keyword_records=keyword_records,
+                active_statuses=selected_statuses or status_choices,
+                selected_case=selected_case,
+                selected_year=selected_year,
+            )
+
+            if filtered_question_ids:
+                _render_status_insight_panel(
+                    analytics,
+                    personalized_bundle=personalized_bundle,
                 )
 
             if not filtered_question_ids:
@@ -13182,9 +13631,6 @@ def render_attempt_results(attempt_id: int) -> None:
                     for point in improvements:
                         st.write(f"- {point}")
             axis_breakdown = answer.get("axis_breakdown") or {}
-            if axis_breakdown:
-                st.markdown("**観点別スコアの内訳**")
-                _render_axis_breakdown(axis_breakdown)
             if keyword_hits:
                 keyword_df = pd.DataFrame(
                     [[kw, "○" if hit else "×"] for kw, hit in keyword_hits.items()],
@@ -13227,6 +13673,38 @@ def render_attempt_results(attempt_id: int) -> None:
             else:
                 st.caption("自己評価ログはこの設問でまだ作成されていません。")
             with st.expander("模範解答と解説", expanded=False):
+                model_answer_text = _normalize_text_block(answer["model_answer"])
+                if answer_text.strip() and model_answer_text:
+                    st.markdown("**答案比較ビュー**")
+                    _ensure_keyword_feedback_styles()
+                    user_highlight = _highlight_keywords_in_text(
+                        answer_text,
+                        keyword_hits,
+                    )
+                    model_highlight = _highlight_keywords_in_text(
+                        model_answer_text,
+                        keyword_hits,
+                        include_missing=True,
+                    )
+                    compare_cols = st.columns(2)
+                    with compare_cols[0]:
+                        st.markdown("<p class='answer-compare-heading'>あなたの答案</p>", unsafe_allow_html=True)
+                        st.markdown(
+                            f"<div class='answer-compare-block'><pre>{user_highlight}</pre></div>",
+                            unsafe_allow_html=True,
+                        )
+                    with compare_cols[1]:
+                        st.markdown("<p class='answer-compare-heading'>模範解答</p>", unsafe_allow_html=True)
+                        st.markdown(
+                            f"<div class='answer-compare-block'><pre>{model_highlight}</pre></div>",
+                            unsafe_allow_html=True,
+                        )
+                if axis_breakdown:
+                    st.markdown("**観点別スコアの内訳**")
+                    _render_axis_breakdown(axis_breakdown)
+                st.caption(
+                    "Evidence Based Educationのガイドラインに沿って、比較ビューと観点別スコアを同じセクションで確認できるようにしました。"
+                )
                 _render_model_answer_section(
                     model_answer=answer["model_answer"],
                     explanation=answer["explanation"],
