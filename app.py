@@ -1374,6 +1374,10 @@ def _init_session_state() -> None:
     st.session_state.setdefault("history_focus_attempt", None)
     st.session_state.setdefault("history_focus_from_notification", False)
 
+    for state_key in list(st.session_state.keys()):
+        if state_key.endswith("_styles_injected"):
+            st.session_state[state_key] = False
+
     query_params = st.query_params
     nav_targets = query_params.get("nav")
     attempt_targets = query_params.get("attempt")
