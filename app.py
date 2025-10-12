@@ -5407,6 +5407,12 @@ def main_view() -> None:
                 .dashboard-card {
                     padding: 1rem 1.05rem 1.1rem;
                 }
+                .summary-card-grid {
+                    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                }
+                .summary-cta-card__item {
+                    padding: 0.95rem 1rem 0.9rem;
+                }
                 .kpi-tiles,
                 .metric-grid {
                     grid-template-columns: 1fr;
@@ -5766,8 +5772,130 @@ def _inject_dashboard_styles() -> None:
             .dashboard-card.card--tone-purple {
                 background: linear-gradient(180deg, rgba(240, 236, 255, 0.9), rgba(255, 255, 255, 0.96));
             }
+            .dashboard-card.card--tone-sand {
+                background: linear-gradient(180deg, rgba(248, 250, 252, 0.85), rgba(255, 255, 255, 0.98));
+            }
             .dashboard-card:focus-within {
                 box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.32), var(--shadow-card);
+            }
+            .summary-card-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+                gap: clamp(0.9rem, 1.8vw, 1.3rem);
+            }
+            .summary-card {
+                padding: 1.15rem 1.25rem 1.1rem;
+                border-radius: 16px;
+                background: rgba(255, 255, 255, 0.92);
+                border: 1px solid rgba(148, 163, 184, 0.28);
+                box-shadow: 0 14px 26px rgba(15, 23, 42, 0.08);
+                display: flex;
+                flex-direction: column;
+                gap: 0.4rem;
+            }
+            .summary-card__label {
+                margin: 0;
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: var(--text-muted);
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+            }
+            .summary-card__value {
+                margin: 0;
+                font-size: clamp(1.65rem, 2.6vw, 2.05rem);
+                font-weight: 700;
+                color: var(--text-body);
+                letter-spacing: -0.01em;
+            }
+            .summary-card__meta {
+                margin: 0;
+                font-size: 0.88rem;
+                color: var(--text-faint);
+            }
+            .summary-cta-card {
+                display: flex;
+                flex-direction: column;
+                gap: 1.35rem;
+            }
+            .summary-cta-card__item {
+                background: rgba(255, 255, 255, 0.78);
+                border-radius: 18px;
+                padding: 1.2rem 1.3rem 1.1rem;
+                border: 1px solid rgba(148, 163, 184, 0.32);
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                height: 100%;
+            }
+            .summary-cta-card__eyebrow {
+                font-size: 0.78rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: rgba(37, 99, 235, 0.75);
+                margin: 0;
+            }
+            .summary-cta-card__title {
+                margin: 0;
+                font-size: clamp(1.1rem, 2vw, 1.35rem);
+                font-weight: 700;
+                color: #1e293b;
+                line-height: 1.35;
+            }
+            .summary-cta-card__meta {
+                margin: 0;
+                font-size: 0.9rem;
+                color: var(--text-muted);
+                line-height: 1.5;
+            }
+            .summary-cta-card__preview {
+                display: block;
+                margin-top: 0.4rem;
+                font-size: 0.82rem;
+                color: rgba(30, 41, 59, 0.72);
+            }
+            .summary-cta-card__item [data-testid="stButton"] {
+                margin-top: auto;
+            }
+            .summary-cta-card__item [data-testid="stButton"] button {
+                border-radius: 999px;
+                padding: 0.65rem 1.1rem;
+                font-weight: 600;
+                font-size: 0.95rem;
+                background: linear-gradient(90deg, rgba(37, 99, 235, 0.95), rgba(59, 130, 246, 0.95));
+                color: #fff;
+                border: none;
+                box-shadow: 0 14px 26px rgba(37, 99, 235, 0.25);
+            }
+            .summary-cta-card__item [data-testid="stButton"] button:disabled {
+                background: rgba(148, 163, 184, 0.45);
+                box-shadow: none;
+            }
+            .summary-analytics-card {
+                display: flex;
+                flex-direction: column;
+                gap: 1.25rem;
+            }
+            .summary-analytics-card [data-testid="stExpander"] {
+                border: 1px solid rgba(148, 163, 184, 0.28);
+                border-radius: 16px;
+                background: rgba(255, 255, 255, 0.85);
+            }
+            .summary-analytics-card [data-testid="stExpander"] > details {
+                padding: 0.3rem 0.35rem;
+            }
+            .summary-analytics-card [data-testid="stExpander"] > details > summary {
+                font-weight: 600;
+                color: var(--text-muted);
+            }
+            .summary-analytics-card [data-testid="stExpander"] .stMultiSelect,
+            .summary-analytics-card [data-testid="stExpander"] .stTextInput {
+                margin-top: 0.55rem;
+            }
+            .summary-analytics-card .stColumn > div {
+                height: 100%;
             }
             .kpi-tiles {
                 display: grid;
@@ -6814,6 +6942,74 @@ def _build_dashboard_timeline_events(attempts: List[Dict]) -> List[Dict[str, str
     return events
 
 
+def _derive_question_type(entry: Dict[str, Any]) -> str:
+    """Return a representative question type label from a summary entry."""
+
+    for key in ("skill_tags", "topics", "tendencies"):
+        tags = entry.get(key)
+        if isinstance(tags, list) and tags:
+            label = str(tags[0]).strip()
+            if label:
+                return label
+    return "未分類"
+
+
+def _categorize_score_band(avg_ratio: Optional[float]) -> str:
+    if avg_ratio is None:
+        return "未計測"
+    try:
+        ratio = float(avg_ratio)
+    except (TypeError, ValueError):
+        return "未計測"
+    ratio *= 100 if ratio <= 1 else 1
+    if ratio >= 80:
+        return "80%以上"
+    if ratio >= 60:
+        return "60〜79%"
+    if ratio >= 40:
+        return "40〜59%"
+    return "40%未満"
+
+
+def _build_dashboard_summary_df(summary: Sequence[Dict[str, Any]]) -> pd.DataFrame:
+    if not summary:
+        return pd.DataFrame(
+            columns=[
+                "question_id",
+                "year",
+                "case_label",
+                "question_order",
+                "avg_ratio",
+                "last_attempt_at",
+                "question_type",
+                "score_band",
+                "themes",
+                "attempt_count",
+            ]
+        )
+
+    records: List[Dict[str, Any]] = []
+    for entry in summary:
+        record = {
+            "question_id": entry.get("question_id"),
+            "year": entry.get("year"),
+            "case_label": entry.get("case_label"),
+            "question_order": entry.get("question_order"),
+            "avg_ratio": entry.get("avg_ratio"),
+            "last_attempt_at": _parse_iso_datetime(entry.get("last_attempt_at")),
+            "question_type": _derive_question_type(entry),
+            "score_band": _categorize_score_band(entry.get("avg_ratio")),
+            "themes": entry.get("themes") or [],
+            "attempt_count": entry.get("attempt_count", 0),
+        }
+        records.append(record)
+
+    df = pd.DataFrame.from_records(records)
+    if not df.empty and "last_attempt_at" in df.columns:
+        df["last_attempt_at"] = pd.to_datetime(df["last_attempt_at"])
+    return df
+
+
 def _calculate_strength_tags(stats: Dict[str, Any]) -> List[Dict[str, Any]]:
     tags: List[Dict[str, Any]] = []
     for case_label, values in (stats or {}).items():
@@ -7284,6 +7480,7 @@ def dashboard_page(user: Dict) -> None:
     except Exception:
         logger.exception("Failed to load user question history summary for user %s", user.get("id"))
         question_history_summary = []
+    summary_df = _build_dashboard_summary_df(question_history_summary)
     try:
         global_question_metrics = database.fetch_question_master_stats()
     except Exception:
@@ -7293,6 +7490,14 @@ def dashboard_page(user: Dict) -> None:
     question_progress = database.get_question_progress_summary(user["id"], recent_limit=5)
     unattempted_questions = database.list_unattempted_questions(user["id"], limit=3)
     due_review_items = database.list_due_reviews(user_id=user["id"], limit=3)
+    personalized_bundle = personalized_recommendation.generate_personalised_learning_plan(
+        user_id=user["id"],
+        attempts=attempts,
+        problem_catalog=database.list_problems(),
+        keyword_resource_map=KEYWORD_RESOURCE_MAP,
+        default_resources=DEFAULT_KEYWORD_RESOURCES,
+    )
+    question_recs: List[Dict[str, Any]] = personalized_bundle.get("question_recommendations") or []
 
     def _truncate_text(value: Optional[str], limit: int = 36) -> str:
         if value is None:
@@ -7369,6 +7574,113 @@ def dashboard_page(user: Dict) -> None:
         },
     ]
 
+    total_answer_count = int(summary_df["attempt_count"].sum()) if not summary_df.empty else total_attempts
+    latest_answer_dt = summary_df["last_attempt_at"].dropna().max() if not summary_df.empty else None
+    latest_answer_label = (
+        _format_datetime_label(latest_answer_dt)
+        if isinstance(latest_answer_dt, (datetime, str))
+        else ("記録なし" if total_attempts else "学習未開始")
+    )
+    active_learning_days = (
+        int(summary_df["last_attempt_at"].dropna().dt.date.nunique()) if not summary_df.empty else 0
+    )
+    summary_cards = [
+        {
+            "label": "総解答数",
+            "value": f"{total_answer_count}問",
+            "desc": "これまで提出した設問の累計",
+        },
+        {
+            "label": "平均得点",
+            "value": f"{average_score:.1f}点" if total_attempts else "0点",
+            "desc": "全演習の平均スコア",
+        },
+        {
+            "label": "直近の解答日",
+            "value": latest_answer_label,
+            "desc": "最後に提出した日付",
+        },
+        {
+            "label": "学習継続日数",
+            "value": f"{active_learning_days}日" if active_learning_days else "記録中",
+            "desc": "解答履歴がある学習日",
+        },
+    ]
+
+    def _format_question_location(year_value: Any, case_label: Any, order_value: Any) -> str:
+        parts: List[str] = []
+        if year_value:
+            parts.append(_format_reiwa_label(str(year_value)))
+        if case_label:
+            parts.append(str(case_label))
+        if order_value:
+            parts.append(f"設問{int(order_value)}")
+        return " ".join(parts) if parts else "演習"
+
+    latest_summary_entry: Optional[Dict[str, Any]] = None
+    if not summary_df.empty and summary_df["last_attempt_at"].notna().any():
+        latest_summary_entry = (
+            summary_df.sort_values("last_attempt_at", ascending=False).iloc[0].to_dict()
+        )
+
+    continue_focus: Optional[Dict[str, Any]] = None
+    continue_title = "直近の演習はまだありません"
+    continue_desc = "演習を始めるとこちらに続きが表示されます。"
+    if latest_summary_entry and latest_summary_entry.get("question_id"):
+        continue_focus = {
+            "case_label": latest_summary_entry.get("case_label"),
+            "year": latest_summary_entry.get("year"),
+            "question_id": latest_summary_entry.get("question_id"),
+        }
+        continue_title = _format_question_location(
+            latest_summary_entry.get("year"),
+            latest_summary_entry.get("case_label"),
+            latest_summary_entry.get("question_order"),
+        )
+        continue_desc = (
+            f"{_format_datetime_label(latest_summary_entry.get('last_attempt_at'))} 実施"
+        )
+
+    recommended_entry: Optional[Dict[str, Any]] = None
+    recommended_focus: Optional[Dict[str, Any]] = None
+    if question_recs:
+        recommended_entry = question_recs[0]
+    elif unattempted_questions:
+        recommended_entry = unattempted_questions[0]
+
+    recommended_title = "おすすめの問題は準備中です"
+    recommended_desc = "学習データが蓄積されるとレコメンドが表示されます。"
+    if recommended_entry:
+        rec_year = recommended_entry.get("year")
+        rec_case = recommended_entry.get("case_label")
+        rec_order = recommended_entry.get("question_order") or recommended_entry.get(
+            "question_no"
+        )
+        recommended_title = _format_question_location(rec_year, rec_case, rec_order)
+        recommended_desc = recommended_entry.get("reason") or "弱点分析に基づくおすすめ"
+        prompt_preview = _truncate_text(recommended_entry.get("prompt") or "", limit=40)
+        if prompt_preview:
+            recommended_desc = f"{recommended_desc}<br><span class='summary-cta-card__preview'>{prompt_preview}</span>"
+        if recommended_entry.get("question_id"):
+            recommended_focus = {
+                "case_label": rec_case,
+                "year": rec_year,
+                "question_id": recommended_entry.get("question_id"),
+            }
+
+    summary_cards_html = "".join(
+        dedent(
+            f"""
+            <article class="summary-card" role="article">
+                <p class="summary-card__label">{card['label']}</p>
+                <p class="summary-card__value">{card['value']}</p>
+                <p class="summary-card__meta">{card['desc']}</p>
+            </article>
+            """
+        ).strip()
+        for card in summary_cards
+    )
+
     timeline_events = _build_dashboard_timeline_events(attempts)
     heatmap_context = _get_committee_heatmap_context()
 
@@ -7376,14 +7688,6 @@ def dashboard_page(user: Dict) -> None:
     due_review_count = database.count_due_reviews(user_id=user["id"])
 
     strength_tags = _calculate_strength_tags(stats)
-
-    personalized_bundle = personalized_recommendation.generate_personalised_learning_plan(
-        user_id=user["id"],
-        attempts=attempts,
-        problem_catalog=database.list_problems(),
-        keyword_resource_map=KEYWORD_RESOURCE_MAP,
-        default_resources=DEFAULT_KEYWORD_RESOURCES,
-    )
 
     latest_attempt = attempts[0] if attempts else None
     next_focus_card = {
@@ -7517,9 +7821,221 @@ def dashboard_page(user: Dict) -> None:
         unsafe_allow_html=True,
     )
 
+    def _navigate_to_practice(focus: Optional[Dict[str, Any]] = None) -> None:
+        st.session_state["navigation_selection"] = "過去問演習"
+        st.session_state["page"] = "過去問演習"
+        if focus:
+            st.session_state["practice_focus"] = focus
+        st.experimental_rerun()
+
     grid_container = st.container()
     with grid_container:
         st.markdown("<div class='dashboard-grid'>", unsafe_allow_html=True)
+
+        st.markdown(
+            dedent(
+                f"""
+                <section class="dashboard-lane dashboard-lane--summary" id="summary-lane" data-section-id="summary-lane" role="region" aria-labelledby="summary-lane-title">
+                    <header class="dashboard-lane__header">
+                        <h2 id="summary-lane-title" class="dashboard-lane__title">進捗サマリー</h2>
+                        <p class="dashboard-lane__subtitle">最新の解答状況とおすすめアクションをダッシュボードで確認できます。</p>
+                    </header>
+                    <div class="dashboard-card card--tone-sand summary-metrics-card" role="group" aria-label="進捗指標">
+                        <div class="summary-card-grid">{summary_cards_html}</div>
+                    </div>
+                """
+            ),
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            "<div class='dashboard-card card--tone-blue summary-cta-card' role='group' aria-label='学習の続きとおすすめ'>",
+            unsafe_allow_html=True,
+        )
+        cta_cols = st.columns(2, gap="large")
+        with cta_cols[0]:
+            st.markdown("<div class='summary-cta-card__item'>", unsafe_allow_html=True)
+            st.markdown(
+                f"<p class='summary-cta-card__eyebrow'>続き</p><h3 class='summary-cta-card__title'>{continue_title}</h3><p class='summary-cta-card__meta'>{continue_desc}</p>",
+                unsafe_allow_html=True,
+            )
+            if st.button("続きから解く", key="dashboard_continue", use_container_width=True, disabled=continue_focus is None):
+                _navigate_to_practice(continue_focus)
+            st.markdown("</div>", unsafe_allow_html=True)
+        with cta_cols[1]:
+            st.markdown("<div class='summary-cta-card__item'>", unsafe_allow_html=True)
+            st.markdown(
+                f"<p class='summary-cta-card__eyebrow'>おすすめ</p><h3 class='summary-cta-card__title'>{recommended_title}</h3><p class='summary-cta-card__meta'>{recommended_desc}</p>",
+                unsafe_allow_html=True,
+            )
+            if st.button("次に解く問題", key="dashboard_recommend", use_container_width=True, disabled=recommended_focus is None):
+                _navigate_to_practice(recommended_focus)
+            st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown(
+            "<div class='dashboard-card card--tone-slate summary-analytics-card' role='group' aria-label='学習分析'>",
+            unsafe_allow_html=True,
+        )
+        if summary_df.empty:
+            st.info("学習データがまだありません。演習を開始するとグラフが表示されます。", icon="📝")
+            filtered_summary_df = summary_df
+        else:
+            year_options = sorted({str(year) for year in summary_df["year"].dropna()})
+            case_options = sorted({str(case) for case in summary_df["case_label"].dropna()})
+            type_options = sorted({str(qtype) for qtype in summary_df["question_type"].dropna()})
+            score_band_options = ["80%以上", "60〜79%", "40〜59%", "40%未満", "未計測"]
+            with st.expander("フィルタ・検索パネル", expanded=False):
+                filter_cols = st.columns(2)
+                with filter_cols[0]:
+                    selected_years = st.multiselect(
+                        "年度",
+                        year_options,
+                        default=year_options,
+                        key="dashboard_filter_years",
+                    )
+                    selected_types = st.multiselect(
+                        "設問タイプ",
+                        type_options,
+                        default=type_options,
+                        key="dashboard_filter_types",
+                    )
+                with filter_cols[1]:
+                    selected_cases = st.multiselect(
+                        "事例",
+                        case_options,
+                        default=case_options,
+                        key="dashboard_filter_cases",
+                    )
+                    selected_scores = st.multiselect(
+                        "得点帯",
+                        score_band_options,
+                        default=score_band_options,
+                        key="dashboard_filter_scores",
+                    )
+                search_query = st.text_input(
+                    "キーワード検索",
+                    key="dashboard_filter_query",
+                    placeholder="企業名・テーマ・メモで検索",
+                )
+
+            filtered_summary_df = summary_df.copy()
+            if selected_years:
+                filtered_summary_df = filtered_summary_df[
+                    filtered_summary_df["year"].astype(str).isin(selected_years)
+                ]
+            if selected_cases:
+                filtered_summary_df = filtered_summary_df[
+                    filtered_summary_df["case_label"].astype(str).isin(selected_cases)
+                ]
+            if selected_types:
+                filtered_summary_df = filtered_summary_df[
+                    filtered_summary_df["question_type"].astype(str).isin(selected_types)
+                ]
+            if selected_scores:
+                filtered_summary_df = filtered_summary_df[
+                    filtered_summary_df["score_band"].isin(selected_scores)
+                ]
+            if search_query:
+                normalized = search_query.strip().lower()
+                if normalized:
+                    filtered_summary_df = filtered_summary_df[
+                        filtered_summary_df.apply(
+                            lambda row: normalized
+                            in " ".join(
+                                str(value).lower()
+                                for value in [
+                                    row.get("case_label"),
+                                    row.get("question_type"),
+                                    row.get("score_band"),
+                                ]
+                                if value
+                            ),
+                            axis=1,
+                        )
+                    ]
+
+        if filtered_summary_df.empty:
+            st.warning("条件に一致するデータがありません。フィルタを調整してください。", icon="🔍")
+        else:
+            percent_series = filtered_summary_df["avg_ratio"].apply(
+                lambda value: float(value) * 100 if value is not None and float(value) <= 1 else float(value)
+            )
+            filtered_summary_df = filtered_summary_df.assign(avg_ratio_percent=percent_series)
+
+            yearly_df = (
+                filtered_summary_df.dropna(subset=["avg_ratio_percent", "year"])
+                .groupby("year", as_index=False)["avg_ratio_percent"].mean()
+                .sort_values("year")
+            )
+            type_df = (
+                filtered_summary_df.dropna(subset=["avg_ratio_percent", "question_type"])
+                .groupby("question_type", as_index=False)["avg_ratio_percent"].mean()
+                .sort_values("avg_ratio_percent", ascending=False)
+            )
+            theme_counter: Counter[str] = Counter()
+            for themes in filtered_summary_df["themes"]:
+                for theme in themes:
+                    if theme:
+                        theme_counter[str(theme)] += 1
+            theme_df = pd.DataFrame(
+                [{"theme": label, "count": count} for label, count in theme_counter.items()]
+            )
+
+            chart_cols = st.columns(3, gap="large")
+            with chart_cols[0]:
+                if yearly_df.empty:
+                    st.caption("年度別の得点推移を表示するには演習データが必要です。")
+                else:
+                    line_chart = (
+                        alt.Chart(yearly_df)
+                        .mark_line(point=True, color="#2563eb")
+                        .encode(
+                            x=alt.X("year:N", title="年度"),
+                            y=alt.Y("avg_ratio_percent:Q", title="平均得点率(%)", scale=alt.Scale(domain=[0, 100])),
+                            tooltip=["year:N", alt.Tooltip("avg_ratio_percent:Q", title="平均得点率", format=".1f")],
+                        )
+                        .properties(height=240)
+                    )
+                    st.altair_chart(line_chart, use_container_width=True)
+            with chart_cols[1]:
+                if type_df.empty:
+                    st.caption("設問タイプ別のデータが不足しています。")
+                else:
+                    bar_chart = (
+                        alt.Chart(type_df)
+                        .mark_bar(color="#14b8a6")
+                        .encode(
+                            y=alt.Y("question_type:N", title="設問タイプ", sort="-x"),
+                            x=alt.X("avg_ratio_percent:Q", title="平均得点率(%)", scale=alt.Scale(domain=[0, 100])),
+                            tooltip=[
+                                alt.Tooltip("question_type:N", title="タイプ"),
+                                alt.Tooltip("avg_ratio_percent:Q", title="平均得点率", format=".1f"),
+                            ],
+                        )
+                        .properties(height=240)
+                    )
+                    st.altair_chart(bar_chart, use_container_width=True)
+            with chart_cols[2]:
+                if theme_df.empty:
+                    st.caption("テーマ別の出題割合は現在集計中です。")
+                else:
+                    theme_df = theme_df.sort_values("count", ascending=False)
+                    pie_chart = (
+                        alt.Chart(theme_df)
+                        .mark_arc(innerRadius=40)
+                        .encode(
+                            theta=alt.Theta("count:Q", stack=True),
+                            color=alt.Color("theme:N", title="テーマ"),
+                            tooltip=[
+                                alt.Tooltip("theme:N", title="テーマ"),
+                                alt.Tooltip("count:Q", title="出題数"),
+                            ],
+                        )
+                        .properties(height=240)
+                    )
+                    st.altair_chart(pie_chart, use_container_width=True)
+        st.markdown("</div></section>", unsafe_allow_html=True)
 
         kpi_tiles_html = []
         kpi_tiles_html.append(
@@ -11909,6 +12425,26 @@ def practice_page(user: Dict) -> None:
     case_map: Dict[str, Dict[str, int]] = defaultdict(dict)
     for entry in index:
         case_map[entry["case_label"]][entry["year"]] = entry["id"]
+
+    focus_state = st.session_state.pop("practice_focus", None)
+    if isinstance(focus_state, dict):
+        focus_case = focus_state.get("case_label")
+        focus_year = focus_state.get("year")
+        focus_question_id = focus_state.get("question_id")
+        if focus_case in case_map and focus_year is not None and focus_question_id:
+            year_map = case_map[focus_case]
+            normalized_year_key: Optional[str | int] = None
+            for year_key in year_map.keys():
+                if year_key == focus_year or str(year_key) == str(focus_year):
+                    normalized_year_key = year_key
+                    break
+            if normalized_year_key is not None:
+                st.session_state["practice_tree_case"] = focus_case
+                year_key = f"practice_tree_year_{focus_case}"
+                st.session_state[year_key] = normalized_year_key
+                problem_id = year_map[normalized_year_key]
+                question_key = f"practice_tree_question_{problem_id}"
+                st.session_state[question_key] = focus_question_id
 
     fetch_practice_stats = getattr(database, "fetch_question_practice_stats", None)
     if fetch_practice_stats is None:
