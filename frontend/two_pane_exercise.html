@@ -1464,6 +1464,430 @@
         background: var(--color-layer-subtle);
         padding-inline: 2px;
         border-radius: 4px;
+        cursor: pointer;
+        position: relative;
+      }
+
+      body[data-app="exercise"] .text-highlight--strength {
+        background: #fde68a;
+      }
+
+      body[data-app="exercise"] .text-highlight--weakness {
+        background: #fca5a5;
+      }
+
+      body[data-app="exercise"] .text-highlight--challenge {
+        background: #bfdbfe;
+      }
+
+      body[data-app="exercise"] .text-highlight--opportunity {
+        background: #bbf7d0;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body[data-app="exercise"] .text-highlight--strength {
+          background: rgba(250, 204, 21, 0.35);
+        }
+
+        body[data-app="exercise"] .text-highlight--weakness {
+          background: rgba(248, 113, 113, 0.38);
+        }
+
+        body[data-app="exercise"] .text-highlight--challenge {
+          background: rgba(96, 165, 250, 0.35);
+        }
+
+        body[data-app="exercise"] .text-highlight--opportunity {
+          background: rgba(74, 222, 128, 0.35);
+        }
+      }
+
+      body[data-app="exercise"] .highlight-toolbar {
+        display: grid;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-sm);
+        margin: var(--spacing-md) 0;
+        background: color-mix(in srgb, var(--color-layer-subtle) 65%, transparent);
+        border-radius: 14px;
+      }
+
+      body[data-app="exercise"] .highlight-toolbar__title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .highlight-toolbar__palette {
+        display: flex;
+        gap: var(--spacing-xs);
+        flex-wrap: wrap;
+      }
+
+      body[data-app="exercise"] .highlight-toolbar__button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        background: var(--color-surface);
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+        transition: border-color var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease,
+          transform var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .highlight-toolbar__button[data-active="true"] {
+        border-color: var(--color-chip-active);
+        box-shadow: 0 0 0 3px color-mix(
+          in srgb,
+          var(--color-chip-active) 20%,
+          transparent
+        );
+        transform: translateY(-1px);
+      }
+
+      body[data-app="exercise"] .highlight-toolbar__swatch {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 1px solid color-mix(
+          in srgb,
+          var(--color-border) 70%,
+          transparent
+        );
+        flex-shrink: 0;
+      }
+
+      body[data-app="exercise"] .highlight-toolbar__undo {
+        justify-self: start;
+      }
+
+      body[data-app="exercise"] .highlight-legend {
+        display: grid;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .highlight-legend__item {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        padding: 6px 8px;
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--color-layer-soft) 40%, transparent);
+      }
+
+      body[data-app="exercise"] .highlight-legend__swatch {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 600;
+        min-width: 64px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--color-layer-subtle);
+      }
+
+      body[data-app="exercise"] .highlight-legend__input {
+        flex: 1;
+        border: none;
+        background: transparent;
+        font-size: 0.9rem;
+        color: var(--color-text-strong);
+        padding: 4px 6px;
+        border-radius: 8px;
+      }
+
+      body[data-app="exercise"] .highlight-legend__input:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 2px var(--color-focus-ring);
+      }
+
+      body[data-app="exercise"] .highlight-inspector {
+        margin-top: var(--spacing-sm);
+        padding: var(--spacing-md);
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--color-layer-subtle) 60%, transparent);
+        display: grid;
+        gap: var(--spacing-sm);
+      }
+
+      body[data-app="exercise"] .highlight-inspector[hidden] {
+        display: none;
+      }
+
+      body[data-app="exercise"] .highlight-inspector__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .highlight-inspector__preview {
+        font-size: 0.9rem;
+        line-height: 1.6;
+        background: var(--color-surface);
+        border-radius: 12px;
+        padding: var(--spacing-sm);
+        border: 1px solid var(--color-border);
+      }
+
+      body[data-app="exercise"] .highlight-inspector__field {
+        display: grid;
+        gap: 4px;
+      }
+
+      body[data-app="exercise"] .highlight-inspector__field label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .highlight-inspector__input,
+      body[data-app="exercise"] .highlight-inspector__textarea {
+        width: 100%;
+        border: 1px solid var(--color-border);
+        border-radius: 10px;
+        padding: 8px 10px;
+        font-size: 0.9rem;
+        background: var(--color-surface);
+      }
+
+      body[data-app="exercise"] .highlight-inspector__textarea {
+        min-height: 80px;
+        resize: vertical;
+      }
+
+      body[data-app="exercise"] .highlight-inspector__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .highlight-inspector__hint {
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+        background: color-mix(in srgb, var(--color-layer-soft) 55%, transparent);
+        border-radius: 12px;
+        padding: var(--spacing-xs) var(--spacing-sm);
+      }
+
+      body[data-app="exercise"] .highlight-practice {
+        margin-top: var(--spacing-md);
+        display: grid;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-sm);
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--color-layer-subtle) 50%, transparent);
+      }
+
+      body[data-app="exercise"] .highlight-practice[hidden] {
+        display: none;
+      }
+
+      body[data-app="exercise"] .highlight-practice__list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .highlight-practice__item {
+        display: grid;
+        gap: 6px;
+        padding: var(--spacing-sm);
+        border-radius: 12px;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+      }
+
+      body[data-app="exercise"] .highlight-practice__question {
+        font-size: 0.9rem;
+        line-height: 1.5;
+      }
+
+      body[data-app="exercise"] .highlight-practice__meta {
+        font-size: 0.8rem;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .highlight-practice__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .retrieval-card__practice {
+        margin-top: var(--spacing-sm);
+        display: grid;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .retrieval-card__practice textarea {
+        min-height: 72px;
+        resize: vertical;
+        border-radius: 10px;
+        border: 1px solid var(--color-border);
+        padding: 8px 10px;
+        font-size: 0.9rem;
+      }
+
+      body[data-app="exercise"] .retrieval-feedback {
+        display: grid;
+        gap: 6px;
+        border-radius: 12px;
+        padding: var(--spacing-xs) var(--spacing-sm);
+        background: color-mix(in srgb, var(--color-layer-subtle) 60%, transparent);
+      }
+
+      body[data-app="exercise"] .retrieval-feedback[hidden] {
+        display: none;
+      }
+
+      body[data-app="exercise"] .retrieval-feedback__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      body[data-app="exercise"] .retrieval-feedback__chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+      }
+
+      body[data-app="exercise"] .retrieval-feedback__chip[data-match="true"] {
+        border-color: var(--color-chip-active);
+        color: var(--color-chip-active);
+      }
+
+      body[data-app="exercise"] .retrieval-feedback__chip[data-match="false"] {
+        border-style: dashed;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .retrieval-feedback__chip[data-extra="true"] {
+        border-style: dotted;
+        color: var(--color-text-muted);
+        background: color-mix(in srgb, var(--color-layer-subtle) 40%, transparent);
+      }
+
+      body[data-app="exercise"] .retrieval-feedback__summary {
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .retrieval-modal__controls {
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+      }
+
+      body[data-app="exercise"] .retrieval-modal__order {
+        display: inline-flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+
+      body[data-app="exercise"] .retrieval-modal__order select {
+        border-radius: 10px;
+        border: 1px solid var(--color-border);
+        padding: 6px 10px;
+        font-size: 0.9rem;
+        background: var(--color-surface);
+      }
+
+      body[data-app="exercise"] .onboarding-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 120;
+        display: grid;
+        place-items: center;
+        background: rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(4px);
+        padding: var(--spacing-md);
+      }
+
+      body[data-app="exercise"] .onboarding-modal[hidden] {
+        display: none;
+      }
+
+      body[data-app="exercise"] .onboarding-modal__dialog {
+        background: var(--color-surface);
+        border-radius: 20px;
+        max-width: 640px;
+        width: min(100%, 640px);
+        padding: var(--spacing-lg);
+        display: grid;
+        gap: var(--spacing-md);
+        position: relative;
+      }
+
+      body[data-app="exercise"] .onboarding-modal__close {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        border: none;
+        background: transparent;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        font-size: 1.25rem;
+      }
+
+      body[data-app="exercise"] .onboarding-steps {
+        display: grid;
+        gap: var(--spacing-sm);
+      }
+
+      body[data-app="exercise"] .onboarding-step {
+        display: grid;
+        gap: 4px;
+        padding: var(--spacing-sm);
+        border-radius: 14px;
+        background: color-mix(in srgb, var(--color-layer-subtle) 55%, transparent);
+      }
+
+      body[data-app="exercise"] .onboarding-step strong {
+        font-size: 0.95rem;
+      }
+
+      body[data-app="exercise"] .onboarding-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: var(--spacing-xs);
+      }
+
+      @media (max-width: 720px) {
+        body[data-app="exercise"] .highlight-toolbar {
+          padding: var(--spacing-xs);
+          margin: var(--spacing-sm) 0;
+        }
+
+        body[data-app="exercise"] .highlight-toolbar__button {
+          flex: 1 1 calc(50% - var(--spacing-xs));
+          justify-content: center;
+        }
+
+        body[data-app="exercise"] .highlight-inspector {
+          padding: var(--spacing-sm);
+        }
+
+        body[data-app="exercise"] .onboarding-modal__dialog {
+          padding: var(--spacing-md);
+        }
       }
 
       body[data-app="exercise"] .context-search__hit {
@@ -1731,6 +2155,7 @@
         justify-content: space-between;
         align-items: center;
         gap: var(--spacing-sm);
+        flex-wrap: wrap;
       }
 
       body[data-app="exercise"] .retrieval-modal__body {
@@ -2019,6 +2444,17 @@
             フィルタ
           </button>
           <button
+            class="app-header__button"
+            type="button"
+            data-onboarding-open
+            aria-haspopup="dialog"
+          >
+            <span class="icon app-header__icon" aria-hidden="true">
+              <i class="bx bx-help-circle"></i>
+            </span>
+            使い方ガイド
+          </button>
+          <button
             class="shortcut-launcher"
             type="button"
             aria-label="キーボードショートカットを表示"
@@ -2188,6 +2624,131 @@
               </span>
             </div>
           </div>
+          <div class="highlight-toolbar" data-highlight-toolbar>
+            <div class="highlight-toolbar__title">
+              <strong>マーカーとタグ管理</strong>
+              <button
+                type="button"
+                class="ui-button ui-button--subtle highlight-toolbar__undo"
+                data-highlight-undo
+              >
+                元に戻す
+              </button>
+            </div>
+            <div
+              class="highlight-toolbar__palette"
+              role="radiogroup"
+              aria-label="ハイライトカテゴリを選択"
+            >
+              <button
+                type="button"
+                class="highlight-toolbar__button"
+                data-highlight-category="strength"
+                data-active="true"
+              >
+                <span
+                  class="highlight-toolbar__swatch"
+                  style="background: #fde68a"
+                  aria-hidden="true"
+                ></span>
+                <span data-highlight-category-label="strength">強み</span>
+              </button>
+              <button
+                type="button"
+                class="highlight-toolbar__button"
+                data-highlight-category="weakness"
+              >
+                <span
+                  class="highlight-toolbar__swatch"
+                  style="background: #fca5a5"
+                  aria-hidden="true"
+                ></span>
+                <span data-highlight-category-label="weakness">弱み</span>
+              </button>
+              <button
+                type="button"
+                class="highlight-toolbar__button"
+                data-highlight-category="challenge"
+              >
+                <span
+                  class="highlight-toolbar__swatch"
+                  style="background: #bfdbfe"
+                  aria-hidden="true"
+                ></span>
+                <span data-highlight-category-label="challenge">課題</span>
+              </button>
+              <button
+                type="button"
+                class="highlight-toolbar__button"
+                data-highlight-category="opportunity"
+              >
+                <span
+                  class="highlight-toolbar__swatch"
+                  style="background: #bbf7d0"
+                  aria-hidden="true"
+                ></span>
+                <span data-highlight-category-label="opportunity">機会</span>
+              </button>
+            </div>
+            <div class="highlight-legend" data-highlight-legend>
+              <div class="highlight-legend__item">
+                <span
+                  class="highlight-legend__swatch text-highlight text-highlight--strength"
+                  data-highlight-legend-swatch="strength"
+                  aria-hidden="true"
+                >強み</span>
+                <input
+                  type="text"
+                  class="highlight-legend__input"
+                  value="強み"
+                  data-highlight-label-input="strength"
+                  aria-label="強みマーカーの用途を編集"
+                />
+              </div>
+              <div class="highlight-legend__item">
+                <span
+                  class="highlight-legend__swatch text-highlight text-highlight--weakness"
+                  data-highlight-legend-swatch="weakness"
+                  aria-hidden="true"
+                >弱み</span>
+                <input
+                  type="text"
+                  class="highlight-legend__input"
+                  value="弱み"
+                  data-highlight-label-input="weakness"
+                  aria-label="弱みマーカーの用途を編集"
+                />
+              </div>
+              <div class="highlight-legend__item">
+                <span
+                  class="highlight-legend__swatch text-highlight text-highlight--challenge"
+                  data-highlight-legend-swatch="challenge"
+                  aria-hidden="true"
+                >課題</span>
+                <input
+                  type="text"
+                  class="highlight-legend__input"
+                  value="課題"
+                  data-highlight-label-input="challenge"
+                  aria-label="課題マーカーの用途を編集"
+                />
+              </div>
+              <div class="highlight-legend__item">
+                <span
+                  class="highlight-legend__swatch text-highlight text-highlight--opportunity"
+                  data-highlight-legend-swatch="opportunity"
+                  aria-hidden="true"
+                >機会</span>
+                <input
+                  type="text"
+                  class="highlight-legend__input"
+                  value="機会"
+                  data-highlight-label-input="opportunity"
+                  aria-label="機会マーカーの用途を編集"
+                />
+              </div>
+            </div>
+          </div>
         </header>
         <div class="context-pane__body">
           <!-- 与件文を常時参照できるよう縦スクロール可能に配置 -->
@@ -2215,6 +2776,76 @@
           >
             選択箇所を回答欄へジャンプ
           </button>
+          <div class="highlight-inspector" data-highlight-inspector hidden>
+            <div class="highlight-inspector__header">
+              <h3 class="heading-md">ハイライトメモ</h3>
+              <button
+                type="button"
+                class="analysis-info__trigger"
+                aria-label="ハイライトメモを閉じる"
+                data-highlight-close
+              >
+                <span class="analysis-info__icon" aria-hidden="true">
+                  <i class="bx bx-x"></i>
+                </span>
+              </button>
+            </div>
+            <div class="highlight-inspector__preview" data-highlight-preview>
+              選択したハイライトがここに表示されます。
+            </div>
+            <div class="highlight-inspector__field">
+              <label for="highlight-tags">キーワードタグ</label>
+              <input
+                id="highlight-tags"
+                type="text"
+                class="highlight-inspector__input"
+                placeholder="例：DX、技能伝承"
+                data-highlight-tags
+              />
+            </div>
+            <div class="highlight-inspector__field">
+              <label for="highlight-note">メモ</label>
+              <textarea
+                id="highlight-note"
+                class="highlight-inspector__textarea"
+                placeholder="関連する知識や次のアクションを記録"
+                data-highlight-note
+              ></textarea>
+            </div>
+            <div class="highlight-inspector__actions">
+              <button
+                type="button"
+                class="ui-button ui-button--subtle"
+                data-highlight-question
+              >
+                この部分から問いを作成
+              </button>
+              <button
+                type="button"
+                class="ui-button ui-button--primary"
+                data-highlight-save
+              >
+                メモを保存
+              </button>
+            </div>
+            <p class="highlight-inspector__hint">
+              ハイライト後に問いを作り、リトリーバルカードへ送ると復習の起点
+              になります。
+            </p>
+          </div>
+          <section
+            class="highlight-practice"
+            aria-label="ハイライトから生成した練習問題"
+            data-highlight-practice
+            hidden
+          >
+            <h3 class="heading-md">ハイライトからの問い</h3>
+            <p class="text-muted">
+              作成した問いはリトリーバル練習に追加できます。心理的負荷を抑
+              えて、一問ずつ確認しましょう。
+            </p>
+            <ul class="highlight-practice__list" data-highlight-practice-list></ul>
+          </section>
         </div>
       </aside>
 
@@ -3092,6 +3723,12 @@
       <div class="retrieval-modal__dialog">
         <header class="retrieval-modal__header">
           <h3 id="retrieval-modal-heading" class="heading-md">リトリーバルカード</h3>
+          <label class="retrieval-modal__order">
+            <span>カード順序</span>
+            <select data-retrieval-order>
+              <option value="default">登録順</option>
+            </select>
+          </label>
           <button
             type="button"
             class="retrieval-modal__close"
@@ -3102,7 +3739,13 @@
           </button>
         </header>
         <div class="retrieval-modal__body">
-          <article class="retrieval-card" data-retrieval-card data-index="0">
+          <article
+            class="retrieval-card"
+            data-retrieval-card
+            data-index="0"
+            data-category="顧客共創"
+            data-expected-keywords="共創,議事録,トレーサビリティ,設計,営業"
+          >
             <span class="retrieval-card__tag">顧客共創</span>
             <h4 class="heading-md">共創設計レビュー</h4>
             <p>
@@ -3110,38 +3753,171 @@
               真因をBOMに反映。議事録をクラウド共有してトレーサビリティを
               確保する。
             </p>
+            <div class="retrieval-card__practice">
+              <label class="text-muted" for="retrieval-response-0">
+                思い出したキーワード
+              </label>
+              <textarea
+                id="retrieval-response-0"
+                data-retrieval-response
+                placeholder="例：共創レビュー／議事録共有 など"
+              ></textarea>
+              <button
+                type="button"
+                class="ui-button ui-button--subtle"
+                data-retrieval-check
+              >
+                重なりを確認
+              </button>
+              <div class="retrieval-feedback" data-retrieval-feedback hidden>
+                <div class="retrieval-feedback__chips" data-retrieval-overlap></div>
+                <p class="retrieval-feedback__summary" data-retrieval-summary></p>
+              </div>
+            </div>
           </article>
-          <article class="retrieval-card" data-retrieval-card data-index="1" hidden>
+          <article
+            class="retrieval-card"
+            data-retrieval-card
+            data-index="1"
+            data-category="技能伝承"
+            data-expected-keywords="動画,字幕,メンター,振り返り,チェックリスト"
+            hidden
+          >
             <span class="retrieval-card__tag">技能伝承</span>
             <h4 class="heading-md">動画×メンター制度</h4>
             <p>
               熟練者の作業を動画で記録し、技能のツボを字幕で補足。週次でメ
               ンターが振り返り面談を実施し、チェックリストで習熟度を可視化。
             </p>
+            <div class="retrieval-card__practice">
+              <label class="text-muted" for="retrieval-response-1">
+                思い出したキーワード
+              </label>
+              <textarea
+                id="retrieval-response-1"
+                data-retrieval-response
+                placeholder="例：動画記録／チェックリスト／面談"
+              ></textarea>
+              <button
+                type="button"
+                class="ui-button ui-button--subtle"
+                data-retrieval-check
+              >
+                重なりを確認
+              </button>
+              <div class="retrieval-feedback" data-retrieval-feedback hidden>
+                <div class="retrieval-feedback__chips" data-retrieval-overlap></div>
+                <p class="retrieval-feedback__summary" data-retrieval-summary></p>
+              </div>
+            </div>
           </article>
-          <article class="retrieval-card" data-retrieval-card data-index="2" hidden>
+          <article
+            class="retrieval-card"
+            data-retrieval-card
+            data-index="2"
+            data-category="評価制度"
+            data-expected-keywords="知識共有,評価指標,活用率,ポイント,昇格"
+            hidden
+          >
             <span class="retrieval-card__tag">評価制度</span>
             <h4 class="heading-md">知識共有インセンティブ</h4>
             <p>
               DX基盤に登録したナレッジ件数と活用率を評価指標に組み込み、共
               有ポイントが昇格面談で参照される仕組みを構築する。
             </p>
+            <div class="retrieval-card__practice">
+              <label class="text-muted" for="retrieval-response-2">
+                思い出したキーワード
+              </label>
+              <textarea
+                id="retrieval-response-2"
+                data-retrieval-response
+                placeholder="例：知識共有ポイント／評価指標 など"
+              ></textarea>
+              <button
+                type="button"
+                class="ui-button ui-button--subtle"
+                data-retrieval-check
+              >
+                重なりを確認
+              </button>
+              <div class="retrieval-feedback" data-retrieval-feedback hidden>
+                <div class="retrieval-feedback__chips" data-retrieval-overlap></div>
+                <p class="retrieval-feedback__summary" data-retrieval-summary></p>
+              </div>
+            </div>
           </article>
-          <article class="retrieval-card" data-retrieval-card data-index="3" hidden>
+          <article
+            class="retrieval-card"
+            data-retrieval-card
+            data-index="3"
+            data-category="生産連携"
+            data-expected-keywords="段取り替え,シミュレーション,タクトタイム,治具準備"
+            hidden
+          >
             <span class="retrieval-card__tag">生産連携</span>
             <h4 class="heading-md">段取りシミュレーション</h4>
             <p>
               設計段階で段取り替えシミュレーションを実施し、タクトタイムを
               共有。結果をもとに製造部門が前倒しで治具準備を行う。
             </p>
+            <div class="retrieval-card__practice">
+              <label class="text-muted" for="retrieval-response-3">
+                思い出したキーワード
+              </label>
+              <textarea
+                id="retrieval-response-3"
+                data-retrieval-response
+                placeholder="例：段取り替え／タクト共有／治具準備"
+              ></textarea>
+              <button
+                type="button"
+                class="ui-button ui-button--subtle"
+                data-retrieval-check
+              >
+                重なりを確認
+              </button>
+              <div class="retrieval-feedback" data-retrieval-feedback hidden>
+                <div class="retrieval-feedback__chips" data-retrieval-overlap></div>
+                <p class="retrieval-feedback__summary" data-retrieval-summary></p>
+              </div>
+            </div>
           </article>
-          <article class="retrieval-card" data-retrieval-card data-index="4" hidden>
+          <article
+            class="retrieval-card"
+            data-retrieval-card
+            data-index="4"
+            data-category="組織開発"
+            data-expected-keywords="アンバサダー,横断,改善アイデア,社内共有,行動指標"
+            hidden
+          >
             <span class="retrieval-card__tag">組織開発</span>
             <h4 class="heading-md">DXアンバサダー制度</h4>
             <p>
               若手をDXアンバサダーに任命し、部門横断で改善アイデアを月次報
               告。成功事例は社内ラジオで共有し、行動指標に紐づける。
             </p>
+            <div class="retrieval-card__practice">
+              <label class="text-muted" for="retrieval-response-4">
+                思い出したキーワード
+              </label>
+              <textarea
+                id="retrieval-response-4"
+                data-retrieval-response
+                placeholder="例：DXアンバサダー／横断共有"
+              ></textarea>
+              <button
+                type="button"
+                class="ui-button ui-button--subtle"
+                data-retrieval-check
+              >
+                重なりを確認
+              </button>
+              <div class="retrieval-feedback" data-retrieval-feedback hidden>
+                <div class="retrieval-feedback__chips" data-retrieval-overlap></div>
+                <p class="retrieval-feedback__summary" data-retrieval-summary></p>
+              </div>
+            </div>
           </article>
         </div>
         <footer class="retrieval-modal__controls">
@@ -3204,6 +3980,12 @@
             </span>
           </div>
           <div class="shortcut-panel__item">
+            <span>直前のハイライトを元に戻す</span>
+            <span class="shortcut-panel__keys">
+              <span>Alt</span><span>Shift</span><span>Z</span>
+            </span>
+          </div>
+          <div class="shortcut-panel__item">
             <span>ハイライトを解除</span>
             <span class="shortcut-panel__keys">
               <span>Alt</span><span>Shift</span><span>R</span>
@@ -3221,6 +4003,82 @@
               <span>Alt</span><span>Shift</span><span>K</span>
             </span>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="onboarding-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboarding-heading"
+      hidden
+      data-onboarding-modal
+    >
+      <div class="onboarding-modal__dialog">
+        <button
+          type="button"
+          class="onboarding-modal__close"
+          aria-label="チュートリアルを閉じる"
+          data-onboarding-close
+        >
+          ✕
+        </button>
+        <h2 id="onboarding-heading" class="heading-lg">
+          最初の一歩ガイド
+        </h2>
+        <p class="text-muted">
+          年度と事例の選び方から、ハイライト・リトリーバル・プラクティス
+          までを3分で把握しましょう。
+        </p>
+        <ol class="onboarding-steps">
+          <li class="onboarding-step">
+            <strong>1. 年度と事例を合わせる</strong>
+            <span>
+              ヘッダーのセレクタで解きたい<strong>年度・事例</strong>を選択すると、
+              与件とカードが自動で切り替わります。迷ったら「学習テーマ」
+              から候補を提案します。
+            </span>
+          </li>
+          <li class="onboarding-step">
+            <strong>2. ハイライトで構造化</strong>
+            <span>
+              4色のマーカーに<strong>意味とタグ</strong>をつけて整理しましょう。選択
+              後はAlt+Shift+Hで塗り、UndoボタンまたはAlt+Shift+Zで戻せます。
+            </span>
+          </li>
+          <li class="onboarding-step">
+            <strong>3. メモから問いを作る</strong>
+            <span>
+              ハイライトをクリックするとメモ欄が開きます。「この部分から問
+              いを作成」を押して、リトリーバル練習に送れます。
+            </span>
+          </li>
+          <li class="onboarding-step">
+            <strong>4. リトリーバルで重なりを確認</strong>
+            <span>
+              キーワードを入力して<strong>重なりを可視化</strong>し、次に意識する観点
+              をフィードバックから確認しましょう。順序はモーダル内で切替え
+              できます。
+            </span>
+          </li>
+        </ol>
+        <div class="onboarding-actions">
+          <button
+            type="button"
+            class="ui-button"
+            data-onboarding-close
+            data-onboarding-skip
+          >
+            今は閉じる
+          </button>
+          <button
+            type="button"
+            class="ui-button ui-button--primary"
+            data-onboarding-complete
+          >
+            使い方を理解しました
+          </button>
         </div>
       </div>
     </div>
@@ -3306,6 +4164,123 @@
               toastElement.textContent = '';
             }
           });
+
+          const onboardingModal = appRoot.querySelector('[data-onboarding-modal]');
+          const onboardingOpeners = Array.from(
+            appRoot.querySelectorAll('[data-onboarding-open]')
+          );
+          const onboardingCloseButtons = Array.from(
+            onboardingModal?.querySelectorAll('[data-onboarding-close]') || []
+          );
+          const onboardingCompleteButton = onboardingModal?.querySelector(
+            '[data-onboarding-complete]'
+          );
+          const onboardingStorageKey = 'exercise-onboarding-seen-v1';
+          let onboardingPreviousFocus = null;
+
+          const markOnboardingSeen = () => {
+            try {
+              window.localStorage.setItem(onboardingStorageKey, 'seen');
+            } catch (error) {
+              // ignore storage errors (private mode等)
+            }
+          };
+
+          const hasSeenOnboarding = () => {
+            try {
+              return window.localStorage.getItem(onboardingStorageKey) === 'seen';
+            } catch (error) {
+              return false;
+            }
+          };
+
+          const openOnboarding = () => {
+            if (!onboardingModal || !onboardingModal.hidden) {
+              return false;
+            }
+            onboardingPreviousFocus =
+              document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+            onboardingModal.hidden = false;
+            const focusTarget =
+              onboardingCompleteButton ||
+              onboardingModal.querySelector('[data-onboarding-close]') ||
+              onboardingModal;
+            focusTarget?.focus?.();
+            return true;
+          };
+
+          const closeOnboarding = (persist = false) => {
+            if (!onboardingModal || onboardingModal.hidden) {
+              return false;
+            }
+            onboardingModal.hidden = true;
+            if (persist) {
+              markOnboardingSeen();
+            }
+            if (onboardingPreviousFocus?.focus) {
+              onboardingPreviousFocus.focus();
+            }
+            return true;
+          };
+
+          onboardingOpeners.forEach((button) => {
+            button.addEventListener(
+              'click',
+              () => {
+                openOnboarding();
+              },
+              { signal }
+            );
+          });
+
+          onboardingCloseButtons.forEach((button) => {
+            button.addEventListener(
+              'click',
+              () => {
+                closeOnboarding(true);
+              },
+              { signal }
+            );
+          });
+
+          if (onboardingCompleteButton) {
+            onboardingCompleteButton.addEventListener(
+              'click',
+              () => {
+                closeOnboarding(true);
+                showToast('使い方ガイドはヘッダーから再表示できます');
+              },
+              { signal }
+            );
+          }
+
+          if (onboardingModal) {
+            onboardingModal.addEventListener(
+              'click',
+              (event) => {
+                if (event.target === onboardingModal) {
+                  closeOnboarding(true);
+                }
+              },
+              { signal }
+            );
+            onboardingModal.addEventListener(
+              'keydown',
+              (event) => {
+                if (event.key === 'Escape' && !onboardingModal.hidden) {
+                  closeOnboarding(true);
+                }
+              },
+              { signal }
+            );
+          }
+
+          if (!hasSeenOnboarding()) {
+            openOnboarding();
+            markOnboardingSeen();
+          }
 
           const panelButtons = Array.from(
             appRoot.querySelectorAll('[data-panel-trigger]')
@@ -3577,9 +4552,8 @@
           const retrievalOpeners = Array.from(
             appRoot.querySelectorAll('[data-retrieval-open]')
           );
-          const retrievalCards = Array.from(
-            retrievalModal?.querySelectorAll('[data-retrieval-card]') || []
-          );
+          const retrievalModalBody =
+            retrievalModal?.querySelector('.retrieval-modal__body') || null;
           const retrievalCount = retrievalModal?.querySelector(
             '[data-retrieval-count]'
           );
@@ -3588,14 +4562,58 @@
           );
           const retrievalPrev = retrievalModal?.querySelector('[data-retrieval-prev]');
           const retrievalNext = retrievalModal?.querySelector('[data-retrieval-next]');
+          const retrievalOrderSelect = retrievalModal?.querySelector(
+            '[data-retrieval-order]'
+          );
           const retrievalClosers = Array.from(
             retrievalModal?.querySelectorAll('[data-retrieval-close]') || []
           );
+          let retrievalCards = [];
           let retrievalIndex = 0;
           let retrievalPreviousFocus = null;
+          let retrievalOriginalOrderCounter = 0;
+          let retrievalOrderMode = 'default';
+
+          const parseKeywords = (value) =>
+            typeof value === 'string'
+              ? value
+                  .split(/[\s、,，／\/]+/)
+                  .map((keyword) => keyword.trim())
+                  .filter(Boolean)
+              : [];
+
+          const buildFeedbackChip = (keyword, { match = false, extra = false }) => {
+            const chip = document.createElement('span');
+            chip.className = 'retrieval-feedback__chip';
+            if (extra) {
+              chip.dataset.extra = 'true';
+            } else {
+              chip.dataset.match = String(match);
+            }
+            chip.textContent = keyword;
+            return chip;
+          };
 
           const updateRetrievalView = () => {
-            if (!retrievalCards.length) return;
+            if (!retrievalCards.length) {
+              if (retrievalCount) {
+                retrievalCount.textContent = '0 / 0';
+              }
+              if (retrievalProgress) {
+                retrievalProgress.style.transform = 'scaleX(0)';
+              }
+              if (retrievalPrev) {
+                retrievalPrev.disabled = true;
+              }
+              if (retrievalNext) {
+                retrievalNext.disabled = true;
+              }
+              return;
+            }
+            retrievalIndex = Math.min(
+              Math.max(retrievalIndex, 0),
+              retrievalCards.length - 1
+            );
             retrievalCards.forEach((card, index) => {
               card.hidden = index !== retrievalIndex;
             });
@@ -3611,8 +4629,174 @@
               retrievalPrev.disabled = retrievalIndex === 0;
             }
             if (retrievalNext) {
-              retrievalNext.disabled = retrievalIndex === retrievalCards.length - 1;
+              retrievalNext.disabled =
+                retrievalIndex === Math.max(retrievalCards.length - 1, 0);
             }
+          };
+
+          const updateRetrievalOrderOptions = () => {
+            if (!retrievalOrderSelect) {
+              return;
+            }
+            const previousValue = retrievalOrderSelect.value || 'default';
+            retrievalOrderSelect.innerHTML = '';
+            const makeOption = (value, label) => {
+              const option = document.createElement('option');
+              option.value = value;
+              option.textContent = label;
+              return option;
+            };
+            retrievalOrderSelect.appendChild(makeOption('default', '登録順'));
+            const categories = Array.from(
+              new Set(
+                retrievalCards
+                  .map((card) => card.dataset.category)
+                  .filter(Boolean)
+              )
+            );
+            categories.forEach((category) => {
+              retrievalOrderSelect.appendChild(
+                makeOption(`category:${category}`, `カテゴリ順：${category}`)
+              );
+            });
+            if (retrievalCards.some((card) => card.dataset.highlightSource)) {
+              retrievalOrderSelect.appendChild(
+                makeOption('highlights', 'ハイライト作成カードを先に見る')
+              );
+            }
+            const options = Array.from(retrievalOrderSelect.options || []);
+            if (options.some((option) => option.value === previousValue)) {
+              retrievalOrderSelect.value = previousValue;
+            } else {
+              retrievalOrderSelect.value = 'default';
+            }
+            retrievalOrderMode = retrievalOrderSelect.value;
+          };
+
+          const applyRetrievalOrder = (mode) => {
+            if (!retrievalModalBody) {
+              return;
+            }
+            retrievalOrderMode = mode;
+            const activeCard = retrievalCards[retrievalIndex] || null;
+            const cards = Array.from(retrievalCards);
+            const byOriginalIndex = (a, b) =>
+              Number(a.dataset.originalIndex || 0) -
+              Number(b.dataset.originalIndex || 0);
+            if (mode === 'default') {
+              cards.sort(byOriginalIndex);
+            } else if (mode.startsWith('category:')) {
+              const [, category] = mode.split(':');
+              cards.sort((a, b) => {
+                const aMatch = a.dataset.category === category ? 0 : 1;
+                const bMatch = b.dataset.category === category ? 0 : 1;
+                if (aMatch !== bMatch) {
+                  return aMatch - bMatch;
+                }
+                return byOriginalIndex(a, b);
+              });
+            } else if (mode === 'highlights') {
+              cards.sort((a, b) => {
+                const aHighlight = a.dataset.highlightSource ? 0 : 1;
+                const bHighlight = b.dataset.highlightSource ? 0 : 1;
+                if (aHighlight !== bHighlight) {
+                  return aHighlight - bHighlight;
+                }
+                return byOriginalIndex(a, b);
+              });
+            }
+            cards.forEach((card) => retrievalModalBody.appendChild(card));
+            retrievalCards = cards;
+            if (activeCard) {
+              const newIndex = retrievalCards.indexOf(activeCard);
+              retrievalIndex = newIndex === -1 ? 0 : newIndex;
+            } else {
+              retrievalIndex = Math.min(
+                retrievalIndex,
+                Math.max(retrievalCards.length - 1, 0)
+              );
+            }
+            updateRetrievalView();
+          };
+
+          const refreshRetrievalCards = () => {
+            if (!retrievalModalBody) {
+              retrievalCards = [];
+              updateRetrievalView();
+              return;
+            }
+            retrievalCards = Array.from(
+              retrievalModalBody.querySelectorAll('[data-retrieval-card]')
+            );
+            retrievalCards.forEach((card) => {
+              if (!card.dataset.originalIndex) {
+                card.dataset.originalIndex = String(retrievalOriginalOrderCounter++);
+              }
+            });
+            updateRetrievalOrderOptions();
+            applyRetrievalOrder(retrievalOrderMode);
+          };
+
+          const evaluateRetrievalCard = (card) => {
+            if (!card) {
+              return;
+            }
+            const textarea = card.querySelector('[data-retrieval-response]');
+            const feedback = card.querySelector('[data-retrieval-feedback]');
+            const chipsContainer = card.querySelector('[data-retrieval-overlap]');
+            const summary = card.querySelector('[data-retrieval-summary]');
+            if (!textarea || !feedback || !chipsContainer || !summary) {
+              return;
+            }
+            const userKeywords = parseKeywords(textarea.value);
+            const expectedKeywords = parseKeywords(card.dataset.expectedKeywords || '');
+            const expectedSet = new Set(expectedKeywords);
+            const matched = [];
+            const missing = [];
+            chipsContainer.innerHTML = '';
+            expectedKeywords.forEach((keyword) => {
+              const isMatch = userKeywords.includes(keyword);
+              if (isMatch) {
+                matched.push(keyword);
+              } else {
+                missing.push(keyword);
+              }
+              chipsContainer.appendChild(
+                buildFeedbackChip(keyword, { match: isMatch })
+              );
+            });
+            const extras = userKeywords.filter((keyword) => !expectedSet.has(keyword));
+            extras.forEach((keyword) => {
+              chipsContainer.appendChild(
+                buildFeedbackChip(`追加: ${keyword}`, {
+                  match: false,
+                  extra: true,
+                })
+              );
+            });
+            const matchRate = expectedKeywords.length
+              ? Math.round((matched.length / expectedKeywords.length) * 100)
+              : userKeywords.length
+              ? 100
+              : 0;
+            let message = '';
+            if (!expectedKeywords.length) {
+              message =
+                '模範キーワードは未設定です。思い出した内容をメモとして保存しましょう。';
+            } else if (!matched.length) {
+              message =
+                'まずは与件文の表現を短く言い換えてみましょう。最初のキーワードを掴むことが次のカードへの助走になります。';
+            } else if (missing.length) {
+              message = `重なりは${matchRate}%。次は「${missing[0]}」に注目して、関連する事例を思い出してみましょう。`;
+            } else {
+              message =
+                'すべて想起できています。次のカードでは具体的な事例や成果指標を一つ追加してみましょう。';
+            }
+            if (extras.length) {
+              message += ` 追加キーワードも良い視点です（${extras.join(' / ')}）。`;
+            }
+            summary.textContent = message;
+            feedback.hidden = false;
           };
 
           const openRetrieval = () => {
@@ -3623,14 +4807,13 @@
               document.activeElement instanceof HTMLElement
                 ? document.activeElement
                 : null;
+            refreshRetrievalCards();
             retrievalModal.hidden = false;
             updateRetrievalView();
             const focusTarget =
               retrievalModal.querySelector('[data-retrieval-close]') ||
               retrievalModal;
-            if (focusTarget && focusTarget.focus) {
-              focusTarget.focus();
-            }
+            focusTarget?.focus?.();
             return true;
           };
 
@@ -3651,7 +4834,7 @@
             });
           }
 
-          if (retrievalPrev && retrievalNext) {
+          if (retrievalPrev) {
             retrievalPrev.addEventListener(
               'click',
               () => {
@@ -3660,6 +4843,9 @@
               },
               { signal }
             );
+          }
+
+          if (retrievalNext) {
             retrievalNext.addEventListener(
               'click',
               () => {
@@ -3668,6 +4854,16 @@
                   retrievalIndex + 1
                 );
                 updateRetrievalView();
+              },
+              { signal }
+            );
+          }
+
+          if (retrievalOrderSelect) {
+            retrievalOrderSelect.addEventListener(
+              'change',
+              () => {
+                applyRetrievalOrder(retrievalOrderSelect.value || 'default');
               },
               { signal }
             );
@@ -3691,60 +4887,24 @@
             );
           }
 
-          const shortcutPanel = appRoot.querySelector('[data-shortcut-panel]');
-          const shortcutOpeners = Array.from(
-            appRoot.querySelectorAll('[data-shortcut-open]')
-          );
-          const shortcutClosers = Array.from(
-            shortcutPanel?.querySelectorAll('[data-shortcut-close]') || []
-          );
-          let shortcutPreviousFocus = null;
-
-          const openShortcutPanel = () => {
-            if (!shortcutPanel || !shortcutPanel.hidden) {
-              return false;
-            }
-            shortcutPreviousFocus =
-              document.activeElement instanceof HTMLElement
-                ? document.activeElement
-                : null;
-            shortcutPanel.hidden = false;
-            const focusTarget =
-              shortcutPanel.querySelector('[data-shortcut-close]') || shortcutPanel;
-            focusTarget?.focus?.();
-            return true;
-          };
-
-          const closeShortcutPanel = () => {
-            if (!shortcutPanel || shortcutPanel.hidden) {
-              return false;
-            }
-            shortcutPanel.hidden = true;
-            if (shortcutPreviousFocus?.focus) {
-              shortcutPreviousFocus.focus();
-            }
-            return true;
-          };
-
-          shortcutOpeners.forEach((button) => {
-            button.addEventListener('click', openShortcutPanel, { signal });
-          });
-
-          shortcutClosers.forEach((button) => {
-            button.addEventListener('click', closeShortcutPanel, { signal });
-          });
-
-          if (shortcutPanel) {
-            shortcutPanel.addEventListener(
+          if (retrievalModalBody) {
+            retrievalModalBody.addEventListener(
               'click',
               (event) => {
-                if (event.target === shortcutPanel) {
-                  closeShortcutPanel();
+                const button = event.target.closest('[data-retrieval-check]');
+                if (!button) {
+                  return;
                 }
+                event.preventDefault();
+                const card = button.closest('[data-retrieval-card]');
+                evaluateRetrievalCard(card);
+                showToast('重なりを確認しました');
               },
               { signal }
             );
           }
+
+          refreshRetrievalCards();
 
           let updateSelectionJumpVisibility = () => {};
 
@@ -3755,6 +4915,541 @@
               parent.insertBefore(mark.firstChild, mark);
             }
             parent.removeChild(mark);
+          };
+
+          const highlightLabelStorageKey = 'exercise-highlight-labels-v1';
+          const defaultHighlightLabels = {
+            strength: '強み',
+            weakness: '弱み',
+            challenge: '課題',
+            opportunity: '機会',
+          };
+          const highlightPaletteButtons = Array.from(
+            appRoot.querySelectorAll('[data-highlight-category]')
+          );
+          const highlightCategoryLabelSpans = Array.from(
+            appRoot.querySelectorAll('[data-highlight-category-label]')
+          );
+          const highlightLabelInputs = Array.from(
+            appRoot.querySelectorAll('[data-highlight-label-input]')
+          );
+          const highlightLegendSwatches = Array.from(
+            appRoot.querySelectorAll('[data-highlight-legend-swatch]')
+          );
+          const highlightToolbarUndo = appRoot.querySelector('[data-highlight-undo]');
+          const highlightInspector = appRoot.querySelector('[data-highlight-inspector]');
+          const highlightInspectorPreview =
+            highlightInspector?.querySelector('[data-highlight-preview]') || null;
+          const highlightTagsInput =
+            highlightInspector?.querySelector('[data-highlight-tags]') || null;
+          const highlightNoteInput =
+            highlightInspector?.querySelector('[data-highlight-note]') || null;
+          const highlightSaveButton =
+            highlightInspector?.querySelector('[data-highlight-save]') || null;
+          const highlightQuestionButton =
+            highlightInspector?.querySelector('[data-highlight-question]') || null;
+          const highlightCloseButton =
+            highlightInspector?.querySelector('[data-highlight-close]') || null;
+          const highlightPracticeSection =
+            appRoot.querySelector('[data-highlight-practice]') || null;
+          const highlightPracticeList =
+            highlightPracticeSection?.querySelector('[data-highlight-practice-list]') || null;
+          const highlightPracticeItems = new Map();
+          const highlightRetrievalCards = new Map();
+
+          const highlightMetadata = new Map();
+          const highlightHistory = [];
+          let highlightCounter = 0;
+          let activeHighlightCategory = 'strength';
+          let activeHighlightId = null;
+          let activeHighlightMark = null;
+
+          const highlightCategoryLabels = new Map(
+            Object.entries(defaultHighlightLabels)
+          );
+
+          const getHighlightLabel = (category) => {
+            const label = highlightCategoryLabels.get(category);
+            return label && label.trim()
+              ? label.trim()
+              : defaultHighlightLabels[category] || category;
+          };
+
+          const deriveKeywordsFromSnippet = (snippet) => {
+            if (typeof snippet !== 'string') {
+              return [];
+            }
+            return Array.from(
+              new Set(
+                snippet
+                  .replace(/[。．、,]/g, ' ')
+                  .split(/\s+/)
+                  .map((token) => token.trim())
+                  .filter(Boolean)
+              )
+            ).slice(0, 4);
+          };
+
+          const updateHighlightDisplayLabels = () => {
+            highlightPaletteButtons.forEach((button) => {
+              const category = button.dataset.highlightCategory;
+              const labelSpan = button.querySelector('[data-highlight-category-label]');
+              if (category && labelSpan) {
+                labelSpan.textContent = getHighlightLabel(category);
+              }
+            });
+            highlightLegendSwatches.forEach((swatch) => {
+              const category = swatch.dataset.highlightLegendSwatch;
+              if (category) {
+                swatch.textContent = getHighlightLabel(category);
+              }
+            });
+          };
+
+          const applyHighlightLabelsToUI = () => {
+            updateHighlightDisplayLabels();
+            highlightLabelInputs.forEach((input) => {
+              const category = input.dataset.highlightLabelInput;
+              if (!category) {
+                return;
+              }
+              input.value = getHighlightLabel(category);
+            });
+          };
+
+          const persistHighlightLabels = () => {
+            try {
+              const payload = {};
+              highlightCategoryLabels.forEach((value, category) => {
+                const trimmed = typeof value === 'string' ? value.trim() : '';
+                if (trimmed && trimmed !== defaultHighlightLabels[category]) {
+                  payload[category] = trimmed;
+                }
+              });
+              if (Object.keys(payload).length) {
+                window.localStorage.setItem(
+                  highlightLabelStorageKey,
+                  JSON.stringify(payload)
+                );
+              } else {
+                window.localStorage.removeItem(highlightLabelStorageKey);
+              }
+            } catch (error) {
+              // ignore storage errors (private mode, etc.)
+            }
+          };
+
+          const loadHighlightLabels = () => {
+            try {
+              const raw = window.localStorage.getItem(highlightLabelStorageKey);
+              if (!raw) {
+                return;
+              }
+              const stored = JSON.parse(raw);
+              if (!stored || typeof stored !== 'object') {
+                return;
+              }
+              Object.entries(stored).forEach(([category, label]) => {
+                if (defaultHighlightLabels[category] && typeof label === 'string') {
+                  highlightCategoryLabels.set(category, label);
+                }
+              });
+            } catch (error) {
+              // ignore parse errors
+            }
+          };
+
+          loadHighlightLabels();
+          applyHighlightLabelsToUI();
+
+          const ensureHighlightPracticeVisibility = () => {
+            if (highlightPracticeSection) {
+              highlightPracticeSection.hidden = highlightPracticeItems.size === 0;
+            }
+          };
+
+          const getHighlightSnippet = (mark) =>
+            mark?.textContent?.replace(/\s+/g, ' ').trim() || '';
+
+          const cleanupHighlightHistory = (highlightId) => {
+            for (let index = highlightHistory.length - 1; index >= 0; index -= 1) {
+              if (highlightHistory[index] === highlightId) {
+                highlightHistory.splice(index, 1);
+              }
+            }
+          };
+
+          const syncPracticeItem = (highlightId) => {
+            const meta = highlightMetadata.get(highlightId);
+            if (!meta || !meta.question) {
+              const existing = highlightPracticeItems.get(highlightId);
+              if (existing) {
+                existing.remove();
+                highlightPracticeItems.delete(highlightId);
+                ensureHighlightPracticeVisibility();
+              }
+              return;
+            }
+            if (!highlightPracticeList) {
+              return;
+            }
+            let item = highlightPracticeItems.get(highlightId);
+            if (!item) {
+              item = document.createElement('li');
+              item.className = 'highlight-practice__item';
+              item.dataset.highlightPracticeItem = highlightId;
+              const questionEl = document.createElement('p');
+              questionEl.className = 'highlight-practice__question';
+              questionEl.dataset.highlightPracticeQuestion = '';
+              const metaEl = document.createElement('span');
+              metaEl.className = 'highlight-practice__meta';
+              metaEl.dataset.highlightPracticeMeta = '';
+              const noteEl = document.createElement('span');
+              noteEl.className = 'highlight-practice__meta';
+              noteEl.dataset.highlightPracticeNote = '';
+              noteEl.hidden = true;
+              const actions = document.createElement('div');
+              actions.className = 'highlight-practice__actions';
+              const openButton = document.createElement('button');
+              openButton.type = 'button';
+              openButton.className = 'ui-button ui-button--subtle';
+              openButton.dataset.highlightOpen = highlightId;
+              openButton.textContent = 'ハイライトを表示';
+              const toRetrievalButton = document.createElement('button');
+              toRetrievalButton.type = 'button';
+              toRetrievalButton.className = 'ui-button ui-button--primary';
+              toRetrievalButton.dataset.highlightToRetrieval = highlightId;
+              toRetrievalButton.textContent = 'カードに追加';
+              actions.append(openButton, toRetrievalButton);
+              item.append(questionEl, metaEl, noteEl, actions);
+              highlightPracticeList.appendChild(item);
+              highlightPracticeItems.set(highlightId, item);
+            }
+            const questionEl = item.querySelector('[data-highlight-practice-question]');
+            if (questionEl) {
+              questionEl.textContent = meta.question;
+            }
+            const metaEl = item.querySelector('[data-highlight-practice-meta]');
+            if (metaEl) {
+              const label = getHighlightLabel(meta.category);
+              const tagText =
+                meta.tags && meta.tags.length ? `タグ: ${meta.tags.join(' / ')}` : 'タグ未設定';
+              metaEl.textContent = `カテゴリ: ${label}　${tagText}`;
+            }
+            const noteEl = item.querySelector('[data-highlight-practice-note]');
+            if (noteEl) {
+              if (meta.note) {
+                noteEl.hidden = false;
+                noteEl.textContent = `メモ: ${meta.note}`;
+              } else {
+                noteEl.hidden = true;
+                noteEl.textContent = '';
+              }
+            }
+            const toRetrievalButton = item.querySelector('[data-highlight-to-retrieval]');
+            if (toRetrievalButton) {
+              toRetrievalButton.disabled = !!meta.addedToRetrieval;
+              toRetrievalButton.textContent = meta.addedToRetrieval
+                ? 'カードに追加済み'
+                : 'カードに追加';
+            }
+            ensureHighlightPracticeVisibility();
+          };
+
+          const syncHighlightRetrievalCard = (
+            highlightId,
+            { skipRefresh = false } = {}
+          ) => {
+            const card = highlightRetrievalCards.get(highlightId);
+            if (!card) {
+              return;
+            }
+            const meta = highlightMetadata.get(highlightId);
+            if (!meta) {
+              card.remove();
+              highlightRetrievalCards.delete(highlightId);
+              if (!skipRefresh) {
+                refreshRetrievalCards();
+              }
+              return;
+            }
+            const label = getHighlightLabel(meta.category);
+            const tag = card.querySelector('.retrieval-card__tag');
+            if (tag) {
+              tag.textContent = `ハイライト: ${label}`;
+            }
+            card.dataset.category = label;
+            const heading = card.querySelector('h4');
+            if (heading && meta.question) {
+              heading.textContent = meta.question;
+            }
+            const description = card.querySelector('p');
+            if (description) {
+              description.textContent =
+                meta.note || 'ハイライトで整理した観点を30秒で説明できるか確認しましょう。';
+            }
+            const textarea = card.querySelector('[data-retrieval-response]');
+            if (textarea) {
+              textarea.placeholder = meta.question
+                ? `例：${meta.question.replace(/【.*?】/g, '').slice(0, 20)}`
+                : '思い出したキーワードを書き出してください';
+            }
+            const keywords =
+              meta.tags && meta.tags.length
+                ? meta.tags
+                : deriveKeywordsFromSnippet(meta.snippet || description?.textContent || '');
+            card.dataset.expectedKeywords = keywords.join(',');
+            if (!skipRefresh) {
+              refreshRetrievalCards();
+            }
+          };
+
+          const updateHighlightLinkedViews = () => {
+            highlightMetadata.forEach((_, highlightId) => {
+              syncPracticeItem(highlightId);
+              syncHighlightRetrievalCard(highlightId, { skipRefresh: true });
+            });
+            refreshRetrievalCards();
+          };
+
+          const cleanupHighlight = (highlightId) => {
+            cleanupHighlightHistory(highlightId);
+            const meta = highlightMetadata.get(highlightId);
+            if (!meta) {
+              return;
+            }
+            highlightMetadata.delete(highlightId);
+            const item = highlightPracticeItems.get(highlightId);
+            if (item) {
+              item.remove();
+              highlightPracticeItems.delete(highlightId);
+            }
+            const retrievalCard = highlightRetrievalCards.get(highlightId);
+            if (retrievalCard) {
+              retrievalCard.remove();
+              highlightRetrievalCards.delete(highlightId);
+              refreshRetrievalCards();
+            }
+            if (activeHighlightId === highlightId) {
+              closeHighlightInspector();
+            }
+            ensureHighlightPracticeVisibility();
+          };
+
+          const focusHighlight = (highlightId) => {
+            if (!highlightId) {
+              return false;
+            }
+            const mark = appRoot.querySelector(
+              `mark.text-highlight[data-highlight-id="${escapeSelector(highlightId)}"]`
+            );
+            if (!mark) {
+              return false;
+            }
+            ensurePanelOpen('scenario');
+            mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            openHighlightInspector(mark);
+            return true;
+          };
+
+          const openHighlightInspector = (mark) => {
+            const highlightId = mark.dataset.highlightId;
+            if (!highlightId) {
+              return;
+            }
+            const category = mark.dataset.highlightCategory || activeHighlightCategory;
+            const snippet = getHighlightSnippet(mark);
+            const meta = highlightMetadata.get(highlightId) || {
+              category,
+              tags: [],
+              note: '',
+              question: '',
+              snippet,
+              addedToRetrieval: false,
+            };
+            meta.category = category;
+            meta.snippet = snippet;
+            highlightMetadata.set(highlightId, meta);
+            activeHighlightId = highlightId;
+            activeHighlightMark = mark;
+            if (highlightInspector) {
+              highlightInspector.hidden = false;
+              highlightInspector.dataset.highlightCategory = category;
+            }
+            if (highlightInspectorPreview) {
+              highlightInspectorPreview.textContent =
+                snippet || '選択したハイライトがここに表示されます。';
+            }
+            if (highlightTagsInput) {
+              highlightTagsInput.value = meta.tags?.join('、') || '';
+            }
+            if (highlightNoteInput) {
+              highlightNoteInput.value = meta.note || '';
+            }
+            syncPracticeItem(highlightId);
+          };
+
+          const closeHighlightInspector = () => {
+            if (highlightInspector) {
+              highlightInspector.hidden = true;
+              delete highlightInspector.dataset.highlightCategory;
+            }
+            activeHighlightId = null;
+            activeHighlightMark = null;
+          };
+
+          const saveHighlightMetadata = () => {
+            if (!activeHighlightId) {
+              return;
+            }
+            const meta = highlightMetadata.get(activeHighlightId);
+            if (!meta) {
+              return;
+            }
+            const tags = highlightTagsInput
+              ? highlightTagsInput.value
+                  .split(/[、,\s]+/)
+                  .map((tag) => tag.trim())
+                  .filter(Boolean)
+              : [];
+            const note = highlightNoteInput ? highlightNoteInput.value.trim() : '';
+            meta.tags = tags;
+            meta.note = note;
+            highlightMetadata.set(activeHighlightId, meta);
+            syncPracticeItem(activeHighlightId);
+            syncHighlightRetrievalCard(activeHighlightId);
+            showToast('ハイライトメモを保存しました');
+          };
+
+          const generateHighlightQuestion = (meta) => {
+            const label = getHighlightLabel(meta.category);
+            const snippet = meta.snippet || '';
+            const trimmed = snippet.length > 60 ? `${snippet.slice(0, 57)}…` : snippet;
+            return `【${label}】${trimmed}から出題されそうな問いは？`;
+          };
+
+          const handleHighlightQuestion = () => {
+            if (!activeHighlightId) {
+              return;
+            }
+            const meta = highlightMetadata.get(activeHighlightId);
+            if (!meta) {
+              return;
+            }
+            meta.question = generateHighlightQuestion(meta);
+            if ((!meta.tags || !meta.tags.length) && meta.snippet) {
+              meta.tags = deriveKeywordsFromSnippet(meta.snippet);
+              if (highlightTagsInput) {
+                highlightTagsInput.value = meta.tags.join('、');
+              }
+            }
+            highlightMetadata.set(activeHighlightId, meta);
+            syncPracticeItem(activeHighlightId);
+            syncHighlightRetrievalCard(activeHighlightId);
+            showToast('問いを追加しました。');
+          };
+
+          const createRetrievalCardFromHighlight = (highlightId, meta) => {
+            if (!retrievalModalBody) {
+              return null;
+            }
+            const card = document.createElement('article');
+            card.className = 'retrieval-card';
+            card.dataset.retrievalCard = '';
+            card.dataset.highlightSource = highlightId;
+            const label = getHighlightLabel(meta.category);
+            card.dataset.category = label;
+            const tag = document.createElement('span');
+            tag.className = 'retrieval-card__tag';
+            tag.textContent = `ハイライト: ${label}`;
+            const heading = document.createElement('h4');
+            heading.className = 'heading-md';
+            heading.textContent = meta.question || generateHighlightQuestion(meta);
+            const paragraph = document.createElement('p');
+            paragraph.textContent =
+              meta.note || 'ハイライトで整理した観点を30秒で説明できるか確認しましょう。';
+            const practice = document.createElement('div');
+            practice.className = 'retrieval-card__practice';
+            const labelEl = document.createElement('label');
+            labelEl.className = 'text-muted';
+            const textareaId = `retrieval-response-${highlightId}`;
+            labelEl.setAttribute('for', textareaId);
+            labelEl.textContent = '思い出したキーワード';
+            const textarea = document.createElement('textarea');
+            textarea.id = textareaId;
+            textarea.dataset.retrievalResponse = '';
+            textarea.placeholder = '思い出したキーワードを書き出してください';
+            const checkButton = document.createElement('button');
+            checkButton.type = 'button';
+            checkButton.className = 'ui-button ui-button--subtle';
+            checkButton.dataset.retrievalCheck = '';
+            checkButton.textContent = '重なりを確認';
+            const feedback = document.createElement('div');
+            feedback.className = 'retrieval-feedback';
+            feedback.dataset.retrievalFeedback = '';
+            feedback.hidden = true;
+            const chips = document.createElement('div');
+            chips.className = 'retrieval-feedback__chips';
+            chips.dataset.retrievalOverlap = '';
+            const summary = document.createElement('p');
+            summary.className = 'retrieval-feedback__summary';
+            summary.dataset.retrievalSummary = '';
+            feedback.append(chips, summary);
+            practice.append(labelEl, textarea, checkButton, feedback);
+            card.append(tag, heading, paragraph, practice);
+            const keywords =
+              meta.tags && meta.tags.length
+                ? meta.tags
+                : deriveKeywordsFromSnippet(meta.snippet || heading.textContent || '');
+            card.dataset.expectedKeywords = keywords.join(',');
+            return card;
+          };
+
+          const addHighlightToRetrieval = (highlightId) => {
+            if (!highlightId) {
+              return;
+            }
+            const meta = highlightMetadata.get(highlightId);
+            if (!meta || !meta.question) {
+              showToast('問いを作成してから追加してください');
+              return;
+            }
+            if (meta.addedToRetrieval) {
+              showToast('既にカードに追加済みです');
+              return;
+            }
+            const card = createRetrievalCardFromHighlight(highlightId, meta);
+            if (!card || !retrievalModalBody) {
+              return;
+            }
+            retrievalModalBody.appendChild(card);
+            highlightRetrievalCards.set(highlightId, card);
+            meta.addedToRetrieval = true;
+            highlightMetadata.set(highlightId, meta);
+            syncPracticeItem(highlightId);
+            syncHighlightRetrievalCard(highlightId);
+            refreshRetrievalCards();
+            applyRetrievalOrder(retrievalOrderMode);
+            showToast('リトリーバルカードに追加しました');
+          };
+
+          const undoHighlight = () => {
+            while (highlightHistory.length) {
+              const highlightId = highlightHistory.pop();
+              const mark = highlightId
+                ? appRoot.querySelector(
+                    `mark.text-highlight[data-highlight-id="${escapeSelector(highlightId)}"]`
+                  )
+                : null;
+              if (mark) {
+                cleanupHighlight(highlightId);
+                unwrapMark(mark);
+                updateSelectionJumpVisibility();
+                showToast('ハイライトを元に戻しました');
+                return true;
+              }
+            }
+            return false;
           };
 
           const highlightSelection = () => {
@@ -3770,7 +5465,11 @@
               return false;
             }
             const wrapper = document.createElement('mark');
-            wrapper.className = 'text-highlight';
+            const category = activeHighlightCategory;
+            wrapper.className = `text-highlight text-highlight--${category}`;
+            const highlightId = `highlight-${++highlightCounter}`;
+            wrapper.dataset.highlightId = highlightId;
+            wrapper.dataset.highlightCategory = category;
             try {
               const contents = range.extractContents();
               wrapper.appendChild(contents);
@@ -3779,7 +5478,18 @@
               const newRange = document.createRange();
               newRange.selectNode(wrapper);
               selection.addRange(newRange);
+              const snippet = getHighlightSnippet(wrapper);
+              highlightMetadata.set(highlightId, {
+                category,
+                tags: [],
+                note: '',
+                question: '',
+                snippet,
+                addedToRetrieval: false,
+              });
+              highlightHistory.push(highlightId);
               updateSelectionJumpVisibility();
+              openHighlightInspector(wrapper);
               return true;
             } catch (error) {
               return false;
@@ -3803,6 +5513,10 @@
                   : selection.anchorNode?.parentElement;
               const mark = node?.closest?.('mark.text-highlight');
               if (mark) {
+                const highlightId = mark.dataset.highlightId;
+                if (highlightId) {
+                  cleanupHighlight(highlightId);
+                }
                 unwrapMark(mark);
                 removed = true;
               }
@@ -3813,6 +5527,10 @@
               marks.forEach((mark) => {
                 try {
                   if (range.intersectsNode(mark)) {
+                    const highlightId = mark.dataset.highlightId;
+                    if (highlightId) {
+                      cleanupHighlight(highlightId);
+                    }
                     unwrapMark(mark);
                     removed = true;
                   }
@@ -3823,10 +5541,150 @@
             }
             if (removed) {
               updateSelectionJumpVisibility();
+              showToast('ハイライトを解除しました');
             }
             return removed;
           };
 
+          if (highlightToolbarUndo) {
+            highlightToolbarUndo.addEventListener(
+              'click',
+              () => {
+                if (!undoHighlight()) {
+                  showToast('取り消すハイライトがありません');
+                }
+              },
+              { signal }
+            );
+          }
+
+          highlightPaletteButtons.forEach((button, index) => {
+            const category = button.dataset.highlightCategory;
+            if (!category) {
+              return;
+            }
+            button.setAttribute('role', 'radio');
+            button.setAttribute('aria-checked', 'false');
+            button.setAttribute('tabindex', index === 0 ? '0' : '-1');
+            button.addEventListener(
+              'click',
+              () => {
+                activeHighlightCategory = category;
+                highlightPaletteButtons.forEach((other) => {
+                  const isActive = other.dataset.highlightCategory === category;
+                  other.dataset.active = String(isActive);
+                  other.setAttribute('aria-checked', String(isActive));
+                  other.setAttribute('tabindex', isActive ? '0' : '-1');
+                });
+              },
+              { signal }
+            );
+          });
+          if (highlightPaletteButtons.length) {
+            const initialActive = highlightPaletteButtons.find(
+              (button) => button.dataset.active === 'true'
+            );
+            const initialCategory =
+              initialActive?.dataset.highlightCategory ||
+              highlightPaletteButtons[0]?.dataset.highlightCategory;
+            if (initialCategory) {
+              activeHighlightCategory = initialCategory;
+              highlightPaletteButtons.forEach((button) => {
+                const isActive = button.dataset.highlightCategory === initialCategory;
+                button.dataset.active = String(isActive);
+                button.setAttribute('aria-checked', String(isActive));
+                button.setAttribute('tabindex', isActive ? '0' : '-1');
+              });
+            }
+          }
+
+          highlightLabelInputs.forEach((input) => {
+            const category = input.dataset.highlightLabelInput;
+            if (!category) {
+              return;
+            }
+            input.addEventListener(
+              'input',
+              () => {
+                highlightCategoryLabels.set(category, input.value);
+                updateHighlightDisplayLabels();
+              },
+              { signal }
+            );
+            input.addEventListener(
+              'blur',
+              () => {
+                const value = input.value.trim();
+                highlightCategoryLabels.set(
+                  category,
+                  value || defaultHighlightLabels[category] || category
+                );
+                applyHighlightLabelsToUI();
+                persistHighlightLabels();
+                updateHighlightLinkedViews();
+              },
+              { signal }
+            );
+          });
+
+          if (highlightSaveButton) {
+            highlightSaveButton.addEventListener('click', saveHighlightMetadata, {
+              signal,
+            });
+          }
+
+          if (highlightQuestionButton) {
+            highlightQuestionButton.addEventListener('click', handleHighlightQuestion, {
+              signal,
+            });
+          }
+
+          if (highlightCloseButton) {
+            highlightCloseButton.addEventListener('click', () => {
+              closeHighlightInspector();
+            }, { signal });
+          }
+
+          if (highlightInspector) {
+            highlightInspector.addEventListener(
+              'keydown',
+              (event) => {
+                if (event.key === 'Escape') {
+                  closeHighlightInspector();
+                }
+              },
+              { signal }
+            );
+          }
+
+          if (highlightPracticeList) {
+            highlightPracticeList.addEventListener(
+              'click',
+              (event) => {
+                const openButton = event.target.closest('[data-highlight-open]');
+                if (openButton) {
+                  event.preventDefault();
+                  const highlightId = openButton.dataset.highlightOpen;
+                  if (!focusHighlight(highlightId)) {
+                    showToast('対応するハイライトが見つかりませんでした');
+                  }
+                  return;
+                }
+                const toRetrievalButton = event.target.closest(
+                  '[data-highlight-to-retrieval]'
+                );
+                if (toRetrievalButton) {
+                  event.preventDefault();
+                  addHighlightToRetrieval(
+                    toRetrievalButton.dataset.highlightToRetrieval
+                  );
+                }
+              },
+              { signal }
+            );
+          }
+
+          ensureHighlightPracticeVisibility();
           const scenarioPane = appRoot.querySelector('#section-scenario');
           const scenarioBody =
             scenarioPane?.querySelector('.context-pane__body') || null;
@@ -3845,6 +5703,20 @@
           const selectionJumpButton = scenarioPane?.querySelector(
             '[data-selection-jump]'
           );
+
+          if (scenarioBody) {
+            scenarioBody.addEventListener(
+              'click',
+              (event) => {
+                const mark = event.target.closest('mark.text-highlight');
+                if (mark) {
+                  event.preventDefault();
+                  openHighlightInspector(mark);
+                }
+              },
+              { signal }
+            );
+          }
 
           const scenarioSearchState = {
             matches: [],
@@ -4043,6 +5915,10 @@
 
               if (isModifierCombo && key === 'h') {
                 if (highlightSelection()) {
+                  event.preventDefault();
+                }
+              } else if (isModifierCombo && key === 'z') {
+                if (undoHighlight()) {
                   event.preventDefault();
                 }
               } else if (isModifierCombo && key === 'r') {
