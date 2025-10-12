@@ -3236,6 +3236,78 @@ def _inject_practice_navigation_styles() -> None:
                 flex-direction: column;
                 gap: 1.6rem;
             }
+            .practice-sidebar-nav {
+                margin-top: 1.4rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.45rem;
+                padding: 0.8rem 1rem 1rem;
+                border-radius: 18px;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: rgba(248, 250, 252, 0.95);
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+            }
+            .practice-sidebar-nav__title {
+                font-size: 0.82rem;
+                letter-spacing: 0.08em;
+                font-weight: 700;
+                text-transform: uppercase;
+                color: #1d4ed8;
+                margin: 0;
+            }
+            .practice-sidebar-nav__caption {
+                font-size: 0.75rem;
+                color: #475569;
+                margin: 0 0 0.35rem;
+            }
+            .practice-sidebar-nav__list {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 0.45rem;
+            }
+            .practice-sidebar-nav__link {
+                display: flex;
+                align-items: flex-start;
+                gap: 0.5rem;
+                padding: 0.45rem 0.6rem;
+                border-radius: 12px;
+                text-decoration: none;
+                border: 1px solid transparent;
+                color: #1f2937;
+                font-weight: 600;
+                transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+            }
+            .practice-sidebar-nav__link:hover {
+                background: rgba(219, 234, 254, 0.55);
+                border-color: rgba(59, 130, 246, 0.35);
+                color: #1d4ed8;
+            }
+            .practice-sidebar-nav__link.is-active,
+            .practice-sidebar-nav__link[aria-current="location"] {
+                background: rgba(59, 130, 246, 0.12);
+                border-color: rgba(59, 130, 246, 0.45);
+                color: #1d4ed8;
+                box-shadow: 0 6px 16px rgba(59, 130, 246, 0.18);
+            }
+            .practice-sidebar-nav__index {
+                font-size: 0.78rem;
+                color: #2563eb;
+                min-width: 3.1rem;
+            }
+            .practice-sidebar-nav__text {
+                font-size: 0.78rem;
+                color: #475569;
+                flex: 1 1 auto;
+                line-height: 1.45;
+            }
+            @media (max-width: 960px) {
+                .practice-sidebar-nav {
+                    display: none;
+                }
+            }
             .practice-toc {
                 position: sticky;
                 top: calc(var(--context-panel-offset, 72px) + 12px);
@@ -3451,6 +3523,38 @@ def _inject_practice_navigation_styles() -> None:
                     border-color: rgba(59, 130, 246, 0.45);
                     box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28);
                 }
+                .practice-sidebar-nav {
+                    background: rgba(17, 24, 39, 0.9);
+                    border-color: rgba(148, 163, 184, 0.35);
+                    box-shadow: 0 12px 32px rgba(2, 6, 23, 0.55);
+                }
+                .practice-sidebar-nav__caption {
+                    color: rgba(226, 232, 240, 0.7);
+                }
+                .practice-sidebar-nav__title {
+                    color: #93c5fd;
+                }
+                .practice-sidebar-nav__link {
+                    color: #e2e8f0;
+                    border-color: rgba(148, 163, 184, 0.2);
+                }
+                .practice-sidebar-nav__link:hover {
+                    background: rgba(59, 130, 246, 0.25);
+                    border-color: rgba(96, 165, 250, 0.45);
+                    color: #bfdbfe;
+                }
+                .practice-sidebar-nav__link.is-active,
+                .practice-sidebar-nav__link[aria-current="location"] {
+                    background: rgba(59, 130, 246, 0.35);
+                    border-color: rgba(96, 165, 250, 0.6);
+                    color: #bfdbfe;
+                }
+                .practice-sidebar-nav__text {
+                    color: rgba(203, 213, 225, 0.88);
+                }
+                .practice-sidebar-nav__index {
+                    color: #93c5fd;
+                }
                 .practice-toc {
                     background: rgba(17, 24, 39, 0.9);
                     border-color: rgba(148, 163, 184, 0.35);
@@ -3491,6 +3595,40 @@ def _inject_practice_navigation_styles() -> None:
     st.session_state["_practice_nav_styles_injected"] = True
 
 
+def _render_practice_sidebar_shortcuts(entries: Sequence[Mapping[str, str]]) -> None:
+    if not entries:
+        return
+
+    nav_parts: List[str] = []
+    for entry in entries:
+        anchor = html.escape(entry.get("anchor", ""))
+        title = html.escape(entry.get("title", ""), quote=True)
+        label_text = html.escape(entry.get("label", ""))
+        preview_text = html.escape(entry.get("preview", ""))
+        nav_parts.append(
+            (
+                "<li class=\"practice-sidebar-nav__item\">"
+                f"<a class=\"practice-sidebar-nav__link\" data-anchor=\"{anchor}\" "
+                f"href=\"#{anchor}\" title=\"{title}\">"
+                f"<span class=\"practice-sidebar-nav__index\">{label_text}</span>"
+                f"<span class=\"practice-sidebar-nav__text\">{preview_text}</span>"
+                "</a></li>"
+            )
+        )
+    nav_items = "".join(nav_parts)
+
+    sidebar_html = dedent(
+        f"""
+        <nav class="practice-sidebar-nav" aria-label="設問ショートカット">
+            <p class="practice-sidebar-nav__title">設問ショートカット</p>
+            <p class="practice-sidebar-nav__caption">クリックすると該当の設問にジャンプします。</p>
+            <ul class="practice-sidebar-nav__list" role="list">{nav_items}</ul>
+        </nav>
+        """
+    )
+    st.sidebar.markdown(sidebar_html, unsafe_allow_html=True)
+
+
 def _inject_practice_navigation_script() -> None:
     st.markdown(
         dedent(
@@ -3505,7 +3643,7 @@ def _inject_practice_navigation_script() -> None:
 
                 const sections = Array.from(doc.querySelectorAll('.practice-question-block'));
                 const navLinks = Array.from(
-                    doc.querySelectorAll('.practice-toc-link, .practice-tab-link')
+                    doc.querySelectorAll('.practice-toc-link, .practice-tab-link, .practice-sidebar-nav__link')
                 );
                 const quickNav = doc.getElementById('practice-quick-nav');
                 const returnButton = doc.querySelector('.practice-return-nav-button');
@@ -4003,6 +4141,15 @@ def _render_problem_context_block(
                         <button type="button" class="marker-color" data-action="set-color" data-color="cerulean" aria-label="セルリアンマーカー"></button>
                         <button type="button" class="marker-color" data-action="set-color" data-color="teal" aria-label="ティールマーカー"></button>
                     </div>
+                    <div class="search-navigation" data-target="{element_id}" aria-label="検索結果ナビゲーション">
+                        <button type="button" class="toolbar-button search" data-action="search-prev" aria-label="前の検索結果" disabled>
+                            前へ
+                        </button>
+                        <span class="search-navigation__status" aria-live="polite">0 / 0</span>
+                        <button type="button" class="toolbar-button search" data-action="search-next" aria-label="次の検索結果" disabled>
+                            次へ
+                        </button>
+                    </div>
                     <button type="button" class="toolbar-button undo" data-action="undo" aria-disabled="true" disabled>
                         直前の操作を取り消す
                     </button>
@@ -4124,6 +4271,23 @@ def _render_problem_context_block(
                 background: rgba(15, 23, 42, 0.06);
                 box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
             }}
+            .search-navigation {{
+                display: inline-flex;
+                align-items: center;
+                gap: 0.45rem;
+                margin-left: auto;
+                padding: 0.25rem 0.6rem;
+                border-radius: 999px;
+                background: rgba(255, 255, 255, 0.75);
+                box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.25);
+            }}
+            .search-navigation__status {{
+                font-size: 0.78rem;
+                font-weight: 600;
+                color: #1d4ed8;
+                min-width: 3.2rem;
+                text-align: center;
+            }}
             .marker-color {{
                 width: 1.35rem;
                 height: 1.35rem;
@@ -4166,6 +4330,19 @@ def _render_problem_context_block(
             }}
             .marker-color.selected {{
                 box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(15, 23, 42, 0.35);
+            }}
+            .toolbar-button.search {{
+                background: rgba(59, 130, 246, 0.12);
+                color: #1d4ed8;
+                box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.28);
+                padding: 0.3rem 0.75rem;
+            }}
+            .toolbar-button.search:disabled {{
+                background: rgba(226, 232, 240, 0.85);
+                color: rgba(100, 116, 139, 0.75);
+                box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.28);
+                cursor: not-allowed;
+                opacity: 0.9;
             }}
             .toolbar-hint {{
                 font-size: 0.76rem;
@@ -4220,6 +4397,33 @@ def _render_problem_context_block(
                 background: linear-gradient(transparent 45%, rgba(129, 140, 248, 0.65) 45%);
                 box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2);
             }}
+            .problem-context-block mark.context-search-hit.is-active {{
+                background: linear-gradient(transparent 35%, rgba(59, 130, 246, 0.85) 35%);
+                box-shadow: 0 0 0 1px rgba(29, 78, 216, 0.4);
+                color: #0f172a;
+            }}
+            @media (prefers-color-scheme: dark) {{
+                .search-navigation {{
+                    background: rgba(30, 41, 59, 0.7);
+                    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.35);
+                }}
+                .search-navigation__status {{
+                    color: #bfdbfe;
+                }}
+                .toolbar-button.search {{
+                    background: rgba(59, 130, 246, 0.2);
+                    color: #bfdbfe;
+                }}
+                .toolbar-button.search:disabled {{
+                    background: rgba(71, 85, 105, 0.6);
+                    color: rgba(148, 163, 184, 0.85);
+                    box-shadow: inset 0 0 0 1px rgba(71, 85, 105, 0.6);
+                }}
+                .problem-context-block mark.context-search-hit.is-active {{
+                    background: linear-gradient(transparent 35%, rgba(59, 130, 246, 0.6) 35%);
+                    color: #e2e8f0;
+                }}
+            }}
         </style>
         <script>
             (function() {{
@@ -4234,11 +4438,55 @@ def _render_problem_context_block(
                 const clearButton = toolbar.querySelector('[data-action="clear-all"]');
                 const captureButton = toolbar.querySelector('[data-action="capture"]');
                 const colorButtons = Array.from(toolbar.querySelectorAll('[data-action="set-color"]'));
+                const searchPrevButton = toolbar.querySelector('[data-action="search-prev"]');
+                const searchNextButton = toolbar.querySelector('[data-action="search-next"]');
+                const searchStatus = toolbar.querySelector('.search-navigation__status');
 
                 let highlightMode = false;
                 let activeColor = (highlightButton && highlightButton.dataset.defaultColor) || (colorButtons[0] && colorButtons[0].dataset.color) || "gold";
                 const history = [];
                 const maxHistory = 30;
+                const collectSearchMarks = () => Array.from(container.querySelectorAll('mark.context-search-hit'));
+                let activeSearchIndex = -1;
+
+                const setSearchControlsDisabled = (disabled) => {{
+                    [searchPrevButton, searchNextButton].forEach((button) => {{
+                        if (!button) {{
+                            return;
+                        }}
+                        button.disabled = disabled;
+                        button.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+                    }});
+                }};
+
+                const updateSearchNavigation = (direction = 0) => {{
+                    if (!searchStatus) {{
+                        return;
+                    }}
+                    const marks = collectSearchMarks();
+                    const total = marks.length;
+                    if (!total) {{
+                        activeSearchIndex = -1;
+                        setSearchControlsDisabled(true);
+                        searchStatus.textContent = '0 / 0';
+                        marks.forEach((mark) => mark.classList.remove('is-active'));
+                        return;
+                    }}
+                    if (direction !== 0) {{
+                        activeSearchIndex = (activeSearchIndex + direction + total) % total;
+                    }} else if (activeSearchIndex < 0 || activeSearchIndex >= total) {{
+                        activeSearchIndex = 0;
+                    }}
+                    setSearchControlsDisabled(false);
+                    marks.forEach((mark, index) => {{
+                        mark.classList.toggle('is-active', index === activeSearchIndex);
+                    }});
+                    searchStatus.textContent = `${{activeSearchIndex + 1}} / ${{total}}`;
+                    const target = marks[activeSearchIndex];
+                    if (target && typeof target.scrollIntoView === 'function') {{
+                        target.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                    }}
+                }};
 
                 const updateUndoState = () => {{
                     if (!undoButton) {{
@@ -4261,6 +4509,14 @@ def _render_problem_context_block(
                 }};
 
                 updateUndoState();
+                updateSearchNavigation();
+
+                if (searchPrevButton) {{
+                    searchPrevButton.addEventListener('click', () => updateSearchNavigation(-1));
+                }}
+                if (searchNextButton) {{
+                    searchNextButton.addEventListener('click', () => updateSearchNavigation(1));
+                }}
 
                 const setHighlightMode = (value) => {{
                     highlightMode = Boolean(value);
@@ -5166,7 +5422,7 @@ def main_view() -> None:
                 box-shadow: 0 0 0 1px var(--primary-color) inset;
                 font-weight: 600;
             }
-            .mobile-bottom-nav {
+            .mobile-top-nav {
                 display: none;
             }
             @media (max-width: 960px) {
@@ -5177,7 +5433,7 @@ def main_view() -> None:
                     padding-left: 0 !important;
                 }
                 .block-container {
-                    padding: 1rem 1rem 5.5rem;
+                    padding: calc(3.8rem + env(safe-area-inset-top, 0px)) 1rem 2.75rem;
                     max-width: 100%;
                 }
                 .dashboard-grid {
@@ -5200,32 +5456,32 @@ def main_view() -> None:
                 .metric-grid {
                     grid-template-columns: 1fr;
                 }
-                .mobile-bottom-nav {
+                .mobile-top-nav {
                     display: block;
-                    position: fixed;
+                    position: sticky;
+                    top: 0;
                     left: 0;
                     right: 0;
-                    bottom: 0;
-                    z-index: 1200;
-                    padding: 0.5rem 0.75rem calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
-                    background: rgba(255, 255, 255, 0.94);
-                    box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.12);
-                    border-top: 1px solid rgba(148, 163, 184, 0.35);
+                    z-index: 1300;
+                    padding: calc(env(safe-area-inset-top, 0px) + 0.65rem) 1rem 0.65rem;
+                    background: linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.88));
+                    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+                    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
                     backdrop-filter: blur(12px);
                 }
-                .mobile-bottom-nav [role="radiogroup"] {
+                .mobile-top-nav [role="radiogroup"] {
                     display: flex;
                     justify-content: space-between;
                     align-items: stretch;
                     gap: 0.25rem;
                 }
-                .mobile-bottom-nav label[data-baseweb="radio"] {
+                .mobile-top-nav label[data-baseweb="radio"] {
                     flex: 1 1 0;
                 }
-                .mobile-bottom-nav label[data-baseweb="radio"] > div:first-child {
+                .mobile-top-nav label[data-baseweb="radio"] > div:first-child {
                     display: none;
                 }
-                .mobile-bottom-nav label[data-baseweb="radio"] > div:last-child {
+                .mobile-top-nav label[data-baseweb="radio"] > div:last-child {
                     border-radius: 14px;
                     border: 1px solid transparent;
                     padding: 0.45rem 0.35rem 0.4rem;
@@ -5236,7 +5492,7 @@ def main_view() -> None:
                     background: rgba(248, 250, 252, 0.9);
                     transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
                 }
-                .mobile-bottom-nav label[data-baseweb="radio"] > input:checked + div {
+                .mobile-top-nav label[data-baseweb="radio"] > input:checked + div {
                     border-color: rgba(37, 99, 235, 0.45);
                     color: var(--brand-strong);
                     background: rgba(219, 234, 254, 0.9);
@@ -5244,7 +5500,7 @@ def main_view() -> None:
                 }
             }
             @media (min-width: 961px) {
-                .mobile-bottom-nav {
+                .mobile-top-nav {
                     display: none !important;
                 }
             }
@@ -5295,7 +5551,7 @@ def main_view() -> None:
 
     with st.container():
         st.markdown(
-            "<div class=\"mobile-bottom-nav\" role=\"navigation\" aria-label=\"主要メニュー\">",
+            "<div class=\"mobile-top-nav\" role=\"navigation\" aria-label=\"主要メニュー\">",
             unsafe_allow_html=True,
         )
         st.radio(
@@ -5341,6 +5597,82 @@ def _inject_dashboard_styles() -> None:
                 --border-soft: rgba(148, 163, 184, 0.32);
                 --border-strong: rgba(71, 85, 105, 0.58);
                 --shadow-card: 0 18px 32px rgba(15, 23, 42, 0.1);
+            }
+            .answer-editor {
+                border: 2px dashed rgba(37, 99, 235, 0.24);
+                border-radius: 20px;
+                padding: 0.85rem 1rem 0.9rem;
+                background: rgba(219, 234, 254, 0.18);
+                margin: 0.85rem 0 0.75rem;
+                transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+            }
+            .answer-editor:focus-within {
+                border-color: rgba(37, 99, 235, 0.55);
+                box-shadow: 0 0 0 4px rgba(191, 219, 254, 0.45);
+                background: rgba(219, 234, 254, 0.32);
+            }
+            .answer-editor .stTextArea textarea {
+                border-radius: 16px;
+                border: 1px solid rgba(148, 163, 184, 0.48);
+                background: rgba(255, 255, 255, 0.98);
+                color: #0f172a;
+                box-shadow: inset 0 2px 6px rgba(15, 23, 42, 0.08);
+            }
+            .answer-editor .stTextArea textarea:focus-visible {
+                border-color: rgba(37, 99, 235, 0.65);
+                box-shadow: 0 0 0 2px rgba(191, 219, 254, 0.45);
+            }
+            .answer-editor .stTextArea textarea::placeholder {
+                color: rgba(51, 65, 85, 0.7);
+            }
+            .answer-editor.answer-editor--note {
+                background: rgba(240, 249, 255, 0.45);
+                border-style: solid;
+                border-color: rgba(59, 130, 246, 0.3);
+            }
+            .answer-editor.answer-editor--note .stTextArea textarea {
+                min-height: 180px;
+            }
+            .retrieval-bullet-preview {
+                margin: 0.4rem 0 0.1rem;
+                padding-left: 1.1rem;
+                color: #1f2937;
+            }
+            .retrieval-bullet-preview li {
+                margin: 0.1rem 0;
+                font-size: 0.86rem;
+            }
+            @media (prefers-color-scheme: dark) {
+                .answer-editor {
+                    border-color: rgba(59, 130, 246, 0.38);
+                    background: rgba(30, 41, 59, 0.38);
+                }
+                .answer-editor:focus-within {
+                    border-color: rgba(147, 197, 253, 0.65);
+                    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.45);
+                    background: rgba(30, 41, 59, 0.55);
+                }
+                .answer-editor .stTextArea textarea {
+                    background: rgba(15, 23, 42, 0.92);
+                    color: #e2e8f0;
+                    border-color: rgba(100, 116, 139, 0.55);
+                }
+                .answer-editor .stTextArea textarea:focus-visible {
+                    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.45);
+                }
+                .answer-editor .stTextArea textarea::placeholder {
+                    color: rgba(203, 213, 225, 0.7);
+                }
+                .answer-editor.answer-editor--note {
+                    background: rgba(30, 41, 59, 0.46);
+                    border-color: rgba(59, 130, 246, 0.45);
+                }
+                .retrieval-bullet-preview {
+                    color: rgba(226, 232, 240, 0.9);
+                }
+                .retrieval-bullet-preview li {
+                    color: inherit;
+                }
             }
             body,
             [data-testid="stAppViewContainer"] * {
@@ -6166,6 +6498,191 @@ def _inject_dashboard_styles() -> None:
         unsafe_allow_html=True,
     )
     st.session_state["_dashboard_styles_injected"] = True
+
+
+def _inject_help_tooltip_styles() -> None:
+    if st.session_state.get("_help_tooltip_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .help-label {
+                position: relative;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.45rem;
+                color: #0f172a;
+            }
+            .help-label--block {
+                display: flex;
+            }
+            .help-label--heading {
+                margin: 1.25rem 0 0.5rem;
+                gap: 0.6rem;
+            }
+            .help-label--subheading {
+                margin: 0.85rem 0 0.4rem;
+            }
+            .help-label--form {
+                margin-bottom: 0.25rem;
+            }
+            .help-label__text {
+                margin: 0;
+                font-weight: 600;
+                color: inherit;
+            }
+            .help-label--heading .help-label__text {
+                font-size: clamp(1.08rem, 2.4vw, 1.3rem);
+                font-weight: 700;
+            }
+            .help-label--subheading .help-label__text {
+                font-size: clamp(0.96rem, 2vw, 1.1rem);
+            }
+            .help-label__icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 1.55rem;
+                height: 1.55rem;
+                border-radius: 50%;
+                border: 1px solid rgba(37, 99, 235, 0.45);
+                background: rgba(219, 234, 254, 0.72);
+                color: rgba(37, 99, 235, 0.95);
+                font-weight: 700;
+                font-size: 0.9rem;
+                cursor: help;
+                padding: 0;
+                transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+            }
+            .help-label__icon:hover,
+            .help-label__icon:focus-visible {
+                transform: translateY(-1px);
+                background: rgba(191, 219, 254, 0.95);
+                box-shadow: 0 6px 12px rgba(37, 99, 235, 0.25);
+                outline: none;
+            }
+            .help-label__icon:focus-visible {
+                box-shadow: 0 0 0 3px rgba(191, 219, 254, 0.75), 0 6px 12px rgba(37, 99, 235, 0.25);
+            }
+            .help-label__bubble {
+                position: absolute;
+                top: calc(100% + 0.6rem);
+                right: 0;
+                min-width: 220px;
+                max-width: min(340px, 80vw);
+                padding: 0.65rem 0.75rem;
+                border-radius: 12px;
+                background: rgba(15, 23, 42, 0.95);
+                color: rgba(241, 245, 249, 0.98);
+                font-size: 0.78rem;
+                line-height: 1.55;
+                box-shadow: 0 16px 28px rgba(15, 23, 42, 0.24);
+                opacity: 0;
+                transform: translateY(-6px);
+                pointer-events: none;
+                transition: opacity 0.18s ease, transform 0.18s ease;
+                z-index: 1600;
+            }
+            .help-label__bubble::before {
+                content: "";
+                position: absolute;
+                top: -6px;
+                right: 16px;
+                border-width: 0 6px 6px 6px;
+                border-style: solid;
+                border-color: transparent transparent rgba(15, 23, 42, 0.95) transparent;
+            }
+            .help-label:focus-within .help-label__bubble,
+            .help-label:hover .help-label__bubble {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            .help-label__bubble[hidden] {
+                display: none;
+            }
+            .help-label__icon span {
+                pointer-events: none;
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .help-label__icon,
+                .help-label__bubble {
+                    transition: none;
+                }
+            }
+            @media (prefers-color-scheme: dark) {
+                .help-label {
+                    color: #e2e8f0;
+                }
+                .help-label__icon {
+                    border-color: rgba(147, 197, 253, 0.6);
+                    background: rgba(30, 41, 59, 0.9);
+                    color: rgba(191, 219, 254, 0.95);
+                }
+                .help-label__icon:hover,
+                .help-label__icon:focus-visible {
+                    background: rgba(59, 130, 246, 0.32);
+                }
+                .help-label__bubble {
+                    background: rgba(15, 23, 42, 0.98);
+                    color: rgba(226, 232, 240, 0.95);
+                }
+                .help-label__bubble::before {
+                    border-color: transparent transparent rgba(15, 23, 42, 0.98) transparent;
+                }
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_help_tooltip_styles_injected"] = True
+
+
+def _render_help_label(
+    label: str,
+    description: str,
+    *,
+    level: Optional[int] = None,
+    variant: str = "form",
+) -> None:
+    _inject_help_tooltip_styles()
+    tooltip_id = f"help-tip-{uuid.uuid4().hex}"
+    safe_label = html.escape(label)
+    safe_desc = html.escape(description)
+    wrapper_classes = ["help-label"]
+    if variant == "form":
+        wrapper_classes.append("help-label--form")
+        wrapper_classes.append("help-label--block")
+    elif variant == "heading":
+        wrapper_classes.append("help-label--heading")
+    elif variant == "subheading":
+        wrapper_classes.append("help-label--subheading")
+        wrapper_classes.append("help-label--block")
+    else:
+        wrapper_classes.append("help-label--block")
+
+    if level is not None:
+        heading_level = max(1, min(int(level), 6))
+        text_tag = f"h{heading_level}"
+        wrapper_classes.append("help-label--heading")
+    else:
+        text_tag = "span"
+
+    markup = dedent(
+        f"""
+        <div class="{' '.join(wrapper_classes)}">
+            <{text_tag} class="help-label__text">{safe_label}</{text_tag}>
+            <button type="button" class="help-label__icon" aria-describedby="{tooltip_id}" aria-label="{safe_label}の説明">
+                <span aria-hidden="true">？</span>
+            </button>
+            <span class="help-label__bubble" role="tooltip" id="{tooltip_id}">{safe_desc}</span>
+        </div>
+        """
+    ).strip()
+    st.markdown(markup, unsafe_allow_html=True)
+
 
 
 
@@ -9518,15 +10035,28 @@ def _question_input(
         "<p class=\"practice-autosave-caption\">入力内容は自動保存されます。</p>",
         unsafe_allow_html=True,
     )
+    placeholder_hint = "ここに解答を入力してください。重要語を箇条書きにしてから文章化すると構成が整います。"
+    if question.get("character_limit"):
+        try:
+            limit_value = int(question["character_limit"])
+            placeholder_hint = (
+                f"ここに解答を入力してください（目安: {limit_value}字）。"
+                " 重要語を箇条書きにしてから文章化すると構成が整います。"
+            )
+        except (TypeError, ValueError):
+            pass
+    st.markdown("<div class='answer-editor' role='group' aria-label='解答入力欄'>", unsafe_allow_html=True)
     text = st.text_area(
         label=question["prompt"],
         key=textarea_state_key,
         value=value,
-        height=160,
+        height=200,
         help=help_text,
+        placeholder=placeholder_hint,
         disabled=disabled,
     )
     _render_character_counter(text, question.get("character_limit"))
+    st.markdown("</div>", unsafe_allow_html=True)
     _track_question_activity(key, text)
     keywords = _resolve_question_keywords(question)
     keyword_hits: Mapping[str, bool] = {}
@@ -9809,7 +10339,12 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
         st.info("この問題ではキーワードが登録されていないため、フラッシュカードを生成できません。")
         return
 
-    st.subheader("リトリーバル・プラクティス")
+    _render_help_label(
+        "リトリーバル・プラクティス",
+        "回答前に重要キーワードを記憶から書き出して想起率を測る練習モードです。自動採点で覚えている語句を確認できます。",
+        level=3,
+        variant="heading",
+    )
     st.caption(
         "回答作成の前に、設問の重要キーワードを記憶から呼び起こしましょう。"
         " 思い出しの練習（retrieval practice）は再読よりも記憶定着を高めるとされています。"
@@ -9890,14 +10425,32 @@ def _render_retrieval_flashcards(problem: Dict) -> None:
         """
         st.markdown(card_html, unsafe_allow_html=True)
 
+        st.markdown(
+            "<div class='answer-editor answer-editor--note' role='group' aria-label='キーワード想起メモ欄'>",
+            unsafe_allow_html=True,
+        )
         guess_text = st.text_area(
             "思い出したキーワードを箇条書きで入力",
             key=guess_state_key,
-            height=120,
+            height=180,
             placeholder="例: SWOT分析\nブランド認知向上\n外注管理",
             help="Enterキーで改行し、思い出した単語を一行ずつ入力してください。",
         )
-        st.caption("答えを見る前に、自分の言葉でキーワードを書き出してみましょう。")
+        guess_lines = [
+            re.sub(r"^[\-・\s]+", "", line).strip()
+            for line in guess_text.splitlines()
+            if line.strip()
+        ]
+        if guess_lines:
+            items = "".join(f"<li>{html.escape(item)}</li>" for item in guess_lines)
+            st.markdown(
+                f"<ul class='retrieval-bullet-preview' role='list'>{items}</ul>",
+                unsafe_allow_html=True,
+            )
+            st.caption(f"入力したキーワード: {len(guess_lines)}件")
+        else:
+            st.caption("答えを見る前に、自分の言葉でキーワードを書き出してみましょう。")
+        st.markdown("</div>", unsafe_allow_html=True)
 
         evaluation = st.session_state.get(result_state_key)
         if reveal_clicked:
@@ -11521,11 +12074,16 @@ def practice_page(user: Dict) -> None:
             status_choices = ["未実施", "要復習", "安定"]
             default_statuses = st.session_state.get(status_filter_key, status_choices)
             st.markdown('<div class="tree-level tree-level-filter">', unsafe_allow_html=True)
+            _render_help_label(
+                "ステータスフィルタ",
+                "未実施／要復習／安定の進捗ステータスで設問を絞り込みます。自分の解答履歴から自動判定されます。",
+            )
             selected_statuses = st.multiselect(
                 "ステータスフィルタ",
                 status_choices,
                 default=default_statuses,
                 key=status_filter_key,
+                label_visibility="collapsed",
             )
             st.markdown("</div>", unsafe_allow_html=True)
 
@@ -11800,7 +12358,12 @@ def practice_page(user: Dict) -> None:
                 st.write(_infer_question_aim(selected_question))
                 st.markdown("##### 必要アウトプット形式")
                 st.write(_describe_output_requirements(selected_question))
-                st.markdown("##### 定番解法プロンプト")
+                _render_help_label(
+                    "定番解法プロンプト",
+                    "高得点答案で多用される表現や構成のヒントを簡潔にまとめています。答案骨子づくりの出発点に活用してください。",
+                    level=5,
+                    variant="subheading",
+                )
                 st.write(_suggest_solution_prompt(selected_question))
 
             with answer_tab:
@@ -11955,6 +12518,7 @@ def practice_page(user: Dict) -> None:
         question_count = len(question_entries)
 
         if question_entries:
+            _render_practice_sidebar_shortcuts(question_entries)
             tab_items = "".join(
                 (
                     "<li class=\"practice-tab-item\" role=\"presentation\">"
@@ -12715,7 +13279,12 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
             st.write(_infer_question_aim(insight_question))
             st.markdown("##### 必要アウトプット形式")
             st.write(_describe_output_requirements(insight_question))
-            st.markdown("##### 定番解法プロンプト")
+            _render_help_label(
+                "定番解法プロンプト",
+                "過去の良回答で頻出したフレーズや切り口を抽出したテンプレートです。骨子作成や表現確認に役立ててください。",
+                level=5,
+                variant="subheading",
+            )
             st.write(_suggest_solution_prompt(insight_question))
         else:
             st.caption("設問を選択すると狙いや解法テンプレートを表示します。")
@@ -12842,8 +13411,21 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
         or (str(question_number) if question_number is not None else selected_question_key)
     )
     answer_key = f"uploaded_answer_{selected_year}_{selected_case}_{answer_fragment}"
-    user_answer = st.text_area("回答を入力", key=answer_key)
+    placeholder_uploaded = "ここに解答を入力してください。段落ごとに改行すると自己レビューしやすくなります。"
+    if max_chars:
+        placeholder_uploaded = (
+            f"ここに解答を入力してください（目安: {max_chars}字）。"
+            " 段落ごとに改行し、重要語は箇条書きにして整理してみましょう。"
+        )
+    st.markdown("<div class='answer-editor' role='group' aria-label='解答入力欄'>", unsafe_allow_html=True)
+    user_answer = st.text_area(
+        "回答を入力",
+        key=answer_key,
+        height=200,
+        placeholder=placeholder_uploaded,
+    )
     _render_character_counter(user_answer, max_chars)
+    st.markdown("</div>", unsafe_allow_html=True)
 
     if limit_int is not None:
         with st.expander("文字数スライサー"):
