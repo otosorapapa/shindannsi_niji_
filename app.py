@@ -10,7 +10,6 @@ from uuid import uuid4
 from urllib.parse import urlencode
 import logging
 
-import base64
 import html
 import hashlib
 import difflib
@@ -5247,44 +5246,6 @@ def _render_video_player(url: str, *, key_prefix: str) -> None:
     )
 
 
-def _resolve_diagram_path(diagram_path: str) -> Path:
-    path = Path(diagram_path)
-    if not path.is_absolute():
-        base_dir = Path(__file__).resolve().parent
-        path = base_dir / path
-    return path
-
-
-def _render_diagram_resource(diagram_path: Optional[str], caption: Optional[str]) -> None:
-    if not diagram_path:
-        return
-
-    path = _resolve_diagram_path(diagram_path)
-    if not path.exists():
-        st.warning("図解ファイルが見つかりませんでした。", icon="⚠️")
-        return
-
-    try:
-        if path.suffix.lower() == ".svg":
-            svg_text = path.read_text(encoding="utf-8")
-            encoded = base64.b64encode(svg_text.encode("utf-8")).decode("ascii")
-            alt_text = caption or "図解"
-            figure_html = dedent(
-                f"""
-                <figure style="margin:0">
-                  <img src="data:image/svg+xml;base64,{encoded}" alt="{html.escape(alt_text)}" style="max-width:100%;height:auto;" />
-                </figure>
-                """
-            )
-            st.markdown(figure_html, unsafe_allow_html=True)
-            if caption:
-                st.caption(caption)
-        else:
-            st.image(path.read_bytes(), caption=caption, use_column_width=True)
-    except Exception as exc:  # pragma: no cover - rendering guard
-        st.warning(f"図解の表示中に問題が発生しました: {exc}", icon="⚠️")
-
-
 def _render_slot_lecturer_tab(tab: "st._DeltaGenerator", payload: Dict[str, str], empty_message: str) -> None:
     with tab:
         if not payload or not any(value for value in payload.values()):
@@ -5322,8 +5283,6 @@ def _render_model_answer_section(
     model_answer: Any,
     explanation: Any,
     video_url: Optional[str],
-    diagram_path: Optional[str],
-    diagram_caption: Optional[str],
     context_id: str,
     year: Optional[str] = None,
     case_label: Optional[str] = None,
@@ -5374,10 +5333,6 @@ def _render_model_answer_section(
         st.markdown("**動画解説**")
         _render_video_player(video_url, key_prefix=context_id)
         st.caption("倍速再生と10秒スキップで効率的に復習できます。")
-
-    if diagram_path:
-        st.markdown("**図解**")
-        _render_diagram_resource(diagram_path, caption=diagram_caption)
 
 def main_view() -> None:
     user = st.session_state.user
@@ -13479,20 +13434,12 @@ def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
 
     with st.expander(expander_label):
         video_url = None
-        diagram_path = None
-        diagram_caption = None
         if video_col and pd.notna(selected_question.get(video_col)):
             video_url = str(selected_question.get(video_col))
-        if diagram_col and pd.notna(selected_question.get(diagram_col)):
-            diagram_path = str(selected_question.get(diagram_col))
-        if diagram_caption_col and pd.notna(selected_question.get(diagram_caption_col)):
-            diagram_caption = str(selected_question.get(diagram_caption_col))
         _render_model_answer_section(
             model_answer=selected_question.get("模範解答"),
             explanation=selected_question.get("解説"),
             video_url=video_url,
-            diagram_path=diagram_path,
-            diagram_caption=diagram_caption,
             context_id=f"uploaded-{selected_year}-{selected_case}-{answer_fragment}",
             year=selected_year,
             case_label=selected_case,
@@ -14552,8 +14499,6 @@ def render_attempt_results(attempt_id: int) -> None:
                     model_answer=answer["model_answer"],
                     explanation=answer["explanation"],
                     video_url=answer.get("video_url"),
-                    diagram_path=answer.get("diagram_path"),
-                    diagram_caption=answer.get("diagram_caption"),
                     context_id=f"attempt-{attempt_id}-q{idx}",
                     year=answer.get("year"),
                     case_label=answer.get("case_label"),
