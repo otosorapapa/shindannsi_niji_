@@ -828,8 +828,9 @@
       body[data-app="exercise"] .layout {
         display: flex;
         align-items: flex-start;
+        flex-wrap: nowrap;
         gap: var(--spacing-xl);
-        max-width: 1200px;
+        max-width: 1280px;
         margin: 0 auto;
         padding: 0 var(--spacing-lg) calc(var(--spacing-xl) + var(--spacing-lg));
         width: 100%;
@@ -849,7 +850,7 @@
         box-shadow: none;
       }
 
-      body[data-app="exercise"] .context-pane__card {
+      body[data-app="exercise"] .context-pane__card { 
         background: var(--color-surface);
         border-radius: var(--radius-card);
         box-shadow: 0 14px 30px rgba(15, 23, 39, 0.08);
@@ -858,10 +859,29 @@
         gap: var(--spacing-sm);
       }
 
+      body[data-app="exercise"]
+        .context-pane__card--scenario
+        [data-accordion-body] {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-md);
+      }
+
       @media (prefers-color-scheme: dark) {
         body[data-app="exercise"] .context-pane__card {
           background: rgba(18, 26, 44, 0.92);
           box-shadow: 0 20px 40px rgba(8, 13, 25, 0.55);
+        }
+        body[data-app="exercise"] .quick-nav {
+          background: rgba(18, 26, 44, 0.92);
+          box-shadow: 0 20px 40px rgba(8, 13, 25, 0.55);
+        }
+        body[data-app="exercise"] .quick-nav__link {
+          background: rgba(17, 27, 45, 0.6);
+          border-color: rgba(255, 255, 255, 0.08);
+        }
+        body[data-app="exercise"] .quick-nav__link[data-active='true'] {
+          background: color-mix(in srgb, var(--color-chip-bg) 80%, transparent);
         }
       }
 
@@ -1012,6 +1032,214 @@
         flex-direction: column;
         gap: var(--spacing-lg);
         min-width: 0;
+      }
+
+      body[data-app="exercise"] .quick-nav {
+        position: sticky;
+        top: var(--spacing-lg);
+        flex: 0 0 260px;
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-md);
+        background: var(--color-surface);
+        border-radius: var(--radius-card);
+        box-shadow: 0 14px 30px rgba(15, 23, 39, 0.08);
+        padding: var(--spacing-md);
+        max-height: calc(100vh - var(--spacing-lg) * 2);
+      }
+
+      body[data-app="exercise"] .quick-nav__header {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .quick-nav__title {
+        margin: 0;
+        font-size: 1.02rem;
+        font-weight: 700;
+        color: var(--color-text-strong);
+        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+      }
+
+      body[data-app="exercise"] .quick-nav__hint {
+        font-size: 0.82rem;
+        color: var(--color-text-muted);
+        line-height: 1.5;
+      }
+
+      body[data-app="exercise"] .quick-nav__list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-xs);
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+
+      body[data-app="exercise"] .quick-nav__item {
+        display: block;
+      }
+
+      body[data-app="exercise"] .quick-nav__link {
+        width: 100%;
+        border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+        background: color-mix(in srgb, var(--color-layer-subtle) 45%, transparent);
+        border-radius: 14px;
+        padding: var(--spacing-sm) var(--spacing-sm);
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: var(--spacing-sm);
+        color: inherit;
+        text-align: left;
+        font: inherit;
+        cursor: pointer;
+        transition: border-color var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease,
+          background-color var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .quick-nav__link:hover,
+      body[data-app="exercise"] .quick-nav__link:focus-visible {
+        border-color: var(--color-chip-active);
+        background: color-mix(in srgb, var(--color-chip-bg) 65%, transparent);
+        box-shadow: 0 10px 18px rgba(15, 23, 39, 0.08);
+        outline: none;
+      }
+
+      body[data-app="exercise"] .quick-nav__link[data-active='true'] {
+        border-color: var(--color-chip-active);
+        background: color-mix(in srgb, var(--color-chip-bg) 80%, transparent);
+      }
+
+      body[data-app="exercise"] .quick-nav__link[data-status='answered'] {
+        border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+      }
+
+      body[data-app="exercise"] .quick-nav__link[data-status='review'] {
+        border-color: color-mix(in srgb, var(--color-warning) 55%, transparent);
+      }
+
+      body[data-app="exercise"] .quick-nav__number {
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
+        font-weight: 700;
+        font-size: 0.88rem;
+        color: var(--color-chip-active);
+      }
+
+      body[data-app="exercise"] .quick-nav__texts {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+
+      body[data-app="exercise"] .quick-nav__label {
+        font-weight: 600;
+        font-size: 0.92rem;
+        color: var(--color-text-strong);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+      }
+
+      body[data-app="exercise"] .quick-nav__status {
+        font-size: 0.8rem;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .quick-nav__indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--color-border) 70%, transparent);
+      }
+
+      body[data-app="exercise"] .quick-nav__indicator[data-status='answered'] {
+        background: var(--color-primary);
+      }
+
+      body[data-app="exercise"] .quick-nav__indicator[data-status='review'] {
+        background: var(--color-warning);
+      }
+
+      body[data-app="exercise"] .quick-nav__indicator[data-status='unanswered'] {
+        background: color-mix(in srgb, var(--color-border) 70%, transparent);
+      }
+
+      body[data-app="exercise"] .quick-nav__empty {
+        padding: var(--spacing-sm);
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--color-layer-subtle) 65%, transparent);
+        font-size: 0.88rem;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .accordion-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: none;
+        background: transparent;
+        color: var(--color-text-muted);
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 6px 12px;
+        border-radius: 999px;
+        transition: color var(--transition-duration) ease,
+          background-color var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .accordion-toggle:hover,
+      body[data-app="exercise"] .accordion-toggle:focus-visible {
+        color: var(--color-text-strong);
+        background: color-mix(in srgb, var(--color-chip-bg) 70%, transparent);
+        outline: none;
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus-ring) 65%, transparent);
+      }
+
+      body[data-app="exercise"] .accordion-toggle__icon {
+        display: inline-flex;
+        font-size: var(--icon-size-sm);
+        transition: transform var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .accordion-toggle[aria-expanded='false']
+        .accordion-toggle__icon {
+        transform: rotate(-90deg);
+      }
+
+      body[data-app="exercise"] [data-accordion-body][hidden] {
+        display: none !important;
+      }
+
+      body[data-app="exercise"] .context-pane__section-header,
+      body[data-app="exercise"] .question-card__accordion-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-xs);
+        margin-bottom: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .question-card__accordion-title {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--color-text-strong);
+      }
+
+      body[data-app="exercise"] .question-card__input-body {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-xs);
       }
 
       body[data-app="exercise"] .exercise__controls {
@@ -1526,7 +1754,7 @@
       body[data-app="exercise"] .question-card__input {
         display: flex;
         flex-direction: column;
-        gap: var(--spacing-xs);
+        gap: var(--spacing-sm);
       }
 
       body[data-app="exercise"] .question-card__fields {
@@ -1643,7 +1871,8 @@
         border-radius: 16px;
         background: color-mix(in srgb, var(--color-layer-subtle) 55%, transparent);
         border: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
-        display: grid;
+        display: flex;
+        flex-direction: column;
         gap: var(--spacing-sm);
       }
 
@@ -2807,6 +3036,9 @@
         body[data-app="exercise"] .context-pane {
           flex-basis: 320px;
         }
+        body[data-app="exercise"] .quick-nav {
+          flex-basis: 220px;
+        }
       }
 
       @media (max-width: 768px) {
@@ -2827,6 +3059,15 @@
         body[data-app="exercise"] .exercise {
           order: 1;
           gap: var(--spacing-lg);
+        }
+
+        body[data-app="exercise"] .quick-nav {
+          position: relative;
+          top: auto;
+          max-height: none;
+          width: 100%;
+          flex: 1 1 auto;
+          order: 3;
         }
 
         body[data-app="exercise"] .exercise__tabs {
@@ -2871,6 +3112,10 @@
 
       @media (max-width: 600px) {
         body[data-app="exercise"] .layout {
+          padding: var(--spacing-md);
+        }
+
+        body[data-app="exercise"] .quick-nav {
           padding: var(--spacing-md);
         }
 
@@ -3403,8 +3648,27 @@
         <section
           class="context-pane__card context-pane__card--scenario"
           aria-label="与件文本文"
+          data-accordion
+          data-accordion-default-open="true"
         >
-          <div class="context-pane__body" data-scenario-body>
+          <header class="context-pane__section-header">
+            <h2 class="context-pane__card-title">与件文本文</h2>
+            <button
+              type="button"
+              class="accordion-toggle"
+              data-accordion-toggle
+              data-accordion-label-expanded="折りたたむ"
+              data-accordion-label-collapsed="展開する"
+              aria-expanded="true"
+            >
+              <span data-accordion-toggle-text>折りたたむ</span>
+              <span class="accordion-toggle__icon" aria-hidden="true">
+                <i class="bx bx-chevron-up"></i>
+              </span>
+            </button>
+          </header>
+          <div data-accordion-body>
+            <div class="context-pane__body" data-scenario-body>
           <!-- 与件文を常時参照できるよう縦スクロール可能に配置 -->
           A社は創業40年の精密機器メーカーである。創業者の引退を契機に、
           2代目社長は設計部門のDX化と熟練技術者の技能伝承を最優先テーマ
@@ -3662,8 +3926,9 @@
             >
               与件文から導かれるポイントをメモとして整理しています。設問に
               迷ったら、キーワードと因果関係の視点を確認しましょう。
-            </div>
-          </section>
+        </div>
+          </div>
+        </section>
           <div
             class="control-card control-card--collapsible"
             role="group"
@@ -3872,147 +4137,189 @@
               A社が直面している主要な経営課題を、設計・生産・人材の観点
               から整理し、優先度の高い順に二点述べよ。
             </div>
-            <div class="question-card__input">
-              <div class="question-card__fields">
-                <div class="question-card__answer">
-                  <label class="sr-only" for="answer-1">設問1回答欄</label>
-                  <textarea
-                    id="answer-1"
-                    class="question-card__textarea"
-                    maxlength="300"
-                    aria-describedby="counter-1"
-                    data-max-length="120"
-                  ></textarea>
-                </div>
-                <div class="question-card__memo" aria-labelledby="memo-label-1">
-                  <label id="memo-label-1" class="question-card__memo-label" for="memo-1">
-                    骨子メモ
-                  </label>
-                  <textarea
-                    id="memo-1"
-                    data-question-memo
-                    data-question-key="q1"
-                    placeholder="ハイライトと結び付けたい要点を記入"
-                  ></textarea>
-                  <div class="question-card__memo-actions">
-                    <p class="question-card__memo-hint">
-                      メモ内容は選択中のハイライトにコピーできます。
-                    </p>
-                    <button
-                      type="button"
-                      class="ui-button ui-button--ghost question-card__memo-button has-tooltip"
-                      data-question-memo-attach="q1"
-                      data-tooltip="選択中のハイライトにメモをコピー"
-                    >
-                      <span class="icon icon--sm" aria-hidden="true">
-                        <i class="bx bx-export"></i>
-                      </span>
-                      ハイライトにコピー
-                    </button>
+            <div
+              class="question-card__input"
+              data-accordion
+              data-accordion-default-open="true"
+            >
+              <header class="question-card__accordion-header">
+                <h4 class="question-card__accordion-title">解答入力欄</h4>
+                <button
+                  type="button"
+                  class="accordion-toggle"
+                  data-accordion-toggle
+                  data-accordion-label-expanded="折りたたむ"
+                  data-accordion-label-collapsed="展開する"
+                  aria-expanded="true"
+                >
+                  <span data-accordion-toggle-text>折りたたむ</span>
+                  <span class="accordion-toggle__icon" aria-hidden="true">
+                    <i class="bx bx-chevron-up"></i>
+                  </span>
+                </button>
+              </header>
+              <div class="question-card__input-body" data-accordion-body>
+                <div class="question-card__fields">
+                  <div class="question-card__answer">
+                    <label class="sr-only" for="answer-1">設問1回答欄</label>
+                    <textarea
+                      id="answer-1"
+                      class="question-card__textarea"
+                      maxlength="300"
+                      aria-describedby="counter-1"
+                      data-max-length="120"
+                    ></textarea>
+                  </div>
+                  <div class="question-card__memo" aria-labelledby="memo-label-1">
+                    <label id="memo-label-1" class="question-card__memo-label" for="memo-1">
+                      骨子メモ
+                    </label>
+                    <textarea
+                      id="memo-1"
+                      data-question-memo
+                      data-question-key="q1"
+                      placeholder="ハイライトと結び付けたい要点を記入"
+                    ></textarea>
+                    <div class="question-card__memo-actions">
+                      <p class="question-card__memo-hint">
+                        メモ内容は選択中のハイライトにコピーできます。
+                      </p>
+                      <button
+                        type="button"
+                        class="ui-button ui-button--ghost question-card__memo-button has-tooltip"
+                        data-question-memo-attach="q1"
+                        data-tooltip="選択中のハイライトにメモをコピー"
+                      >
+                        <span class="icon icon--sm" aria-hidden="true">
+                          <i class="bx bx-export"></i>
+                        </span>
+                        ハイライトにコピー
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="question-card__tools">
-                <div id="counter-1" class="char-counter" aria-live="polite">
-                  0 / 120 字
-                </div>
-                <button
-                  class="analysis-info__trigger has-tooltip"
-                  type="button"
-                  aria-expanded="false"
-                  aria-controls="analysis-info-1"
-                  data-info-target="analysis-info-1"
-                  data-tooltip="分析ツールの説明を表示"
-                >
-                  <span class="analysis-info__icon" aria-hidden="true">
-                    <i class="bx bx-info-circle"></i>
-                  </span>
-                  <span class="sr-only">分析ツールの説明を開く</span>
-                </button>
-              </div>
-              <div id="analysis-info-1" class="analysis-info" hidden>
-                <p>
-                  残り字数のカウンターと構造ラベルを合わせて確認し、要素の
-                  抜け漏れをチェックしましょう。配点が高い設問では段落構成を
-                  メモしてから記入するのがおすすめです。
-                </p>
-                <div class="analysis-info__meta">
-                  <span>構造メモ機能の基本操作</span>
-                  <a
-                    href="https://videos.example.jp/tool-demo"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    使い方動画を見る
-                  </a>
-                </div>
-              </div>
-              <div
-                class="example-expressions"
-                role="group"
-                aria-label="設問1の例示表現"
-                data-example-for="answer-1"
-              >
-                <div class="example-expressions__header">
-                  <span class="example-expressions__title">例示表現</span>
+                <div class="question-card__tools">
+                  <div id="counter-1" class="char-counter" aria-live="polite">
+                    0 / 120 字
+                  </div>
                   <button
+                    class="analysis-info__trigger has-tooltip"
                     type="button"
-                    class="example-expressions__undo has-tooltip"
-                    data-example-undo
-                    data-tooltip="直前に挿入した表現を元に戻す"
-                    disabled
+                    aria-expanded="false"
+                    aria-controls="analysis-info-1"
+                    data-info-target="analysis-info-1"
+                    data-tooltip="分析ツールの説明を表示"
                   >
-                    <span class="icon icon--sm" aria-hidden="true">
-                      <i class="bx bx-undo"></i>
+                    <span class="analysis-info__icon" aria-hidden="true">
+                      <i class="bx bx-info-circle"></i>
                     </span>
-                    挿入を取り消す
+                    <span class="sr-only">分析ツールの説明を開く</span>
                   </button>
+                </div>
+                <div id="analysis-info-1" class="analysis-info" hidden>
+                  <p>
+                    残り字数のカウンターと構造ラベルを合わせて確認し、要素の
+                    抜け漏れをチェックしましょう。配点が高い設問では段落構成を
+                    メモしてから記入するのがおすすめです。
+                  </p>
+                  <div class="analysis-info__meta">
+                    <span>構造メモ機能の基本操作</span>
+                    <a
+                      href="https://videos.example.jp/tool-demo"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      使い方動画を見る
+                    </a>
+                  </div>
                 </div>
                 <div
-                  class="example-expressions__list"
-                  role="list"
-                  data-example-list
+                  class="example-expressions"
+                  role="group"
+                  aria-label="設問1の例示表現"
+                  data-example-for="answer-1"
                 >
-                  <button
-                    type="button"
-                    class="example-expression-chip"
-                    role="listitem"
-                    draggable="true"
-                    data-example-text="設計と生産のBOM分断が手戻りを誘発"
+                  <div class="example-expressions__header">
+                    <span class="example-expressions__title">例示表現</span>
+                    <button
+                      type="button"
+                      class="example-expressions__undo has-tooltip"
+                      data-example-undo
+                      data-tooltip="直前に挿入した表現を元に戻す"
+                      disabled
+                    >
+                      <span class="icon icon--sm" aria-hidden="true">
+                        <i class="bx bx-undo"></i>
+                      </span>
+                      挿入を取り消す
+                    </button>
+                  </div>
+                  <div
+                    class="example-expressions__list"
+                    role="list"
+                    data-example-list
                   >
-                    設計と生産のBOM分断が手戻りを誘発
-                  </button>
-                  <button
-                    type="button"
-                    class="example-expression-chip"
-                    role="listitem"
-                    draggable="true"
-                    data-example-text="熟練技能の暗黙知が形式知化できていない"
-                  >
-                    熟練技能の暗黙知が形式知化できていない
-                  </button>
-                  <button
-                    type="button"
-                    class="example-expression-chip"
-                    role="listitem"
-                    draggable="true"
-                    data-example-text="顧客ニーズの高度化に開発体制が追随できない"
-                  >
-                    顧客ニーズの高度化に開発体制が追随できない
-                  </button>
+                    <button
+                      type="button"
+                      class="example-expression-chip"
+                      role="listitem"
+                      draggable="true"
+                      data-example-text="設計と生産のBOM分断が手戻りを誘発"
+                    >
+                      設計と生産のBOM分断が手戻りを誘発
+                    </button>
+                    <button
+                      type="button"
+                      class="example-expression-chip"
+                      role="listitem"
+                      draggable="true"
+                      data-example-text="熟練技能の暗黙知が形式知化できていない"
+                    >
+                      熟練技能の暗黙知が形式知化できていない
+                    </button>
+                    <button
+                      type="button"
+                      class="example-expression-chip"
+                      role="listitem"
+                      draggable="true"
+                      data-example-text="顧客ニーズの高度化に開発体制が追随できない"
+                    >
+                      顧客ニーズの高度化に開発体制が追随できない
+                    </button>
+                  </div>
+                  <div class="sr-only" data-example-live aria-live="polite"></div>
                 </div>
-                <div class="sr-only" data-example-live aria-live="polite"></div>
-              </div>
-              <div class="save-status" role="status" data-save-status>
-                <span class="icon save-status__icon" aria-hidden="true">
-                  <i class="bx bx-save"></i>
-                </span>
-                <span class="save-status__text">保存済み</span>
+                <div class="save-status" role="status" data-save-status>
+                  <span class="icon save-status__icon" aria-hidden="true">
+                    <i class="bx bx-save"></i>
+                  </span>
+                  <span class="save-status__text">保存済み</span>
+                </div>
               </div>
             </div>
-            <section class="question-card__guide" aria-labelledby="guide-heading-1">
-              <h4 id="guide-heading-1" class="question-card__guide-title">解法ガイド</h4>
-              <div class="question-card__guide-body">
+            <section
+              class="question-card__guide"
+              aria-labelledby="guide-heading-1"
+              data-accordion
+              data-accordion-default-open="false"
+            >
+              <header class="question-card__accordion-header">
+                <h4 id="guide-heading-1" class="question-card__guide-title">解法ガイド</h4>
+                <button
+                  type="button"
+                  class="accordion-toggle"
+                  data-accordion-toggle
+                  data-accordion-label-expanded="折りたたむ"
+                  data-accordion-label-collapsed="展開する"
+                  aria-expanded="false"
+                >
+                  <span data-accordion-toggle-text>展開する</span>
+                  <span class="accordion-toggle__icon" aria-hidden="true">
+                    <i class="bx bx-chevron-up"></i>
+                  </span>
+                </button>
+              </header>
+              <div class="question-card__guide-body" data-accordion-body hidden>
                 <div class="support-block">
                   <button
                     class="support-block__toggle ui-button ui-button--subtle"
@@ -4073,147 +4380,189 @@
               A社が顧客との共同開発を推進するための施策を、営業・設計・
               生産の連携の仕組みとして提案せよ。
             </div>
-            <div class="question-card__input">
-              <div class="question-card__fields">
-                <div class="question-card__answer">
-                  <label class="sr-only" for="answer-2">設問2回答欄</label>
-                  <textarea
-                    id="answer-2"
-                    class="question-card__textarea"
-                    maxlength="400"
-                    aria-describedby="counter-2"
-                    data-max-length="160"
-                  ></textarea>
-                </div>
-                <div class="question-card__memo" aria-labelledby="memo-label-2">
-                  <label id="memo-label-2" class="question-card__memo-label" for="memo-2">
-                    骨子メモ
-                  </label>
-                  <textarea
-                    id="memo-2"
-                    data-question-memo
-                    data-question-key="q2"
-                    placeholder="ポイントや因果をメモ"
-                  ></textarea>
-                  <div class="question-card__memo-actions">
-                    <p class="question-card__memo-hint">
-                      メモを選択中のハイライトに反映できます。
-                    </p>
-                    <button
-                      type="button"
-                      class="ui-button ui-button--ghost question-card__memo-button has-tooltip"
-                      data-question-memo-attach="q2"
-                      data-tooltip="選択中のハイライトにメモをコピー"
-                    >
-                      <span class="icon icon--sm" aria-hidden="true">
-                        <i class="bx bx-export"></i>
-                      </span>
-                      ハイライトにコピー
-                    </button>
+            <div
+              class="question-card__input"
+              data-accordion
+              data-accordion-default-open="true"
+            >
+              <header class="question-card__accordion-header">
+                <h4 class="question-card__accordion-title">解答入力欄</h4>
+                <button
+                  type="button"
+                  class="accordion-toggle"
+                  data-accordion-toggle
+                  data-accordion-label-expanded="折りたたむ"
+                  data-accordion-label-collapsed="展開する"
+                  aria-expanded="true"
+                >
+                  <span data-accordion-toggle-text>折りたたむ</span>
+                  <span class="accordion-toggle__icon" aria-hidden="true">
+                    <i class="bx bx-chevron-up"></i>
+                  </span>
+                </button>
+              </header>
+              <div class="question-card__input-body" data-accordion-body>
+                <div class="question-card__fields">
+                  <div class="question-card__answer">
+                    <label class="sr-only" for="answer-2">設問2回答欄</label>
+                    <textarea
+                      id="answer-2"
+                      class="question-card__textarea"
+                      maxlength="400"
+                      aria-describedby="counter-2"
+                      data-max-length="160"
+                    ></textarea>
+                  </div>
+                  <div class="question-card__memo" aria-labelledby="memo-label-2">
+                    <label id="memo-label-2" class="question-card__memo-label" for="memo-2">
+                      骨子メモ
+                    </label>
+                    <textarea
+                      id="memo-2"
+                      data-question-memo
+                      data-question-key="q2"
+                      placeholder="ポイントや因果をメモ"
+                    ></textarea>
+                    <div class="question-card__memo-actions">
+                      <p class="question-card__memo-hint">
+                        メモを選択中のハイライトに反映できます。
+                      </p>
+                      <button
+                        type="button"
+                        class="ui-button ui-button--ghost question-card__memo-button has-tooltip"
+                        data-question-memo-attach="q2"
+                        data-tooltip="選択中のハイライトにメモをコピー"
+                      >
+                        <span class="icon icon--sm" aria-hidden="true">
+                          <i class="bx bx-export"></i>
+                        </span>
+                        ハイライトにコピー
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="question-card__tools">
-                <div id="counter-2" class="char-counter" aria-live="polite">
-                  0 / 160 字
-                </div>
-                <button
-                  class="analysis-info__trigger has-tooltip"
-                  type="button"
-                  aria-expanded="false"
-                  aria-controls="analysis-info-2"
-                  data-info-target="analysis-info-2"
-                  data-tooltip="分析ツールの説明を表示"
-                >
-                  <span class="analysis-info__icon" aria-hidden="true">
-                    <i class="bx bx-info-circle"></i>
-                  </span>
-                  <span class="sr-only">分析ツールの説明を開く</span>
-                </button>
-              </div>
-              <div id="analysis-info-2" class="analysis-info" hidden>
-                <p>
-                  共創提案では、顧客の期待価値と自社資源のマトリクスを用い
-                  ると構造的に整理できます。フレームを選ぶと、要素の順序を
-                  自動で提案します。
-                </p>
-                <div class="analysis-info__meta">
-                  <span>提案骨子テンプレート</span>
-                  <a
-                    href="https://videos.example.jp/template-demo"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    使い方動画を見る
-                  </a>
-                </div>
-              </div>
-              <div
-                class="example-expressions"
-                role="group"
-                aria-label="設問2の例示表現"
-                data-example-for="answer-2"
-              >
-                <div class="example-expressions__header">
-                  <span class="example-expressions__title">例示表現</span>
+                <div class="question-card__tools">
+                  <div id="counter-2" class="char-counter" aria-live="polite">
+                    0 / 160 字
+                  </div>
                   <button
+                    class="analysis-info__trigger has-tooltip"
                     type="button"
-                    class="example-expressions__undo has-tooltip"
-                    data-example-undo
-                    data-tooltip="直前に挿入した表現を元に戻す"
-                    disabled
+                    aria-expanded="false"
+                    aria-controls="analysis-info-2"
+                    data-info-target="analysis-info-2"
+                    data-tooltip="分析ツールの説明を表示"
                   >
-                    <span class="icon icon--sm" aria-hidden="true">
-                      <i class="bx bx-undo"></i>
+                    <span class="analysis-info__icon" aria-hidden="true">
+                      <i class="bx bx-info-circle"></i>
                     </span>
-                    挿入を取り消す
+                    <span class="sr-only">分析ツールの説明を開く</span>
                   </button>
+                </div>
+                <div id="analysis-info-2" class="analysis-info" hidden>
+                  <p>
+                    共創提案では、顧客の期待価値と自社資源のマトリクスを用い
+                    ると構造的に整理できます。フレームを選ぶと、要素の順序を
+                    自動で提案します。
+                  </p>
+                  <div class="analysis-info__meta">
+                    <span>提案骨子テンプレート</span>
+                    <a
+                      href="https://videos.example.jp/template-demo"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      使い方動画を見る
+                    </a>
+                  </div>
                 </div>
                 <div
-                  class="example-expressions__list"
-                  role="list"
-                  data-example-list
+                  class="example-expressions"
+                  role="group"
+                  aria-label="設問2の例示表現"
+                  data-example-for="answer-2"
                 >
-                  <button
-                    type="button"
-                    class="example-expression-chip"
-                    role="listitem"
-                    draggable="true"
-                    data-example-text="営業・設計・生産で顧客課題を共通理解"
+                  <div class="example-expressions__header">
+                    <span class="example-expressions__title">例示表現</span>
+                    <button
+                      type="button"
+                      class="example-expressions__undo has-tooltip"
+                      data-example-undo
+                      data-tooltip="直前に挿入した表現を元に戻す"
+                      disabled
+                    >
+                      <span class="icon icon--sm" aria-hidden="true">
+                        <i class="bx bx-undo"></i>
+                      </span>
+                      挿入を取り消す
+                    </button>
+                  </div>
+                  <div
+                    class="example-expressions__list"
+                    role="list"
+                    data-example-list
                   >
-                    営業・設計・生産で顧客課題を共通理解
-                  </button>
-                  <button
-                    type="button"
-                    class="example-expression-chip"
-                    role="listitem"
-                    draggable="true"
-                    data-example-text="共創レビューで要求を段階的に合意形成"
-                  >
-                    共創レビューで要求を段階的に合意形成
-                  </button>
-                  <button
-                    type="button"
-                    class="example-expression-chip"
-                    role="listitem"
-                    draggable="true"
-                    data-example-text="クラウドBOMで設計変更を即時共有"
-                  >
-                    クラウドBOMで設計変更を即時共有
-                  </button>
+                    <button
+                      type="button"
+                      class="example-expression-chip"
+                      role="listitem"
+                      draggable="true"
+                      data-example-text="営業・設計・生産で顧客課題を共通理解"
+                    >
+                      営業・設計・生産で顧客課題を共通理解
+                    </button>
+                    <button
+                      type="button"
+                      class="example-expression-chip"
+                      role="listitem"
+                      draggable="true"
+                      data-example-text="共創レビューで要求を段階的に合意形成"
+                    >
+                      共創レビューで要求を段階的に合意形成
+                    </button>
+                    <button
+                      type="button"
+                      class="example-expression-chip"
+                      role="listitem"
+                      draggable="true"
+                      data-example-text="クラウドBOMで設計変更を即時共有"
+                    >
+                      クラウドBOMで設計変更を即時共有
+                    </button>
+                  </div>
+                  <div class="sr-only" data-example-live aria-live="polite"></div>
                 </div>
-                <div class="sr-only" data-example-live aria-live="polite"></div>
-              </div>
-              <div class="save-status" role="status" data-save-status>
-                <span class="icon save-status__icon" aria-hidden="true">
-                  <i class="bx bx-save"></i>
-                </span>
-                <span class="save-status__text">保存済み</span>
+                <div class="save-status" role="status" data-save-status>
+                  <span class="icon save-status__icon" aria-hidden="true">
+                    <i class="bx bx-save"></i>
+                  </span>
+                  <span class="save-status__text">保存済み</span>
+                </div>
               </div>
             </div>
-            <section class="question-card__guide" aria-labelledby="guide-heading-2">
-              <h4 id="guide-heading-2" class="question-card__guide-title">解法ガイド</h4>
-              <div class="question-card__guide-body">
+            <section
+              class="question-card__guide"
+              aria-labelledby="guide-heading-2"
+              data-accordion
+              data-accordion-default-open="false"
+            >
+              <header class="question-card__accordion-header">
+                <h4 id="guide-heading-2" class="question-card__guide-title">解法ガイド</h4>
+                <button
+                  type="button"
+                  class="accordion-toggle"
+                  data-accordion-toggle
+                  data-accordion-label-expanded="折りたたむ"
+                  data-accordion-label-collapsed="展開する"
+                  aria-expanded="false"
+                >
+                  <span data-accordion-toggle-text>展開する</span>
+                  <span class="accordion-toggle__icon" aria-hidden="true">
+                    <i class="bx bx-chevron-up"></i>
+                  </span>
+                </button>
+              </header>
+              <div class="question-card__guide-body" data-accordion-body hidden>
                 <div class="support-block">
                   <button
                     class="support-block__toggle ui-button ui-button--subtle"
@@ -4274,147 +4623,189 @@
               熟練技能の形式知化と継承を加速するための施策を、教育体系と
               デジタル活用の両面から述べよ。
             </div>
-            <div class="question-card__input">
-              <div class="question-card__fields">
-                <div class="question-card__answer">
-                  <label class="sr-only" for="answer-3">設問3回答欄</label>
-                  <textarea
-                    id="answer-3"
-                    class="question-card__textarea"
-                    maxlength="400"
-                    aria-describedby="counter-3"
-                    data-max-length="160"
-                  ></textarea>
-                </div>
-                <div class="question-card__memo" aria-labelledby="memo-label-3">
-                  <label id="memo-label-3" class="question-card__memo-label" for="memo-3">
-                    骨子メモ
-                  </label>
-                  <textarea
-                    id="memo-3"
-                    data-question-memo
-                    data-question-key="q3"
-                    placeholder="技能伝承で押さえる要素を整理"
-                  ></textarea>
-                  <div class="question-card__memo-actions">
-                    <p class="question-card__memo-hint">
-                      メモはハイライトメモとしても保存されます。
-                    </p>
-                    <button
-                      type="button"
-                      class="ui-button ui-button--ghost question-card__memo-button has-tooltip"
-                      data-question-memo-attach="q3"
-                      data-tooltip="選択中のハイライトにメモをコピー"
-                    >
-                      <span class="icon icon--sm" aria-hidden="true">
-                        <i class="bx bx-export"></i>
-                      </span>
-                      ハイライトにコピー
-                    </button>
+            <div
+              class="question-card__input"
+              data-accordion
+              data-accordion-default-open="true"
+            >
+              <header class="question-card__accordion-header">
+                <h4 class="question-card__accordion-title">解答入力欄</h4>
+                <button
+                  type="button"
+                  class="accordion-toggle"
+                  data-accordion-toggle
+                  data-accordion-label-expanded="折りたたむ"
+                  data-accordion-label-collapsed="展開する"
+                  aria-expanded="true"
+                >
+                  <span data-accordion-toggle-text>折りたたむ</span>
+                  <span class="accordion-toggle__icon" aria-hidden="true">
+                    <i class="bx bx-chevron-up"></i>
+                  </span>
+                </button>
+              </header>
+              <div class="question-card__input-body" data-accordion-body>
+                <div class="question-card__fields">
+                  <div class="question-card__answer">
+                    <label class="sr-only" for="answer-3">設問3回答欄</label>
+                    <textarea
+                      id="answer-3"
+                      class="question-card__textarea"
+                      maxlength="400"
+                      aria-describedby="counter-3"
+                      data-max-length="160"
+                    ></textarea>
+                  </div>
+                  <div class="question-card__memo" aria-labelledby="memo-label-3">
+                    <label id="memo-label-3" class="question-card__memo-label" for="memo-3">
+                      骨子メモ
+                    </label>
+                    <textarea
+                      id="memo-3"
+                      data-question-memo
+                      data-question-key="q3"
+                      placeholder="技能伝承で押さえる要素を整理"
+                    ></textarea>
+                    <div class="question-card__memo-actions">
+                      <p class="question-card__memo-hint">
+                        メモはハイライトメモとしても保存されます。
+                      </p>
+                      <button
+                        type="button"
+                        class="ui-button ui-button--ghost question-card__memo-button has-tooltip"
+                        data-question-memo-attach="q3"
+                        data-tooltip="選択中のハイライトにメモをコピー"
+                      >
+                        <span class="icon icon--sm" aria-hidden="true">
+                          <i class="bx bx-export"></i>
+                        </span>
+                        ハイライトにコピー
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="question-card__tools">
-                <div id="counter-3" class="char-counter" aria-live="polite">
-                  0 / 160 字
-                </div>
-                <button
-                  class="analysis-info__trigger has-tooltip"
-                  type="button"
-                  aria-expanded="false"
-                  aria-controls="analysis-info-3"
-                  data-info-target="analysis-info-3"
-                  data-tooltip="分析ツールの説明を表示"
-                >
-                  <span class="analysis-info__icon" aria-hidden="true">
-                    <i class="bx bx-info-circle"></i>
-                  </span>
-                  <span class="sr-only">分析ツールの説明を開く</span>
-                </button>
-              </div>
-              <div id="analysis-info-3" class="analysis-info" hidden>
-                <p>
-                  技能伝承の設問では、プロセス分解チャートを使うとフェーズ
-                  ごとの課題と施策を紐づけやすくなります。チャートに入力する
-                  と、回答骨子が自動整形されます。
-                </p>
-                <div class="analysis-info__meta">
-                  <span>プロセス分解チャート</span>
-                  <a
-                    href="https://videos.example.jp/chart-demo"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    使い方動画を見る
-                  </a>
-                </div>
-              </div>
-              <div
-                class="example-expressions"
-                role="group"
-                aria-label="設問3の例示表現"
-                data-example-for="answer-3"
-              >
-                <div class="example-expressions__header">
-                  <span class="example-expressions__title">例示表現</span>
+                <div class="question-card__tools">
+                  <div id="counter-3" class="char-counter" aria-live="polite">
+                    0 / 160 字
+                  </div>
                   <button
+                    class="analysis-info__trigger has-tooltip"
                     type="button"
-                    class="example-expressions__undo has-tooltip"
-                    data-example-undo
-                    data-tooltip="直前に挿入した表現を元に戻す"
-                    disabled
+                    aria-expanded="false"
+                    aria-controls="analysis-info-3"
+                    data-info-target="analysis-info-3"
+                    data-tooltip="分析ツールの説明を表示"
                   >
-                    <span class="icon icon--sm" aria-hidden="true">
-                      <i class="bx bx-undo"></i>
+                    <span class="analysis-info__icon" aria-hidden="true">
+                      <i class="bx bx-info-circle"></i>
                     </span>
-                    挿入を取り消す
+                    <span class="sr-only">分析ツールの説明を開く</span>
                   </button>
+                </div>
+                <div id="analysis-info-3" class="analysis-info" hidden>
+                  <p>
+                    技能伝承の設問では、プロセス分解チャートを使うとフェーズ
+                    ごとの課題と施策を紐づけやすくなります。チャートに入力する
+                    と、回答骨子が自動整形されます。
+                  </p>
+                  <div class="analysis-info__meta">
+                    <span>プロセス分解チャート</span>
+                    <a
+                      href="https://videos.example.jp/chart-demo"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      使い方動画を見る
+                    </a>
+                  </div>
                 </div>
                 <div
-                  class="example-expressions__list"
-                  role="list"
-                  data-example-list
+                  class="example-expressions"
+                  role="group"
+                  aria-label="設問3の例示表現"
+                  data-example-for="answer-3"
                 >
-                  <button
-                    type="button"
-                    class="example-expression-chip"
-                    role="listitem"
-                    draggable="true"
-                    data-example-text="作業動画と要点字幕で匠のコツを可視化"
+                  <div class="example-expressions__header">
+                    <span class="example-expressions__title">例示表現</span>
+                    <button
+                      type="button"
+                      class="example-expressions__undo has-tooltip"
+                      data-example-undo
+                      data-tooltip="直前に挿入した表現を元に戻す"
+                      disabled
+                    >
+                      <span class="icon icon--sm" aria-hidden="true">
+                        <i class="bx bx-undo"></i>
+                      </span>
+                      挿入を取り消す
+                    </button>
+                  </div>
+                  <div
+                    class="example-expressions__list"
+                    role="list"
+                    data-example-list
                   >
-                    作業動画と要点字幕で匠のコツを可視化
-                  </button>
-                  <button
-                    type="button"
-                    class="example-expression-chip"
-                    role="listitem"
-                    draggable="true"
-                    data-example-text="段階別チェックリストで習熟度を測定"
-                  >
-                    段階別チェックリストで習熟度を測定
-                  </button>
-                  <button
-                    type="button"
-                    class="example-expression-chip"
-                    role="listitem"
-                    draggable="true"
-                    data-example-text="メンター面談で学習計画をリフレクション"
-                  >
-                    メンター面談で学習計画をリフレクション
-                  </button>
+                    <button
+                      type="button"
+                      class="example-expression-chip"
+                      role="listitem"
+                      draggable="true"
+                      data-example-text="作業動画と要点字幕で匠のコツを可視化"
+                    >
+                      作業動画と要点字幕で匠のコツを可視化
+                    </button>
+                    <button
+                      type="button"
+                      class="example-expression-chip"
+                      role="listitem"
+                      draggable="true"
+                      data-example-text="技能伝承のペアリングOJTとラーニング記録"
+                    >
+                      技能伝承のペアリングOJTとラーニング記録
+                    </button>
+                    <button
+                      type="button"
+                      class="example-expression-chip"
+                      role="listitem"
+                      draggable="true"
+                      data-example-text="熟練者の暗黙知をワークフローに埋め込む"
+                    >
+                      熟練者の暗黙知をワークフローに埋め込む
+                    </button>
+                  </div>
+                  <div class="sr-only" data-example-live aria-live="polite"></div>
                 </div>
-                <div class="sr-only" data-example-live aria-live="polite"></div>
-              </div>
-              <div class="save-status" role="status" data-save-status>
-                <span class="icon save-status__icon" aria-hidden="true">
-                  <i class="bx bx-save"></i>
-                </span>
-                <span class="save-status__text">保存済み</span>
+                <div class="save-status" role="status" data-save-status>
+                  <span class="icon save-status__icon" aria-hidden="true">
+                    <i class="bx bx-save"></i>
+                  </span>
+                  <span class="save-status__text">保存済み</span>
+                </div>
               </div>
             </div>
-            <section class="question-card__guide" aria-labelledby="guide-heading-3">
-              <h4 id="guide-heading-3" class="question-card__guide-title">解法ガイド</h4>
-              <div class="question-card__guide-body">
+            <section
+              class="question-card__guide"
+              aria-labelledby="guide-heading-3"
+              data-accordion
+              data-accordion-default-open="false"
+            >
+              <header class="question-card__accordion-header">
+                <h4 id="guide-heading-3" class="question-card__guide-title">解法ガイド</h4>
+                <button
+                  type="button"
+                  class="accordion-toggle"
+                  data-accordion-toggle
+                  data-accordion-label-expanded="折りたたむ"
+                  data-accordion-label-collapsed="展開する"
+                  aria-expanded="false"
+                >
+                  <span data-accordion-toggle-text>展開する</span>
+                  <span class="accordion-toggle__icon" aria-hidden="true">
+                    <i class="bx bx-chevron-up"></i>
+                  </span>
+                </button>
+              </header>
+              <div class="question-card__guide-body" data-accordion-body hidden>
                 <div class="support-block">
                   <button
                     class="support-block__toggle ui-button ui-button--subtle"
@@ -4427,8 +4818,8 @@
                       <i class="bx bx-bulb"></i>
                     </span>
                     <span class="support-block__text">
-                      <span class="support-block__label">参照する Tips</span>
-                      <span class="support-block__hint">技能伝承のヒントを拾う</span>
+                      <span class="support-block__label">確認する 注意事項</span>
+                      <span class="support-block__hint">共創で外せない視点を確認</span>
                     </span>
                     <span class="icon icon--sm support-block__chevron" aria-hidden="true">
                       <i class="bx bx-chevron-down"></i>
@@ -4440,8 +4831,8 @@
                     hidden
                     data-support-content
                   >
-                    指導員制度、ペアワーク、動画記録、工程別のナレッジカード
-                    など複数手段を組み合わせ、習熟度指標を定義する。
+                    顧客接点の情報共有タイミング、設計部門の早期参画、試作段階での
+                    フィードバックループを盛り込み、伝承プランに落とし込みます。
                   </div>
                 </div>
               </div>
@@ -4475,147 +4866,189 @@
               DX推進と技能伝承を両立させる評価制度・報酬制度の改善策を、
               期待する行動指標を含めて述べよ。
             </div>
-            <div class="question-card__input">
-              <div class="question-card__fields">
-                <div class="question-card__answer">
-                  <label class="sr-only" for="answer-4">設問4回答欄</label>
-                  <textarea
-                    id="answer-4"
-                    class="question-card__textarea"
-                    maxlength="500"
-                    aria-describedby="counter-4"
-                    data-max-length="200"
-                  ></textarea>
-                </div>
-                <div class="question-card__memo" aria-labelledby="memo-label-4">
-                  <label id="memo-label-4" class="question-card__memo-label" for="memo-4">
-                    骨子メモ
-                  </label>
-                  <textarea
-                    id="memo-4"
-                    data-question-memo
-                    data-question-key="q4"
-                    placeholder="評価指標や行動を箇条書きで整理"
-                  ></textarea>
-                  <div class="question-card__memo-actions">
-                    <p class="question-card__memo-hint">
-                      メモをハイライトへ送って評価視点を統一できます。
-                    </p>
-                    <button
-                      type="button"
-                      class="ui-button ui-button--ghost question-card__memo-button has-tooltip"
-                      data-question-memo-attach="q4"
-                      data-tooltip="選択中のハイライトにメモをコピー"
-                    >
-                      <span class="icon icon--sm" aria-hidden="true">
-                        <i class="bx bx-export"></i>
-                      </span>
-                      ハイライトにコピー
-                    </button>
+            <div
+              class="question-card__input"
+              data-accordion
+              data-accordion-default-open="true"
+            >
+              <header class="question-card__accordion-header">
+                <h4 class="question-card__accordion-title">解答入力欄</h4>
+                <button
+                  type="button"
+                  class="accordion-toggle"
+                  data-accordion-toggle
+                  data-accordion-label-expanded="折りたたむ"
+                  data-accordion-label-collapsed="展開する"
+                  aria-expanded="true"
+                >
+                  <span data-accordion-toggle-text>折りたたむ</span>
+                  <span class="accordion-toggle__icon" aria-hidden="true">
+                    <i class="bx bx-chevron-up"></i>
+                  </span>
+                </button>
+              </header>
+              <div class="question-card__input-body" data-accordion-body>
+                <div class="question-card__fields">
+                  <div class="question-card__answer">
+                    <label class="sr-only" for="answer-4">設問4回答欄</label>
+                    <textarea
+                      id="answer-4"
+                      class="question-card__textarea"
+                      maxlength="500"
+                      aria-describedby="counter-4"
+                      data-max-length="200"
+                    ></textarea>
+                  </div>
+                  <div class="question-card__memo" aria-labelledby="memo-label-4">
+                    <label id="memo-label-4" class="question-card__memo-label" for="memo-4">
+                      骨子メモ
+                    </label>
+                    <textarea
+                      id="memo-4"
+                      data-question-memo
+                      data-question-key="q4"
+                      placeholder="評価指標や行動を箇条書きで整理"
+                    ></textarea>
+                    <div class="question-card__memo-actions">
+                      <p class="question-card__memo-hint">
+                        メモをハイライトへ送って評価視点を統一できます。
+                      </p>
+                      <button
+                        type="button"
+                        class="ui-button ui-button--ghost question-card__memo-button has-tooltip"
+                        data-question-memo-attach="q4"
+                        data-tooltip="選択中のハイライトにメモをコピー"
+                      >
+                        <span class="icon icon--sm" aria-hidden="true">
+                          <i class="bx bx-export"></i>
+                        </span>
+                        ハイライトにコピー
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="question-card__tools">
-                <div id="counter-4" class="char-counter" aria-live="polite">
-                  0 / 200 字
-                </div>
-                <button
-                  class="analysis-info__trigger has-tooltip"
-                  type="button"
-                  aria-expanded="false"
-                  aria-controls="analysis-info-4"
-                  data-info-target="analysis-info-4"
-                  data-tooltip="分析ツールの説明を表示"
-                >
-                  <span class="analysis-info__icon" aria-hidden="true">
-                    <i class="bx bx-info-circle"></i>
-                  </span>
-                  <span class="sr-only">分析ツールの説明を開く</span>
-                </button>
-              </div>
-              <div id="analysis-info-4" class="analysis-info" hidden>
-                <p>
-                  評価制度の設問では、成果指標と行動指標を二軸で整理し、重
-                  要キーワードをハイライトしておくと記述がぶれません。軸を選
-                  ぶと、テンプレートが展開されます。
-                </p>
-                <div class="analysis-info__meta">
-                  <span>評価指標デザイン</span>
-                  <a
-                    href="https://videos.example.jp/eval-demo"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    使い方動画を見る
-                  </a>
-                </div>
-              </div>
-              <div
-                class="example-expressions"
-                role="group"
-                aria-label="設問4の例示表現"
-                data-example-for="answer-4"
-              >
-                <div class="example-expressions__header">
-                  <span class="example-expressions__title">例示表現</span>
+                <div class="question-card__tools">
+                  <div id="counter-4" class="char-counter" aria-live="polite">
+                    0 / 200 字
+                  </div>
                   <button
+                    class="analysis-info__trigger has-tooltip"
                     type="button"
-                    class="example-expressions__undo has-tooltip"
-                    data-example-undo
-                    data-tooltip="直前に挿入した表現を元に戻す"
-                    disabled
+                    aria-expanded="false"
+                    aria-controls="analysis-info-4"
+                    data-info-target="analysis-info-4"
+                    data-tooltip="分析ツールの説明を表示"
                   >
-                    <span class="icon icon--sm" aria-hidden="true">
-                      <i class="bx bx-undo"></i>
+                    <span class="analysis-info__icon" aria-hidden="true">
+                      <i class="bx bx-info-circle"></i>
                     </span>
-                    挿入を取り消す
+                    <span class="sr-only">分析ツールの説明を開く</span>
                   </button>
+                </div>
+                <div id="analysis-info-4" class="analysis-info" hidden>
+                  <p>
+                    評価制度の設問では、成果指標と行動指標を二軸で整理し、重要
+                    キーワードをハイライトしておくと記述がぶれません。軸を選ぶと、
+                    テンプレートが展開されます。
+                  </p>
+                  <div class="analysis-info__meta">
+                    <span>評価指標デザイン</span>
+                    <a
+                      href="https://videos.example.jp/eval-demo"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      使い方動画を見る
+                    </a>
+                  </div>
                 </div>
                 <div
-                  class="example-expressions__list"
-                  role="list"
-                  data-example-list
+                  class="example-expressions"
+                  role="group"
+                  aria-label="設問4の例示表現"
+                  data-example-for="answer-4"
                 >
-                  <button
-                    type="button"
-                    class="example-expression-chip"
-                    role="listitem"
-                    draggable="true"
-                    data-example-text="知識共有と後進育成を評価指標に反映"
+                  <div class="example-expressions__header">
+                    <span class="example-expressions__title">例示表現</span>
+                    <button
+                      type="button"
+                      class="example-expressions__undo has-tooltip"
+                      data-example-undo
+                      data-tooltip="直前に挿入した表現を元に戻す"
+                      disabled
+                    >
+                      <span class="icon icon--sm" aria-hidden="true">
+                        <i class="bx bx-undo"></i>
+                      </span>
+                      挿入を取り消す
+                    </button>
+                  </div>
+                  <div
+                    class="example-expressions__list"
+                    role="list"
+                    data-example-list
                   >
-                    知識共有と後進育成を評価指標に反映
-                  </button>
-                  <button
-                    type="button"
-                    class="example-expression-chip"
-                    role="listitem"
-                    draggable="true"
-                    data-example-text="DX活用件数を成果評価に連動"
-                  >
-                    DX活用件数を成果評価に連動
-                  </button>
-                  <button
-                    type="button"
-                    class="example-expression-chip"
-                    role="listitem"
-                    draggable="true"
-                    data-example-text="行動指標で共創行動とナレッジ共有を促す"
-                  >
-                    行動指標で共創行動とナレッジ共有を促す
-                  </button>
+                    <button
+                      type="button"
+                      class="example-expression-chip"
+                      role="listitem"
+                      draggable="true"
+                      data-example-text="知識共有と後進育成を評価指標に反映"
+                    >
+                      知識共有と後進育成を評価指標に反映
+                    </button>
+                    <button
+                      type="button"
+                      class="example-expression-chip"
+                      role="listitem"
+                      draggable="true"
+                      data-example-text="DX活用件数を成果評価に連動"
+                    >
+                      DX活用件数を成果評価に連動
+                    </button>
+                    <button
+                      type="button"
+                      class="example-expression-chip"
+                      role="listitem"
+                      draggable="true"
+                      data-example-text="行動指標で共創行動とナレッジ共有を促す"
+                    >
+                      行動指標で共創行動とナレッジ共有を促す
+                    </button>
+                  </div>
+                  <div class="sr-only" data-example-live aria-live="polite"></div>
                 </div>
-                <div class="sr-only" data-example-live aria-live="polite"></div>
-              </div>
-              <div class="save-status" role="status" data-save-status>
-                <span class="icon save-status__icon" aria-hidden="true">
-                  <i class="bx bx-save"></i>
-                </span>
-                <span class="save-status__text">保存済み</span>
+                <div class="save-status" role="status" data-save-status>
+                  <span class="icon save-status__icon" aria-hidden="true">
+                    <i class="bx bx-save"></i>
+                  </span>
+                  <span class="save-status__text">保存済み</span>
+                </div>
               </div>
             </div>
-            <section class="question-card__guide" aria-labelledby="guide-heading-4">
-              <h4 id="guide-heading-4" class="question-card__guide-title">解法ガイド</h4>
-              <div class="question-card__guide-body">
+            <section
+              class="question-card__guide"
+              aria-labelledby="guide-heading-4"
+              data-accordion
+              data-accordion-default-open="false"
+            >
+              <header class="question-card__accordion-header">
+                <h4 id="guide-heading-4" class="question-card__guide-title">解法ガイド</h4>
+                <button
+                  type="button"
+                  class="accordion-toggle"
+                  data-accordion-toggle
+                  data-accordion-label-expanded="折りたたむ"
+                  data-accordion-label-collapsed="展開する"
+                  aria-expanded="false"
+                >
+                  <span data-accordion-toggle-text>展開する</span>
+                  <span class="accordion-toggle__icon" aria-hidden="true">
+                    <i class="bx bx-chevron-up"></i>
+                  </span>
+                </button>
+              </header>
+              <div class="question-card__guide-body" data-accordion-body hidden>
                 <div class="support-block">
                   <button
                     class="support-block__toggle ui-button ui-button--subtle"
@@ -4641,8 +5074,8 @@
                     hidden
                     data-support-content
                   >
-                    DXで創出した知見の共有や後進育成を評価指標に組み込み、成
-                    果とプロセスを両面評価する基準づくりを意識する。
+                    DXで創出した知見の共有や後進育成を評価指標に組み込み、成果と
+                    プロセスを両面評価する基準づくりを意識します。
                   </div>
                 </div>
               </div>
@@ -4664,8 +5097,25 @@
             <span class="cta-button__verb">進む</span>
             <span class="cta-button__object">次の設問へ</span>
           </button>
-        </footer>
+      </footer>
       </main>
+      <aside
+        class="quick-nav"
+        role="complementary"
+        aria-label="設問クイックナビゲーション"
+        data-panel-section="answer"
+        data-panel-collapsed="true"
+      >
+        <div class="quick-nav__header">
+          <h2 class="quick-nav__title">クイックナビ</h2>
+          <p class="quick-nav__hint">
+            Alt+Shift+N / P / A で設問の移動や回答欄へのフォーカスができます
+          </p>
+        </div>
+        <ol class="quick-nav__list" data-question-quicknav>
+          <li class="quick-nav__empty">設問を読み込み中です</li>
+        </ol>
+      </aside>
     </div>
     </div>
 
@@ -5426,6 +5876,7 @@
           const caseSelect = appRoot.querySelector('[data-case-select]');
           const yearSelect = appRoot.querySelector('[data-year-select]');
           const questionIndexList = appRoot.querySelector('[data-question-index]');
+          const quickNavList = appRoot.querySelector('[data-question-quicknav]');
           const progressQuestionsSummary = appRoot.querySelector(
             '[data-progress-questions-summary]'
           );
@@ -5670,6 +6121,51 @@
               () => {
                 const nextState = toggle.getAttribute('aria-expanded') !== 'true';
                 applyState(nextState);
+              },
+              { signal }
+            );
+          });
+
+          const accordionContainers = Array.from(
+            appRoot.querySelectorAll('[data-accordion]')
+          );
+          let accordionIdCounter = 0;
+          accordionContainers.forEach((container) => {
+            const toggle = container.querySelector('[data-accordion-toggle]');
+            const body = container.querySelector('[data-accordion-body]');
+            if (!toggle || !body) {
+              return;
+            }
+            if (!body.id) {
+              accordionIdCounter += 1;
+              body.id = `accordion-section-${accordionIdCounter}`;
+            }
+            toggle.setAttribute('aria-controls', body.id);
+            const expandedAttr = toggle.getAttribute('aria-expanded');
+            const defaultOpen = container.dataset.accordionDefaultOpen !== 'false';
+            const initialExpanded =
+              expandedAttr === 'true' ||
+              (expandedAttr !== 'false' && defaultOpen);
+            const applyAccordionState = (expanded) => {
+              const isExpanded = Boolean(expanded);
+              toggle.setAttribute('aria-expanded', String(isExpanded));
+              body.hidden = !isExpanded;
+              container.dataset.accordionOpen = String(isExpanded);
+              const label = toggle.querySelector('[data-accordion-toggle-text]');
+              const expandedLabel =
+                toggle.dataset.accordionLabelExpanded?.trim() || '折りたたむ';
+              const collapsedLabel =
+                toggle.dataset.accordionLabelCollapsed?.trim() || '展開する';
+              if (label) {
+                label.textContent = isExpanded ? expandedLabel : collapsedLabel;
+              }
+            };
+            applyAccordionState(initialExpanded);
+            toggle.addEventListener(
+              'click',
+              () => {
+                const nextState = toggle.getAttribute('aria-expanded') !== 'true';
+                applyAccordionState(nextState);
               },
               { signal }
             );
@@ -7544,6 +8040,71 @@
           let currentExercise = null;
           const questionState = new Map();
           let questionSortOrder = [];
+          const quickNavStatusLabels = {
+            unanswered: '未回答',
+            answered: '解答済',
+            review: '要復習',
+          };
+          const getQuickNavStatus = (state, fallback = 'unanswered') => {
+            const fallbackStatus = fallback || 'unanswered';
+            if (!state) {
+              return fallbackStatus;
+            }
+            const flags =
+              state.flags instanceof Set
+                ? state.flags
+                : Array.isArray(state.flags)
+                ? new Set(state.flags)
+                : new Set();
+            if (flags.has('review')) {
+              return 'review';
+            }
+            return state.status || fallbackStatus;
+          };
+          const refreshQuickNavStatuses = () => {
+            if (!quickNavList) {
+              return;
+            }
+            const buttons = Array.from(
+              quickNavList.querySelectorAll('[data-question-jump]')
+            );
+            buttons.forEach((button) => {
+              const key = button.dataset.questionKey;
+              const state = key ? questionState.get(key) : null;
+              const fallback = button.dataset.defaultStatus || 'unanswered';
+              const status = getQuickNavStatus(state, fallback);
+              button.dataset.status = status;
+              const indicator = button.querySelector('[data-quicknav-indicator]');
+              if (indicator) {
+                indicator.dataset.status = status;
+              }
+              const statusText = button.querySelector('[data-quicknav-status]');
+              if (statusText) {
+                statusText.textContent =
+                  quickNavStatusLabels[status] ||
+                  quickNavStatusLabels[fallback] ||
+                  quickNavStatusLabels.unanswered ||
+                  '';
+              }
+            });
+          };
+          const updateQuickNavActive = (activeId) => {
+            if (!quickNavList) {
+              return;
+            }
+            const buttons = Array.from(
+              quickNavList.querySelectorAll('[data-question-jump]')
+            );
+            buttons.forEach((button) => {
+              const isActive = button.dataset.questionJump === activeId;
+              button.dataset.active = String(isActive);
+              if (isActive) {
+                button.setAttribute('aria-current', 'true');
+              } else {
+                button.removeAttribute('aria-current');
+              }
+            });
+          };
           let currentSearchQuery = '';
           let currentSortMode = sortSelect?.value || 'recommended';
           let exerciseTimerId = null;
@@ -7817,27 +8378,93 @@
           };
 
           const updateQuestionIndexNavigation = (orderedQuestions) => {
-            if (!questionIndexList) {
-              return;
+            if (questionIndexList) {
+              questionIndexList.innerHTML = '';
+              const fragment = document.createDocumentFragment();
+              orderedQuestions.forEach((question) => {
+                const card = questionCards.find(
+                  (item) => item.dataset.questionKey === question.key
+                );
+                if (!card) {
+                  return;
+                }
+                const item = document.createElement('li');
+                const anchor = document.createElement('a');
+                anchor.href = `#${card.id}`;
+                anchor.textContent = `${question.label} ${
+                  question.tabTitle || question.title
+                }`;
+                anchor.dataset.questionKey = question.key;
+                item.appendChild(anchor);
+                fragment.appendChild(item);
+              });
+              questionIndexList.appendChild(fragment);
             }
-            questionIndexList.innerHTML = '';
-            const fragment = document.createDocumentFragment();
-            orderedQuestions.forEach((question, index) => {
-              const card = questionCards[index];
-              if (!card) {
+            if (quickNavList) {
+              quickNavList.innerHTML = '';
+              if (!orderedQuestions.length) {
+                const emptyItem = document.createElement('li');
+                emptyItem.className = 'quick-nav__empty';
+                emptyItem.textContent = '該当する設問がありません';
+                quickNavList.appendChild(emptyItem);
                 return;
               }
-              const item = document.createElement('li');
-              const anchor = document.createElement('a');
-              anchor.href = `#${card.id}`;
-              anchor.textContent = `${question.label} ${
-                question.tabTitle || question.title
-              }`;
-              anchor.dataset.questionKey = question.key;
-              item.appendChild(anchor);
-              fragment.appendChild(item);
-            });
-            questionIndexList.appendChild(fragment);
+              const fragment = document.createDocumentFragment();
+              orderedQuestions.forEach((question) => {
+                const card = questionCards.find(
+                  (item) => item.dataset.questionKey === question.key
+                );
+                if (!card) {
+                  return;
+                }
+                const item = document.createElement('li');
+                item.className = 'quick-nav__item';
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'quick-nav__link';
+                button.dataset.questionJump = card.id;
+                button.dataset.questionKey = question.key;
+                const state = questionState.get(question.key);
+                const defaultStatus = question.status || 'unanswered';
+                const resolvedStatus = getQuickNavStatus(state, defaultStatus);
+                button.dataset.defaultStatus = defaultStatus;
+                button.dataset.status = resolvedStatus;
+
+                const number = document.createElement('span');
+                number.className = 'quick-nav__number';
+                number.textContent = question.label || '';
+
+                const texts = document.createElement('span');
+                texts.className = 'quick-nav__texts';
+
+                const label = document.createElement('span');
+                label.className = 'quick-nav__label';
+                label.textContent = question.tabTitle || question.title || '';
+
+                const status = document.createElement('span');
+                status.className = 'quick-nav__status';
+                status.dataset.quicknavStatus = '';
+                status.textContent =
+                  quickNavStatusLabels[resolvedStatus] ||
+                  quickNavStatusLabels[defaultStatus] ||
+                  quickNavStatusLabels.unanswered ||
+                  '';
+
+                texts.append(label, status);
+
+                const indicator = document.createElement('span');
+                indicator.className = 'quick-nav__indicator';
+                indicator.dataset.quicknavIndicator = '';
+                indicator.dataset.status = resolvedStatus;
+
+                button.append(number, texts, indicator);
+                item.appendChild(button);
+                fragment.appendChild(item);
+              });
+              quickNavList.appendChild(fragment);
+              refreshQuickNavStatuses();
+              updateQuickNavActive(activeQuestionId);
+            }
           };
 
           const updateQuestionCard = (question, card, index) => {
@@ -8052,6 +8679,7 @@
                 Math.max(0, ratio * 100)
               )}%`;
             }
+            refreshQuickNavStatuses();
           };
 
           const stopExerciseTimer = () => {
@@ -8381,6 +9009,7 @@
               updateFooterCta(firstId);
               updateSelectionQuestion(firstId);
               activeQuestionId = firstId;
+              updateQuickNavActive(firstId);
             }
           };
 
@@ -8594,8 +9223,27 @@
             updateFooterCta(targetId);
             updateSelectionQuestion(targetId);
             activeQuestionId = targetId;
+            updateQuickNavActive(targetId);
             setActiveAnchor('section-answer');
           };
+
+          if (quickNavList) {
+            quickNavList.addEventListener(
+              'click',
+              (event) => {
+                const trigger = event.target.closest('[data-question-jump]');
+                if (!trigger) {
+                  return;
+                }
+                event.preventDefault();
+                const targetId = trigger.dataset.questionJump;
+                if (targetId) {
+                  scrollToQuestion(targetId);
+                }
+              },
+              { signal }
+            );
+          }
 
           tabButtons.forEach((button, index) => {
             button.addEventListener(
@@ -8671,6 +9319,7 @@
             updateFooterCta(questionCards[0].id);
             updateSelectionQuestion(questionCards[0].id);
             activeQuestionId = questionCards[0].id;
+            updateQuickNavActive(activeQuestionId);
           }
 
           const observer = new IntersectionObserver(
@@ -8683,6 +9332,7 @@
                   activateCard(entry.target);
                   updateSelectionQuestion(id);
                   activeQuestionId = id;
+                  updateQuickNavActive(id);
                   setActiveAnchor('section-answer');
                 }
               });
