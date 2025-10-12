@@ -456,64 +456,117 @@
         color: currentColor;
       }
 
-      body[data-app="exercise"] .app-progress {
+      body[data-app="exercise"] .app-header__controls {
         display: flex;
+        gap: var(--spacing-sm);
         align-items: center;
-        gap: var(--spacing-md);
-        padding: 0 var(--spacing-lg);
+        flex-wrap: wrap;
+        margin-left: auto;
       }
 
-      body[data-app="exercise"] .progress-indicator {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-md);
-        padding: var(--spacing-sm) var(--spacing-md);
-        border-radius: 14px;
-        border: none;
-        background-color: var(--color-layer-subtle);
-        box-shadow: 0 8px 20px rgba(15, 23, 39, 0.08);
+      body[data-app="exercise"] .app-header__control {
+        display: grid;
+        gap: 4px;
+        font-size: 0.75rem;
+        color: var(--color-text-muted);
       }
 
-      body[data-app="exercise"] .progress-indicator__bar {
-        position: relative;
-        flex: 1;
-        height: 8px;
+      body[data-app="exercise"] .app-header__control span {
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+
+      body[data-app="exercise"] .app-header__control select {
+        min-width: 120px;
+        padding: 6px 32px 6px 12px;
         border-radius: 999px;
-        background-color: var(--color-layer-soft);
-        overflow: hidden;
+        border: 1px solid var(--color-border);
+        background-color: var(--color-surface);
+        color: var(--color-text);
+        font-size: 0.85rem;
       }
 
-      body[data-app="exercise"] .progress-indicator__bar span {
-        display: block;
-        height: 100%;
-        width: 45%;
+      body[data-app="exercise"] .app-progress {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: var(--spacing-md);
+        align-items: stretch;
+        padding: var(--spacing-md) var(--spacing-lg);
+      }
+
+      body[data-app="exercise"] .progress-card {
+        display: grid;
+        gap: var(--spacing-xs);
+        padding: var(--spacing-md);
+        border-radius: var(--radius-card);
+        background: color-mix(
+          in srgb,
+          var(--color-chip-bg) 55%,
+          transparent
+        );
+        box-shadow: 0 12px 28px rgba(15, 23, 39, 0.08);
+        min-height: 88px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body[data-app="exercise"] .progress-card {
+          background: color-mix(
+            in srgb,
+            var(--color-chip-bg) 35%,
+            var(--color-surface)
+          );
+        }
+      }
+
+      body[data-app="exercise"] .progress-card__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: var(--spacing-xs);
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+
+      body[data-app="exercise"] .progress-card__title {
+        color: var(--color-text-strong);
+      }
+
+      body[data-app="exercise"] .progress-card__meta {
+        color: var(--color-text-muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      body[data-app="exercise"] .progress-card__bar {
+        position: relative;
+        height: 6px;
+        border-radius: 999px;
+        overflow: hidden;
+        background-color: color-mix(
+          in srgb,
+          var(--color-border) 60%,
+          transparent
+        );
+      }
+
+      body[data-app="exercise"] .progress-card__bar span {
+        position: absolute;
+        inset: 0;
         border-radius: inherit;
         background: linear-gradient(
           90deg,
           var(--color-chip-active) 0%,
-          color-mix(in srgb, var(--color-chip-active) 80%, transparent) 100%
+          color-mix(in srgb, var(--color-chip-active) 70%, #fff) 100%
         );
+        width: 0;
+        transition: width 280ms ease;
       }
 
-      body[data-app="exercise"] .progress-indicator__meta {
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-sm);
-        font-size: 0.9rem;
-      }
-
-      body[data-app="exercise"] .progress-indicator__spinner {
-        width: 20px;
-        height: 20px;
-        border-radius: 999px;
-        border: 2px solid color-mix(
+      body[data-app="exercise"] .progress-card--timer {
+        background: color-mix(
           in srgb,
-          var(--color-chip-active) 30%,
-          transparent
+          var(--color-warning) 20%,
+          var(--color-layer-subtle)
         );
-        border-top-color: var(--color-chip-active);
-        animation: exercise-spinner 1s linear infinite;
       }
 
       body[data-app="exercise"] .section-tabs {
@@ -2370,20 +2423,12 @@
         }
 
         body[data-app="exercise"] .app-progress {
-          flex-direction: column;
-          align-items: stretch;
-          padding: 0 var(--spacing-md);
+          grid-template-columns: 1fr;
+          padding: 0 var(--spacing-md) var(--spacing-md);
         }
 
-        body[data-app="exercise"] .progress-indicator {
-          flex-direction: column;
-          align-items: flex-start;
-          gap: var(--spacing-sm);
-        }
-
-        body[data-app="exercise"] .progress-indicator__meta {
-          width: 100%;
-          justify-content: space-between;
+        body[data-app="exercise"] .progress-card {
+          min-height: auto;
         }
       }
 
@@ -2404,6 +2449,11 @@
           justify-content: center;
           flex-wrap: wrap;
           padding-top: var(--spacing-xs);
+        }
+
+        body[data-app="exercise"] .app-header__controls {
+          width: 100%;
+          justify-content: center;
         }
       }
 
@@ -2428,6 +2478,15 @@
           color: var(--color-chip-active);
           font-size: 0.85rem;
           text-decoration: underline;
+        }
+
+        body[data-app="exercise"] .app-header__controls {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        body[data-app="exercise"] .app-header__control select {
+          width: 100%;
         }
 
         body[data-app="exercise"] .ui-toast {
@@ -2481,6 +2540,16 @@
             >
               Q1 経営課題の整理
             </span>
+          </div>
+          <div class="app-header__controls" role="group" aria-label="演習セットの切り替え">
+            <label class="app-header__control">
+              <span>事例</span>
+              <select class="ui-select" data-case-select aria-label="事例を選択"></select>
+            </label>
+            <label class="app-header__control">
+              <span>年度</span>
+              <select class="ui-select" data-year-select aria-label="年度を選択"></select>
+            </label>
           </div>
         </div>
         <div class="app-header__group" role="navigation" aria-label="主要操作">
@@ -2553,18 +2622,43 @@
         </nav>
       </header>
       <section class="app-progress" aria-label="進捗状況">
-        <div class="progress-indicator" role="status">
-          <div class="progress-indicator__spinner" aria-hidden="true"></div>
-          <div class="progress-indicator__bar" aria-hidden="true">
-            <span></span>
-          </div>
-          <div class="progress-indicator__meta">
-            <span>問題を読み込み中</span>
-            <span aria-label="残り時間 約32分">
-              ⏱️ <time datetime="PT32M">32分</time>
+        <div class="progress-card" role="status" aria-live="polite">
+          <div class="progress-card__header">
+            <span class="progress-card__title">解答進捗</span>
+            <span class="progress-card__meta" data-progress-questions-summary>
+              0 / 4問
             </span>
           </div>
-          <span class="sr-only">問題を読み込み中です</span>
+          <div class="progress-card__bar" aria-hidden="true">
+            <span data-progress-questions-bar style="width: 0%"></span>
+          </div>
+        </div>
+        <div
+          class="progress-card"
+          role="status"
+          aria-live="polite"
+          data-progress-retrieval-card
+        >
+          <div class="progress-card__header">
+            <span class="progress-card__title">リトリーバル</span>
+            <span class="progress-card__meta" data-progress-retrieval-summary>
+              0枚中0枚完了
+            </span>
+          </div>
+          <div class="progress-card__bar" aria-hidden="true">
+            <span data-progress-retrieval-bar style="width: 0%"></span>
+          </div>
+        </div>
+        <div class="progress-card progress-card--timer" role="status">
+          <div class="progress-card__header">
+            <span class="progress-card__title">残り時間</span>
+            <span class="progress-card__meta" data-progress-timer-label>
+              45:00
+            </span>
+          </div>
+          <div class="progress-card__bar" aria-hidden="true">
+            <span data-progress-timer-bar style="width: 100%"></span>
+          </div>
         </div>
       </section>
       <nav class="section-tabs" role="tablist" aria-label="主要セクション">
@@ -2634,19 +2728,19 @@
         >
         <header class="context-pane__header">
           <div class="context-pane__miniheader">
-            <strong>事例I 令和6年</strong>
+            <strong data-scenario-summary>事例I 令和6年</strong>
             <a class="text-muted" href="#question-1">設問一覧へジャンプ</a>
           </div>
-          <h1 id="context-heading">B製造業 与件文</h1>
+          <h1 id="context-heading" data-scenario-title>B製造業 与件文</h1>
           <dl class="context-pane__meta">
             <dt>業種</dt>
-            <dd>精密機器製造</dd>
+            <dd data-scenario-industry>精密機器製造</dd>
             <dt>従業員</dt>
-            <dd>220名</dd>
+            <dd data-scenario-employees>220名</dd>
             <dt>売上規模</dt>
-            <dd>58億円</dd>
+            <dd data-scenario-sales>58億円</dd>
             <dt>キーワード</dt>
-            <dd>技能伝承 / 開発連携</dd>
+            <dd data-scenario-keywords>技能伝承 / 開発連携</dd>
           </dl>
           <div class="context-pane__search" role="search">
             <label class="sr-only" for="scenario-search">与件文を検索</label>
@@ -2819,7 +2913,7 @@
             </div>
           </div>
         </header>
-        <div class="context-pane__body">
+          <div class="context-pane__body" data-scenario-body>
           <!-- 与件文を常時参照できるよう縦スクロール可能に配置 -->
           A社は創業40年の精密機器メーカーである。創業者の引退を契機に、
           2代目社長は設計部門のDX化と熟練技術者の技能伝承を最優先テーマ
@@ -2954,6 +3048,7 @@
                 data-active="true"
                 data-tooltip="まだ取り組んでいない問題だけを表示します"
                 aria-label="未回答（まだ取り組んでいない問題だけを表示します）"
+                data-filter="unanswered"
               >
                 <span class="icon icon--sm" aria-hidden="true">
                   <i class="bx bx-check"></i>
@@ -2966,6 +3061,7 @@
                 role="listitem"
                 data-tooltip="提出済みの問題に絞り込んで進捗を確認します"
                 aria-label="解答済み（提出済みの問題に絞り込みます）"
+                data-filter="answered"
               >
                 <span class="icon icon--sm" aria-hidden="true">
                   <i class="bx bx-check"></i>
@@ -2978,6 +3074,7 @@
                 role="listitem"
                 data-tooltip="復習フラグが付いた問題を優先的に表示します"
                 aria-label="要復習（復習フラグが付いた問題を優先的に表示します）"
+                data-filter="review"
               >
                 <span class="icon icon--sm" aria-hidden="true">
                   <i class="bx bx-check"></i>
@@ -2990,6 +3087,7 @@
                 role="listitem"
                 data-tooltip="模範解答や解説が用意された問題だけに限定します"
                 aria-label="解説あり（模範解答や解説が用意された問題だけに限定します）"
+                data-filter="explanation"
               >
                 <span class="icon icon--sm" aria-hidden="true">
                   <i class="bx bx-check"></i>
@@ -3024,7 +3122,7 @@
           </div>
           <div class="control-card" role="group" aria-labelledby="index-heading">
             <h3 id="index-heading" class="heading-md">問題一覧</h3>
-            <ol class="question-index">
+            <ol class="question-index" data-question-index>
               <li><a href="#question-1">Q1 経営課題の整理</a></li>
               <li><a href="#question-2">Q2 顧客共創の提案</a></li>
               <li><a href="#question-3">Q3 技能伝承の仕組み</a></li>
@@ -3178,9 +3276,10 @@
             aria-controls="question-1"
             tabindex="0"
             data-target="question-1"
+            data-question-tab="q1"
           >
             <span class="exercise-tab__label">Q1</span>
-            <span class="exercise-tab__title">経営課題の整理</span>
+            <span class="exercise-tab__title" data-question-tab-title>経営課題の整理</span>
           </button>
           <button
             id="tab-question-2"
@@ -3191,9 +3290,10 @@
             aria-controls="question-2"
             tabindex="-1"
             data-target="question-2"
+            data-question-tab="q2"
           >
             <span class="exercise-tab__label">Q2</span>
-            <span class="exercise-tab__title">顧客共創の提案</span>
+            <span class="exercise-tab__title" data-question-tab-title>顧客共創の提案</span>
           </button>
           <button
             id="tab-question-3"
@@ -3204,9 +3304,10 @@
             aria-controls="question-3"
             tabindex="-1"
             data-target="question-3"
+            data-question-tab="q3"
           >
             <span class="exercise-tab__label">Q3</span>
-            <span class="exercise-tab__title">技能伝承の仕組み</span>
+            <span class="exercise-tab__title" data-question-tab-title>技能伝承の仕組み</span>
           </button>
           <button
             id="tab-question-4"
@@ -3217,9 +3318,10 @@
             aria-controls="question-4"
             tabindex="-1"
             data-target="question-4"
+            data-question-tab="q4"
           >
             <span class="exercise-tab__label">Q4</span>
-            <span class="exercise-tab__title">評価制度の再設計</span>
+            <span class="exercise-tab__title" data-question-tab-title>評価制度の再設計</span>
           </button>
         </nav>
         <section
@@ -3238,18 +3340,23 @@
             aria-labelledby="question-1-title"
             data-max-length="120"
             data-question-label="Q1 経営課題の整理"
+            data-question-key="q1"
           >
             <header class="question-card__header">
               <span class="question-card__badge">1</span>
-              <h3 id="question-1-title" class="question-card__title">
+              <h3
+                id="question-1-title"
+                class="question-card__title"
+                data-question-title
+              >
                 経営課題の整理
               </h3>
               <div class="question-card__meta">
-                <span>配点 20点</span>
-                <span>120字以内</span>
+                <span data-question-score>配点 20点</span>
+                <span data-question-limit>120字以内</span>
               </div>
             </header>
-            <div class="question-card__body">
+            <div class="question-card__body" data-question-prompt>
               A社が直面している主要な経営課題を、設計・生産・人材の観点
               から整理し、優先度の高い順に二点述べよ。
             </div>
@@ -3313,7 +3420,11 @@
                     挿入を取り消す
                   </button>
                 </div>
-                <div class="example-expressions__list" role="list">
+                <div
+                  class="example-expressions__list"
+                  role="list"
+                  data-example-list
+                >
                   <button
                     type="button"
                     class="example-expression-chip"
@@ -3370,7 +3481,12 @@
                   <i class="bx bx-chevron-down"></i>
                 </span>
               </button>
-              <div id="support-1" class="support-block__content" hidden>
+              <div
+                id="support-1"
+                class="support-block__content"
+                hidden
+                data-support-content
+              >
                 設計部門のDX化、BOM連携、技能伝承、人材評価の整合性など、
                 与件文から直接引用できる語を起点に因果で整理する。
               </div>
@@ -3384,18 +3500,23 @@
             aria-labelledby="question-2-title"
             data-max-length="160"
             data-question-label="Q2 顧客共創の提案"
+            data-question-key="q2"
           >
             <header class="question-card__header">
               <span class="question-card__badge">2</span>
-              <h3 id="question-2-title" class="question-card__title">
+              <h3
+                id="question-2-title"
+                class="question-card__title"
+                data-question-title
+              >
                 顧客共創の提案
               </h3>
               <div class="question-card__meta">
-                <span>配点 30点</span>
-                <span>160字以内</span>
+                <span data-question-score>配点 30点</span>
+                <span data-question-limit>160字以内</span>
               </div>
             </header>
-            <div class="question-card__body">
+            <div class="question-card__body" data-question-prompt>
               A社が顧客との共同開発を推進するための施策を、営業・設計・
               生産の連携の仕組みとして提案せよ。
             </div>
@@ -3459,7 +3580,11 @@
                     挿入を取り消す
                   </button>
                 </div>
-                <div class="example-expressions__list" role="list">
+                <div
+                  class="example-expressions__list"
+                  role="list"
+                  data-example-list
+                >
                   <button
                     type="button"
                     class="example-expression-chip"
@@ -3516,7 +3641,12 @@
                   <i class="bx bx-chevron-down"></i>
                 </span>
               </button>
-              <div id="support-2" class="support-block__content" hidden>
+              <div
+                id="support-2"
+                class="support-block__content"
+                hidden
+                data-support-content
+              >
                 顧客接点の情報共有タイミング、設計部門の早期参画、試作段
                 階でのフィードバックループを盛り込む。
               </div>
@@ -3530,18 +3660,23 @@
             aria-labelledby="question-3-title"
             data-max-length="160"
             data-question-label="Q3 技能伝承の仕組み"
+            data-question-key="q3"
           >
             <header class="question-card__header">
               <span class="question-card__badge">3</span>
-              <h3 id="question-3-title" class="question-card__title">
+              <h3
+                id="question-3-title"
+                class="question-card__title"
+                data-question-title
+              >
                 技能伝承の仕組み
               </h3>
               <div class="question-card__meta">
-                <span>配点 25点</span>
-                <span>160字以内</span>
+                <span data-question-score>配点 25点</span>
+                <span data-question-limit>160字以内</span>
               </div>
             </header>
-            <div class="question-card__body">
+            <div class="question-card__body" data-question-prompt>
               熟練技能の形式知化と継承を加速するための施策を、教育体系と
               デジタル活用の両面から述べよ。
             </div>
@@ -3605,7 +3740,11 @@
                     挿入を取り消す
                   </button>
                 </div>
-                <div class="example-expressions__list" role="list">
+                <div
+                  class="example-expressions__list"
+                  role="list"
+                  data-example-list
+                >
                   <button
                     type="button"
                     class="example-expression-chip"
@@ -3662,7 +3801,12 @@
                   <i class="bx bx-chevron-down"></i>
                 </span>
               </button>
-              <div id="support-3" class="support-block__content" hidden>
+              <div
+                id="support-3"
+                class="support-block__content"
+                hidden
+                data-support-content
+              >
                 指導員制度、ペアワーク、動画記録、工程別のナレッジカード
                 など複数手段を組み合わせ、習熟度指標を定義する。
               </div>
@@ -3676,18 +3820,23 @@
             aria-labelledby="question-4-title"
             data-max-length="200"
             data-question-label="Q4 評価制度の再設計"
+            data-question-key="q4"
           >
             <header class="question-card__header">
               <span class="question-card__badge">4</span>
-              <h3 id="question-4-title" class="question-card__title">
+              <h3
+                id="question-4-title"
+                class="question-card__title"
+                data-question-title
+              >
                 評価制度の再設計
               </h3>
               <div class="question-card__meta">
-                <span>配点 25点</span>
-                <span>200字以内</span>
+                <span data-question-score>配点 25点</span>
+                <span data-question-limit>200字以内</span>
               </div>
             </header>
-            <div class="question-card__body">
+            <div class="question-card__body" data-question-prompt>
               DX推進と技能伝承を両立させる評価制度・報酬制度の改善策を、
               期待する行動指標を含めて述べよ。
             </div>
@@ -3751,7 +3900,11 @@
                     挿入を取り消す
                   </button>
                 </div>
-                <div class="example-expressions__list" role="list">
+                <div
+                  class="example-expressions__list"
+                  role="list"
+                  data-example-list
+                >
                   <button
                     type="button"
                     class="example-expression-chip"
@@ -3808,7 +3961,12 @@
                   <i class="bx bx-chevron-down"></i>
                 </span>
               </button>
-              <div id="support-4" class="support-block__content" hidden>
+              <div
+                id="support-4"
+                class="support-block__content"
+                hidden
+                data-support-content
+              >
                 DXで創出した知見の共有や後進育成を評価指標に組み込み、成
                 果とプロセスを両面評価する基準づくりを意識する。
               </div>
@@ -3862,7 +4020,7 @@
             ✕
           </button>
         </header>
-        <div class="retrieval-modal__body">
+        <div class="retrieval-modal__body" data-retrieval-container>
           <article
             class="retrieval-card"
             data-retrieval-card
@@ -4104,6 +4262,30 @@
             </span>
           </div>
           <div class="shortcut-panel__item">
+            <span>ハイライト色を切り替え</span>
+            <span class="shortcut-panel__keys">
+              <span>Alt</span><span>Shift</span><span>1〜4</span>
+            </span>
+          </div>
+          <div class="shortcut-panel__item">
+            <span>次の設問に移動</span>
+            <span class="shortcut-panel__keys">
+              <span>Alt</span><span>Shift</span><span>N</span>
+            </span>
+          </div>
+          <div class="shortcut-panel__item">
+            <span>前の設問に移動</span>
+            <span class="shortcut-panel__keys">
+              <span>Alt</span><span>Shift</span><span>P</span>
+            </span>
+          </div>
+          <div class="shortcut-panel__item">
+            <span>回答欄へフォーカス</span>
+            <span class="shortcut-panel__keys">
+              <span>Alt</span><span>Shift</span><span>A</span>
+            </span>
+          </div>
+          <div class="shortcut-panel__item">
             <span>直前のハイライトを元に戻す</span>
             <span class="shortcut-panel__keys">
               <span>Alt</span><span>Shift</span><span>Z</span>
@@ -4217,6 +4399,302 @@
 
     <script>
       (() => {
+        const exerciseLibrary = [
+          {
+            id: 'r06-case1',
+            caseId: 'case1',
+            caseLabel: '事例I',
+            year: '令和6年',
+            scenarioTitle: 'B製造業 与件文',
+            scenarioSummary: '事例I 令和6年',
+            scenarioMeta: {
+              industry: '精密機器製造',
+              employees: '220名',
+              sales: '58億円',
+              keywords: '技能伝承 / 開発連携',
+            },
+            scenarioBody: [
+              'A社は創業40年の精密機器メーカーである。創業者の引退を契機に、2代目社長は設計部門のDX化と熟練技術者の技能伝承を最優先テーマと定めた。設計BOMと生産BOMが分断されており、製品立ち上げ時の手戻りが多発している。また、顧客ニーズの高度化に伴い、多品種小ロットかつ短納期での開発対応が求められている。',
+              '現状、設計段階での顧客折衝は営業部門が単独で担っており、設計の観点が十分に反映されていない。生産部門ではベテラン技能者の高齢化が進み、暗黙知の形式知化が急務となっている。社長は部門横断での情報共有と意思決定スピードの改善を目指し、試験的にデジタル・コラボレーション基盤を導入した。',
+              '今後は、設計段階からの顧客共創、外部パートナーとの連携強化、それに伴う評価制度の再設計が検討課題である。',
+            ],
+            timeLimitMinutes: 45,
+            questions: [
+              {
+                key: 'q1',
+                label: 'Q1',
+                tabTitle: '経営課題の整理',
+                title: '経営課題の整理',
+                prompt:
+                  'A社が直面している主要な経営課題を、設計・生産・人材の観点から整理し、優先度の高い順に二点述べよ。',
+                score: '配点 20点',
+                limit: '120字以内',
+                maxLength: 120,
+                recommendedRank: 1,
+                recentRank: 3,
+                status: 'unanswered',
+                flags: ['review', 'explanation'],
+                keywords: ['経営', 'BOM', '技能伝承'],
+                examples: [
+                  '設計と生産のBOM分断が手戻りを誘発',
+                  '熟練技能の暗黙知が形式知化できていない',
+                  '顧客ニーズの高度化に開発体制が追随できない',
+                ],
+                support:
+                  '設計部門のDX化、BOM連携、技能伝承、人材評価の整合性など、与件文から直接引用できる語を起点に因果で整理する。',
+              },
+              {
+                key: 'q2',
+                label: 'Q2',
+                tabTitle: '顧客共創の提案',
+                title: '顧客共創の提案',
+                prompt:
+                  'A社が顧客との共同開発を推進するための施策を、営業・設計・生産の連携の仕組みとして提案せよ。',
+                score: '配点 30点',
+                limit: '160字以内',
+                maxLength: 160,
+                recommendedRank: 2,
+                recentRank: 1,
+                status: 'answered',
+                flags: ['explanation'],
+                keywords: ['共創', 'レビュー', 'BOM共有'],
+                examples: [
+                  '営業・設計・生産で顧客課題を共通理解',
+                  '共創レビューで要求を段階的に合意形成',
+                  'クラウドBOMで設計変更を即時共有',
+                ],
+                support:
+                  '顧客接点の情報共有タイミング、設計部門の早期参画、試作段階でのフィードバックループを盛り込む。',
+              },
+              {
+                key: 'q3',
+                label: 'Q3',
+                tabTitle: '技能伝承の仕組み',
+                title: '技能伝承の仕組み',
+                prompt:
+                  '熟練技能の形式知化と継承を加速するための施策を、教育体系とデジタル活用の両面から述べよ。',
+                score: '配点 25点',
+                limit: '160字以内',
+                maxLength: 160,
+                recommendedRank: 3,
+                recentRank: 4,
+                status: 'unanswered',
+                flags: ['review'],
+                keywords: ['動画', 'メンター', 'チェックリスト'],
+                examples: [
+                  '作業動画と要点字幕で匠のコツを可視化',
+                  '段階別チェックリストで習熟度を測定',
+                  'メンター面談で学習計画をリフレクション',
+                ],
+                support:
+                  '指導員制度、ペアワーク、動画記録、工程別のナレッジカードなど複数手段を組み合わせ、習熟度指標を定義する。',
+              },
+              {
+                key: 'q4',
+                label: 'Q4',
+                tabTitle: '評価制度の再設計',
+                title: '評価制度の再設計',
+                prompt:
+                  'DX推進と技能伝承を両立させる評価制度・報酬制度の改善策を、期待する行動指標を含めて述べよ。',
+                score: '配点 25点',
+                limit: '200字以内',
+                maxLength: 200,
+                recommendedRank: 4,
+                recentRank: 2,
+                status: 'unanswered',
+                flags: ['explanation'],
+                keywords: ['評価指標', 'DX推進', '後進育成'],
+                examples: [
+                  '知識共有と後進育成を評価指標に反映',
+                  'DX活用件数を成果評価に連動',
+                  '行動指標で共創行動とナレッジ共有を促す',
+                ],
+                support:
+                  'DXで創出した知見の共有や後進育成を評価指標に組み込み、成果とプロセスを両面評価する基準づくりを意識する。',
+              },
+            ],
+            retrieval: [
+              {
+                key: 'r1',
+                category: '顧客共創',
+                title: '共創設計レビュー',
+                body: '開発初期から設計と営業が参加する共創レビューを設定し、顧客の真因をBOMに反映。議事録をクラウド共有してトレーサビリティを確保する。',
+                expectedKeywords:
+                  '共創,議事録,トレーサビリティ,設計,営業',
+              },
+              {
+                key: 'r2',
+                category: '技能伝承',
+                title: '動画×メンター制度',
+                body: '熟練者の作業を動画で記録し、技能のツボを字幕で補足。週次でメンターが振り返り面談を実施し、チェックリストで習熟度を可視化。',
+                expectedKeywords:
+                  '動画,字幕,メンター,振り返り,チェックリスト',
+              },
+            ],
+          },
+          {
+            id: 'r05-case2',
+            caseId: 'case2',
+            caseLabel: '事例II',
+            year: '令和5年',
+            scenarioTitle: 'D商店 与件文',
+            scenarioSummary: '事例II 令和5年',
+            scenarioMeta: {
+              industry: '専門小売業',
+              employees: '85名',
+              sales: '14億円',
+              keywords: 'OMO戦略 / 顧客ロイヤルティ',
+            },
+            scenarioBody: [
+              'D商店は地方都市で専門食材の小売と業務用卸を行う老舗である。直営店舗は観光地に位置し、近年はECサイト経由での注文が伸びているが、常連客の来店頻度は減少している。',
+              '店舗スタッフは料理教室やライブ配信を通じて顧客との接点を保とうとしているが、イベント情報と在庫データが分断され、プロモーションが一貫しない。ポイントカードは紙ベースで、購買履歴を分析できていない。',
+              '社長はOMOを前提とした会員制度の再構築と、スタッフの提案力を高める教育プログラムの整備を検討している。',
+            ],
+            timeLimitMinutes: 40,
+            questions: [
+              {
+                key: 'q1',
+                label: 'Q1',
+                tabTitle: '顧客セグメントの整理',
+                title: '顧客セグメントの整理',
+                prompt:
+                  'D商店の主要顧客を来店・EC・業務用の観点で再整理し、それぞれの提供価値強化策を示せ。',
+                score: '配点 20点',
+                limit: '120字以内',
+                maxLength: 120,
+                recommendedRank: 1,
+                recentRank: 1,
+                status: 'answered',
+                flags: ['explanation'],
+                keywords: ['セグメント', '価値提案', 'OMO'],
+                examples: [
+                  '旅行者向けに体験型イベントを常設',
+                  '業務用顧客へ定期便と仕入れ相談窓口を提供',
+                  'EC会員にライブ配信と限定クーポンを提供',
+                ],
+                support:
+                  'セグメントごとに購買動機と接点を整理し、オンラインとオフラインをつなぐ導線を明確化する。',
+              },
+              {
+                key: 'q2',
+                label: 'Q2',
+                tabTitle: 'OMO会員制度',
+                title: 'OMO会員制度の設計',
+                prompt:
+                  'ポイントカードを起点にOMO型の会員制度を再設計し、来店頻度とEC売上の双方を高める施策を提案せよ。',
+                score: '配点 30点',
+                limit: '180字以内',
+                maxLength: 180,
+                recommendedRank: 2,
+                recentRank: 3,
+                status: 'unanswered',
+                flags: ['review', 'explanation'],
+                keywords: ['会員制度', 'CRM', 'ポイント'],
+                examples: [
+                  'アプリでポイント・クーポンを一元管理',
+                  '購買履歴からおすすめレシピとセット提案',
+                  'イベント参加で来店ポイントを即時付与',
+                ],
+                support:
+                  'ID-POSの分析基盤とアプリ通知を連動させ、オンライン体験が店舗購買につながる循環を設計する。',
+              },
+              {
+                key: 'q3',
+                label: 'Q3',
+                tabTitle: 'スタッフ育成',
+                title: 'スタッフ育成プログラム',
+                prompt:
+                  '提案力を高めるために、スタッフ教育と評価の仕組みをどのように構築すべきか。OJTと集合研修の役割を整理せよ。',
+                score: '配点 25点',
+                limit: '160字以内',
+                maxLength: 160,
+                recommendedRank: 3,
+                recentRank: 4,
+                status: 'unanswered',
+                flags: ['review'],
+                keywords: ['研修', 'OJT', '評価'],
+                examples: [
+                  'ライブ配信の台本づくりをロールプレイで訓練',
+                  'OJTで提案ヒアリングの型をチェックリスト化',
+                  '提案件数と顧客満足をKPIにコーチング面談',
+                ],
+                support:
+                  'OJT・集合研修・評価の三位一体で学習サイクルを回し、顧客提案の振り返り指標を設定する。',
+              },
+              {
+                key: 'q4',
+                label: 'Q4',
+                tabTitle: '地域連携と成長戦略',
+                title: '地域連携と成長戦略',
+                prompt:
+                  'D商店が地域資源と連携して新規顧客を獲得するための施策を、オンライン発信と店舗体験の連動で提案せよ。',
+                score: '配点 25点',
+                limit: '200字以内',
+                maxLength: 200,
+                recommendedRank: 4,
+                recentRank: 2,
+                status: 'unanswered',
+                flags: ['explanation'],
+                keywords: ['地域連携', '体験型', '新規顧客'],
+                examples: [
+                  '地元飲食店とコラボした季節フェアを配信',
+                  '観光客向けテイスティングツアーを予約制で実施',
+                  '産地レポートをSNSと店頭POPで同時展開',
+                ],
+                support:
+                  '地域のストーリーをコンテンツ化し、オンライン告知から店舗での体験まで一気通貫の導線を作る。',
+              },
+            ],
+            retrieval: [
+              {
+                key: 'r1',
+                category: 'マーケティング',
+                title: 'OMO会員のLTV強化',
+                body: 'ECと店舗の購買履歴を統合し、来店回数に応じてライブ配信の招待や限定商品の先行販売を提供する。',
+                expectedKeywords:
+                  'OMO,ポイント,ライブ配信,限定,来店',
+              },
+              {
+                key: 'r2',
+                category: '人材育成',
+                title: '提案型スタッフ育成',
+                body: '研修でヒアリング→提案→振り返りのスクリプトを習得し、日報アプリで学習ログを共有する。',
+                expectedKeywords:
+                  'ヒアリング,提案,振り返り,スクリプト,学習ログ',
+              },
+              {
+                key: 'r3',
+                category: '地域連携',
+                title: '産地コラボ企画',
+                body: '地元生産者とのコラボセットを月替わりで販売し、レシピ動画とセット連動クーポンを配布する。',
+                expectedKeywords:
+                  '地域,コラボ,セット,レシピ動画,クーポン',
+              },
+            ],
+          },
+        ];
+
+        const exerciseById = new Map(
+          exerciseLibrary.map((exercise) => [exercise.id, exercise])
+        );
+        const exercisesByCase = exerciseLibrary.reduce((map, exercise) => {
+          if (!map.has(exercise.caseId)) {
+            map.set(exercise.caseId, []);
+          }
+          map.get(exercise.caseId).push(exercise);
+          return map;
+        }, new Map());
+        const caseOptions = Array.from(
+          exercisesByCase.entries(),
+          ([caseId, exercises]) => ({
+            caseId,
+            label: exercises[0]?.caseLabel || caseId,
+            exercises: exercises
+              .slice()
+              .sort((a, b) => a.year.localeCompare(b.year)),
+          })
+        );
+
         const initializeExerciseApp = (appRoot) => {
           if (!appRoot) {
             return;
@@ -4259,6 +4737,40 @@
               return target ? { button, target, targetId } : null;
             })
             .filter(Boolean);
+
+          const selectionCaseLabel = appRoot.querySelector(
+            '[data-selection-case]'
+          );
+          const selectionYearLabel = appRoot.querySelector(
+            '[data-selection-year]'
+          );
+          const selectionQuestionLabel = appRoot.querySelector(
+            '[data-selection-question]'
+          );
+          const caseSelect = appRoot.querySelector('[data-case-select]');
+          const yearSelect = appRoot.querySelector('[data-year-select]');
+          const questionIndexList = appRoot.querySelector('[data-question-index]');
+          const progressQuestionsSummary = appRoot.querySelector(
+            '[data-progress-questions-summary]'
+          );
+          const progressQuestionsBar = appRoot.querySelector(
+            '[data-progress-questions-bar]'
+          );
+          const progressRetrievalCard = appRoot.querySelector(
+            '[data-progress-retrieval-card]'
+          );
+          const progressRetrievalSummary = appRoot.querySelector(
+            '[data-progress-retrieval-summary]'
+          );
+          const progressRetrievalBar = appRoot.querySelector(
+            '[data-progress-retrieval-bar]'
+          );
+          const progressTimerLabel = appRoot.querySelector(
+            '[data-progress-timer-label]'
+          );
+          const progressTimerBar = appRoot.querySelector(
+            '[data-progress-timer-bar]'
+          );
 
           const toastElement = appRoot.querySelector('[data-toast]');
           let toastTimerId = null;
@@ -4772,6 +5284,34 @@
             return chip;
           };
 
+          const updateRetrievalProgress = () => {
+            const total = retrievalCards.length;
+            if (progressRetrievalCard) {
+              progressRetrievalCard.hidden = total === 0;
+            }
+            if (!total) {
+              if (progressRetrievalSummary) {
+                progressRetrievalSummary.textContent = 'カードが登録されていません';
+              }
+              if (progressRetrievalBar) {
+                progressRetrievalBar.style.width = '0%';
+              }
+              return;
+            }
+            const completed = Math.max(0, Math.min(retrievalIndex, total));
+            const remaining = Math.max(total - completed - 1, 0);
+            if (progressRetrievalSummary) {
+              progressRetrievalSummary.textContent = `${completed}枚完了 / 残り${remaining}枚`;
+            }
+            if (progressRetrievalBar) {
+              const ratio = total ? completed / total : 0;
+              progressRetrievalBar.style.width = `${Math.min(
+                100,
+                Math.max(0, ratio * 100)
+              )}%`;
+            }
+          };
+
           const updateRetrievalView = () => {
             if (!retrievalCards.length) {
               if (retrievalCount) {
@@ -4810,6 +5350,7 @@
               retrievalNext.disabled =
                 retrievalIndex === Math.max(retrievalCards.length - 1, 0);
             }
+            updateRetrievalProgress();
           };
 
           const updateRetrievalOrderOptions = () => {
@@ -5141,6 +5682,33 @@
           let activeHighlightCategory = 'strength';
           let activeHighlightId = null;
           let activeHighlightMark = null;
+
+          const highlightCategoriesOrdered = highlightPaletteButtons
+            .map((button) => button.dataset.highlightCategory)
+            .filter(Boolean);
+
+          const setActiveHighlightCategory = (category, { focus = false } = {}) => {
+            if (!category || !highlightCategoriesOrdered.includes(category)) {
+              return false;
+            }
+            activeHighlightCategory = category;
+            let focused = false;
+            highlightPaletteButtons.forEach((other) => {
+              const isActive = other.dataset.highlightCategory === category;
+              other.dataset.active = String(isActive);
+              other.setAttribute('aria-checked', String(isActive));
+              other.setAttribute('tabindex', isActive ? '0' : '-1');
+              if (isActive && focus && !focused) {
+                focused = true;
+                try {
+                  other.focus({ preventScroll: true });
+                } catch (error) {
+                  other.focus();
+                }
+              }
+            });
+            return true;
+          };
 
           const highlightCategoryLabels = new Map(
             Object.entries(defaultHighlightLabels)
@@ -5747,13 +6315,7 @@
             button.addEventListener(
               'click',
               () => {
-                activeHighlightCategory = category;
-                highlightPaletteButtons.forEach((other) => {
-                  const isActive = other.dataset.highlightCategory === category;
-                  other.dataset.active = String(isActive);
-                  other.setAttribute('aria-checked', String(isActive));
-                  other.setAttribute('tabindex', isActive ? '0' : '-1');
-                });
+                setActiveHighlightCategory(category, { focus: true });
               },
               { signal }
             );
@@ -5766,13 +6328,7 @@
               initialActive?.dataset.highlightCategory ||
               highlightPaletteButtons[0]?.dataset.highlightCategory;
             if (initialCategory) {
-              activeHighlightCategory = initialCategory;
-              highlightPaletteButtons.forEach((button) => {
-                const isActive = button.dataset.highlightCategory === initialCategory;
-                button.dataset.active = String(isActive);
-                button.setAttribute('aria-checked', String(isActive));
-                button.setAttribute('tabindex', isActive ? '0' : '-1');
-              });
+              setActiveHighlightCategory(initialCategory);
             }
           }
 
@@ -5866,6 +6422,24 @@
           const scenarioPane = appRoot.querySelector('#section-scenario');
           const scenarioBody =
             scenarioPane?.querySelector('.context-pane__body') || null;
+          const scenarioSummaryLabel = scenarioPane?.querySelector(
+            '[data-scenario-summary]'
+          );
+          const scenarioTitleElement = scenarioPane?.querySelector(
+            '[data-scenario-title]'
+          );
+          const scenarioIndustryLabel = scenarioPane?.querySelector(
+            '[data-scenario-industry]'
+          );
+          const scenarioEmployeesLabel = scenarioPane?.querySelector(
+            '[data-scenario-employees]'
+          );
+          const scenarioSalesLabel = scenarioPane?.querySelector(
+            '[data-scenario-sales]'
+          );
+          const scenarioKeywordsLabel = scenarioPane?.querySelector(
+            '[data-scenario-keywords]'
+          );
           const scenarioSearchInput = scenarioPane?.querySelector(
             '[data-scenario-search]'
           );
@@ -6095,6 +6669,35 @@
                 if (highlightSelection()) {
                   event.preventDefault();
                 }
+              } else if (
+                isModifierCombo &&
+                ['1', '2', '3', '4'].includes(key)
+              ) {
+                const index = Number(key) - 1;
+                const category = highlightCategoriesOrdered[index];
+                if (!category) {
+                  if (!highlightCategoriesOrdered.length) {
+                    showToast('ハイライトカテゴリが設定されていません');
+                  }
+                } else if (
+                  setActiveHighlightCategory(category, { focus: true })
+                ) {
+                  event.preventDefault();
+                }
+              } else if (isModifierCombo && key === 'c') {
+                if (highlightCategoriesOrdered.length) {
+                  const currentIndex = highlightCategoriesOrdered.indexOf(
+                    activeHighlightCategory
+                  );
+                  const nextIndex =
+                    (currentIndex + 1) % highlightCategoriesOrdered.length;
+                  const nextCategory = highlightCategoriesOrdered[nextIndex];
+                  if (setActiveHighlightCategory(nextCategory, { focus: true })) {
+                    event.preventDefault();
+                  }
+                } else {
+                  showToast('ハイライトカテゴリが設定されていません');
+                }
               } else if (isModifierCombo && key === 'z') {
                 if (undoHighlight()) {
                   event.preventDefault();
@@ -6109,6 +6712,18 @@
                 }
               } else if (isModifierCombo && key === 'k') {
                 if (openShortcutPanel()) {
+                  event.preventDefault();
+                }
+              } else if (isModifierCombo && key === 'n') {
+                if (focusNextQuestion()) {
+                  event.preventDefault();
+                }
+              } else if (isModifierCombo && key === 'p') {
+                if (focusPreviousQuestion()) {
+                  event.preventDefault();
+                }
+              } else if (isModifierCombo && key === 'a') {
+                if (focusAnswerField()) {
                   event.preventDefault();
                 }
               } else if (event.key === 'Escape') {
@@ -6127,12 +6742,30 @@
             appRoot.querySelectorAll('.exercise-tab')
           );
           const tabList = appRoot.querySelector('.exercise__tabs');
+          const problemSearchInput = appRoot.querySelector('#problem-search');
+          const filterChips = Array.from(
+            appRoot.querySelectorAll('.filter-chip[data-filter]')
+          );
+          const sortSelect = appRoot.querySelector('#problem-sort');
           const nextButton = appRoot.querySelector('#next-question-button');
           const questionCards = Array.from(
             appRoot.querySelectorAll('.question-card')
           );
-          const selectionQuestionLabel = appRoot.querySelector(
-            '[data-selection-question]'
+          const questionContainer = appRoot.querySelector('.exercise__questions');
+          let activeExerciseId = null;
+          let currentExercise = null;
+          const questionState = new Map();
+          let questionSortOrder = [];
+          let currentSearchQuery = '';
+          let currentSortMode = sortSelect?.value || 'recommended';
+          let exerciseTimerId = null;
+          let exerciseTimerEnd = null;
+          let suppressSelectEvents = false;
+          const activeFilters = new Set(
+            filterChips
+              .filter((chip) => chip.dataset.active === 'true')
+              .map((chip) => chip.dataset.filter)
+              .filter(Boolean)
           );
           const getQuestionLabel = (questionId) => {
             const card = questionCards.find((item) => item.id === questionId);
@@ -6168,6 +6801,804 @@
           );
           const insertionHistory = new Map();
 
+          const isCardFilteredOut = (card) =>
+            card?.dataset.filteredOut === 'true';
+
+          const getVisibleQuestionCards = () =>
+            questionCards.filter((card) => !isCardFilteredOut(card));
+
+          const getQuestionCardByKey = (key) =>
+            questionCards.find((card) => card.dataset.questionKey === key);
+
+          const populateCaseSelectOptions = () => {
+            if (!caseSelect) {
+              return;
+            }
+            const previousValue = caseSelect.value;
+            caseSelect.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            caseOptions.forEach(({ caseId, label }) => {
+              const option = document.createElement('option');
+              option.value = caseId;
+              option.textContent = label;
+              fragment.appendChild(option);
+            });
+            caseSelect.appendChild(fragment);
+            if (
+              previousValue &&
+              caseOptions.some((option) => option.caseId === previousValue)
+            ) {
+              caseSelect.value = previousValue;
+            }
+          };
+
+          const populateYearSelectOptions = (caseId, selectedExerciseId) => {
+            if (!yearSelect) {
+              return;
+            }
+            const exercises = exercisesByCase.get(caseId) || [];
+            const previousValue = selectedExerciseId || yearSelect.value;
+            yearSelect.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            exercises
+              .slice()
+              .sort((a, b) => a.year.localeCompare(b.year))
+              .forEach((exercise) => {
+                const option = document.createElement('option');
+                option.value = exercise.id;
+                option.textContent = exercise.year;
+                fragment.appendChild(option);
+              });
+            yearSelect.appendChild(fragment);
+            if (
+              previousValue &&
+              exercises.some((exercise) => exercise.id === previousValue)
+            ) {
+              yearSelect.value = previousValue;
+            } else if (yearSelect.options.length) {
+              yearSelect.selectedIndex = 0;
+            }
+          };
+
+          const renderScenarioBody = (paragraphs) => {
+            if (!scenarioBody) {
+              return;
+            }
+            scenarioBody.innerHTML = '';
+            if (!Array.isArray(paragraphs) || !paragraphs.length) {
+              return;
+            }
+            const fragment = document.createDocumentFragment();
+            paragraphs.forEach((text) => {
+              const trimmed = typeof text === 'string' ? text.trim() : '';
+              if (!trimmed) {
+                return;
+              }
+              const paragraph = document.createElement('p');
+              paragraph.textContent = trimmed;
+              fragment.appendChild(paragraph);
+            });
+            scenarioBody.appendChild(fragment);
+          };
+
+          const updateScenarioView = (exercise) => {
+            if (!exercise) {
+              return;
+            }
+            if (selectionCaseLabel) {
+              selectionCaseLabel.textContent = exercise.caseLabel;
+            }
+            if (selectionYearLabel) {
+              selectionYearLabel.textContent = exercise.year;
+            }
+            if (scenarioSummaryLabel) {
+              scenarioSummaryLabel.textContent = exercise.scenarioSummary;
+            }
+            if (scenarioTitleElement) {
+              scenarioTitleElement.textContent = exercise.scenarioTitle;
+            }
+            if (scenarioIndustryLabel) {
+              scenarioIndustryLabel.textContent =
+                exercise.scenarioMeta?.industry || '';
+            }
+            if (scenarioEmployeesLabel) {
+              scenarioEmployeesLabel.textContent =
+                exercise.scenarioMeta?.employees || '';
+            }
+            if (scenarioSalesLabel) {
+              scenarioSalesLabel.textContent =
+                exercise.scenarioMeta?.sales || '';
+            }
+            if (scenarioKeywordsLabel) {
+              scenarioKeywordsLabel.textContent =
+                exercise.scenarioMeta?.keywords || '';
+            }
+            renderScenarioBody(exercise.scenarioBody);
+          };
+
+          const ensureQuestionState = (question) => {
+            if (!question || !question.key) {
+              return null;
+            }
+            const existing = questionState.get(question.key) || {};
+            const merged = {
+              status: question.status || existing.status || 'unanswered',
+              flags: new Set(
+                Array.isArray(question.flags)
+                  ? question.flags
+                  : existing.flags || []
+              ),
+              keywords: Array.isArray(question.keywords)
+                ? question.keywords
+                : existing.keywords || [],
+              recommendedRank:
+                question.recommendedRank ?? existing.recommendedRank ?? 0,
+              recentRank: question.recentRank ?? existing.recentRank ?? 0,
+            };
+            questionState.set(question.key, merged);
+            return merged;
+          };
+
+          const updateQuestionIndexNavigation = (orderedQuestions) => {
+            if (!questionIndexList) {
+              return;
+            }
+            questionIndexList.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            orderedQuestions.forEach((question, index) => {
+              const card = questionCards[index];
+              if (!card) {
+                return;
+              }
+              const item = document.createElement('li');
+              const anchor = document.createElement('a');
+              anchor.href = `#${card.id}`;
+              anchor.textContent = `${question.label} ${
+                question.tabTitle || question.title
+              }`;
+              anchor.dataset.questionKey = question.key;
+              item.appendChild(anchor);
+              fragment.appendChild(item);
+            });
+            questionIndexList.appendChild(fragment);
+          };
+
+          const updateQuestionCard = (question, card, index) => {
+            if (!question || !card) {
+              return;
+            }
+            ensureQuestionState(question);
+            card.dataset.questionKey = question.key;
+            card.dataset.questionLabel = `${question.label} ${question.title}`;
+            if (card.dataset.maxLength) {
+              card.dataset.maxLength = String(question.maxLength || '');
+            }
+            const titleElement = card.querySelector('[data-question-title]');
+            if (titleElement) {
+              titleElement.textContent = question.title;
+            }
+            const scoreElement = card.querySelector('[data-question-score]');
+            if (scoreElement) {
+              scoreElement.textContent = question.score || '';
+            }
+            const limitElement = card.querySelector('[data-question-limit]');
+            if (limitElement) {
+              limitElement.textContent = question.limit || '';
+            }
+            const promptElement = card.querySelector('[data-question-prompt]');
+            if (promptElement) {
+              promptElement.textContent = question.prompt || '';
+            }
+            const textarea = card.querySelector('.question-card__textarea');
+            if (textarea) {
+              textarea.dataset.questionKey = question.key;
+              textarea.dataset.maxLength = String(question.maxLength || '');
+              const maxAttr = question.maxLength
+                ? Math.max(question.maxLength * 2, question.maxLength + 80)
+                : textarea.getAttribute('maxlength');
+              if (maxAttr) {
+                textarea.setAttribute('maxlength', String(maxAttr));
+              }
+            }
+            const counterId = textarea?.getAttribute('aria-describedby');
+            if (counterId) {
+              const counterElement = appRoot.querySelector(
+                `#${escapeSelector(counterId)}`
+              );
+              if (counterElement && question.maxLength) {
+                counterElement.textContent = `0 / ${question.maxLength} 字`;
+              }
+            }
+            const exampleButtons = Array.from(
+              card.querySelectorAll('[data-example-text]')
+            );
+            exampleButtons.forEach((button, exampleIndex) => {
+              const value = question.examples?.[exampleIndex] || '';
+              if (value) {
+                button.hidden = false;
+                button.dataset.exampleText = value;
+                button.textContent = value;
+              } else {
+                button.hidden = true;
+                button.dataset.exampleText = '';
+                button.textContent = '';
+              }
+            });
+            const supportContent = card.querySelector('[data-support-content]');
+            if (supportContent) {
+              supportContent.textContent = question.support || '';
+            }
+            const tabButton = tabButtons[index];
+            if (tabButton) {
+              tabButton.dataset.target = card.id;
+              tabButton.dataset.questionTab = question.key;
+              const labelSpan = tabButton.querySelector('.exercise-tab__label');
+              if (labelSpan) {
+                labelSpan.textContent = question.label;
+              }
+              const titleSpan = tabButton.querySelector(
+                '[data-question-tab-title]'
+              );
+              if (titleSpan) {
+                titleSpan.textContent = question.tabTitle || question.title;
+              }
+            }
+          };
+
+          const buildRetrievalCardElement = (cardData, index) => {
+            const article = document.createElement('article');
+            article.className = 'retrieval-card';
+            article.dataset.retrievalCard = '';
+            article.dataset.index = String(index);
+            if (cardData.category) {
+              article.dataset.category = cardData.category;
+            }
+            if (cardData.expectedKeywords) {
+              article.dataset.expectedKeywords = cardData.expectedKeywords;
+            }
+
+            const tag = document.createElement('span');
+            tag.className = 'retrieval-card__tag';
+            tag.textContent = cardData.category || '';
+            article.appendChild(tag);
+
+            const heading = document.createElement('h4');
+            heading.className = 'heading-md';
+            heading.textContent = cardData.title || '';
+            article.appendChild(heading);
+
+            const body = document.createElement('p');
+            body.textContent = cardData.body || '';
+            article.appendChild(body);
+
+            const practice = document.createElement('div');
+            practice.className = 'retrieval-card__practice';
+            const label = document.createElement('label');
+            label.className = 'text-muted';
+            const textareaId = `retrieval-response-${index}`;
+            label.setAttribute('for', textareaId);
+            label.textContent = '思い出したキーワード';
+            practice.appendChild(label);
+
+            const textarea = document.createElement('textarea');
+            textarea.id = textareaId;
+            textarea.dataset.retrievalResponse = '';
+            textarea.placeholder = '例：キーワードをメモ';
+            practice.appendChild(textarea);
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'ui-button ui-button--subtle';
+            button.dataset.retrievalCheck = '';
+            button.textContent = '重なりを確認';
+            practice.appendChild(button);
+
+            const feedback = document.createElement('div');
+            feedback.className = 'retrieval-feedback';
+            feedback.dataset.retrievalFeedback = '';
+            feedback.hidden = true;
+
+            const overlap = document.createElement('div');
+            overlap.className = 'retrieval-feedback__chips';
+            overlap.dataset.retrievalOverlap = '';
+            feedback.appendChild(overlap);
+
+            const summary = document.createElement('p');
+            summary.className = 'retrieval-feedback__summary';
+            summary.dataset.retrievalSummary = '';
+            feedback.appendChild(summary);
+
+            practice.appendChild(feedback);
+            article.appendChild(practice);
+
+            return article;
+          };
+
+          const renderRetrievalCardsForExercise = (exercise) => {
+            if (!retrievalModalBody) {
+              retrievalCards = [];
+              updateRetrievalProgress();
+              return;
+            }
+            retrievalModalBody.innerHTML = '';
+            const cards = Array.isArray(exercise?.retrieval)
+              ? exercise.retrieval
+              : [];
+            retrievalIndex = 0;
+            retrievalOriginalOrderCounter = 0;
+            retrievalOrderMode = 'default';
+            if (retrievalOrderSelect) {
+              retrievalOrderSelect.value = 'default';
+            }
+            cards.forEach((cardData, index) => {
+              const element = buildRetrievalCardElement(cardData, index);
+              if (!element) {
+                return;
+              }
+              if (index !== 0) {
+                element.hidden = true;
+              }
+              retrievalModalBody.appendChild(element);
+            });
+            refreshRetrievalCards();
+            updateRetrievalProgress();
+          };
+
+          const updateQuestionProgress = () => {
+            const total = questionCards.length;
+            const answered = Array.from(answerTextareas).filter((textarea) =>
+              Boolean(textarea?.value?.trim())
+            ).length;
+            if (progressQuestionsSummary) {
+              progressQuestionsSummary.textContent = `${answered} / ${total}問`;
+            }
+            if (progressQuestionsBar) {
+              const ratio = total ? answered / total : 0;
+              progressQuestionsBar.style.width = `${Math.min(
+                100,
+                Math.max(0, ratio * 100)
+              )}%`;
+            }
+          };
+
+          const stopExerciseTimer = () => {
+            if (exerciseTimerId !== null) {
+              window.clearInterval(exerciseTimerId);
+              exerciseTimerId = null;
+            }
+            exerciseTimerEnd = null;
+          };
+
+          const updateTimerDisplay = () => {
+            if (!progressTimerLabel || !currentExercise) {
+              return;
+            }
+            const durationMinutes = Number(currentExercise.timeLimitMinutes) || 45;
+            const totalSeconds = Math.max(durationMinutes * 60, 1);
+            const remainingSeconds = Math.max(
+              0,
+              Math.round((exerciseTimerEnd || Date.now()) - Date.now()) / 1000
+            );
+            const rounded = Math.floor(remainingSeconds);
+            const minutes = String(Math.floor(rounded / 60)).padStart(2, '0');
+            const seconds = String(rounded % 60).padStart(2, '0');
+            progressTimerLabel.textContent = `${minutes}:${seconds}`;
+            if (progressTimerBar) {
+              const ratio = Math.min(1, Math.max(0, rounded / totalSeconds));
+              progressTimerBar.style.width = `${ratio * 100}%`;
+            }
+          };
+
+          const startExerciseTimer = (exercise) => {
+            stopExerciseTimer();
+            const durationMinutes = Number(exercise?.timeLimitMinutes) || 45;
+            exerciseTimerEnd = Date.now() + durationMinutes * 60 * 1000;
+            updateTimerDisplay();
+            exerciseTimerId = window.setInterval(() => {
+              updateTimerDisplay();
+              if ((exerciseTimerEnd || 0) <= Date.now()) {
+                stopExerciseTimer();
+                updateTimerDisplay();
+              }
+            }, 1000);
+          };
+
+          signal.addEventListener(
+            'abort',
+            () => {
+              stopExerciseTimer();
+              updateTimerDisplay();
+            },
+            { once: true }
+          );
+
+          const compareTuples = (a, b) => {
+            const length = Math.max(a.length, b.length);
+            for (let index = 0; index < length; index += 1) {
+              const diff = (a[index] ?? 0) - (b[index] ?? 0);
+              if (diff !== 0) {
+                return diff;
+              }
+            }
+            return 0;
+          };
+
+          const applyQuestionFilters = () => {
+            if (!currentExercise) {
+              return;
+            }
+            const normalizedQuery = currentSearchQuery.trim().toLowerCase();
+            const filters = Array.from(activeFilters);
+            const filterIsInactive = filters.length === 0;
+            const questionMatches = currentExercise.questions.map(
+              (question, index) => {
+                const card = questionCards[index];
+                const tab = tabButtons[index];
+                const state = ensureQuestionState(question) || {};
+                const textarea = card?.querySelector('.question-card__textarea');
+                const answerValue = textarea?.value?.trim() || '';
+                const answered = Boolean(answerValue) || state.status === 'answered';
+                if (answered) {
+                  state.status = 'answered';
+                }
+                const hasReviewFlag = state.flags instanceof Set
+                  ? state.flags.has('review')
+                  : Array.isArray(state.flags) && state.flags.includes('review');
+                const hasExplanationFlag = state.flags instanceof Set
+                  ? state.flags.has('explanation')
+                  : Array.isArray(state.flags) &&
+                    state.flags.includes('explanation');
+                const searchPool = [
+                  question.title,
+                  question.prompt,
+                  question.tabTitle,
+                  ...(state.keywords || []),
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+                  .toLowerCase();
+                const matchesSearch =
+                  !normalizedQuery || searchPool.includes(normalizedQuery);
+                const matchesFilter =
+                  filterIsInactive ||
+                  filters.some((filter) => {
+                    if (filter === 'unanswered') {
+                      return !answered;
+                    }
+                    if (filter === 'answered') {
+                      return answered;
+                    }
+                    if (filter === 'review') {
+                      return hasReviewFlag;
+                    }
+                    if (filter === 'explanation') {
+                      return hasExplanationFlag;
+                    }
+                    return true;
+                  });
+                const sortTuple = (() => {
+                  if (currentSortMode === 'status') {
+                    return [
+                      answered ? 1 : 0,
+                      hasReviewFlag ? 0 : 1,
+                      state.recommendedRank ?? question.recommendedRank ?? index,
+                    ];
+                  }
+                  if (currentSortMode === 'recent') {
+                    return [
+                      state.recentRank ?? question.recentRank ?? index,
+                      state.recommendedRank ?? question.recommendedRank ?? index,
+                    ];
+                  }
+                  return [state.recommendedRank ?? question.recommendedRank ?? index];
+                })();
+                return {
+                  question,
+                  card,
+                  tab,
+                  matches: matchesSearch && matchesFilter,
+                  answered,
+                  sortTuple,
+                };
+              }
+            );
+
+            const visible = questionMatches.filter((item) => item.matches);
+            const hidden = questionMatches.filter((item) => !item.matches);
+
+            visible.sort((a, b) => {
+              const diff = compareTuples(a.sortTuple, b.sortTuple);
+              if (diff !== 0) {
+                return diff;
+              }
+              return (a.question.label || '').localeCompare(
+                b.question.label || ''
+              );
+            });
+
+            const orderMap = new Map();
+            visible.forEach((item, order) => {
+              orderMap.set(item.card, order);
+            });
+            hidden.forEach((item, order) => {
+              orderMap.set(item.card, visible.length + order);
+            });
+
+            questionCards.sort(
+              (a, b) => (orderMap.get(a) ?? 0) - (orderMap.get(b) ?? 0)
+            );
+            questionCards.forEach((card) => {
+              if (questionContainer) {
+                questionContainer.appendChild(card);
+              }
+            });
+
+            tabButtons.sort((a, b) => {
+              const aCard = getQuestionCardByKey(a.dataset.questionTab);
+              const bCard = getQuestionCardByKey(b.dataset.questionTab);
+              return (orderMap.get(aCard) ?? 0) - (orderMap.get(bCard) ?? 0);
+            });
+            tabButtons.forEach((tab) => {
+              tabList?.appendChild(tab);
+            });
+
+            visible.forEach((item) => {
+              item.card.dataset.filteredOut = 'false';
+              item.card.hidden = false;
+              item.card.removeAttribute('aria-hidden');
+              if (item.tab) {
+                item.tab.hidden = false;
+                item.tab.removeAttribute('aria-hidden');
+              }
+            });
+            hidden.forEach((item) => {
+              item.card.dataset.filteredOut = 'true';
+              item.card.hidden = true;
+              item.card.setAttribute('aria-hidden', 'true');
+              if (item.tab) {
+                item.tab.hidden = true;
+                item.tab.setAttribute('aria-hidden', 'true');
+              }
+            });
+
+            updateQuestionIndexNavigation(visible.map((item) => item.question));
+            questionSortOrder = visible.map((item) => item.question.key);
+
+            if (!visible.length) {
+              if (selectionQuestionLabel) {
+                selectionQuestionLabel.textContent = '該当する設問がありません';
+              }
+              if (nextButton) {
+                nextButton.disabled = true;
+              }
+              return;
+            }
+
+            if (nextButton) {
+              nextButton.disabled = false;
+            }
+
+            const currentCard = activeQuestionId
+              ? appRoot.querySelector(`#${escapeSelector(activeQuestionId)}`)
+              : null;
+            if (!currentCard || currentCard.dataset.filteredOut === 'true') {
+              const firstId = visible[0].card.id;
+              scrollToQuestion(firstId);
+            } else {
+              updateFooterCta(currentCard.id);
+              updateSelectionQuestion(currentCard.id);
+            }
+          };
+
+          const applyExercise = (exercise, { preserveScroll = false } = {}) => {
+            if (!exercise) {
+              return;
+            }
+            const previousExerciseId = activeExerciseId;
+            answerTextareas.forEach((textarea) => {
+              if (typeof textarea.__saveDraftForExercise === 'function') {
+                textarea.__saveDraftForExercise(previousExerciseId);
+              }
+              if (typeof textarea.__cancelDraftSchedule === 'function') {
+                textarea.__cancelDraftSchedule();
+              }
+            });
+            currentExercise = exercise;
+            activeExerciseId = exercise.id;
+            questionState.clear();
+            suppressSelectEvents = true;
+            populateCaseSelectOptions();
+            if (caseSelect) {
+              caseSelect.value = exercise.caseId;
+            }
+            populateYearSelectOptions(exercise.caseId, exercise.id);
+            if (yearSelect) {
+              yearSelect.value = exercise.id;
+            }
+            suppressSelectEvents = false;
+
+            updateScenarioView(exercise);
+
+            exercise.questions.forEach((question, index) => {
+              const card = questionCards[index];
+              updateQuestionCard(question, card, index);
+              const textarea = card?.querySelector('.question-card__textarea');
+              if (textarea && typeof textarea.__loadDraftForExercise === 'function') {
+                textarea.__loadDraftForExercise(exercise.id);
+              }
+            });
+
+            updateQuestionIndexNavigation(exercise.questions);
+            renderRetrievalCardsForExercise(exercise);
+
+            if (problemSearchInput) {
+              problemSearchInput.value = '';
+            }
+            currentSearchQuery = '';
+            currentSortMode = sortSelect?.value || 'recommended';
+
+            tabButtons.forEach((tab) => {
+              tab.hidden = false;
+              tab.removeAttribute('aria-hidden');
+            });
+            questionCards.forEach((card) => {
+              card.dataset.filteredOut = 'false';
+              card.hidden = false;
+              card.removeAttribute('aria-hidden');
+            });
+
+            updateQuestionProgress();
+            updateRetrievalProgress();
+            startExerciseTimer(exercise);
+
+            applyQuestionFilters();
+
+            const visibleCards = getVisibleQuestionCards();
+            if (visibleCards.length) {
+              const firstId = visibleCards[0].id;
+              if (!preserveScroll) {
+                const firstElement = appRoot.querySelector(
+                  `#${escapeSelector(firstId)}`
+                );
+                firstElement?.scrollIntoView({ behavior: 'auto', block: 'start' });
+              }
+              updateTabs(firstId);
+              updateFooterCta(firstId);
+              updateSelectionQuestion(firstId);
+              activeQuestionId = firstId;
+            }
+          };
+
+          const focusAnswerField = () => {
+            if (!activeQuestionId) {
+              return false;
+            }
+            const card = appRoot.querySelector(
+              `#${escapeSelector(activeQuestionId)}`
+            );
+            const textarea = card?.querySelector('.question-card__textarea');
+            if (!textarea) {
+              return false;
+            }
+            try {
+              textarea.focus({ preventScroll: false });
+            } catch (error) {
+              textarea.focus();
+            }
+            return true;
+          };
+
+          const focusQuestionByOffset = (offset) => {
+            const visibleCards = getVisibleQuestionCards();
+            if (!visibleCards.length) {
+              return false;
+            }
+            let currentIndex = visibleCards.findIndex(
+              (card) => card.id === activeQuestionId
+            );
+            if (currentIndex === -1) {
+              currentIndex = 0;
+            }
+            const nextIndex =
+              (currentIndex + offset + visibleCards.length) % visibleCards.length;
+            const targetId = visibleCards[nextIndex].id;
+            scrollToQuestion(targetId);
+            return true;
+          };
+
+          const focusNextQuestion = () => focusQuestionByOffset(1);
+          const focusPreviousQuestion = () => focusQuestionByOffset(-1);
+
+          populateCaseSelectOptions();
+          if (caseSelect) {
+            caseSelect.addEventListener(
+              'change',
+              () => {
+                if (suppressSelectEvents) {
+                  return;
+                }
+                const selectedCaseId = caseSelect.value;
+                const exercises = exercisesByCase.get(selectedCaseId) || [];
+                const nextExercise =
+                  exercises.find((exercise) => exercise.id === yearSelect?.value) ||
+                  exercises[0];
+                suppressSelectEvents = true;
+                populateYearSelectOptions(selectedCaseId, nextExercise?.id);
+                if (yearSelect && nextExercise) {
+                  yearSelect.value = nextExercise.id;
+                }
+                suppressSelectEvents = false;
+                if (nextExercise) {
+                  applyExercise(nextExercise);
+                }
+              },
+              { signal }
+            );
+          }
+
+          if (yearSelect) {
+            yearSelect.addEventListener(
+              'change',
+              () => {
+                if (suppressSelectEvents) {
+                  return;
+                }
+                const selectedExercise = exerciseById.get(yearSelect.value);
+                if (selectedExercise) {
+                  applyExercise(selectedExercise);
+                }
+              },
+              { signal }
+            );
+          }
+
+          if (problemSearchInput) {
+            problemSearchInput.addEventListener(
+              'input',
+              () => {
+                currentSearchQuery = problemSearchInput.value || '';
+                applyQuestionFilters();
+              },
+              { signal }
+            );
+          }
+
+          filterChips.forEach((chip) => {
+            const isActive = chip.dataset.active === 'true';
+            chip.setAttribute('aria-pressed', String(isActive));
+            chip.addEventListener(
+              'click',
+              () => {
+                const filter = chip.dataset.filter;
+                if (!filter) {
+                  return;
+                }
+                const currentlyActive = chip.dataset.active === 'true';
+                const nextState = !currentlyActive;
+                chip.dataset.active = String(nextState);
+                chip.setAttribute('aria-pressed', String(nextState));
+                if (nextState) {
+                  activeFilters.add(filter);
+                } else {
+                  activeFilters.delete(filter);
+                }
+                applyQuestionFilters();
+              },
+              { signal }
+            );
+          });
+
+          if (sortSelect) {
+            sortSelect.addEventListener(
+              'change',
+              () => {
+                currentSortMode = sortSelect.value || 'recommended';
+                applyQuestionFilters();
+              },
+              { signal }
+            );
+          }
+
           const activateCard = (card) => {
             questionCards.forEach((c) =>
               c.classList.remove('question-card--active')
@@ -6193,18 +7624,25 @@
 
           const updateFooterCta = (activeId) => {
             if (!nextButton) return;
-            const currentIndex = questionCards.findIndex(
+            const visibleCards = getVisibleQuestionCards();
+            if (!visibleCards.length) {
+              nextButton.disabled = true;
+              return;
+            }
+            nextButton.disabled = false;
+            const currentIndex = visibleCards.findIndex(
               (card) => card.id === activeId
             );
             if (currentIndex === -1) {
+              nextButton.dataset.target = visibleCards[0].id;
               return;
             }
 
             const verb = nextButton.querySelector('.cta-button__verb');
             const object = nextButton.querySelector('.cta-button__object');
-            const isLast = currentIndex === questionCards.length - 1;
+            const isLast = currentIndex === visibleCards.length - 1;
             const nextIndex = isLast ? 0 : currentIndex + 1;
-            nextButton.dataset.target = questionCards[nextIndex].id;
+            nextButton.dataset.target = visibleCards[nextIndex].id;
             if (verb && object) {
               if (isLast) {
                 verb.textContent = '見直す';
@@ -6223,6 +7661,10 @@
               ? appRoot.querySelector(`#${escapeSelector(targetId)}`)
               : null;
             if (!target) return;
+            if (target.dataset.filteredOut === 'true') {
+              showToast('現在のフィルタではこの設問を表示できません');
+              return;
+            }
             ensurePanelOpen('answer');
             target.scrollIntoView({ behavior: 'smooth', block: 'start' });
             if (target.focus) {
@@ -6253,20 +7695,26 @@
               'keydown',
               (event) => {
                 const { key } = event;
-                let nextIndex = index;
+                const visibleTabs = tabButtons.filter((tab) => !tab.hidden);
+                const currentIndex = visibleTabs.indexOf(button);
+                if (currentIndex === -1) {
+                  return;
+                }
+                let nextIndex = currentIndex;
                 if (key === 'ArrowRight' || key === 'ArrowDown') {
-                  nextIndex = (index + 1) % tabButtons.length;
+                  nextIndex = (currentIndex + 1) % visibleTabs.length;
                 } else if (key === 'ArrowLeft' || key === 'ArrowUp') {
-                  nextIndex = (index - 1 + tabButtons.length) % tabButtons.length;
+                  nextIndex =
+                    (currentIndex - 1 + visibleTabs.length) % visibleTabs.length;
                 } else if (key === 'Home') {
                   nextIndex = 0;
                 } else if (key === 'End') {
-                  nextIndex = tabButtons.length - 1;
+                  nextIndex = visibleTabs.length - 1;
                 } else {
                   return;
                 }
                 event.preventDefault();
-                const nextButtonEl = tabButtons[nextIndex];
+                const nextButtonEl = visibleTabs[nextIndex];
                 nextButtonEl.focus();
                 scrollToQuestion(nextButtonEl.dataset.target);
               },
@@ -6379,24 +7827,46 @@
             }
           };
 
+          const makeDraftKey = (exerciseId, questionKey) =>
+            exerciseId && questionKey ? `${exerciseId}::${questionKey}` : null;
+
+          const getMostRecentDraftExerciseId = () => {
+            let latestId = null;
+            let latestTimestamp = -Infinity;
+            Object.entries(answerDrafts || {}).forEach(([key, draft]) => {
+              if (typeof key !== 'string' || !key.includes('::')) {
+                return;
+              }
+              const [exerciseId] = key.split('::');
+              if (!exerciseId) {
+                return;
+              }
+              const timestamp = Date.parse(draft?.savedAt || '');
+              if (Number.isFinite(timestamp)) {
+                if (timestamp > latestTimestamp) {
+                  latestTimestamp = timestamp;
+                  latestId = exerciseId;
+                }
+              } else if (latestId === null) {
+                latestId = exerciseId;
+              }
+            });
+            return latestId;
+          };
+
           answerTextareas.forEach((textarea) => {
             const describedBy = textarea.getAttribute('aria-describedby');
             const counter = describedBy
               ? appRoot.querySelector(`#${escapeSelector(describedBy)}`)
               : null;
-            const textareaId = textarea.id;
-            const savedDraft =
-              textareaId && answerDrafts[textareaId]
-                ? answerDrafts[textareaId]
-                : null;
             const inputContainer = textarea.closest('.question-card__input');
             const saveStatus = inputContainer?.querySelector('[data-save-status]');
             const saveStatusText = saveStatus?.querySelector(
               '.save-status__text'
             );
-            const exampleContainer = textareaId
+            const exampleContainer = textarea.id
               ? appRoot.querySelector(
-                  `[data-example-for="${escapeSelector(textareaId)}"]`
+                  `[data-example-for="${escapeSelector(textarea.id)}"]`
                 )
               : null;
             const exampleChips = exampleContainer
@@ -6435,38 +7905,80 @@
               }
             };
 
-            if (savedDraft && typeof savedDraft.value === 'string') {
-              textarea.value = savedDraft.value;
-            }
-
-            if (counter) {
-              updateCounter(textarea, counter);
-            }
-
             textarea.dataset.exampleInsertion = 'false';
             setUndoAvailability(false);
             setSaveStatus('saved');
 
-            let saveTimer;
+            let saveTimer = null;
 
-            const saveDraft = () => {
-              if (!textareaId) return;
+            const getDraftKey = (exerciseId = activeExerciseId) =>
+              makeDraftKey(exerciseId, textarea.dataset.questionKey);
+
+            const loadDraft = (exerciseId = activeExerciseId) => {
+              const key = getDraftKey(exerciseId);
+              let savedDraft = key ? answerDrafts[key] : null;
+              const legacyKey = textarea.id && answerDrafts[textarea.id];
+              if (!savedDraft && legacyKey) {
+                if (key) {
+                  answerDrafts[key] = legacyKey;
+                  delete answerDrafts[textarea.id];
+                  persistDrafts();
+                }
+                savedDraft = legacyKey;
+              }
+              textarea.value =
+                typeof savedDraft?.value === 'string' ? savedDraft.value : '';
+              textarea.dataset.exampleInsertion = 'false';
+              insertionHistory.delete(textarea);
+              setUndoAvailability(false);
+              setSaveStatus('saved');
+              if (counter) {
+                updateCounter(textarea, counter);
+              }
+              updateQuestionProgress();
+            };
+
+            const cancelScheduledSave = () => {
+              if (saveTimer !== null) {
+                clearTimeout(saveTimer);
+                saveTimer = null;
+              }
+            };
+
+            const resolveExerciseId = (value) =>
+              typeof value === 'string' && value ? value : activeExerciseId;
+
+            const saveDraft = (value) => {
+              const exerciseId = resolveExerciseId(value);
+              const key = getDraftKey(exerciseId);
+              cancelScheduledSave();
+              if (!exerciseId || !key) {
+                return;
+              }
               if (textarea.value === '') {
-                delete answerDrafts[textareaId];
+                delete answerDrafts[key];
               } else {
-                answerDrafts[textareaId] = {
+                answerDrafts[key] = {
                   value: textarea.value,
                   savedAt: new Date().toISOString(),
                 };
               }
+              if (textarea.id && textarea.id !== key) {
+                delete answerDrafts[textarea.id];
+              }
               persistDrafts();
               setSaveStatus('saved');
+              updateQuestionProgress();
             };
 
             const scheduleSave = () => {
-              clearTimeout(saveTimer);
+              const key = getDraftKey();
+              if (!key) {
+                return;
+              }
+              cancelScheduledSave();
               setSaveStatus('saving');
-              saveTimer = window.setTimeout(saveDraft, 300);
+              saveTimer = window.setTimeout(() => saveDraft(), 300);
             };
 
             const insertExampleText = (text) => {
@@ -6564,6 +8076,18 @@
                   setUndoAvailability(false);
                 }
                 scheduleSave();
+                const questionKey = textarea.dataset.questionKey;
+                const state = questionKey ? questionState.get(questionKey) : null;
+                if (state) {
+                  const trimmed = textarea.value.trim();
+                  const nextStatus = trimmed ? 'answered' : 'unanswered';
+                  const previousStatus = state.status;
+                  state.status = nextStatus;
+                  if (previousStatus !== nextStatus) {
+                    applyQuestionFilters();
+                  }
+                }
+                updateQuestionProgress();
               },
               { signal }
             );
@@ -6604,14 +8128,32 @@
             textarea.addEventListener('blur', saveDraft, { signal });
             window.addEventListener('beforeunload', saveDraft, { signal });
 
+            textarea.__loadDraftForExercise = loadDraft;
+            textarea.__saveDraftForExercise = saveDraft;
+            textarea.__cancelDraftSchedule = cancelScheduledSave;
+
             signal.addEventListener(
               'abort',
               () => {
-                clearTimeout(saveTimer);
+                cancelScheduledSave();
               },
               { once: true }
             );
           });
+
+          const fallbackExercise =
+            caseOptions[0]?.exercises?.[0] || exerciseLibrary[0] || null;
+          const initialExerciseId =
+            appRoot.dataset.initialExercise ||
+            getMostRecentDraftExerciseId() ||
+            fallbackExercise?.id ||
+            null;
+          const initialExercise =
+            (initialExerciseId && exerciseById.get(initialExerciseId)) ||
+            fallbackExercise;
+          if (initialExercise) {
+            applyExercise(initialExercise, { preserveScroll: true });
+          }
 
           // 折りたたみ補助情報：ローカルストレージで既読状態を保持
           const supportToggles = appRoot.querySelectorAll(
