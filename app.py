@@ -1411,8 +1411,9 @@ def _init_session_state() -> None:
             st.session_state["history_focus_attempt"] = None
 
     if processed_query:
-        remaining = {k: v for k, v in query_params.items() if k not in {"nav", "attempt"}}
-        st.experimental_set_query_params(**remaining)
+        for key in ("nav", "attempt"):
+            if key in st.query_params:
+                del st.query_params[key]
 
 
 def _guideline_visibility_key(problem_id: int, question_id: int) -> str:
