@@ -12,7 +12,6 @@ import logging
 import re
 import sqlite3
 import zlib
-from dataclasses import dataclass
 from datetime import date as dt_date, datetime, time as dt_time, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -1043,15 +1042,48 @@ def _fetch_problem_by_year_case_impl(
     )
 
 
-@dataclass
 class RecordedAnswer:
-    question_id: int
-    answer_text: str
-    score: float
-    feedback: str
-    keyword_hits: Dict[str, bool]
-    axis_breakdown: Dict[str, Dict[str, object]]
-    activity: Optional[Dict[str, Any]] = None
+    """Container for a scored answer associated with a question."""
+
+    __slots__ = (
+        "question_id",
+        "answer_text",
+        "score",
+        "feedback",
+        "keyword_hits",
+        "axis_breakdown",
+        "activity",
+    )
+
+    def __init__(
+        self,
+        question_id: int,
+        answer_text: str,
+        score: float,
+        feedback: str,
+        keyword_hits: Dict[str, bool],
+        axis_breakdown: Dict[str, Dict[str, object]],
+        activity: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self.question_id = question_id
+        self.answer_text = answer_text
+        self.score = score
+        self.feedback = feedback
+        self.keyword_hits = keyword_hits
+        self.axis_breakdown = axis_breakdown
+        self.activity = activity
+
+    def __repr__(self) -> str:  # pragma: no cover - convenience representation
+        return (
+            "RecordedAnswer("
+            f"question_id={self.question_id!r}, "
+            f"answer_text={self.answer_text!r}, "
+            f"score={self.score!r}, "
+            f"feedback={self.feedback!r}, "
+            f"keyword_hits={self.keyword_hits!r}, "
+            f"axis_breakdown={self.axis_breakdown!r}, "
+            f"activity={self.activity!r})"
+        )
 
 
 def record_attempt(
