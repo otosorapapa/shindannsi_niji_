@@ -11,6 +11,7 @@ import json
 import logging
 import re
 import sqlite3
+import statistics
 import zlib
 from dataclasses import dataclass
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
@@ -2105,6 +2106,95 @@ def fetch_all_attempt_scores() -> List[Dict[str, Any]]:
     rows = [dict(row) for row in cur.fetchall()]
     conn.close()
     return rows
+
+
+def compute_peer_attempt_statistics(
+    *, exclude_user_id: Optional[int] = None
+) -> Dict[str, Any]:
+    """Return anonymised aggregate statistics across learner attempts.
+
+    Parameters
+    ----------
+    exclude_user_id:
+        Optional identifier of a learner whose attempts should be removed
+        from the aggregation.  This is typically the currently signed-in
+        learner so that comparisons reflect *other* users.
+    """
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    conditions = [
+        "submitted_at IS NOT NULL",
+        "total_score IS NOT NULL",
+        "total_max_score IS NOT NULL",
+        "total_max_score > 0",
+    ]
+    params: List[Any] = []
+    if exclude_user_id is not None:
+        conditions.append("user_id != ?")
+        params.append(exclude_user_id)
+
+    cur.execute(
+        f"""
+        SELECT user_id, total_score, total_max_score, duration_seconds
+        FROM attempts
+        WHERE {' AND '.join(conditions)}
+        """,
+        params,
+    )
+
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        return {
+            "attempt_count": 0,
+            "duration_count": 0,
+            "user_count": 0,
+            "average_accuracy": None,
+            "median_accuracy": None,
+            "average_duration_seconds": None,
+            "median_duration_seconds": None,
+        }
+
+    accuracies: List[float] = []
+    durations: List[float] = []
+    user_ids: set[int] = set()
+
+    for row in rows:
+        user_ids.add(row["user_id"])
+        total_max = row["total_max_score"]
+        total_score = row["total_score"]
+        if total_max:
+            try:
+                ratio = float(total_score) / float(total_max)
+            except (TypeError, ValueError):
+                ratio = None
+            if ratio is not None:
+                accuracies.append(ratio)
+        duration_value = row["duration_seconds"]
+        if duration_value is not None:
+            try:
+                durations.append(float(duration_value))
+            except (TypeError, ValueError):
+                continue
+
+    def _mean(values: List[float]) -> Optional[float]:
+        return statistics.fmean(values) if values else None
+
+    def _median(values: List[float]) -> Optional[float]:
+        return statistics.median(values) if values else None
+
+    return {
+        "attempt_count": int(len(accuracies)),
+        "duration_count": int(len(durations)),
+        "user_count": int(len(user_ids)),
+        "average_accuracy": _mean(accuracies),
+        "median_accuracy": _median(accuracies),
+        "average_duration_seconds": _mean(durations),
+        "median_duration_seconds": _median(durations),
+    }
 
 
 def fetch_learning_history(user_id: int) -> List[Dict]:
