@@ -5,12 +5,13 @@ import copy
 from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Pattern, Set, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Pattern, Sequence, Set, Tuple
 from uuid import uuid4
 from urllib.parse import urlencode
 import logging
 
 import html
+import difflib
 import io
 import json
 
@@ -6334,6 +6335,93 @@ def _insight_icon_asset(name: str) -> Tuple[str, str]:
     return icon_map.get(name, icon_map["target"])
 
 
+def _parse_attempt_datetime(value: Any) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str) and value:
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _build_accuracy_trend_df(attempts: Sequence[Mapping[str, Any]]) -> pd.DataFrame:
+    records: List[Dict[str, Any]] = []
+    for attempt in attempts:
+        timestamp = _parse_attempt_datetime(
+            attempt.get("submitted_at") or attempt.get("started_at")
+        )
+        total_score = attempt.get("total_score")
+        total_max = attempt.get("total_max_score")
+        if timestamp is None or total_score is None or not total_max:
+            continue
+        try:
+            ratio = float(total_score) / float(total_max) * 100
+        except (TypeError, ZeroDivisionError, ValueError):
+            continue
+        records.append(
+            {
+                "attempt_id": attempt.get("id"),
+                "submitted_at": timestamp,
+                "score_ratio": ratio,
+                "case_label": attempt.get("case_label") or "",
+                "title": attempt.get("title") or "",
+            }
+        )
+
+    if not records:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(records)
+    df.sort_values("submitted_at", inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    df["attempt_index"] = df.index + 1
+    df["rolling_avg"] = df["score_ratio"].rolling(window=3, min_periods=1).mean()
+    return df
+
+
+def _build_case_performance_df(attempts: Sequence[Mapping[str, Any]]) -> pd.DataFrame:
+    records: List[Dict[str, Any]] = []
+    for attempt in attempts:
+        case_label = attempt.get("case_label") or "未分類"
+        total_score = attempt.get("total_score")
+        total_max = attempt.get("total_max_score")
+        timestamp = _parse_attempt_datetime(
+            attempt.get("submitted_at") or attempt.get("started_at")
+        )
+        if total_score is None or not total_max:
+            continue
+        try:
+            ratio = float(total_score) / float(total_max) * 100
+        except (TypeError, ZeroDivisionError, ValueError):
+            continue
+        records.append(
+            {
+                "case_label": case_label,
+                "score_ratio": ratio,
+                "submitted_at": timestamp,
+            }
+        )
+
+    if not records:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(records)
+    summary = (
+        df.groupby("case_label")
+        .agg(
+            avg_ratio=("score_ratio", "mean"),
+            attempt_count=("score_ratio", "count"),
+            last_practiced=("submitted_at", "max"),
+        )
+        .reset_index()
+    )
+    summary.sort_values("avg_ratio", ascending=False, inplace=True)
+    summary["attempt_label"] = summary["attempt_count"].apply(lambda count: f"{int(count)}回")
+    return summary
+
+
 def dashboard_page(user: Dict) -> None:
     _inject_dashboard_styles()
 
@@ -6747,6 +6835,82 @@ def dashboard_page(user: Dict) -> None:
             """
         )
         st.markdown(progress_section_html, unsafe_allow_html=True)
+
+        accuracy_df = _build_accuracy_trend_df(attempts)
+        case_perf_df = _build_case_performance_df(attempts)
+        if not accuracy_df.empty or not case_perf_df.empty:
+            st.markdown(
+                dedent(
+                    """
+                    <section class="dashboard-lane" id="growth-lane" data-section-id="growth-lane" role="region" aria-labelledby="growth-lane-title">
+                        <header class="dashboard-lane__header">
+                            <h2 id="growth-lane-title" class="dashboard-lane__title">学習成長ダッシュボード</h2>
+                            <p class="dashboard-lane__subtitle">得点推移と事例別の成果をグラフで可視化します。</p>
+                        </header>
+                        <div class="dashboard-card card--tone-slate">
+                    """
+                ),
+                unsafe_allow_html=True,
+            )
+            if not accuracy_df.empty:
+                trend_chart = (
+                    alt.Chart(accuracy_df)
+                    .mark_line(point=alt.OverlayMarkDef(size=70, fill="#4338ca"), color="#6366f1")
+                    .encode(
+                        x=alt.X("submitted_at:T", title="実施日"),
+                        y=alt.Y("score_ratio:Q", title="得点率（%）", scale=alt.Scale(domain=[0, 100])),
+                        tooltip=[
+                            alt.Tooltip("submitted_at:T", title="実施日"),
+                            alt.Tooltip("score_ratio:Q", title="得点率(%)", format=".1f"),
+                            alt.Tooltip("rolling_avg:Q", title="3回移動平均", format=".1f"),
+                            alt.Tooltip("case_label:N", title="事例"),
+                            alt.Tooltip("title:N", title="ケース"),
+                        ],
+                    )
+                    .properties(height=280)
+                )
+                rolling_chart = (
+                    alt.Chart(accuracy_df)
+                    .mark_line(strokeDash=[6, 4], color="#0f766e")
+                    .encode(
+                        x="submitted_at:T",
+                        y="rolling_avg:Q",
+                        tooltip=[
+                            alt.Tooltip("rolling_avg:Q", title="3回移動平均", format=".1f"),
+                            alt.Tooltip("submitted_at:T", title="実施日"),
+                        ],
+                    )
+                )
+                st.altair_chart(trend_chart + rolling_chart, use_container_width=True)
+                st.caption("折れ線は各演習の得点率、点線は直近3回の移動平均です。右肩上がりなら学習の伸びが定着しています。")
+            if not case_perf_df.empty:
+                case_chart = (
+                    alt.Chart(case_perf_df)
+                    .mark_bar(color="#6366f1")
+                    .encode(
+                        x=alt.X("case_label:N", title="事例"),
+                        y=alt.Y("avg_ratio:Q", title="平均得点率（%）", scale=alt.Scale(domain=[0, 100])),
+                        tooltip=[
+                            alt.Tooltip("case_label:N", title="事例"),
+                            alt.Tooltip("avg_ratio:Q", title="平均得点率(%)", format=".1f"),
+                            alt.Tooltip("attempt_count:Q", title="演習回数"),
+                            alt.Tooltip("last_practiced:T", title="最終実施"),
+                        ],
+                    )
+                    .properties(height=260)
+                )
+                case_text = (
+                    alt.Chart(case_perf_df)
+                    .mark_text(dy=-12, color="#0f172a", fontWeight="bold")
+                    .encode(
+                        x="case_label:N",
+                        y="avg_ratio:Q",
+                        text="attempt_label:N",
+                    )
+                )
+                st.altair_chart(case_chart + case_text, use_container_width=True)
+                st.caption("棒グラフの数値は各事例の平均得点率。ラベルは累積演習回数です。苦手な事例の回数とスコアを可視化しました。")
+            st.markdown("</div></section>", unsafe_allow_html=True)
 
         unattempted_count = max(total_questions - studied_questions, 0)
         if total_questions:
@@ -8230,6 +8394,48 @@ def _ensure_keyword_feedback_styles() -> None:
         .coverage-row__meta {
             color: #475569;
         }
+        .keyword-highlight {
+            background: rgba(125, 211, 252, 0.25);
+            padding: 0.05rem 0.2rem;
+            border-radius: 0.4rem;
+            font-weight: 600;
+        }
+        .keyword-highlight.hit {
+            background: rgba(134, 239, 172, 0.55);
+            color: #065f46;
+        }
+        .keyword-highlight.miss {
+            background: rgba(254, 202, 202, 0.65);
+            color: #7f1d1d;
+        }
+        .answer-compare-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+        .answer-compare-block {
+            padding: 0.75rem 0.9rem;
+            border-radius: 12px;
+            background: rgba(248, 250, 252, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+        }
+        .answer-compare-block pre {
+            white-space: pre-wrap;
+            font-family: "Noto Sans JP", "Yu Gothic", sans-serif;
+            font-size: 0.85rem;
+            line-height: 1.65;
+        }
+        .answer-compare-heading {
+            margin: 0 0 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .answer-snapshot-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
         .connector-pill {
             display: inline-flex;
             align-items: center;
@@ -8296,12 +8502,15 @@ def _summarize_keyword_categories(keyword_hits: Mapping[str, bool]) -> Dict[str,
     return summary
 
 
-def _render_keyword_coverage_meter(text: str, keywords: Iterable[str]) -> None:
+def _render_keyword_coverage_meter(text: str, keywords: Iterable[str]) -> Mapping[str, bool]:
+    """Render the keyword coverage meter and return the hit map."""
+
     cleaned = [str(keyword).strip() for keyword in keywords if str(keyword).strip()]
     if not cleaned:
-        return
+        return {}
     hits = scoring.keyword_match_score(text, cleaned)
     _render_keyword_coverage_from_hits(hits)
+    return hits
 
 
 def _render_keyword_coverage_from_hits(keyword_hits: Mapping[str, bool]) -> None:
@@ -8391,6 +8600,228 @@ def _resolve_question_keywords(question: Mapping[str, Any]) -> List[str]:
     if isinstance(raw, Iterable):
         return [str(item).strip() for item in raw if str(item).strip()]
     return []
+
+
+def _get_saved_answer_payload(key: str) -> Dict[str, Any]:
+    storage = st.session_state.setdefault("saved_answers", {})
+    payload = storage.get(key)
+    if isinstance(payload, dict):
+        payload.setdefault("autosave", "")
+        payload.setdefault("snapshots", [])
+        return payload
+    if isinstance(payload, str):
+        payload_dict = {"autosave": payload, "snapshots": []}
+    else:
+        payload_dict = {"autosave": "", "snapshots": []}
+    storage[key] = payload_dict
+    return payload_dict
+
+
+def _update_autosaved_answer(key: str, text: str) -> None:
+    payload = _get_saved_answer_payload(key)
+    payload["autosave"] = text
+    st.session_state.saved_answers[key] = payload
+
+
+def _save_answer_snapshot(key: str, text: str, *, label: Optional[str] = None) -> Dict[str, Any]:
+    payload = _get_saved_answer_payload(key)
+    snapshots: List[Dict[str, Any]] = payload.setdefault("snapshots", [])
+    snapshot_id = uuid.uuid4().hex
+    timestamp = datetime.utcnow().isoformat()
+    normalized_label = label.strip() if label else ""
+    if not normalized_label:
+        normalized_label = f"案{len(snapshots) + 1}"
+    entry = {
+        "id": snapshot_id,
+        "label": normalized_label,
+        "text": text,
+        "created_at": timestamp,
+    }
+    snapshots.append(entry)
+    # Keep only the latest 10 snapshots per question to avoid bloating session state.
+    if len(snapshots) > 10:
+        del snapshots[:-10]
+    st.session_state.saved_answers[key] = payload
+    return entry
+
+
+def _delete_answer_snapshot(key: str, snapshot_id: str) -> None:
+    payload = _get_saved_answer_payload(key)
+    snapshots: List[Dict[str, Any]] = payload.get("snapshots", [])
+    payload["snapshots"] = [snap for snap in snapshots if snap.get("id") != snapshot_id]
+    st.session_state.saved_answers[key] = payload
+
+
+def _format_snapshot_label(entry: Mapping[str, Any]) -> str:
+    label = str(entry.get("label") or "案")
+    timestamp = entry.get("created_at")
+    display_time = ""
+    if isinstance(timestamp, str) and timestamp:
+        try:
+            dt = datetime.fromisoformat(timestamp)
+            display_time = dt.strftime("%m/%d %H:%M")
+        except ValueError:
+            display_time = ""
+    if display_time:
+        return f"{label} ({display_time})"
+    return label
+
+
+def _highlight_keywords_in_text(
+    text: str, keyword_hits: Mapping[str, bool], *, include_missing: bool = False
+) -> str:
+    if not text:
+        return ""
+    escaped = html.escape(text)
+    if not keyword_hits:
+        return escaped
+
+    ordered_keywords = sorted(
+        [(kw, hit) for kw, hit in keyword_hits.items() if kw],
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
+
+    for keyword, hit in ordered_keywords:
+        if not include_missing and not hit:
+            continue
+        pattern = re.escape(keyword)
+
+        def _repl(match: re.Match[str]) -> str:
+            return (
+                f"<span class='keyword-highlight {'hit' if hit else 'miss'}'>"
+                f"{html.escape(match.group(0))}</span>"
+            )
+
+        escaped = re.sub(pattern, _repl, escaped)
+    return escaped
+
+
+def _summarize_strengths_and_gaps(
+    keyword_hits: Mapping[str, bool],
+    connector_stats: Optional[Mapping[str, Any]],
+    analysis: Optional[Mapping[str, Any]],
+) -> Tuple[List[str], List[str]]:
+    strengths: List[str] = []
+    improvements: List[str] = []
+
+    if keyword_hits:
+        matched = [kw for kw, hit in keyword_hits.items() if hit]
+        missed = [kw for kw, hit in keyword_hits.items() if not hit]
+        if matched:
+            strengths.append("キーワード: " + "、".join(matched[:5]))
+            if len(matched) > 5:
+                strengths[-1] += " ほか"
+        if missed:
+            improvements.append("未使用キーワード: " + "、".join(missed[:5]))
+            if len(missed) > 5:
+                improvements[-1] += " ほか"
+
+    if connector_stats:
+        total_hits = int(connector_stats.get("total_hits") or 0)
+        per_sentence = float(connector_stats.get("per_sentence") or 0.0)
+        if total_hits >= 1:
+            strengths.append(f"因果接続語: {total_hits}件検出")
+        if per_sentence < 0.6:
+            improvements.append("接続語が少ないため、因→果の橋渡し語を追加")
+
+    if analysis:
+        duplicates = analysis.get("duplicates", [])
+        synonyms = analysis.get("synonyms", [])
+        enumerations = analysis.get("enumerations", [])
+        suggestions = analysis.get("suggestions", [])
+        if not (duplicates or synonyms or enumerations):
+            strengths.append("構成の重複は見当たりません")
+        else:
+            if duplicates:
+                improvements.append("重複語: " + "、".join(duplicates[:3]))
+            if synonyms:
+                improvements.append("言い換えの重複: " + "、".join(synonyms[:3]))
+            if enumerations:
+                improvements.append("列挙の整理余地あり")
+        for hint in suggestions[:2]:
+            improvements.append(hint)
+
+    if not strengths:
+        strengths.append("答案の骨子を言語化できています")
+    if not improvements:
+        improvements.append("細部の表現を磨くとより伝わります")
+
+    return strengths, improvements
+
+
+def _classify_practice_status(stat: Optional[Mapping[str, Any]]) -> str:
+    if not stat or int(stat.get("attempt_count") or 0) == 0:
+        return "未実施"
+    last_ratio = stat.get("last_ratio")
+    if isinstance(last_ratio, (int, float)) and last_ratio < 0.6:
+        return "要復習"
+    return "安定"
+
+
+def _split_sentences(text: str) -> List[str]:
+    if not text:
+        return []
+    normalized = str(text).replace("\r\n", "\n").replace("\r", "\n")
+    segments = re.findall(r"[^。！？!?\n]+[。！？!?]?", normalized)
+    sentences: List[str] = []
+    for segment in segments:
+        stripped = segment.strip()
+        if stripped:
+            sentences.append(stripped)
+    return sentences
+
+
+def _extract_context_citations(
+    answer_text: str,
+    context_text: Optional[str],
+    *,
+    limit: int = 4,
+) -> List[Dict[str, Any]]:
+    if not answer_text.strip() or not context_text:
+        return []
+
+    answer_sentences = _split_sentences(answer_text)
+    context_sentences = _split_sentences(context_text)
+    if not answer_sentences or not context_sentences:
+        return []
+
+    citations: List[Dict[str, Any]] = []
+    for answer_sentence in answer_sentences:
+        matcher_best: Optional[difflib.Match] = None
+        best_ratio = 0.0
+        best_context: Optional[str] = None
+        for ctx in context_sentences:
+            matcher = difflib.SequenceMatcher(None, answer_sentence, ctx)
+            ratio = matcher.ratio()
+            match = matcher.find_longest_match(0, len(answer_sentence), 0, len(ctx))
+            if match.size < 6:
+                continue
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_context = ctx
+                matcher_best = match
+        if best_context and matcher_best and best_ratio >= 0.25:
+            start = matcher_best.b
+            end = matcher_best.b + matcher_best.size
+            highlighted = (
+                html.escape(best_context[:start])
+                + "<mark>"
+                + html.escape(best_context[start:end])
+                + "</mark>"
+                + html.escape(best_context[end:])
+            )
+            citations.append(
+                {
+                    "answer": answer_sentence,
+                    "context": best_context,
+                    "context_html": highlighted,
+                    "score": best_ratio,
+                }
+            )
+
+    citations.sort(key=lambda item: item["score"], reverse=True)
+    return citations[:limit]
 
 
 def _track_question_activity(draft_key: str, text: str) -> Dict[str, Any]:
@@ -8485,9 +8916,9 @@ def _question_input(
 ) -> str:
     _inject_practice_question_styles()
     key = _draft_key(problem_id, question["id"])
+    saved_payload = _get_saved_answer_payload(key)
     if key not in st.session_state.drafts:
-        saved_default = st.session_state.saved_answers.get(key, "")
-        st.session_state.drafts[key] = saved_default
+        st.session_state.drafts[key] = saved_payload.get("autosave", "")
 
     textarea_state_key = f"{widget_prefix}{key}"
 
@@ -8576,18 +9007,19 @@ def _question_input(
     _render_character_counter(text, question.get("character_limit"))
     _track_question_activity(key, text)
     keywords = _resolve_question_keywords(question)
+    keyword_hits: Mapping[str, bool] = {}
     if keywords:
-        _render_keyword_coverage_meter(text, keywords)
+        keyword_hits = _render_keyword_coverage_meter(text, keywords)
     else:
         st.caption("キーワードはまだ登録されていません。与件から重要語を抜き出しましょう。")
-    _render_causal_connector_indicator(text)
+    connector_stats = _render_causal_connector_indicator(text)
     analysis = _render_mece_status_labels(text)
     with st.expander("MECE/因果スキャナ", expanded=bool(text.strip())):
         _render_mece_causal_scanner(text, analysis=analysis)
     st.session_state.drafts[key] = text
-    st.session_state.saved_answers.setdefault(key, value)
+    _update_autosaved_answer(key, text)
     status_placeholder = st.empty()
-    saved_text = st.session_state.saved_answers.get(key)
+    saved_text = saved_payload.get("autosave", "")
     restore_disabled = not saved_text
     if restore_disabled:
         status_placeholder.caption("復元できる下書きはまだありません。")
@@ -8599,6 +9031,134 @@ def _question_input(
         st.session_state.drafts[key] = saved_text
         st.session_state[textarea_state_key] = saved_text
         status_placeholder.info("保存済みの下書きを復元しました。")
+
+    with st.expander("保存済みの案と模範解答比較", expanded=False):
+        snapshot_label_key = f"snapshot_label::{key}"
+        default_label = st.session_state.get(snapshot_label_key, "")
+        snapshot_label = st.text_input(
+            "案のラベル",
+            key=snapshot_label_key,
+            value=default_label,
+            placeholder="例: 第1案 / フレーム修正案",
+            help="現在の答案を任意の名前で保存し、後から比較・復元できます。",
+        )
+        if st.button(
+            "現在の内容を案として保存",
+            key=f"save_snapshot_{key}",
+            disabled=not text.strip(),
+        ):
+            entry = _save_answer_snapshot(key, text, label=snapshot_label)
+            st.session_state[snapshot_label_key] = ""
+            st.success(f"「{entry['label']}」を保存しました。", icon="💾")
+            saved_payload = _get_saved_answer_payload(key)
+
+        snapshots = saved_payload.get("snapshots", [])
+        if snapshots:
+            snapshot_options = [snap["id"] for snap in snapshots]
+            snapshot_select_key = f"snapshot_select::{key}"
+            selected_snapshot_id = st.selectbox(
+                "保存済みの案",
+                options=snapshot_options,
+                key=snapshot_select_key,
+                format_func=lambda sid: _format_snapshot_label(
+                    next((snap for snap in snapshots if snap["id"] == sid), {})
+                ),
+            )
+            selected_snapshot = next(
+                (snap for snap in snapshots if snap["id"] == selected_snapshot_id),
+                None,
+            )
+            action_cols = st.columns([0.4, 0.3, 0.3])
+            with action_cols[0]:
+                if st.button(
+                    "この案をエディタに読み込む",
+                    key=f"load_snapshot_{key}",
+                    disabled=selected_snapshot is None,
+                ) and selected_snapshot:
+                    st.session_state.drafts[key] = selected_snapshot.get("text", "")
+                    st.session_state[textarea_state_key] = selected_snapshot.get("text", "")
+                    st.success(f"「{selected_snapshot.get('label', '案')}」を復元しました。", icon="📄")
+            with action_cols[1]:
+                comparison_choice_key = f"snapshot_compare_choice::{key}"
+                compare_with_snapshot = st.checkbox(
+                    "この案と比較",
+                    key=comparison_choice_key,
+                    value=st.session_state.get(comparison_choice_key, False),
+                    help="チェックを入れると下の比較ビューでこの案を参照します。",
+                )
+            with action_cols[2]:
+                if st.button(
+                    "案を削除",
+                    key=f"delete_snapshot_{key}",
+                    disabled=selected_snapshot is None,
+                ) and selected_snapshot:
+                    _delete_answer_snapshot(key, selected_snapshot_id)
+                    st.warning("選択した案を削除しました。", icon="🗑️")
+                    saved_payload = _get_saved_answer_payload(key)
+                    snapshots = saved_payload.get("snapshots", [])
+                    if snapshots:
+                        st.session_state[snapshot_select_key] = snapshots[-1]["id"]
+                    else:
+                        st.session_state.pop(snapshot_select_key, None)
+
+            comparison_text = text
+            comparison_label = "現在の答案"
+            if snapshots and compare_with_snapshot:
+                selected_snapshot = next(
+                    (snap for snap in snapshots if snap["id"] == st.session_state.get(snapshot_select_key)),
+                    selected_snapshot,
+                )
+                if selected_snapshot:
+                    comparison_text = selected_snapshot.get("text", "")
+                    comparison_label = f"保存案: {selected_snapshot.get('label', '案')}"
+            model_answer = _normalize_text_block(question.get("model_answer")) or ""
+            if model_answer:
+                st.markdown("---")
+                st.markdown("**模範解答との比較ビュー**")
+                _ensure_keyword_feedback_styles()
+                user_highlight = _highlight_keywords_in_text(
+                    comparison_text,
+                    keyword_hits,
+                )
+                model_highlight = _highlight_keywords_in_text(
+                    model_answer,
+                    keyword_hits,
+                    include_missing=True,
+                )
+                compare_cols = st.columns(2)
+                with compare_cols[0]:
+                    st.markdown(f"<p class='answer-compare-heading'>{html.escape(comparison_label)}</p>", unsafe_allow_html=True)
+                    st.markdown(
+                        f"<div class='answer-compare-block'><pre>{user_highlight}</pre></div>",
+                        unsafe_allow_html=True,
+                    )
+                with compare_cols[1]:
+                    st.markdown(
+                        "<p class='answer-compare-heading'>模範解答</p>",
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(
+                        f"<div class='answer-compare-block'><pre>{model_highlight}</pre></div>",
+                        unsafe_allow_html=True,
+                    )
+                strengths, improvements = _summarize_strengths_and_gaps(
+                    keyword_hits,
+                    connector_stats,
+                    analysis,
+                )
+                summary_cols = st.columns(2)
+                with summary_cols[0]:
+                    st.markdown("**強み**")
+                    for point in strengths:
+                        st.write(f"- {point}")
+                with summary_cols[1]:
+                    st.markdown("**次に改善すべき点**")
+                    for point in improvements:
+                        st.write(f"- {point}")
+            else:
+                st.info("模範解答が未登録のため、比較ビューは利用できません。", icon="ℹ️")
+        else:
+            st.caption("保存済みの案はまだありません。案として保存すると比較・復元が行えます。")
 
     st.divider()
     _render_intent_cards(question, key, textarea_state_key)
@@ -10259,6 +10819,8 @@ def practice_page(user: Dict) -> None:
     for entry in index:
         case_map[entry["case_label"]][entry["year"]] = entry["id"]
 
+    question_stats = database.fetch_question_practice_stats(user["id"])
+
     case_options = sorted(
         case_map.keys(),
         key=lambda label: (
@@ -10352,42 +10914,143 @@ def practice_page(user: Dict) -> None:
 
         question_key = f"practice_tree_question_{problem_id}" if problem_id else "practice_tree_question"
         if question_options:
-            if question_key not in st.session_state or st.session_state[question_key] not in question_options:
-                st.session_state[question_key] = question_options[0]
+            status_map = {
+                qid: _classify_practice_status(question_stats.get(qid))
+                for qid in question_options
+            }
+            search_key = f"practice_tree_search::{selected_case}::{selected_year}"
+            sort_key = f"practice_tree_sort::{selected_case}::{selected_year}"
+            status_filter_key = f"practice_tree_status::{selected_case}::{selected_year}"
+            st.markdown('<div class="tree-level tree-level-filter">', unsafe_allow_html=True)
+            filter_cols = st.columns([0.6, 0.4], gap="small")
+            with filter_cols[0]:
+                search_query = st.text_input(
+                    "設問検索",
+                    key=search_key,
+                    placeholder="キーワード・年号・配点で絞り込み",
+                )
+            with filter_cols[1]:
+                sort_option = st.selectbox(
+                    "並べ替え",
+                    ["設問順", "重要度（配点高→低）", "出題頻度（多→少）"],
+                    key=sort_key,
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
 
-            def _format_question_option(question_id: int) -> str:
-                question = question_lookup.get(question_id)
-                if not question:
-                    return "設問"
-                prompt = _normalize_text_block(
-                    _select_first(
-                        question,
-                        ["prompt", "設問文", "問題文", "question_text", "body"],
-                    )
-                ) or ""
-                preview = prompt.splitlines()[0] if prompt else ""
-                if len(preview) > 24:
-                    preview = preview[:24] + "…"
-                label_year = _format_reiwa_label(selected_year) if selected_year else ""
-                parts = [
-                    part
-                    for part in [label_year, selected_case, f"設問{question['order']}"]
-                    if part
-                ]
-                if preview:
-                    return f"{' '.join(parts)}：{preview}"
-                return " ".join(parts)
-
-            st.markdown('<div class="tree-level tree-level-question">', unsafe_allow_html=True)
-            selected_question_id = st.selectbox(
-                "↳ 設問1〜",
-                question_options,
-                key=question_key,
-                format_func=_format_question_option,
-                label_visibility="collapsed",
+            status_choices = ["未実施", "要復習", "安定"]
+            default_statuses = st.session_state.get(status_filter_key, status_choices)
+            st.markdown('<div class="tree-level tree-level-filter">', unsafe_allow_html=True)
+            selected_statuses = st.multiselect(
+                "ステータスフィルタ",
+                status_choices,
+                default=default_statuses,
+                key=status_filter_key,
             )
             st.markdown("</div>", unsafe_allow_html=True)
-            selected_question = question_lookup.get(selected_question_id)
+
+            normalized_query = (search_query or "").strip().lower()
+            filtered_question_ids: List[int] = []
+            for qid in question_options:
+                question = question_lookup.get(qid)
+                if not question:
+                    continue
+                status_label = status_map.get(qid, "未実施")
+                if selected_statuses and status_label not in selected_statuses:
+                    continue
+                if normalized_query:
+                    haystacks: List[str] = []
+                    prompt = _normalize_text_block(
+                        _select_first(
+                            question,
+                            ["prompt", "設問文", "問題文", "question_text", "body"],
+                        )
+                    ) or ""
+                    haystacks.append(prompt)
+                    haystacks.append(status_label)
+                    haystacks.append(str(question.get("order") or ""))
+                    haystacks.append(str(question.get("max_score") or ""))
+                    haystacks.append(str(selected_case))
+                    haystacks.append(str(selected_year))
+                    keywords_text = "、".join(_resolve_question_keywords(question))
+                    haystacks.append(keywords_text)
+                    if not any(normalized_query in str(value).lower() for value in haystacks if value):
+                        continue
+                filtered_question_ids.append(qid)
+
+            if sort_option == "重要度（配点高→低）":
+                filtered_question_ids.sort(
+                    key=lambda qid: (
+                        float(question_lookup.get(qid, {}).get("max_score") or 0.0),
+                        int(question_lookup.get(qid, {}).get("order") or 0),
+                    ),
+                    reverse=True,
+                )
+            elif sort_option == "出題頻度（多→少）":
+                filtered_question_ids.sort(
+                    key=lambda qid: (
+                        int(question_stats.get(qid, {}).get("attempt_count", 0)),
+                        int(question_lookup.get(qid, {}).get("order") or 0),
+                    ),
+                    reverse=True,
+                )
+            else:
+                filtered_question_ids.sort(
+                    key=lambda qid: (
+                        int(question_lookup.get(qid, {}).get("order") or 0),
+                        qid,
+                    )
+                )
+
+            if not filtered_question_ids:
+                st.info("条件に一致する設問がありません。フィルタを調整してください。", icon="🔍")
+            else:
+                if (
+                    question_key not in st.session_state
+                    or st.session_state[question_key] not in filtered_question_ids
+                ):
+                    st.session_state[question_key] = filtered_question_ids[0]
+
+                def _format_question_option(question_id: int) -> str:
+                    question = question_lookup.get(question_id)
+                    if not question:
+                        return "設問"
+                    prompt = _normalize_text_block(
+                        _select_first(
+                            question,
+                            ["prompt", "設問文", "問題文", "question_text", "body"],
+                        )
+                    ) or ""
+                    preview = prompt.splitlines()[0] if prompt else ""
+                    if len(preview) > 24:
+                        preview = preview[:24] + "…"
+                    label_year = _format_reiwa_label(selected_year) if selected_year else ""
+                    parts = [
+                        part
+                        for part in [label_year, selected_case, f"設問{question['order']}"]
+                        if part
+                    ]
+                    meta_parts: List[str] = []
+                    status_label = status_map.get(question_id)
+                    if status_label:
+                        meta_parts.append(status_label)
+                    attempts = question_stats.get(question_id, {}).get("attempt_count", 0)
+                    if attempts:
+                        meta_parts.append(f"{attempts}回")
+                    meta = f" [{' / '.join(meta_parts)}]" if meta_parts else ""
+                    if preview:
+                        return f"{' '.join(parts)}：{preview}{meta}"
+                    return f"{' '.join(parts)}{meta}"
+
+                st.markdown('<div class="tree-level tree-level-question">', unsafe_allow_html=True)
+                selected_question_id = st.selectbox(
+                    "↳ 設問1〜",
+                    filtered_question_ids,
+                    key=question_key,
+                    format_func=_format_question_option,
+                    label_visibility="collapsed",
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+                selected_question = question_lookup.get(selected_question_id)
         elif selected_year:
             st.info("この事例の設問データが見つかりません。設定ページから追加してください。", icon="ℹ️")
 
@@ -11965,6 +12628,18 @@ def render_attempt_results(attempt_id: int) -> None:
     answers = detail["answers"]
 
     problem = database.fetch_problem(attempt["problem_id"])
+    problem_context_text = _collect_problem_context_text(problem) if problem else None
+    question_context_map: Dict[int, str] = {}
+    if problem:
+        for question in problem.get("questions", []):
+            qid = question.get("id")
+            if qid is None:
+                continue
+            for candidate in _iter_question_context_candidates(question):
+                normalized = _normalize_text_block(candidate)
+                if normalized:
+                    question_context_map[qid] = normalized
+                    break
     export_payload = export_utils.build_attempt_export_payload(
         attempt,
         answers,
@@ -12380,7 +13055,26 @@ def render_attempt_results(attempt_id: int) -> None:
                 _render_keyword_coverage_from_hits(keyword_hits)
             else:
                 st.caption("キーワード採点は設定されていません。")
-            connector_stats = _render_causal_connector_indicator(answer.get("answer_text", ""), show_breakdown=True)
+            answer_text = str(answer.get("answer_text", ""))
+            connector_stats = _render_causal_connector_indicator(
+                answer_text, show_breakdown=True
+            )
+            analysis = _render_mece_status_labels(answer_text)
+            strengths, improvements = _summarize_strengths_and_gaps(
+                keyword_hits,
+                connector_stats,
+                analysis,
+            )
+            if answer_text.strip():
+                summary_cols = st.columns(2)
+                with summary_cols[0]:
+                    st.markdown("**強み**")
+                    for point in strengths:
+                        st.write(f"- {point}")
+                with summary_cols[1]:
+                    st.markdown("**次に改善すべき点**")
+                    for point in improvements:
+                        st.write(f"- {point}")
             axis_breakdown = answer.get("axis_breakdown") or {}
             if axis_breakdown:
                 st.markdown("**観点別スコアの内訳**")
@@ -12391,6 +13085,24 @@ def render_attempt_results(attempt_id: int) -> None:
                     columns=["キーワード", "判定"],
                 )
                 st.table(keyword_df)
+            context_source = question_context_map.get(answer.get("question_id")) or problem_context_text
+            citations = _extract_context_citations(answer_text, context_source)
+            with st.expander("構造分析・引用ハイライト", expanded=False):
+                _render_mece_causal_scanner(answer_text, analysis=analysis)
+                if citations:
+                    st.markdown("**与件引用マップ**")
+                    for item in citations:
+                        st.markdown(
+                            "<p><strong>答案</strong>: {answer}<br/><strong>与件</strong>: {context}</p>".format(
+                                answer=html.escape(item["answer"]),
+                                context=item["context_html"],
+                            ),
+                            unsafe_allow_html=True,
+                        )
+                else:
+                    st.caption(
+                        "与件との対応関係は検出されませんでした。根拠となる記述を引用しながら書きましょう。"
+                    )
             log_id = answer.get("scoring_log_id")
             if log_id:
                 state_key = f"self_eval_select_{attempt_id}_{log_id}"
@@ -12426,7 +13138,7 @@ def render_attempt_results(attempt_id: int) -> None:
                 {
                     "case_label": answer.get("case_label"),
                     "keyword_hits": keyword_hits,
-                    "answer_text": answer.get("answer_text", ""),
+                    "answer_text": answer_text,
                     "connector_stats": connector_stats,
                 }
             )
