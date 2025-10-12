@@ -614,6 +614,116 @@
         margin-left: auto;
       }
 
+      body[data-app="exercise"] .app-topbar {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-xs) var(--spacing-lg);
+        background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--color-layer-subtle) 75%, transparent) 0%,
+          color-mix(in srgb, var(--color-layer-soft) 55%, transparent) 100%
+        );
+        border-bottom: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent);
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        backdrop-filter: blur(6px);
+      }
+
+      body[data-app="exercise"] .app-topbar__toggle {
+        border: none;
+        background: transparent;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        transition: background-color var(--transition-duration) ease,
+          color var(--transition-duration) ease,
+          transform var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .app-topbar__toggle:hover,
+      body[data-app="exercise"] .app-topbar__toggle:focus-visible {
+        color: var(--color-chip-active);
+        background: color-mix(in srgb, var(--color-chip-bg) 70%, transparent);
+        outline: none;
+      }
+
+      body[data-app="exercise"] .app-topbar__toggle[aria-expanded='false']
+        .app-topbar__icon {
+        transform: rotate(180deg);
+      }
+
+      body[data-app="exercise"] .app-topbar__status {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        font-size: 0.92rem;
+        font-weight: 600;
+        color: var(--color-text-strong);
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
+        transition: color var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .app-topbar__status .icon {
+        font-size: 1rem;
+        color: inherit;
+      }
+
+      body[data-app="exercise"] .app-topbar__status[data-state='warning'] {
+        color: var(--color-warning);
+      }
+
+      body[data-app="exercise"] .app-topbar__meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 2px;
+        font-size: 0.78rem;
+        color: var(--color-text-muted);
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
+      }
+
+      body[data-app="exercise"] .app-topbar__notice {
+        grid-column: 1 / -1;
+        display: grid;
+        gap: var(--spacing-xs);
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--color-layer-subtle) 65%, transparent);
+        color: var(--color-text);
+        font-size: 0.85rem;
+        line-height: 1.6;
+      }
+
+      body[data-app="exercise"] .app-topbar[data-collapsed='true'] .app-topbar__notice {
+        display: none;
+      }
+
+      body[data-app="exercise"] .app-topbar__notice-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .app-topbar__notice-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--color-surface);
+        color: var(--color-chip-active);
+        font-weight: 600;
+        font-size: 0.78rem;
+      }
+
       body[data-app="exercise"] .app-header__control {
         display: grid;
         gap: 4px;
@@ -716,6 +826,31 @@
           in srgb,
           var(--color-warning) 20%,
           var(--color-layer-subtle)
+        );
+      }
+
+      body[data-app="exercise"] .progress-card--timer[data-state='warning'] {
+        background: color-mix(
+          in srgb,
+          var(--color-warning) 35%,
+          var(--color-layer-subtle)
+        );
+      }
+
+      body[data-app="exercise"]
+        .progress-card--timer[data-state='warning']
+        .progress-card__meta {
+        color: var(--color-warning);
+      }
+
+      body[data-app="exercise"]
+        .progress-card--timer[data-state='warning']
+        .progress-card__bar
+        span {
+        background: linear-gradient(
+          90deg,
+          var(--color-warning) 0%,
+          color-mix(in srgb, var(--color-warning) 70%, #fff) 100%
         );
       }
 
@@ -836,6 +971,21 @@
         margin: 0 auto;
         padding: 0 var(--spacing-lg) calc(var(--spacing-xl) + var(--spacing-lg));
         width: 100%;
+      }
+
+      body[data-app="exercise"] .layout[data-left-collapsed='true']
+        .layout__pane--left {
+        display: none;
+      }
+
+      body[data-app="exercise"] .layout[data-left-collapsed='true']
+        .layout__resizer {
+        display: none;
+      }
+
+      body[data-app="exercise"] .layout[data-left-collapsed='true']
+        .layout__pane--right {
+        flex: 1 1 100%;
       }
 
       body[data-app="exercise"] .layout[data-resizing='true'] {
@@ -1163,6 +1313,92 @@
           background-color var(--transition-duration) ease;
       }
 
+      body[data-app="exercise"] .tool-sidebar {
+        position: sticky;
+        top: var(--spacing-lg);
+        margin-left: auto;
+        display: inline-flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-sm);
+        border-radius: 18px;
+        background: color-mix(in srgb, var(--color-layer-subtle) 65%, transparent);
+        box-shadow: 0 18px 36px rgba(15, 23, 39, 0.14);
+        min-width: 64px;
+        align-items: center;
+      }
+
+      body[data-app="exercise"] .tool-sidebar[data-collapsed='true']
+        .tool-sidebar__menu {
+        display: none;
+      }
+
+      body[data-app="exercise"] .tool-sidebar__toggle {
+        border: none;
+        background: var(--color-surface);
+        border-radius: 12px;
+        width: 40px;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: var(--color-text-muted);
+        transition: background-color var(--transition-duration) ease,
+          color var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .tool-sidebar__toggle:hover,
+      body[data-app="exercise"] .tool-sidebar__toggle:focus-visible {
+        color: var(--color-chip-active);
+        background: color-mix(in srgb, var(--color-chip-bg) 70%, transparent);
+        outline: none;
+      }
+
+      body[data-app="exercise"] .tool-sidebar__menu {
+        display: grid;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .tool-sidebar__button {
+        border: none;
+        width: 48px;
+        height: 48px;
+        border-radius: 16px;
+        background: var(--color-surface);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: var(--color-text-muted);
+        box-shadow: 0 8px 18px rgba(15, 23, 39, 0.16);
+        transition: transform var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease,
+          color var(--transition-duration) ease;
+        position: relative;
+      }
+
+      body[data-app="exercise"] .tool-sidebar__button:hover,
+      body[data-app="exercise"] .tool-sidebar__button:focus-visible,
+      body[data-app="exercise"] .tool-sidebar__button[data-active='true'] {
+        transform: translateY(-2px);
+        color: var(--color-chip-active);
+        box-shadow: 0 12px 24px rgba(15, 23, 39, 0.22);
+        outline: none;
+      }
+
+      body[data-app="exercise"] .tool-sidebar__shortcut {
+        position: absolute;
+        bottom: -6px;
+        right: -6px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--color-chip-active) 80%, transparent);
+        color: var(--color-chip-active-text);
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
+      }
+
       body[data-app="exercise"] .quick-nav__link:hover,
       body[data-app="exercise"] .quick-nav__link:focus-visible {
         border-color: var(--color-chip-active);
@@ -1317,6 +1553,89 @@
         top: calc(var(--spacing-lg) * 2);
         align-self: start;
         min-width: 0;
+      }
+
+      body[data-app="exercise"] .insight-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: var(--spacing-sm);
+        border-radius: 14px;
+        background: color-mix(in srgb, var(--color-layer-subtle) 55%, transparent);
+        border: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+      }
+
+      body[data-app="exercise"] .insight-panel[data-panel-hidden='true'] {
+        display: none;
+      }
+
+      body[data-app="exercise"] .insight-panel__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .insight-panel__title {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--color-text-strong);
+        margin: 0;
+      }
+
+      body[data-app="exercise"] .insight-panel__toggle {
+        border: none;
+        background: transparent;
+        color: var(--color-text-muted);
+        font-size: 0.78rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+      }
+
+      body[data-app="exercise"] .insight-panel__toggle:hover,
+      body[data-app="exercise"] .insight-panel__toggle:focus-visible {
+        color: var(--color-chip-active);
+        outline: none;
+      }
+
+      body[data-app="exercise"] .insight-panel__list {
+        margin: 0;
+        padding-left: 1.1rem;
+        display: grid;
+        gap: 4px;
+        font-size: 0.82rem;
+        color: var(--color-text);
+      }
+
+      body[data-app="exercise"] .insight-panel__empty {
+        font-size: 0.82rem;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .insight-panel__hint {
+        margin: 0;
+        font-size: 0.75rem;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .insight-panel__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      body[data-app="exercise"] .insight-panel__chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: var(--color-surface);
+        font-size: 0.75rem;
+        color: var(--color-chip-active);
+        border: 1px solid color-mix(in srgb, var(--color-chip-active) 45%, transparent);
       }
 
       body[data-app="exercise"] .exercise__controls {
@@ -1845,6 +2164,124 @@
         display: flex;
         flex-direction: column;
         gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .answer-toolbar {
+        position: sticky;
+        top: calc(var(--spacing-lg) * -0.5);
+        z-index: 2;
+        display: grid;
+        gap: var(--spacing-xs);
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--color-layer-subtle) 70%, transparent);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-border) 55%, transparent);
+      }
+
+      body[data-app="exercise"] .answer-toolbar__progress {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+      }
+
+      body[data-app="exercise"] .answer-toolbar__progress-track {
+        position: relative;
+        flex: 1;
+        height: 8px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--color-border) 65%, transparent);
+        overflow: hidden;
+      }
+
+      body[data-app="exercise"] .answer-toolbar__progress-fill {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(
+          90deg,
+          var(--color-chip-active) 0%,
+          color-mix(in srgb, var(--color-chip-active) 35%, #fff) 100%
+        );
+        transform-origin: left center;
+        transform: scaleX(0);
+        transition: transform 200ms ease;
+      }
+
+      body[data-app="exercise"] .answer-toolbar__progress[data-state='warning']
+        .answer-toolbar__progress-fill {
+        background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--color-warning) 75%, transparent) 0%,
+          var(--color-warning) 100%
+        );
+      }
+
+      body[data-app="exercise"] .answer-toolbar__progress[data-state='over']
+        .answer-toolbar__progress-fill {
+        background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--color-accent-strong) 80%, transparent) 0%,
+          var(--color-accent-strong) 100%
+        );
+      }
+
+      body[data-app="exercise"] .answer-toolbar__progress-label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .answer-toolbar__progress[data-state='warning']
+        .answer-toolbar__progress-label,
+      body[data-app="exercise"] .answer-toolbar__progress[data-state='over']
+        .answer-toolbar__progress-label {
+        color: var(--color-warning);
+      }
+
+      body[data-app="exercise"] .answer-toolbar__metrics {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .answer-toolbar__metric {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--color-surface) 90%, transparent);
+        box-shadow: 0 4px 10px rgba(15, 23, 39, 0.08);
+      }
+
+      body[data-app="exercise"] .answer-toolbar__metric-icon {
+        display: inline-flex;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        align-items: center;
+        justify-content: center;
+        background: color-mix(in srgb, var(--color-chip-bg) 75%, transparent);
+        color: var(--color-chip-active);
+      }
+
+      body[data-app="exercise"] .answer-toolbar__metric-label {
+        font-size: 0.75rem;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .answer-toolbar__metric-value {
+        margin-left: auto;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--color-text-strong);
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
+      }
+
+      body[data-app="exercise"] .answer-toolbar__metric[data-state='low']
+        .answer-toolbar__metric-value {
+        color: var(--color-warning);
       }
 
       body[data-app="exercise"] .question-card__memo {
@@ -3505,6 +3942,215 @@
         flex-wrap: wrap;
       }
 
+      body[data-app="exercise"] .tool-modal,
+      body[data-app="exercise"] .submit-modal,
+      body[data-app="exercise"] .result-dashboard {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: rgba(13, 20, 35, 0.55);
+        backdrop-filter: blur(4px);
+        z-index: 140;
+        padding: var(--spacing-md);
+      }
+
+      body[data-app="exercise"] .tool-modal[hidden],
+      body[data-app="exercise"] .submit-modal[hidden],
+      body[data-app="exercise"] .result-dashboard[hidden] {
+        display: none;
+      }
+
+      body[data-app="exercise"] .tool-modal__dialog,
+      body[data-app="exercise"] .submit-modal__dialog,
+      body[data-app="exercise"] .result-dashboard__dialog {
+        background: var(--color-surface);
+        color: var(--color-text);
+        border-radius: 20px;
+        box-shadow: 0 28px 68px rgba(15, 23, 39, 0.28);
+        width: min(640px, 95vw);
+        max-height: 90vh;
+        display: grid;
+        gap: var(--spacing-md);
+        padding: var(--spacing-lg);
+        overflow: hidden;
+      }
+
+      body[data-app="exercise"] .tool-modal__dialog {
+        width: min(480px, 92vw);
+      }
+
+      body[data-app="exercise"] .tool-modal__header,
+      body[data-app="exercise"] .submit-modal__header,
+      body[data-app="exercise"] .result-dashboard__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-sm);
+      }
+
+      body[data-app="exercise"] .tool-modal__title,
+      body[data-app="exercise"] .submit-modal__title,
+      body[data-app="exercise"] .result-dashboard__title {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--color-text-strong);
+      }
+
+      body[data-app="exercise"] .tool-modal__close,
+      body[data-app="exercise"] .submit-modal__close,
+      body[data-app="exercise"] .result-dashboard__close {
+        border: none;
+        background: transparent;
+        color: var(--color-text-muted);
+        font-size: 1.35rem;
+        line-height: 1;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        cursor: pointer;
+      }
+
+      body[data-app="exercise"] .tool-modal__close:hover,
+      body[data-app="exercise"] .tool-modal__close:focus-visible,
+      body[data-app="exercise"] .submit-modal__close:hover,
+      body[data-app="exercise"] .submit-modal__close:focus-visible,
+      body[data-app="exercise"] .result-dashboard__close:hover,
+      body[data-app="exercise"] .result-dashboard__close:focus-visible {
+        color: var(--color-chip-active);
+        background: color-mix(in srgb, var(--color-chip-bg) 70%, transparent);
+        outline: none;
+      }
+
+      body[data-app="exercise"] .tool-modal__body,
+      body[data-app="exercise"] .submit-modal__body,
+      body[data-app="exercise"] .result-dashboard__body {
+        display: grid;
+        gap: var(--spacing-sm);
+        overflow-y: auto;
+      }
+
+      body[data-app="exercise"] .submit-modal__list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .submit-modal__item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: var(--spacing-sm);
+        align-items: center;
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--color-layer-subtle) 60%, transparent);
+        font-size: 0.9rem;
+      }
+
+      body[data-app="exercise"] .submit-modal__status {
+        font-weight: 600;
+        color: var(--color-chip-active);
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
+      }
+
+      body[data-app="exercise"] .submit-modal__status[data-state='incomplete'] {
+        color: var(--color-warning);
+      }
+
+      body[data-app="exercise"] .submit-modal__actions,
+      body[data-app="exercise"] .result-dashboard__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--spacing-sm);
+        flex-wrap: wrap;
+      }
+
+      body[data-app="exercise"] .result-dashboard__grid {
+        display: grid;
+        gap: var(--spacing-md);
+      }
+
+      body[data-app="exercise"] .result-dashboard__scores {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .result-dashboard__score-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: var(--spacing-sm);
+        align-items: center;
+        font-size: 0.9rem;
+      }
+
+      body[data-app="exercise"] .result-dashboard__score-bar {
+        position: relative;
+        height: 8px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--color-border) 60%, transparent);
+        overflow: hidden;
+      }
+
+      body[data-app="exercise"] .result-dashboard__score-bar span {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(
+          90deg,
+          var(--color-chip-active) 0%,
+          color-mix(in srgb, var(--color-chip-active) 35%, #fff) 100%
+        );
+        transform-origin: left center;
+        transform: scaleX(0);
+        transition: transform 220ms ease;
+      }
+
+      body[data-app="exercise"] .result-dashboard__trend-bars {
+        display: grid;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .result-dashboard__trend-item {
+        display: grid;
+        grid-template-columns: 80px 1fr 48px;
+        align-items: center;
+        gap: var(--spacing-sm);
+        font-size: 0.82rem;
+      }
+
+      body[data-app="exercise"] .result-dashboard__trend-track {
+        position: relative;
+        height: 6px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--color-layer-subtle) 70%, transparent);
+      }
+
+      body[data-app="exercise"] .result-dashboard__trend-track span {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--color-chip-active) 75%, transparent) 0%,
+          var(--color-chip-active) 100%
+        );
+        transform-origin: left center;
+        transform: scaleX(0);
+        transition: transform 220ms ease;
+      }
+
+      body[data-app="exercise"] .result-dashboard__trend-value {
+        font-family: "Noto Sans Mono", "Noto Sans JP", monospace;
+        font-size: 0.82rem;
+        color: var(--color-text-muted);
+      }
+
       body[data-app="exercise"] .retrieval-modal__body {
         min-height: 160px;
       }
@@ -3824,6 +4470,48 @@
   </head>
   <body data-app="exercise" data-section-active="answer">
     <div class="app-shell">
+      <div class="app-topbar" data-topbar data-collapsed="false">
+        <button
+          type="button"
+          class="app-topbar__toggle"
+          aria-expanded="true"
+          aria-controls="app-topbar-notice"
+          data-topbar-toggle
+        >
+          <span class="icon app-topbar__icon" aria-hidden="true">
+            <i class="bx bx-chevrons-up"></i>
+          </span>
+          <span class="sr-only">お知らせの表示を切り替え</span>
+        </button>
+        <div class="app-topbar__status" role="status" aria-live="polite">
+          <span class="icon" aria-hidden="true">
+            <i class="bx bx-timer"></i>
+          </span>
+          <span data-topbar-timer-label>45:00</span>
+        </div>
+        <div class="app-topbar__meta">
+          <span data-topbar-start>開始 --:--</span>
+          <span data-topbar-end>終了予定 --:--</span>
+        </div>
+        <div
+          class="app-topbar__notice"
+          id="app-topbar-notice"
+          data-topbar-details
+        >
+          <p>
+            ショートカット：<strong>Ctrl+↑/↓</strong>で設問移動、<strong>G</strong>で与件ペインの表示切替。
+            補助ツールは <strong>H</strong>/<strong>F</strong>/<strong>M</strong>/<strong>E</strong> で起動できます。
+          </p>
+          <div class="app-topbar__notice-list">
+            <span class="app-topbar__notice-chip">
+              <i class="bx bx-bulb" aria-hidden="true"></i> 与件は常に左で固定
+            </span>
+            <span class="app-topbar__notice-chip">
+              <i class="bx bx-cloud-check" aria-hidden="true"></i> 自動保存 稼働中
+            </span>
+          </div>
+        </div>
+      </div>
       <header class="app-header" role="banner">
         <div class="app-header__group">
           <button
@@ -4897,8 +5585,64 @@
               </header>
               <div class="question-card__input-body" data-accordion-body>
                 <div class="question-card__editor" data-question-editor>
-                  <div class="question-card__fields">
+                    <div class="question-card__fields">
                     <div class="question-card__answer">
+                      <div class="answer-toolbar" data-answer-toolbar>
+                        <div
+                          class="answer-toolbar__progress"
+                          data-state="normal"
+                        >
+                          <div class="answer-toolbar__progress-track">
+                            <span
+                              class="answer-toolbar__progress-fill"
+                              data-answer-progress
+                            ></span>
+                          </div>
+                          <span
+                            class="answer-toolbar__progress-label"
+                            data-answer-progress-label
+                          >
+                            残り 120 字
+                          </span>
+                        </div>
+                        <div class="answer-toolbar__metrics">
+                          <div
+                            class="answer-toolbar__metric"
+                            data-answer-coverage
+                            data-state="neutral"
+                          >
+                            <span
+                              class="answer-toolbar__metric-icon"
+                              aria-hidden="true"
+                            >
+                              <i class="bx bx-target-lock"></i>
+                            </span>
+                            <span class="answer-toolbar__metric-label"
+                              >要素カバー率</span
+                            >
+                            <span class="answer-toolbar__metric-value"
+                              >--%</span
+                            >
+                          </div>
+                          <div
+                            class="answer-toolbar__metric"
+                            data-answer-zenkaku
+                          >
+                            <span
+                              class="answer-toolbar__metric-icon"
+                              aria-hidden="true"
+                            >
+                              <i class="bx bx-text"></i>
+                            </span>
+                            <span class="answer-toolbar__metric-label"
+                              >全角換算</span
+                            >
+                            <span class="answer-toolbar__metric-value"
+                              >--字</span
+                            >
+                          </div>
+                        </div>
+                      </div>
                       <label class="sr-only" for="answer-1">設問1回答欄</label>
                       <textarea
                         id="answer-1"
@@ -5118,6 +5862,42 @@
                       </dl>
                     </div>
                   </div>
+                  <div class="insight-panel" data-structure-panel>
+                    <div class="insight-panel__header">
+                      <h4 class="insight-panel__title">構造ラベル</h4>
+                      <button
+                        type="button"
+                        class="insight-panel__toggle"
+                        data-structure-toggle
+                        aria-expanded="true"
+                      >
+                        <span>折りたたむ</span>
+                      </button>
+                    </div>
+                    <ol class="insight-panel__list" data-structure-list>
+                      <li class="insight-panel__empty">
+                        入力に応じて構造を表示します。
+                      </li>
+                    </ol>
+                    <p class="insight-panel__hint">Alt+L で表示切替</p>
+                  </div>
+                  <div class="insight-panel" data-noun-panel>
+                    <div class="insight-panel__header">
+                      <h4 class="insight-panel__title">名詞抽出</h4>
+                      <button
+                        type="button"
+                        class="insight-panel__toggle"
+                        data-noun-toggle
+                        aria-expanded="true"
+                      >
+                        <span>折りたたむ</span>
+                      </button>
+                    </div>
+                    <div class="insight-panel__chips" data-noun-list>
+                      <span class="insight-panel__chip">キーワードが表示されます</span>
+                    </div>
+                    <p class="insight-panel__hint">Alt+N で表示切替</p>
+                  </div>
                 </aside>
               </div>
             </div>
@@ -5229,6 +6009,62 @@
                 <div class="question-card__editor" data-question-editor>
                   <div class="question-card__fields">
                     <div class="question-card__answer">
+                      <div class="answer-toolbar" data-answer-toolbar>
+                        <div
+                          class="answer-toolbar__progress"
+                          data-state="normal"
+                        >
+                          <div class="answer-toolbar__progress-track">
+                            <span
+                              class="answer-toolbar__progress-fill"
+                              data-answer-progress
+                            ></span>
+                          </div>
+                          <span
+                            class="answer-toolbar__progress-label"
+                            data-answer-progress-label
+                          >
+                            残り 160 字
+                          </span>
+                        </div>
+                        <div class="answer-toolbar__metrics">
+                          <div
+                            class="answer-toolbar__metric"
+                            data-answer-coverage
+                            data-state="neutral"
+                          >
+                            <span
+                              class="answer-toolbar__metric-icon"
+                              aria-hidden="true"
+                            >
+                              <i class="bx bx-target-lock"></i>
+                            </span>
+                            <span class="answer-toolbar__metric-label"
+                              >要素カバー率</span
+                            >
+                            <span class="answer-toolbar__metric-value"
+                              >--%</span
+                            >
+                          </div>
+                          <div
+                            class="answer-toolbar__metric"
+                            data-answer-zenkaku
+                          >
+                            <span
+                              class="answer-toolbar__metric-icon"
+                              aria-hidden="true"
+                            >
+                              <i class="bx bx-text"></i>
+                            </span>
+                            <span class="answer-toolbar__metric-label"
+                              >全角換算</span
+                            >
+                            <span class="answer-toolbar__metric-value"
+                              >--字</span
+                            >
+                          </div>
+                        </div>
+                      </div>
                       <label class="sr-only" for="answer-2">設問2回答欄</label>
                       <textarea
                         id="answer-2"
@@ -5448,6 +6284,42 @@
                       </dl>
                     </div>
                   </div>
+                  <div class="insight-panel" data-structure-panel>
+                    <div class="insight-panel__header">
+                      <h4 class="insight-panel__title">構造ラベル</h4>
+                      <button
+                        type="button"
+                        class="insight-panel__toggle"
+                        data-structure-toggle
+                        aria-expanded="true"
+                      >
+                        <span>折りたたむ</span>
+                      </button>
+                    </div>
+                    <ol class="insight-panel__list" data-structure-list>
+                      <li class="insight-panel__empty">
+                        入力に応じて構造を表示します。
+                      </li>
+                    </ol>
+                    <p class="insight-panel__hint">Alt+L で表示切替</p>
+                  </div>
+                  <div class="insight-panel" data-noun-panel>
+                    <div class="insight-panel__header">
+                      <h4 class="insight-panel__title">名詞抽出</h4>
+                      <button
+                        type="button"
+                        class="insight-panel__toggle"
+                        data-noun-toggle
+                        aria-expanded="true"
+                      >
+                        <span>折りたたむ</span>
+                      </button>
+                    </div>
+                    <div class="insight-panel__chips" data-noun-list>
+                      <span class="insight-panel__chip">キーワードが表示されます</span>
+                    </div>
+                    <p class="insight-panel__hint">Alt+N で表示切替</p>
+                  </div>
                 </aside>
               </div>
             </div>
@@ -5559,6 +6431,62 @@
                 <div class="question-card__editor" data-question-editor>
                   <div class="question-card__fields">
                     <div class="question-card__answer">
+                      <div class="answer-toolbar" data-answer-toolbar>
+                        <div
+                          class="answer-toolbar__progress"
+                          data-state="normal"
+                        >
+                          <div class="answer-toolbar__progress-track">
+                            <span
+                              class="answer-toolbar__progress-fill"
+                              data-answer-progress
+                            ></span>
+                          </div>
+                          <span
+                            class="answer-toolbar__progress-label"
+                            data-answer-progress-label
+                          >
+                            残り 160 字
+                          </span>
+                        </div>
+                        <div class="answer-toolbar__metrics">
+                          <div
+                            class="answer-toolbar__metric"
+                            data-answer-coverage
+                            data-state="neutral"
+                          >
+                            <span
+                              class="answer-toolbar__metric-icon"
+                              aria-hidden="true"
+                            >
+                              <i class="bx bx-target-lock"></i>
+                            </span>
+                            <span class="answer-toolbar__metric-label"
+                              >要素カバー率</span
+                            >
+                            <span class="answer-toolbar__metric-value"
+                              >--%</span
+                            >
+                          </div>
+                          <div
+                            class="answer-toolbar__metric"
+                            data-answer-zenkaku
+                          >
+                            <span
+                              class="answer-toolbar__metric-icon"
+                              aria-hidden="true"
+                            >
+                              <i class="bx bx-text"></i>
+                            </span>
+                            <span class="answer-toolbar__metric-label"
+                              >全角換算</span
+                            >
+                            <span class="answer-toolbar__metric-value"
+                              >--字</span
+                            >
+                          </div>
+                        </div>
+                      </div>
                       <label class="sr-only" for="answer-3">設問3回答欄</label>
                       <textarea
                         id="answer-3"
@@ -5763,6 +6691,42 @@
                       </dl>
                     </div>
                   </div>
+                  <div class="insight-panel" data-structure-panel>
+                    <div class="insight-panel__header">
+                      <h4 class="insight-panel__title">構造ラベル</h4>
+                      <button
+                        type="button"
+                        class="insight-panel__toggle"
+                        data-structure-toggle
+                        aria-expanded="true"
+                      >
+                        <span>折りたたむ</span>
+                      </button>
+                    </div>
+                    <ol class="insight-panel__list" data-structure-list>
+                      <li class="insight-panel__empty">
+                        入力に応じて構造を表示します。
+                      </li>
+                    </ol>
+                    <p class="insight-panel__hint">Alt+L で表示切替</p>
+                  </div>
+                  <div class="insight-panel" data-noun-panel>
+                    <div class="insight-panel__header">
+                      <h4 class="insight-panel__title">名詞抽出</h4>
+                      <button
+                        type="button"
+                        class="insight-panel__toggle"
+                        data-noun-toggle
+                        aria-expanded="true"
+                      >
+                        <span>折りたたむ</span>
+                      </button>
+                    </div>
+                    <div class="insight-panel__chips" data-noun-list>
+                      <span class="insight-panel__chip">キーワードが表示されます</span>
+                    </div>
+                    <p class="insight-panel__hint">Alt+N で表示切替</p>
+                  </div>
                 </aside>
               </div>
             </div>
@@ -5874,6 +6838,62 @@
                 <div class="question-card__editor" data-question-editor>
                   <div class="question-card__fields">
                     <div class="question-card__answer">
+                      <div class="answer-toolbar" data-answer-toolbar>
+                        <div
+                          class="answer-toolbar__progress"
+                          data-state="normal"
+                        >
+                          <div class="answer-toolbar__progress-track">
+                            <span
+                              class="answer-toolbar__progress-fill"
+                              data-answer-progress
+                            ></span>
+                          </div>
+                          <span
+                            class="answer-toolbar__progress-label"
+                            data-answer-progress-label
+                          >
+                            残り 200 字
+                          </span>
+                        </div>
+                        <div class="answer-toolbar__metrics">
+                          <div
+                            class="answer-toolbar__metric"
+                            data-answer-coverage
+                            data-state="neutral"
+                          >
+                            <span
+                              class="answer-toolbar__metric-icon"
+                              aria-hidden="true"
+                            >
+                              <i class="bx bx-target-lock"></i>
+                            </span>
+                            <span class="answer-toolbar__metric-label"
+                              >要素カバー率</span
+                            >
+                            <span class="answer-toolbar__metric-value"
+                              >--%</span
+                            >
+                          </div>
+                          <div
+                            class="answer-toolbar__metric"
+                            data-answer-zenkaku
+                          >
+                            <span
+                              class="answer-toolbar__metric-icon"
+                              aria-hidden="true"
+                            >
+                              <i class="bx bx-text"></i>
+                            </span>
+                            <span class="answer-toolbar__metric-label"
+                              >全角換算</span
+                            >
+                            <span class="answer-toolbar__metric-value"
+                              >--字</span
+                            >
+                          </div>
+                        </div>
+                      </div>
                       <label class="sr-only" for="answer-4">設問4回答欄</label>
                       <textarea
                         id="answer-4"
@@ -6078,6 +7098,42 @@
                       </dl>
                     </div>
                   </div>
+                  <div class="insight-panel" data-structure-panel>
+                    <div class="insight-panel__header">
+                      <h4 class="insight-panel__title">構造ラベル</h4>
+                      <button
+                        type="button"
+                        class="insight-panel__toggle"
+                        data-structure-toggle
+                        aria-expanded="true"
+                      >
+                        <span>折りたたむ</span>
+                      </button>
+                    </div>
+                    <ol class="insight-panel__list" data-structure-list>
+                      <li class="insight-panel__empty">
+                        入力に応じて構造を表示します。
+                      </li>
+                    </ol>
+                    <p class="insight-panel__hint">Alt+L で表示切替</p>
+                  </div>
+                  <div class="insight-panel" data-noun-panel>
+                    <div class="insight-panel__header">
+                      <h4 class="insight-panel__title">名詞抽出</h4>
+                      <button
+                        type="button"
+                        class="insight-panel__toggle"
+                        data-noun-toggle
+                        aria-expanded="true"
+                      >
+                        <span>折りたたむ</span>
+                      </button>
+                    </div>
+                    <div class="insight-panel__chips" data-noun-list>
+                      <span class="insight-panel__chip">キーワードが表示されます</span>
+                    </div>
+                    <p class="insight-panel__hint">Alt+N で表示切替</p>
+                  </div>
                 </aside>
               </div>
             </div>
@@ -6176,6 +7232,17 @@
             </button>
             <button
               type="button"
+              class="ui-button ui-button--primary ui-button--ghost has-tooltip"
+              data-submit-open
+              data-tooltip="提出前チェックを開く"
+            >
+              <span class="icon icon--sm" aria-hidden="true">
+                <i class="bx bx-send"></i>
+              </span>
+              模試提出
+            </button>
+            <button
+              type="button"
               class="cta-button ui-button ui-button--primary ui-button--lg"
               id="next-question-button"
               data-target="question-2"
@@ -6186,6 +7253,74 @@
             </button>
           </div>
         </footer>
+        <aside class="tool-sidebar" data-tool-sidebar data-collapsed="false">
+          <button
+            type="button"
+            class="tool-sidebar__toggle"
+            data-tool-sidebar-toggle
+            aria-expanded="true"
+            aria-controls="tool-sidebar-menu"
+          >
+            <span class="icon" aria-hidden="true">
+              <i class="bx bx-chevrons-right"></i>
+            </span>
+            <span class="sr-only">補助ツールの表示を切り替え</span>
+          </button>
+          <nav
+            id="tool-sidebar-menu"
+            class="tool-sidebar__menu"
+            aria-label="補助ツール一覧"
+          >
+            <button
+              type="button"
+              class="tool-sidebar__button has-tooltip"
+              data-tool-button="mece"
+              data-tooltip="MECEスキャナ (E)"
+              aria-haspopup="dialog"
+            >
+              <span class="icon" aria-hidden="true">
+                <i class="bx bx-grid-alt"></i>
+              </span>
+              <span class="tool-sidebar__shortcut">E</span>
+            </button>
+            <button
+              type="button"
+              class="tool-sidebar__button has-tooltip"
+              data-tool-button="intent"
+              data-tooltip="趣旨カード (H)"
+              aria-haspopup="dialog"
+            >
+              <span class="icon" aria-hidden="true">
+                <i class="bx bx-bulb"></i>
+              </span>
+              <span class="tool-sidebar__shortcut">H</span>
+            </button>
+            <button
+              type="button"
+              class="tool-sidebar__button has-tooltip"
+              data-tool-button="frame"
+              data-tooltip="頻出フレーム (F)"
+              aria-haspopup="dialog"
+            >
+              <span class="icon" aria-hidden="true">
+                <i class="bx bx-layer"></i>
+              </span>
+              <span class="tool-sidebar__shortcut">F</span>
+            </button>
+            <button
+              type="button"
+              class="tool-sidebar__button has-tooltip"
+              data-tool-button="model"
+              data-tooltip="模範解答比較 (M)"
+              aria-haspopup="dialog"
+            >
+              <span class="icon" aria-hidden="true">
+                <i class="bx bx-check-shield"></i>
+              </span>
+              <span class="tool-sidebar__shortcut">M</span>
+            </button>
+          </nav>
+        </aside>
           </main>
         </div>
       </div>
@@ -6492,6 +7627,192 @@
             次へ
           </button>
         </footer>
+      </div>
+    </div>
+
+    <div
+      class="tool-modal"
+      data-tool-modal="mece"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tool-modal-mece"
+    >
+      <div class="tool-modal__dialog">
+        <header class="tool-modal__header">
+          <h3 id="tool-modal-mece" class="tool-modal__title">MECEスキャナ</h3>
+          <button
+            type="button"
+            class="tool-modal__close"
+            data-tool-close
+            aria-label="MECEスキャナを閉じる"
+          >
+            ✕
+          </button>
+        </header>
+        <div class="tool-modal__body" data-tool-body="mece">
+          <p>回答内のキーワード出現状況を解析しています…</p>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="tool-modal"
+      data-tool-modal="intent"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tool-modal-intent"
+    >
+      <div class="tool-modal__dialog">
+        <header class="tool-modal__header">
+          <h3 id="tool-modal-intent" class="tool-modal__title">趣旨カード</h3>
+          <button
+            type="button"
+            class="tool-modal__close"
+            data-tool-close
+            aria-label="趣旨カードを閉じる"
+          >
+            ✕
+          </button>
+        </header>
+        <div class="tool-modal__body" data-tool-body="intent">
+          <p>設問趣旨を読み込み中です…</p>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="tool-modal"
+      data-tool-modal="frame"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tool-modal-frame"
+    >
+      <div class="tool-modal__dialog">
+        <header class="tool-modal__header">
+          <h3 id="tool-modal-frame" class="tool-modal__title">頻出フレーム</h3>
+          <button
+            type="button"
+            class="tool-modal__close"
+            data-tool-close
+            aria-label="頻出フレームを閉じる"
+          >
+            ✕
+          </button>
+        </header>
+        <div class="tool-modal__body" data-tool-body="frame">
+          <p>設問にフィットするフレームを提案します…</p>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="tool-modal"
+      data-tool-modal="model"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tool-modal-model"
+    >
+      <div class="tool-modal__dialog">
+        <header class="tool-modal__header">
+          <h3 id="tool-modal-model" class="tool-modal__title">模範解答比較</h3>
+          <button
+            type="button"
+            class="tool-modal__close"
+            data-tool-close
+            aria-label="模範解答比較を閉じる"
+          >
+            ✕
+          </button>
+        </header>
+        <div class="tool-modal__body" data-tool-body="model">
+          <p>模範解答との比較を準備しています…</p>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="submit-modal"
+      data-submit-modal
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="submit-modal-title"
+    >
+      <div class="submit-modal__dialog">
+        <header class="submit-modal__header">
+          <h3 id="submit-modal-title" class="submit-modal__title">
+            提出前チェック
+          </h3>
+          <button
+            type="button"
+            class="submit-modal__close"
+            data-submit-cancel
+            aria-label="提出前チェックを閉じる"
+          >
+            ✕
+          </button>
+        </header>
+        <div class="submit-modal__body">
+          <p class="text-muted">
+            各設問の文字数とキーワード充足率を確認してから提出しましょう。
+          </p>
+          <ul class="submit-modal__list" data-submit-checklist></ul>
+        </div>
+        <div class="submit-modal__actions">
+          <button type="button" class="ui-button ui-button--ghost" data-submit-cancel>
+            戻る
+          </button>
+          <button type="button" class="ui-button ui-button--primary" data-submit-confirm>
+            提出する
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="result-dashboard"
+      data-result-dashboard
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="result-dashboard-title"
+    >
+      <div class="result-dashboard__dialog">
+        <header class="result-dashboard__header">
+          <h3 id="result-dashboard-title" class="result-dashboard__title">
+            模試フィードバックダッシュボード
+          </h3>
+          <button
+            type="button"
+            class="result-dashboard__close"
+            data-dashboard-close
+            aria-label="ダッシュボードを閉じる"
+          >
+            ✕
+          </button>
+        </header>
+        <div class="result-dashboard__body">
+          <div class="result-dashboard__grid">
+            <section data-dashboard-summary></section>
+            <section>
+              <h4 class="heading-md">設問別スコア</h4>
+              <ul class="result-dashboard__scores" data-dashboard-scores></ul>
+            </section>
+            <section>
+              <h4 class="heading-md">年度別・設問タイプ別 正答率推移</h4>
+              <div class="result-dashboard__trend-bars" data-dashboard-trend-bars></div>
+            </section>
+          </div>
+        </div>
+        <div class="result-dashboard__actions">
+          <button type="button" class="ui-button ui-button--ghost" data-dashboard-close>
+            閉じる
+          </button>
+        </div>
       </div>
     </div>
 
@@ -6961,6 +8282,13 @@
           })
         );
 
+        const defaultPerformanceTrend = [
+          { year: 'R2', type: '課題分析', value: 58 },
+          { year: 'R3', type: '戦略提案', value: 61 },
+          { year: 'R4', type: '組織・人材', value: 64 },
+          { year: 'R5', type: 'DX推進', value: 66 },
+        ];
+
         const initializeExerciseApp = (appRoot) => {
           if (!appRoot) {
             return;
@@ -7038,8 +8366,24 @@
           const progressTimerBar = appRoot.querySelector(
             '[data-progress-timer-bar]'
           );
+          const progressTimerCard = progressTimerLabel?.closest(
+            '.progress-card--timer'
+          );
+          const topbarTimerDisplay = appRoot.querySelector(
+            '[data-topbar-timer-label]'
+          );
+          const topbarStatus = appRoot.querySelector('.app-topbar__status');
+          const topbarToggle = appRoot.querySelector('[data-topbar-toggle]');
+          const topbarContainer = appRoot.querySelector('[data-topbar]');
+          const topbarDetails = appRoot.querySelector('[data-topbar-details]');
+          const topbarStartLabel = appRoot.querySelector('[data-topbar-start]');
+          const topbarEndLabel = appRoot.querySelector('[data-topbar-end]');
           const inlineTimerLabels = Array.from(
             appRoot.querySelectorAll('[data-inline-timer-label]')
+          );
+          const layoutRoot = appRoot.querySelector('[data-layout]');
+          const answerToolbars = Array.from(
+            appRoot.querySelectorAll('[data-answer-toolbar]')
           );
           const questionMemoInputs = Array.from(
             appRoot.querySelectorAll('[data-question-memo]')
@@ -7049,6 +8393,61 @@
           );
           const problemSearchSuggestionList = appRoot.querySelector(
             '[data-problem-search-suggestions]'
+          );
+          const structurePanels = Array.from(
+            appRoot.querySelectorAll('[data-structure-panel]')
+          );
+          const nounPanels = Array.from(
+            appRoot.querySelectorAll('[data-noun-panel]')
+          );
+          const toolSidebar = appRoot.querySelector('[data-tool-sidebar]');
+          const toolSidebarToggle = appRoot.querySelector(
+            '[data-tool-sidebar-toggle]'
+          );
+          const toolSidebarMenu = toolSidebar?.querySelector(
+            '.tool-sidebar__menu'
+          );
+          const toolButtons = Array.from(
+            appRoot.querySelectorAll('[data-tool-button]')
+          );
+          toolButtons.forEach((button) => {
+            button.dataset.active = 'false';
+            button.setAttribute('aria-pressed', 'false');
+          });
+          const toolModals = new Map();
+          appRoot
+            .querySelectorAll('[data-tool-modal]')
+            .forEach((modal) => {
+              const id = modal?.dataset?.toolModal;
+              if (id) {
+                toolModals.set(id, modal);
+              }
+            });
+          const submitModal = appRoot.querySelector('[data-submit-modal]');
+          const submitOpeners = Array.from(
+            appRoot.querySelectorAll('[data-submit-open]')
+          );
+          const submitChecklist = submitModal?.querySelector(
+            '[data-submit-checklist]'
+          );
+          const submitCancelButtons = Array.from(
+            submitModal?.querySelectorAll('[data-submit-cancel]') || []
+          );
+          const submitConfirmButton = submitModal?.querySelector(
+            '[data-submit-confirm]'
+          );
+          const dashboard = appRoot.querySelector('[data-result-dashboard]');
+          const dashboardSummary = dashboard?.querySelector(
+            '[data-dashboard-summary]'
+          );
+          const dashboardScores = dashboard?.querySelector(
+            '[data-dashboard-scores]'
+          );
+          const dashboardTrendBars = dashboard?.querySelector(
+            '[data-dashboard-trend-bars]'
+          );
+          const dashboardCloseButtons = Array.from(
+            dashboard?.querySelectorAll('[data-dashboard-close]') || []
           );
 
           const toastElement = appRoot.querySelector('[data-toast]');
@@ -9179,6 +10578,7 @@
           let activeExerciseId = null;
           let currentExercise = null;
           const questionState = new Map();
+          const answerAnalytics = new Map();
           let questionSortOrder = [];
           const quickNavStatusLabels = {
             unanswered: '未回答',
@@ -9248,7 +10648,227 @@
           let currentSearchQuery = '';
           let currentSortMode = sortSelect?.value || 'recommended';
           let exerciseTimerId = null;
+          let exerciseTimerStart = null;
           let exerciseTimerEnd = null;
+          let structurePanelHidden = false;
+          let nounPanelHidden = false;
+          let activeToolModal = null;
+          let lastToolFocus = null;
+          let submitPreviousFocus = null;
+          let dashboardPreviousFocus = null;
+
+          const formatClockTime = (timestamp) => {
+            if (!Number.isFinite(timestamp)) {
+              return '--:--';
+            }
+            const date = new Date(timestamp);
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${hours}:${minutes}`;
+          };
+
+          const calculateFullWidthLength = (value) => {
+            if (typeof value !== 'string' || !value) {
+              return 0;
+            }
+            let length = 0;
+            for (const char of value) {
+              if (/[\u0000-\u00ff]/.test(char)) {
+                length += 0.5;
+              } else {
+                length += 1;
+              }
+            }
+            return length;
+          };
+
+          const isEditableElement = (element) => {
+            if (!element) {
+              return false;
+            }
+            if (element.isContentEditable) {
+              return true;
+            }
+            const tagName = element.tagName?.toLowerCase();
+            return (
+              tagName === 'input' ||
+              tagName === 'textarea' ||
+              tagName === 'select'
+            );
+          };
+
+          const updateInsightToggleLabel = (panel, hidden) => {
+            const toggle = panel?.querySelector('.insight-panel__toggle');
+            if (!toggle) {
+              return;
+            }
+            toggle.setAttribute('aria-expanded', String(!hidden));
+            const label = toggle.querySelector('span');
+            if (label) {
+              label.textContent = hidden ? '表示する' : '折りたたむ';
+            }
+          };
+
+          const setPanelsVisibility = (panels, hidden) => {
+            panels.forEach((panel) => {
+              panel.dataset.panelHidden = String(hidden);
+              updateInsightToggleLabel(panel, hidden);
+            });
+          };
+
+          const syncStructurePanelState = () => {
+            structurePanelHidden = structurePanels.every(
+              (panel) => panel.dataset.panelHidden === 'true'
+            );
+          };
+
+          const syncNounPanelState = () => {
+            nounPanelHidden = nounPanels.every(
+              (panel) => panel.dataset.panelHidden === 'true'
+            );
+          };
+
+          const toggleStructurePanels = (nextHidden) => {
+            const resolved =
+              typeof nextHidden === 'boolean'
+                ? nextHidden
+                : !structurePanelHidden;
+            setPanelsVisibility(structurePanels, resolved);
+            structurePanelHidden = resolved;
+          };
+
+          const toggleNounPanels = (nextHidden) => {
+            const resolved =
+              typeof nextHidden === 'boolean'
+                ? nextHidden
+                : !nounPanelHidden;
+            setPanelsVisibility(nounPanels, resolved);
+            nounPanelHidden = resolved;
+          };
+
+          const toggleLeftPane = (collapse) => {
+            if (!layoutRoot) {
+              return;
+            }
+            const current = layoutRoot.dataset.leftCollapsed === 'true';
+            const next =
+              typeof collapse === 'boolean' ? collapse : !current;
+            layoutRoot.dataset.leftCollapsed = String(next);
+          };
+
+          const attachPanelToggle = (panel, syncState) => {
+            const toggle = panel?.querySelector('.insight-panel__toggle');
+            if (!toggle) {
+              return;
+            }
+            toggle.addEventListener(
+              'click',
+              () => {
+                const hidden = panel.dataset.panelHidden === 'true';
+                panel.dataset.panelHidden = String(!hidden);
+                updateInsightToggleLabel(panel, !hidden);
+                syncState();
+              },
+              { signal }
+            );
+          };
+
+          structurePanels.forEach((panel) =>
+            attachPanelToggle(panel, syncStructurePanelState)
+          );
+          nounPanels.forEach((panel) =>
+            attachPanelToggle(panel, syncNounPanelState)
+          );
+
+          const setTopbarCollapsed = (collapsed) => {
+            if (!topbarContainer) {
+              return;
+            }
+            topbarContainer.dataset.collapsed = String(collapsed);
+            if (topbarToggle) {
+              topbarToggle.setAttribute('aria-expanded', String(!collapsed));
+            }
+            if (topbarDetails) {
+              topbarDetails.hidden = collapsed;
+              topbarDetails.setAttribute('aria-hidden', String(collapsed));
+            }
+          };
+
+          if (topbarContainer) {
+            setTopbarCollapsed(topbarContainer.dataset.collapsed === 'true');
+          }
+
+          if (topbarToggle) {
+            topbarToggle.addEventListener(
+              'click',
+              () => {
+                const collapsed = topbarContainer?.dataset.collapsed === 'true';
+                setTopbarCollapsed(!collapsed);
+              },
+              { signal }
+            );
+          }
+
+          const setToolSidebarCollapsed = (collapsed) => {
+            if (!toolSidebar) {
+              return;
+            }
+            toolSidebar.dataset.collapsed = String(collapsed);
+            if (toolSidebarToggle) {
+              toolSidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+            }
+            if (toolSidebarMenu) {
+              toolSidebarMenu.setAttribute('aria-hidden', String(collapsed));
+            }
+            toolButtons.forEach((button) => {
+              button.tabIndex = collapsed ? -1 : 0;
+            });
+          };
+
+          if (toolSidebar) {
+            setToolSidebarCollapsed(toolSidebar.dataset.collapsed === 'true');
+          }
+
+          if (toolSidebarToggle) {
+            toolSidebarToggle.addEventListener(
+              'click',
+              () => {
+                const collapsed = toolSidebar?.dataset.collapsed === 'true';
+                setToolSidebarCollapsed(!collapsed);
+              },
+              { signal }
+            );
+          }
+
+          const parseKeywordsFromDataset = (value) => {
+            if (typeof value !== 'string') {
+              return [];
+            }
+            try {
+              const parsed = JSON.parse(value);
+              return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+            } catch (error) {
+              return [];
+            }
+          };
+
+          const parseScoreValue = (scoreText) => {
+            if (typeof scoreText !== 'string') {
+              return 0;
+            }
+            const match = scoreText.match(/(\d+)/);
+            return match ? Number(match[1]) : 0;
+          };
+
+          const getActiveQuestionCard = () =>
+            activeQuestionId
+              ? appRoot.querySelector(`#${escapeSelector(activeQuestionId)}`)
+              : null;
+
+          setPanelsVisibility(structurePanels, false);
+          setPanelsVisibility(nounPanels, false);
+          syncStructurePanelState();
+          syncNounPanelState();
           let suppressSelectEvents = false;
           const activeFilters = new Set(
             filterChips
@@ -9614,6 +11234,13 @@
             ensureQuestionState(question);
             card.dataset.questionKey = question.key;
             card.dataset.questionLabel = `${question.label} ${question.title}`;
+            card.dataset.questionKeywords = JSON.stringify(
+              Array.isArray(question.keywords) ? question.keywords : []
+            );
+            card.dataset.questionSupport = question.support || '';
+            card.dataset.questionExamples = JSON.stringify(
+              Array.isArray(question.examples) ? question.examples : []
+            );
             if (card.dataset.maxLength) {
               card.dataset.maxLength = String(question.maxLength || '');
             }
@@ -9637,11 +11264,49 @@
             if (textarea) {
               textarea.dataset.questionKey = question.key;
               textarea.dataset.maxLength = String(question.maxLength || '');
+              if (Array.isArray(question.keywords)) {
+                textarea.dataset.questionKeywords = JSON.stringify(
+                  question.keywords
+                );
+              } else {
+                delete textarea.dataset.questionKeywords;
+              }
               const maxAttr = question.maxLength
                 ? Math.max(question.maxLength * 2, question.maxLength + 80)
                 : textarea.getAttribute('maxlength');
               if (maxAttr) {
                 textarea.setAttribute('maxlength', String(maxAttr));
+              }
+              const toolbar = card.querySelector('[data-answer-toolbar]');
+              if (toolbar) {
+                const progressLabel = toolbar.querySelector(
+                  '[data-answer-progress-label]'
+                );
+                const progressFill = toolbar.querySelector('[data-answer-progress]');
+                const progressContainer = toolbar.querySelector(
+                  '.answer-toolbar__progress'
+                );
+                if (progressLabel && question.maxLength) {
+                  progressLabel.textContent = `残り ${question.maxLength} 字`;
+                }
+                if (progressFill) {
+                  progressFill.style.transform = 'scaleX(0)';
+                }
+                if (progressContainer) {
+                  progressContainer.dataset.state = 'normal';
+                }
+                const coverageMetric = toolbar.querySelector(
+                  '[data-answer-coverage] .answer-toolbar__metric-value'
+                );
+                const zenkakuMetric = toolbar.querySelector(
+                  '[data-answer-zenkaku] .answer-toolbar__metric-value'
+                );
+                if (coverageMetric) {
+                  coverageMetric.textContent = '--%';
+                }
+                if (zenkakuMetric) {
+                  zenkakuMetric.textContent = '--字';
+                }
               }
             }
             const memoInput = card.querySelector('[data-question-memo]');
@@ -9827,22 +11492,55 @@
               window.clearInterval(exerciseTimerId);
               exerciseTimerId = null;
             }
-            exerciseTimerEnd = null;
           };
 
           const updateTimerDisplay = () => {
+            const placeholder = '--:--';
             if (!currentExercise) {
+              if (progressTimerLabel) {
+                progressTimerLabel.textContent = placeholder;
+              }
+              inlineTimerLabels.forEach((label) => {
+                label.textContent = placeholder;
+              });
+              if (topbarTimerDisplay) {
+                topbarTimerDisplay.textContent = placeholder;
+              }
+              if (progressTimerBar) {
+                progressTimerBar.style.width = '0%';
+              }
+              if (progressTimerCard) {
+                progressTimerCard.removeAttribute('data-state');
+              }
+              if (topbarStatus) {
+                topbarStatus.removeAttribute('data-state');
+              }
+              if (topbarStartLabel) {
+                topbarStartLabel.textContent = '開始 --:--';
+              }
+              if (topbarEndLabel) {
+                topbarEndLabel.textContent = '終了予定 --:--';
+              }
               return;
             }
             const durationMinutes = Number(currentExercise.timeLimitMinutes) || 45;
             const totalSeconds = Math.max(durationMinutes * 60, 1);
-            const remainingSeconds = Math.max(
-              0,
-              Math.round((exerciseTimerEnd || Date.now()) - Date.now()) / 1000
+            const now = Date.now();
+            const expectedEnd =
+              exerciseTimerEnd !== null
+                ? exerciseTimerEnd
+                : exerciseTimerStart !== null
+                ? exerciseTimerStart + totalSeconds * 1000
+                : null;
+            const remainingMilliseconds =
+              expectedEnd !== null ? expectedEnd - now : totalSeconds * 1000;
+            const clampedMilliseconds = Math.max(0, remainingMilliseconds);
+            const roundedSeconds = Math.floor(clampedMilliseconds / 1000);
+            const minutes = String(Math.floor(roundedSeconds / 60)).padStart(
+              2,
+              '0'
             );
-            const rounded = Math.floor(remainingSeconds);
-            const minutes = String(Math.floor(rounded / 60)).padStart(2, '0');
-            const seconds = String(rounded % 60).padStart(2, '0');
+            const seconds = String(roundedSeconds % 60).padStart(2, '0');
             const formatted = `${minutes}:${seconds}`;
             if (progressTimerLabel) {
               progressTimerLabel.textContent = formatted;
@@ -9850,20 +11548,59 @@
             inlineTimerLabels.forEach((label) => {
               label.textContent = formatted;
             });
+            if (topbarTimerDisplay) {
+              topbarTimerDisplay.textContent = formatted;
+            }
             if (progressTimerBar) {
-              const ratio = Math.min(1, Math.max(0, rounded / totalSeconds));
+              const ratio = Math.min(1, Math.max(0, roundedSeconds / totalSeconds));
               progressTimerBar.style.width = `${ratio * 100}%`;
+            }
+            if (topbarStartLabel) {
+              const startText =
+                exerciseTimerStart !== null
+                  ? `開始 ${formatClockTime(exerciseTimerStart)}`
+                  : '開始 --:--';
+              topbarStartLabel.textContent = startText;
+            }
+            if (topbarEndLabel) {
+              const endText =
+                expectedEnd !== null
+                  ? `終了予定 ${formatClockTime(expectedEnd)}`
+                  : '終了予定 --:--';
+              topbarEndLabel.textContent = endText;
+            }
+            if (topbarStatus) {
+              if (roundedSeconds <= 300) {
+                topbarStatus.dataset.state = 'warning';
+              } else {
+                topbarStatus.removeAttribute('data-state');
+              }
+            }
+            if (progressTimerCard) {
+              if (roundedSeconds <= 300) {
+                progressTimerCard.dataset.state = 'warning';
+              } else {
+                progressTimerCard.removeAttribute('data-state');
+              }
             }
           };
 
           const startExerciseTimer = (exercise) => {
             stopExerciseTimer();
+            if (!exercise) {
+              exerciseTimerStart = null;
+              exerciseTimerEnd = null;
+              updateTimerDisplay();
+              return;
+            }
             const durationMinutes = Number(exercise?.timeLimitMinutes) || 45;
-            exerciseTimerEnd = Date.now() + durationMinutes * 60 * 1000;
+            const now = Date.now();
+            exerciseTimerStart = now;
+            exerciseTimerEnd = now + durationMinutes * 60 * 1000;
             updateTimerDisplay();
             exerciseTimerId = window.setInterval(() => {
               updateTimerDisplay();
-              if ((exerciseTimerEnd || 0) <= Date.now()) {
+              if (exerciseTimerEnd !== null && exerciseTimerEnd <= Date.now()) {
                 stopExerciseTimer();
                 updateTimerDisplay();
               }
@@ -10062,6 +11799,7 @@
               return;
             }
             const previousExerciseId = activeExerciseId;
+            answerAnalytics.clear();
             answerTextareas.forEach((textarea) => {
               if (typeof textarea.__saveDraftForExercise === 'function') {
                 textarea.__saveDraftForExercise(previousExerciseId);
@@ -10081,6 +11819,12 @@
             currentExercise = exercise;
             activeExerciseId = exercise.id;
             questionState.clear();
+            structurePanelHidden = false;
+            nounPanelHidden = false;
+            setPanelsVisibility(structurePanels, false);
+            setPanelsVisibility(nounPanels, false);
+            syncStructurePanelState();
+            syncNounPanelState();
             suppressSelectEvents = true;
             populateCaseSelectOptions();
             if (caseSelect) {
@@ -10367,6 +12111,27 @@
             setActiveAnchor('section-answer');
           };
 
+          const focusRelativeQuestion = (offset) => {
+            const cards = getVisibleQuestionCards();
+            if (!cards.length) {
+              return;
+            }
+            const normalizedOffset = offset === 0 ? 0 : offset > 0 ? 1 : -1;
+            const currentIndex = activeQuestionId
+              ? cards.findIndex((card) => card.id === activeQuestionId)
+              : -1;
+            let nextIndex = currentIndex;
+            if (currentIndex === -1) {
+              nextIndex = normalizedOffset >= 0 ? 0 : cards.length - 1;
+            } else {
+              nextIndex = (currentIndex + normalizedOffset + cards.length) % cards.length;
+            }
+            const targetId = cards[nextIndex]?.id;
+            if (targetId) {
+              scrollToQuestion(targetId);
+            }
+          };
+
           if (quickNavList) {
             quickNavList.addEventListener(
               'click',
@@ -10496,14 +12261,645 @@
             observer.observe(card);
           });
 
-          // 字数カウンタ：上限超過時は警告色を適用
+          // 字数カウンタ：上限超過時は警告色を適用し、メトリクスも更新
           const updateCounter = (textarea, counter) => {
-            const max = Number(textarea.dataset.maxLength);
+            const max = Number(textarea.dataset.maxLength) || 0;
             const length = textarea.value.length;
-            const remaining = `${length} / ${max} 字`;
-            counter.textContent = remaining;
-            counter.classList.toggle('char-counter--limit', length > max);
+            counter.textContent = max ? `${length} / ${max} 字` : `${length} 字`;
+            counter.classList.toggle('char-counter--limit', max > 0 && length > max);
+
+            const answerContainer = textarea
+              .closest('.question-card__answer');
+            const toolbar = answerContainer?.querySelector('[data-answer-toolbar]');
+            const progressContainer = toolbar?.querySelector(
+              '.answer-toolbar__progress'
+            );
+            const progressFill = toolbar?.querySelector('[data-answer-progress]');
+            const progressLabel = toolbar?.querySelector(
+              '[data-answer-progress-label]'
+            );
+            if (progressContainer && progressFill && progressLabel) {
+              const ratio = max ? Math.max(0, Math.min(length / max, 1.2)) : 0;
+              progressFill.style.transform = `scaleX(${Math.min(ratio, 1)})`;
+              if (max) {
+                progressLabel.textContent =
+                  length > max
+                    ? `超過 ${length - max} 字`
+                    : `残り ${Math.max(max - length, 0)} 字`;
+              } else {
+                progressLabel.textContent = `${length} 字`;
+              }
+              const state =
+                max && length > max
+                  ? 'over'
+                  : max && ratio >= 0.85
+                  ? 'warning'
+                  : 'normal';
+              progressContainer.dataset.state = state;
+            }
+
+            const keywords = parseKeywordsFromDataset(
+              textarea.dataset.questionKeywords ||
+                textarea.closest('.question-card')?.dataset?.questionKeywords ||
+                '[]'
+            );
+            const normalized = textarea.value;
+            const matchedKeywords = keywords.filter((keyword) =>
+              keyword ? normalized.includes(keyword) : false
+            );
+            const uniqueMatched = Array.from(new Set(matchedKeywords));
+            const coverage = keywords.length
+              ? Math.round(
+                  Math.min(100, (uniqueMatched.length / keywords.length) * 100)
+                )
+              : null;
+            const fullWidthLength = calculateFullWidthLength(normalized);
+
+            const coverageMetric = toolbar?.querySelector('[data-answer-coverage]');
+            const coverageValue = coverageMetric?.querySelector(
+              '.answer-toolbar__metric-value'
+            );
+            if (coverageValue) {
+              if (coverage === null) {
+                coverageValue.textContent = '--%';
+                coverageMetric?.setAttribute('data-state', 'neutral');
+              } else {
+                coverageValue.textContent = `${coverage}%`;
+                coverageMetric?.setAttribute(
+                  'data-state',
+                  coverage < 60 ? 'low' : 'neutral'
+                );
+              }
+            }
+
+            const zenkakuMetric = toolbar?.querySelector('[data-answer-zenkaku]');
+            const zenkakuValue = zenkakuMetric?.querySelector(
+              '.answer-toolbar__metric-value'
+            );
+            if (zenkakuValue) {
+              const formatted = fullWidthLength.toFixed(1).replace(/\.0$/, '');
+              zenkakuValue.textContent = `${formatted}字`;
+            }
+
+            const questionKey = textarea.dataset.questionKey;
+            if (questionKey) {
+              answerAnalytics.set(questionKey, {
+                length,
+                max,
+                coverage,
+                matchedKeywords: uniqueMatched,
+                keywordsTotal: keywords.length,
+                zenkaku: fullWidthLength,
+                value: normalized,
+              });
+            }
+
+            updateAnswerInsights(textarea);
           };
+
+          const updateAnswerInsights = (textarea) => {
+            const card = textarea.closest('.question-card');
+            if (!card) {
+              return;
+            }
+            const structureList = card.querySelector('[data-structure-list]');
+            const nounContainer = card.querySelector('[data-noun-list]');
+            const text = textarea.value || '';
+
+            if (structureList) {
+              structureList.innerHTML = '';
+              const segments = text
+                .split(/[\n。!?]+/)
+                .map((segment) => segment.trim())
+                .filter(Boolean);
+              if (!segments.length) {
+                const empty = document.createElement('li');
+                empty.className = 'insight-panel__empty';
+                empty.textContent = '入力に応じて構造を表示します。';
+                structureList.appendChild(empty);
+              } else {
+                const detectLabel = (sentence) => {
+                  const lower = sentence.toLowerCase();
+                  if (sentence.includes('課題') || sentence.includes('問題')) {
+                    return '課題';
+                  }
+                  if (sentence.includes('原因') || sentence.includes('要因')) {
+                    return '原因';
+                  }
+                  if (sentence.includes('施策') || sentence.includes('提案')) {
+                    return '施策';
+                  }
+                  if (sentence.includes('効果') || sentence.includes('成果')) {
+                    return '効果';
+                  }
+                  if (lower.includes('期待') || lower.includes('狙い')) {
+                    return '狙い';
+                  }
+                  return '要素';
+                };
+                segments.forEach((sentence, index) => {
+                  const item = document.createElement('li');
+                  const label = detectLabel(sentence);
+                  item.textContent = `${index + 1}. [${label}] ${sentence}`;
+                  structureList.appendChild(item);
+                });
+              }
+            }
+
+            if (nounContainer) {
+              nounContainer.innerHTML = '';
+              const matches =
+                text.match(/(?:[一-龠々〆ヵヶ]{2,}|[ァ-ヶー]{2,}|[A-Za-z]{3,})/g) || [];
+              const uniqueNouns = Array.from(new Set(matches)).slice(0, 8);
+              if (!uniqueNouns.length) {
+                const chip = document.createElement('span');
+                chip.className = 'insight-panel__chip';
+                chip.textContent = 'キーワードが表示されます';
+                nounContainer.appendChild(chip);
+              } else {
+                uniqueNouns.forEach((word) => {
+                  const chip = document.createElement('span');
+                  chip.className = 'insight-panel__chip';
+                  chip.textContent = word;
+                  nounContainer.appendChild(chip);
+                });
+              }
+            }
+          };
+
+          const populateToolModal = (toolId) => {
+            const modal = toolModals.get(toolId);
+            if (!modal) {
+              return;
+            }
+            const body = modal.querySelector(`[data-tool-body="${toolId}"]`);
+            if (!body) {
+              return;
+            }
+            body.innerHTML = '';
+            const card = getActiveQuestionCard();
+            const questionKey = card?.dataset.questionKey;
+            const analytics = questionKey ? answerAnalytics.get(questionKey) : null;
+            const questionTitle = card
+              ?.querySelector('[data-question-title]')
+              ?.textContent?.trim();
+            const questionSupport = card?.dataset.questionSupport || '';
+            const questionExamples = parseKeywordsFromDataset(
+              card?.dataset.questionExamples || '[]'
+            );
+            const keywords = parseKeywordsFromDataset(
+              card?.dataset.questionKeywords || '[]'
+            );
+
+            if (toolId === 'mece') {
+              if (!keywords.length) {
+                const empty = document.createElement('p');
+                empty.className = 'text-muted';
+                empty.textContent = 'この設問にはチェック対象のキーワードが登録されていません。';
+                body.appendChild(empty);
+                return;
+              }
+              const list = document.createElement('ul');
+              list.className = 'submit-modal__list';
+              const matchedSet = new Set(analytics?.matchedKeywords || []);
+              keywords.forEach((keyword) => {
+                const item = document.createElement('li');
+                item.className = 'submit-modal__item';
+                const label = document.createElement('span');
+                label.textContent = keyword;
+                const status = document.createElement('span');
+                status.className = 'submit-modal__status';
+                if (matchedSet.has(keyword)) {
+                  status.textContent = 'カバー';
+                } else {
+                  status.textContent = '未';
+                  status.dataset.state = 'incomplete';
+                }
+                item.append(label, status);
+                list.appendChild(item);
+              });
+              body.appendChild(list);
+              const summary = document.createElement('p');
+              summary.className = 'text-muted';
+              if (analytics?.coverage !== null && analytics?.coverage !== undefined) {
+                summary.textContent = `要素カバー率 ${analytics.coverage}% / キーワード ${keywords.length} 件`;
+              } else {
+                summary.textContent = '回答内のキーワード頻度を確認できます。';
+              }
+              body.appendChild(summary);
+              return;
+            }
+
+            if (toolId === 'intent') {
+              const source = card?.querySelector('[data-question-intent-body]');
+              if (source) {
+                const clone = source.cloneNode(true);
+                clone.hidden = false;
+                body.appendChild(clone);
+              } else {
+                const empty = document.createElement('p');
+                empty.className = 'text-muted';
+                empty.textContent = '趣旨情報が登録されていません。';
+                body.appendChild(empty);
+              }
+              return;
+            }
+
+            if (toolId === 'frame') {
+              const fragments = questionSupport
+                .split(/[。\n]+/)
+                .map((segment) => segment.trim())
+                .filter(Boolean);
+              if (!fragments.length) {
+                const empty = document.createElement('p');
+                empty.className = 'text-muted';
+                empty.textContent = '推奨フレームは未登録です。';
+                body.appendChild(empty);
+                return;
+              }
+              const list = document.createElement('ul');
+              list.className = 'submit-modal__list';
+              fragments.forEach((segment, index) => {
+                const item = document.createElement('li');
+                item.className = 'submit-modal__item';
+                const label = document.createElement('span');
+                label.textContent = `${index + 1}. ${segment}`;
+                item.appendChild(label);
+                list.appendChild(item);
+              });
+              body.appendChild(list);
+              return;
+            }
+
+            if (toolId === 'model') {
+              if (!questionExamples.length) {
+                const empty = document.createElement('p');
+                empty.className = 'text-muted';
+                empty.textContent = '模範解答の例は未登録です。';
+                body.appendChild(empty);
+                return;
+              }
+              const list = document.createElement('ul');
+              list.className = 'submit-modal__list';
+              questionExamples.forEach((example, index) => {
+                const item = document.createElement('li');
+                item.className = 'submit-modal__item';
+                const label = document.createElement('span');
+                label.textContent = `例${index + 1}`;
+                const value = document.createElement('span');
+                value.textContent = example;
+                item.append(label, value);
+                list.appendChild(item);
+              });
+              body.appendChild(list);
+              if (analytics?.value) {
+                const note = document.createElement('p');
+                note.className = 'text-muted';
+                note.textContent = `現在の回答 (${analytics.length}字): ${analytics.value}`;
+                body.appendChild(note);
+              }
+              return;
+            }
+
+            body.textContent = questionTitle
+              ? `${questionTitle} に関するデータを取得できませんでした。`
+              : '表示できる情報がありません。';
+          };
+
+          const buildSubmissionChecklist = () => {
+            if (!submitChecklist) {
+              return;
+            }
+            submitChecklist.innerHTML = '';
+            const questions = Array.isArray(currentExercise?.questions)
+              ? currentExercise.questions
+              : [];
+            if (!questions.length) {
+              const empty = document.createElement('li');
+              empty.className = 'submit-modal__item';
+              empty.textContent = '設問情報が読み込めませんでした。';
+              submitChecklist.appendChild(empty);
+              return;
+            }
+            questions.forEach((question) => {
+              const state = answerAnalytics.get(question.key) || {
+                length: 0,
+                max: question.maxLength || 0,
+                coverage: null,
+                keywordsTotal: Array.isArray(question.keywords)
+                  ? question.keywords.length
+                  : 0,
+              };
+              const item = document.createElement('li');
+              item.className = 'submit-modal__item';
+              const title = document.createElement('span');
+              title.textContent = `${question.label} ${question.title}`;
+              const lengthMeta = document.createElement('span');
+              lengthMeta.textContent = state.max
+                ? `${state.length} / ${state.max}字`
+                : `${state.length}字`;
+              const status = document.createElement('span');
+              status.className = 'submit-modal__status';
+              const unfinished =
+                state.length === 0 ||
+                (state.max && state.length > state.max) ||
+                (state.coverage !== null && state.coverage < 60);
+              if (unfinished) {
+                status.dataset.state = 'incomplete';
+                if (state.length === 0) {
+                  status.textContent = '未入力';
+                } else if (state.max && state.length > state.max) {
+                  status.textContent = `超過 ${state.length - state.max}`;
+                } else if (state.coverage !== null) {
+                  status.textContent = `要改善 ${state.coverage}%`;
+                } else {
+                  status.textContent = '確認';
+                }
+              } else {
+                status.textContent = state.coverage !== null ? `${state.coverage}%` : 'OK';
+              }
+              item.append(title, lengthMeta, status);
+              submitChecklist.appendChild(item);
+            });
+          };
+
+          const renderDashboard = () => {
+            if (!dashboard || !dashboardSummary || !dashboardScores) {
+              return;
+            }
+            const trendContainer = dashboardTrendBars;
+            dashboardSummary.innerHTML = '';
+            dashboardScores.innerHTML = '';
+            if (trendContainer) {
+              trendContainer.innerHTML = '';
+            }
+            const questions = Array.isArray(currentExercise?.questions)
+              ? currentExercise.questions
+              : [];
+            if (!questions.length) {
+              const empty = document.createElement('p');
+              empty.className = 'text-muted';
+              empty.textContent = '結果を表示できませんでした。';
+              dashboardSummary.appendChild(empty);
+              return;
+            }
+            let totalLength = 0;
+            let accumulatedCoverage = 0;
+            let coverageSamples = 0;
+            const trendData = [...defaultPerformanceTrend];
+
+            questions.forEach((question) => {
+              const analytics = answerAnalytics.get(question.key) || {
+                length: 0,
+                max: question.maxLength || 0,
+                coverage: null,
+              };
+              const scoreValue = parseScoreValue(question.score);
+              const fallbackCoverage = analytics.max
+                ? Math.round(Math.min(1, analytics.length / analytics.max) * 100)
+                : null;
+              const effectiveCoverage =
+                analytics.coverage !== null && analytics.coverage !== undefined
+                  ? analytics.coverage
+                  : fallbackCoverage ?? 0;
+              if (effectiveCoverage !== null) {
+                accumulatedCoverage += effectiveCoverage;
+                coverageSamples += 1;
+              }
+              totalLength += analytics.length;
+              const achievedScore = Math.round(
+                scoreValue * Math.min(effectiveCoverage / 100, 1)
+              );
+              const item = document.createElement('li');
+              item.className = 'result-dashboard__score-item';
+              const label = document.createElement('span');
+              label.textContent = `${question.label} ${question.title}`;
+              const value = document.createElement('span');
+              value.textContent = `${achievedScore} / ${scoreValue}点`;
+              const bar = document.createElement('div');
+              bar.className = 'result-dashboard__score-bar';
+              const barFill = document.createElement('span');
+              barFill.style.transform = `scaleX(${scoreValue
+                ? Math.min(achievedScore / scoreValue, 1)
+                : 0})`;
+              bar.appendChild(barFill);
+              item.append(label, value, bar);
+              dashboardScores.appendChild(item);
+            });
+
+            const averageCoverage = coverageSamples
+              ? Math.round(accumulatedCoverage / coverageSamples)
+              : null;
+            const summary = document.createElement('p');
+            summary.textContent = `平均カバー率 ${
+              averageCoverage ?? '--'
+            }%、総文字数 ${totalLength} 字`;
+            dashboardSummary.appendChild(summary);
+
+            if (trendContainer) {
+              const currentTrendValue = averageCoverage ?? 0;
+              trendData.push({
+                year: currentExercise?.year || '今回',
+                type: currentExercise?.caseLabel || '総合',
+                value: currentTrendValue,
+              });
+              trendData.forEach((entry) => {
+                const row = document.createElement('div');
+                row.className = 'result-dashboard__trend-item';
+                const label = document.createElement('span');
+                label.textContent = `${entry.year} ${entry.type}`;
+                const track = document.createElement('div');
+                track.className = 'result-dashboard__trend-track';
+                const fill = document.createElement('span');
+                fill.style.transform = `scaleX(${Math.min(entry.value / 100, 1)})`;
+                track.appendChild(fill);
+                const value = document.createElement('span');
+                value.className = 'result-dashboard__trend-value';
+                value.textContent = `${entry.value}%`;
+                row.append(label, track, value);
+                trendContainer.appendChild(row);
+              });
+            }
+          };
+
+          const openToolModal = (toolId) => {
+            const modal = toolModals.get(toolId);
+            if (!modal || !modal.hidden) {
+              return;
+            }
+            populateToolModal(toolId);
+            if (activeToolModal && activeToolModal !== modal) {
+              closeToolModal(activeToolModal);
+            }
+            lastToolFocus =
+              document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+            modal.hidden = false;
+            activeToolModal = modal;
+            toolButtons.forEach((button) => {
+              const isActive = button.dataset.toolButton === toolId;
+              button.dataset.active = isActive ? 'true' : 'false';
+              button.setAttribute('aria-pressed', String(isActive));
+            });
+            modal.querySelector('[data-tool-close]')?.focus?.();
+          };
+
+          const closeToolModal = (modal = activeToolModal) => {
+            if (!modal || modal.hidden) {
+              return;
+            }
+            modal.hidden = true;
+            if (modal === activeToolModal) {
+              activeToolModal = null;
+              toolButtons.forEach((button) => {
+                button.dataset.active = 'false';
+                button.setAttribute('aria-pressed', 'false');
+              });
+            }
+            if (lastToolFocus?.focus) {
+              lastToolFocus.focus();
+            }
+          };
+
+          toolModals.forEach((modal) => {
+            const closeButton = modal.querySelector('[data-tool-close]');
+            if (closeButton) {
+              closeButton.addEventListener(
+                'click',
+                () => closeToolModal(modal),
+                { signal }
+              );
+            }
+            modal.addEventListener(
+              'click',
+              (event) => {
+                if (event.target === modal) {
+                  closeToolModal(modal);
+                }
+              },
+              { signal }
+            );
+          });
+
+          toolButtons.forEach((button) => {
+            button.addEventListener(
+              'click',
+              () => {
+                const toolId = button.dataset.toolButton;
+                if (!toolId) {
+                  return;
+                }
+                const modal = toolModals.get(toolId);
+                if (!modal) {
+                  return;
+                }
+                if (!modal.hidden) {
+                  closeToolModal(modal);
+                } else {
+                  openToolModal(toolId);
+                }
+              },
+              { signal }
+            );
+          });
+
+          const openSubmitModal = () => {
+            if (!submitModal || !submitModal.hidden) {
+              return;
+            }
+            buildSubmissionChecklist();
+            submitPreviousFocus =
+              document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+            submitModal.hidden = false;
+            submitModal
+              .querySelector('[data-submit-confirm]')
+              ?.focus?.();
+          };
+
+          const closeSubmitModal = () => {
+            if (!submitModal || submitModal.hidden) {
+              return;
+            }
+            submitModal.hidden = true;
+            if (submitPreviousFocus?.focus) {
+              submitPreviousFocus.focus();
+            }
+          };
+
+          const openDashboard = () => {
+            if (!dashboard || !dashboard.hidden) {
+              return;
+            }
+            renderDashboard();
+            dashboardPreviousFocus =
+              document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+            dashboard.hidden = false;
+            dashboard
+              .querySelector('[data-dashboard-close]')
+              ?.focus?.();
+          };
+
+          const closeDashboard = () => {
+            if (!dashboard || dashboard.hidden) {
+              return;
+            }
+            dashboard.hidden = true;
+            if (dashboardPreviousFocus?.focus) {
+              dashboardPreviousFocus.focus();
+            }
+          };
+
+          submitOpeners.forEach((button) => {
+            button.addEventListener('click', openSubmitModal, { signal });
+          });
+
+          submitCancelButtons.forEach((button) => {
+            button.addEventListener('click', closeSubmitModal, { signal });
+          });
+
+          if (submitConfirmButton) {
+            submitConfirmButton.addEventListener(
+              'click',
+              () => {
+                closeSubmitModal();
+                openDashboard();
+              },
+              { signal }
+            );
+          }
+
+          if (submitModal) {
+            submitModal.addEventListener(
+              'click',
+              (event) => {
+                if (event.target === submitModal) {
+                  closeSubmitModal();
+                }
+              },
+              { signal }
+            );
+          }
+
+          dashboardCloseButtons.forEach((button) => {
+            button.addEventListener('click', closeDashboard, { signal });
+          });
+
+          if (dashboard) {
+            dashboard.addEventListener(
+              'click',
+              (event) => {
+                if (event.target === dashboard) {
+                  closeDashboard();
+                }
+              },
+              { signal }
+            );
+          }
 
           const answerStorageKey = 'exercise-answer-drafts-v1';
           let answerDrafts = {};
@@ -10970,6 +13366,91 @@
               { once: true }
             );
           });
+
+          const handleGlobalShortcut = (event) => {
+            if (event.defaultPrevented) {
+              return;
+            }
+            const { key } = event;
+            if (!key) {
+              return;
+            }
+            const lowerKey = key.length === 1 ? key.toLowerCase() : key;
+            const target = event.target;
+            if (
+              event.ctrlKey &&
+              !event.shiftKey &&
+              !event.altKey &&
+              !event.metaKey &&
+              (key === 'ArrowDown' || key === 'ArrowUp')
+            ) {
+              event.preventDefault();
+              focusRelativeQuestion(key === 'ArrowDown' ? 1 : -1);
+              return;
+            }
+            if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+              if (lowerKey === 'l') {
+                event.preventDefault();
+                toggleStructurePanels();
+                return;
+              }
+              if (lowerKey === 'n') {
+                event.preventDefault();
+                toggleNounPanels();
+                return;
+              }
+            }
+            if (key === 'Escape') {
+              if (activeToolModal && !activeToolModal.hidden) {
+                event.preventDefault();
+                closeToolModal();
+                return;
+              }
+              if (submitModal && !submitModal.hidden) {
+                event.preventDefault();
+                closeSubmitModal();
+                return;
+              }
+              if (dashboard && !dashboard.hidden) {
+                event.preventDefault();
+                closeDashboard();
+                return;
+              }
+              return;
+            }
+            if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+              return;
+            }
+            if (isEditableElement(target)) {
+              return;
+            }
+            switch (lowerKey) {
+              case 'g':
+                event.preventDefault();
+                toggleLeftPane();
+                break;
+              case 'h':
+                event.preventDefault();
+                openToolModal('intent');
+                break;
+              case 'f':
+                event.preventDefault();
+                openToolModal('frame');
+                break;
+              case 'm':
+                event.preventDefault();
+                openToolModal('model');
+                break;
+              case 'e':
+                event.preventDefault();
+                openToolModal('mece');
+                break;
+              default:
+                break;
+            }
+          };
+
+          document.addEventListener('keydown', handleGlobalShortcut, { signal });
 
           const fallbackExercise =
             caseOptions[0]?.exercises?.[0] || exerciseLibrary[0] || null;
