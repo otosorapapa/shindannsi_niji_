@@ -960,275 +960,302 @@
     </div>
 
     <script>
-      // 現在の設問位置とタブ／CTAの同期、スムーススクロール、ハイライト
-      const tabButtons = Array.from(
-        document.querySelectorAll('.exercise-tab')
-      );
-      const tabList = document.querySelector('.exercise__tabs');
-      const nextButton = document.getElementById('next-question-button');
-      const questionCards = Array.from(
-        document.querySelectorAll('.question-card')
-      );
-      const answerTextareas = document.querySelectorAll(
-        '.question-card__textarea'
-      );
-
-      const activateCard = (card) => {
-        questionCards.forEach((c) => c.classList.remove('question-card--active'));
-        if (!card) return;
-        card.classList.add('question-card--active');
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-          card.classList.remove('question-card--active');
-        } else {
-          setTimeout(() => {
-            card.classList.remove('question-card--active');
-          }, 2000);
-        }
-      };
-
-      const updateTabs = (activeId) => {
-        tabButtons.forEach((button) => {
-          const isActive = button.dataset.target === activeId;
-          button.setAttribute('aria-selected', String(isActive));
-          button.setAttribute('tabindex', isActive ? '0' : '-1');
-        });
-      };
-
-      const updateFooterCta = (activeId) => {
-        if (!nextButton) return;
-        const currentIndex = questionCards.findIndex(
-          (card) => card.id === activeId
-        );
-        if (currentIndex === -1) {
+      (() => {
+        const appRoot = document.querySelector('[data-app="exercise"]');
+        if (!appRoot || appRoot.dataset.initialized === 'true') {
           return;
         }
+        appRoot.dataset.initialized = 'true';
 
-        const verb = nextButton.querySelector('.cta-button__verb');
-        const object = nextButton.querySelector('.cta-button__object');
-        const isLast = currentIndex === questionCards.length - 1;
-        const nextIndex = isLast ? 0 : currentIndex + 1;
-        nextButton.dataset.target = questionCards[nextIndex].id;
-        if (verb && object) {
-          if (isLast) {
-            verb.textContent = '見直す';
-            object.textContent = '1問目へ';
-            nextButton.setAttribute('aria-label', '1問目へ戻る');
+        const escapeSelector = (value) =>
+          typeof value === 'string'
+            ? value.replace(/([!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, '\\$1')
+            : '';
+
+        // 現在の設問位置とタブ／CTAの同期、スムーススクロール、ハイライト
+        const tabButtons = Array.from(
+          appRoot.querySelectorAll('.exercise-tab')
+        );
+        const tabList = appRoot.querySelector('.exercise__tabs');
+        const nextButton = appRoot.querySelector('#next-question-button');
+        const questionCards = Array.from(
+          appRoot.querySelectorAll('.question-card')
+        );
+        const answerTextareas = appRoot.querySelectorAll(
+          '.question-card__textarea'
+        );
+
+        const activateCard = (card) => {
+          questionCards.forEach((c) =>
+            c.classList.remove('question-card--active')
+          );
+          if (!card) return;
+          card.classList.add('question-card--active');
+          if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            card.classList.remove('question-card--active');
           } else {
-            verb.textContent = '進む';
-            object.textContent = '次の設問へ';
-            nextButton.setAttribute('aria-label', '次の設問へ進む');
+            setTimeout(() => {
+              card.classList.remove('question-card--active');
+            }, 2000);
           }
-        }
-      };
+        };
 
-      const scrollToQuestion = (targetId) => {
-        const target = document.getElementById(targetId);
-        if (!target) return;
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        if (target.focus) {
-          try {
-            target.focus({ preventScroll: true });
-          } catch (error) {
-            target.focus();
-          }
-        }
-        activateCard(target);
-        updateTabs(targetId);
-        updateFooterCta(targetId);
-      };
+        const updateTabs = (activeId) => {
+          tabButtons.forEach((button) => {
+            const isActive = button.dataset.target === activeId;
+            button.setAttribute('aria-selected', String(isActive));
+            button.setAttribute('tabindex', isActive ? '0' : '-1');
+          });
+        };
 
-      tabButtons.forEach((button, index) => {
-        button.addEventListener('click', () => {
-          scrollToQuestion(button.dataset.target);
-        });
-
-        button.addEventListener('keydown', (event) => {
-          const { key } = event;
-          let nextIndex = index;
-          if (key === 'ArrowRight' || key === 'ArrowDown') {
-            nextIndex = (index + 1) % tabButtons.length;
-          } else if (key === 'ArrowLeft' || key === 'ArrowUp') {
-            nextIndex = (index - 1 + tabButtons.length) % tabButtons.length;
-          } else if (key === 'Home') {
-            nextIndex = 0;
-          } else if (key === 'End') {
-            nextIndex = tabButtons.length - 1;
-          } else {
+        const updateFooterCta = (activeId) => {
+          if (!nextButton) return;
+          const currentIndex = questionCards.findIndex(
+            (card) => card.id === activeId
+          );
+          if (currentIndex === -1) {
             return;
           }
-          event.preventDefault();
-          const nextButtonEl = tabButtons[nextIndex];
-          nextButtonEl.focus();
-          scrollToQuestion(nextButtonEl.dataset.target);
-        });
-      });
 
-      if (tabList?.dataset.wheelScroll === 'true') {
-        tabList.addEventListener(
-          'wheel',
-          (event) => {
-            if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
+          const verb = nextButton.querySelector('.cta-button__verb');
+          const object = nextButton.querySelector('.cta-button__object');
+          const isLast = currentIndex === questionCards.length - 1;
+          const nextIndex = isLast ? 0 : currentIndex + 1;
+          nextButton.dataset.target = questionCards[nextIndex].id;
+          if (verb && object) {
+            if (isLast) {
+              verb.textContent = '見直す';
+              object.textContent = '1問目へ';
+              nextButton.setAttribute('aria-label', '1問目へ戻る');
+            } else {
+              verb.textContent = '進む';
+              object.textContent = '次の設問へ';
+              nextButton.setAttribute('aria-label', '次の設問へ進む');
+            }
+          }
+        };
+
+        const scrollToQuestion = (targetId) => {
+          const target = targetId
+            ? appRoot.querySelector(`#${escapeSelector(targetId)}`)
+            : null;
+          if (!target) return;
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          if (target.focus) {
+            try {
+              target.focus({ preventScroll: true });
+            } catch (error) {
+              target.focus();
+            }
+          }
+          activateCard(target);
+          updateTabs(targetId);
+          updateFooterCta(targetId);
+        };
+
+        tabButtons.forEach((button, index) => {
+          button.addEventListener('click', () => {
+            scrollToQuestion(button.dataset.target);
+          });
+
+          button.addEventListener('keydown', (event) => {
+            const { key } = event;
+            let nextIndex = index;
+            if (key === 'ArrowRight' || key === 'ArrowDown') {
+              nextIndex = (index + 1) % tabButtons.length;
+            } else if (key === 'ArrowLeft' || key === 'ArrowUp') {
+              nextIndex = (index - 1 + tabButtons.length) % tabButtons.length;
+            } else if (key === 'Home') {
+              nextIndex = 0;
+            } else if (key === 'End') {
+              nextIndex = tabButtons.length - 1;
+            } else {
               return;
             }
             event.preventDefault();
-            tabList.scrollBy({
-              left: event.deltaY,
-              behavior: 'smooth',
-            });
-          },
-          { passive: false }
-        );
-      }
-
-      nextButton?.addEventListener('click', () => {
-        const targetId = nextButton.dataset.target;
-        if (targetId) {
-          scrollToQuestion(targetId);
-        }
-      });
-
-      if (questionCards.length) {
-        updateFooterCta(questionCards[0].id);
-      }
-
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              const id = entry.target.getAttribute('id');
-              updateTabs(id);
-              updateFooterCta(id);
-              activateCard(entry.target);
-            }
+            const nextButtonEl = tabButtons[nextIndex];
+            nextButtonEl.focus();
+            scrollToQuestion(nextButtonEl.dataset.target);
           });
-        },
-        {
-          rootMargin: '-40% 0px -45% 0px',
-          threshold: 0.1,
-        }
-      );
-
-      questionCards.forEach((card) => {
-        card.setAttribute('tabindex', '-1');
-        observer.observe(card);
-      });
-
-      // 字数カウンタ：上限超過時は警告色を適用
-      const updateCounter = (textarea, counter) => {
-        const max = Number(textarea.dataset.maxLength);
-        const length = textarea.value.length;
-        const remaining = `${length} / ${max} 字`;
-        counter.textContent = remaining;
-        counter.classList.toggle('char-counter--limit', length > max);
-      };
-
-      const answerStorageKey = 'exercise-answer-drafts-v1';
-      let answerDrafts = {};
-
-      try {
-        answerDrafts = JSON.parse(localStorage.getItem(answerStorageKey) || '{}');
-      } catch (error) {
-        answerDrafts = {};
-      }
-
-      const persistDrafts = () => {
-        try {
-          const hasDrafts = Object.keys(answerDrafts).length > 0;
-          if (hasDrafts) {
-            localStorage.setItem(
-              answerStorageKey,
-              JSON.stringify(answerDrafts)
-            );
-          } else {
-            localStorage.removeItem(answerStorageKey);
-          }
-        } catch (error) {
-          // ストレージ未対応環境では静かにフォールバック
-        }
-      };
-
-      answerTextareas.forEach((textarea) => {
-        const counter = document.getElementById(
-          textarea.getAttribute('aria-describedby')
-        );
-        const textareaId = textarea.id;
-        const savedDraft =
-          textareaId && answerDrafts[textareaId]
-            ? answerDrafts[textareaId]
-            : null;
-
-        if (savedDraft && typeof savedDraft.value === 'string') {
-          textarea.value = savedDraft.value;
-        }
-
-        if (counter) {
-          updateCounter(textarea, counter);
-        }
-
-        let saveTimer;
-
-        const saveDraft = () => {
-          if (!textareaId) return;
-          if (textarea.value === '') {
-            delete answerDrafts[textareaId];
-          } else {
-            answerDrafts[textareaId] = {
-              value: textarea.value,
-              savedAt: new Date().toISOString(),
-            };
-          }
-          persistDrafts();
-        };
-
-        const scheduleSave = () => {
-          clearTimeout(saveTimer);
-          saveTimer = window.setTimeout(saveDraft, 300);
-        };
-
-        textarea.addEventListener('input', () => {
-          if (counter) {
-            updateCounter(textarea, counter);
-          }
-          scheduleSave();
         });
 
-        textarea.addEventListener('blur', saveDraft);
-        window.addEventListener('beforeunload', saveDraft);
-      });
-
-      // 折りたたみ補助情報：ローカルストレージで既読状態を保持
-      const supportToggles = document.querySelectorAll('.support-block__toggle');
-      const storageKey = 'exercise-support-state-v1';
-      let storedState = {};
-
-      try {
-        storedState = JSON.parse(localStorage.getItem(storageKey) || '{}');
-      } catch (error) {
-        storedState = {};
-      }
-
-      supportToggles.forEach((toggle) => {
-        const supportId = toggle.dataset.supportId;
-        const content = document.getElementById(supportId);
-        const isOpen = storedState[supportId];
-
-        if (isOpen) {
-          toggle.setAttribute('aria-expanded', 'true');
-          content.hidden = false;
+        if (tabList?.dataset.wheelScroll === 'true') {
+          tabList.addEventListener(
+            'wheel',
+            (event) => {
+              if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
+                return;
+              }
+              event.preventDefault();
+              tabList.scrollBy({
+                left: event.deltaY,
+                behavior: 'smooth',
+              });
+            },
+            { passive: false }
+          );
         }
 
-        toggle.addEventListener('click', () => {
-          const expanded = toggle.getAttribute('aria-expanded') === 'true';
-          toggle.setAttribute('aria-expanded', String(!expanded));
-          content.hidden = expanded;
-          storedState[supportId] = !expanded;
+        nextButton?.addEventListener('click', () => {
+          const targetId = nextButton.dataset.target;
+          if (targetId) {
+            scrollToQuestion(targetId);
+          }
+        });
+
+        if (questionCards.length) {
+          updateFooterCta(questionCards[0].id);
+        }
+
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                const id = entry.target.getAttribute('id');
+                updateTabs(id);
+                updateFooterCta(id);
+                activateCard(entry.target);
+              }
+            });
+          },
+          {
+            rootMargin: '-40% 0px -45% 0px',
+            threshold: 0.1,
+          }
+        );
+
+        questionCards.forEach((card) => {
+          card.setAttribute('tabindex', '-1');
+          observer.observe(card);
+        });
+
+        // 字数カウンタ：上限超過時は警告色を適用
+        const updateCounter = (textarea, counter) => {
+          const max = Number(textarea.dataset.maxLength);
+          const length = textarea.value.length;
+          const remaining = `${length} / ${max} 字`;
+          counter.textContent = remaining;
+          counter.classList.toggle('char-counter--limit', length > max);
+        };
+
+        const answerStorageKey = 'exercise-answer-drafts-v1';
+        let answerDrafts = {};
+
+        try {
+          answerDrafts = JSON.parse(
+            localStorage.getItem(answerStorageKey) || '{}'
+          );
+        } catch (error) {
+          answerDrafts = {};
+        }
+
+        const persistDrafts = () => {
           try {
-            localStorage.setItem(storageKey, JSON.stringify(storedState));
+            const hasDrafts = Object.keys(answerDrafts).length > 0;
+            if (hasDrafts) {
+              localStorage.setItem(
+                answerStorageKey,
+                JSON.stringify(answerDrafts)
+              );
+            } else {
+              localStorage.removeItem(answerStorageKey);
+            }
           } catch (error) {
             // ストレージ未対応環境では静かにフォールバック
           }
+        };
+
+        answerTextareas.forEach((textarea) => {
+          const describedBy = textarea.getAttribute('aria-describedby');
+          const counter = describedBy
+            ? appRoot.querySelector(`#${escapeSelector(describedBy)}`)
+            : null;
+          const textareaId = textarea.id;
+          const savedDraft =
+            textareaId && answerDrafts[textareaId]
+              ? answerDrafts[textareaId]
+              : null;
+
+          if (savedDraft && typeof savedDraft.value === 'string') {
+            textarea.value = savedDraft.value;
+          }
+
+          if (counter) {
+            updateCounter(textarea, counter);
+          }
+
+          let saveTimer;
+
+          const saveDraft = () => {
+            if (!textareaId) return;
+            if (textarea.value === '') {
+              delete answerDrafts[textareaId];
+            } else {
+              answerDrafts[textareaId] = {
+                value: textarea.value,
+                savedAt: new Date().toISOString(),
+              };
+            }
+            persistDrafts();
+          };
+
+          const scheduleSave = () => {
+            clearTimeout(saveTimer);
+            saveTimer = window.setTimeout(saveDraft, 300);
+          };
+
+          textarea.addEventListener('input', () => {
+            if (counter) {
+              updateCounter(textarea, counter);
+            }
+            scheduleSave();
+          });
+
+          textarea.addEventListener('blur', saveDraft);
+          window.addEventListener('beforeunload', saveDraft);
         });
-      });
+
+        // 折りたたみ補助情報：ローカルストレージで既読状態を保持
+        const supportToggles = appRoot.querySelectorAll(
+          '.support-block__toggle'
+        );
+        const storageKey = 'exercise-support-state-v1';
+        let storedState = {};
+
+        try {
+          storedState = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        } catch (error) {
+          storedState = {};
+        }
+
+        supportToggles.forEach((toggle) => {
+          const supportId = toggle.dataset.supportId;
+          const content = supportId
+            ? appRoot.querySelector(`#${escapeSelector(supportId)}`)
+            : null;
+          if (!content) {
+            return;
+          }
+          const isOpen = storedState[supportId];
+
+          if (isOpen) {
+            toggle.setAttribute('aria-expanded', 'true');
+            content.hidden = false;
+          }
+
+          toggle.addEventListener('click', () => {
+            const expanded = toggle.getAttribute('aria-expanded') === 'true';
+            toggle.setAttribute('aria-expanded', String(!expanded));
+            content.hidden = expanded;
+            storedState[supportId] = !expanded;
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(storedState));
+            } catch (error) {
+              // ストレージ未対応環境では静かにフォールバック
+            }
+          });
+        });
+      })();
     </script>
   </body>
 </html>
