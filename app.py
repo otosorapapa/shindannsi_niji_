@@ -5915,7 +5915,7 @@ def _build_calendar_export(
         "PRODID:-//Shindanshi Planner//JP",
         "CALSCALE:GREGORIAN",
     ]
-    now_stamp = datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
+    now_stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     summary_label = "週間学習" if goal["period_type"] == "weekly" else "月間学習"
     for index, session in enumerate(sessions):
         start_dt = datetime.combine(session["session_date"], session["start_time"])
@@ -6955,7 +6955,7 @@ def dashboard_page(user: Dict) -> None:
             )
 
         notification_groups: List[str] = []
-        now = datetime.now(datetime.UTC)
+        now = datetime.now(timezone.utc)
 
         if due_review_items:
             due_items_html = "".join(
@@ -7143,7 +7143,7 @@ def dashboard_page(user: Dict) -> None:
                 unsafe_allow_html=True,
             )
         if upcoming_reviews:
-            now = datetime.now(datetime.UTC)
+            now = datetime.now(timezone.utc)
             schedule_df = pd.DataFrame(
                 [
                     {
@@ -8645,7 +8645,7 @@ def _save_answer_snapshot(key: str, text: str, *, label: Optional[str] = None) -
     payload = _get_saved_answer_payload(key)
     snapshots: List[Dict[str, Any]] = payload.setdefault("snapshots", [])
     snapshot_id = uuid.uuid4().hex
-    timestamp = datetime.now(datetime.UTC).isoformat()
+    timestamp = datetime.now(timezone.utc).isoformat()
     normalized_label = label.strip() if label else ""
     if not normalized_label:
         normalized_label = f"案{len(snapshots) + 1}"
@@ -8844,7 +8844,7 @@ def _extract_context_citations(
 
 def _track_question_activity(draft_key: str, text: str) -> Dict[str, Any]:
     activity = st.session_state.setdefault("question_activity", {})
-    now = datetime.now(datetime.UTC)
+    now = datetime.now(timezone.utc)
     record = activity.setdefault(
         draft_key,
         {
@@ -10027,7 +10027,7 @@ def _sanitize_sheet_name(name: str) -> str:
 
 
 def _simple_xlsx_bytes(tables: Dict[str, pd.DataFrame]) -> bytes:
-    timestamp = datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     sheet_entries: List[Tuple[str, str]] = []
     sheet_xml_parts: List[Tuple[str, str]] = []
 
@@ -11579,7 +11579,7 @@ def practice_page(user: Dict) -> None:
             )
             return
 
-        submitted_at = datetime.now(datetime.UTC)
+        submitted_at = datetime.now(timezone.utc)
         activity_summary = _summarise_question_activity(problem, submitted_at)
         answers = []
         for question, spec in zip(problem["questions"], question_specs):
@@ -12737,7 +12737,7 @@ def render_attempt_results(attempt_id: int) -> None:
         recommendation_label = (
             f"推奨: 類題{review_plan['recommended_items']}問 / 約{review_plan['recommended_minutes']}分"
         )
-        if due_at <= datetime.now(datetime.UTC):
+        if due_at <= datetime.now(timezone.utc):
             st.warning(
                 f"この事例の復習期限が到来しています。次回目安 {due_at.strftime('%Y-%m-%d %H:%M')}"
                 f" (間隔 {interval}日, {recommendation_label})",
@@ -13551,7 +13551,7 @@ def mock_exam_page(user: Dict) -> None:
         if start_clicked:
             st.session_state.mock_session = {
                 "exam": selected_exam,
-                "start": datetime.now(datetime.UTC),
+                "start": datetime.now(timezone.utc),
                 "answers": {},
             }
             st.session_state["mock_notice_toggle"] = True
@@ -13560,7 +13560,7 @@ def mock_exam_page(user: Dict) -> None:
 
     exam = session["exam"]
     start_time = session["start"]
-    elapsed = datetime.now(datetime.UTC) - start_time
+    elapsed = datetime.now(timezone.utc) - start_time
     elapsed_total_seconds = max(int(elapsed.total_seconds()), 0)
     elapsed_minutes = elapsed_total_seconds // 60
     elapsed_seconds = elapsed_total_seconds % 60
@@ -13684,7 +13684,7 @@ def mock_exam_page(user: Dict) -> None:
                     )
                 )
                 case_question_results.append({"question": question, "answer": text, "result": result})
-            submitted_at = datetime.now(datetime.UTC)
+            submitted_at = datetime.now(timezone.utc)
             activity_summary = _summarise_question_activity(problem, submitted_at)
             for answer in answers:
                 if answer.question_id in activity_summary:
@@ -13873,7 +13873,7 @@ def history_page(user: Dict) -> None:
                     ),
                     "復習アクション": (
                         f"今日中に復習（推奨 {item['recommended_items']}問・約{item['recommended_minutes']}分）"
-                        if item["due_at"] <= datetime.now(datetime.UTC)
+                        if item["due_at"] <= datetime.now(timezone.utc)
                         else (
                             "次回 {date} に復習（推奨 {items}問・約{minutes}分)".format(
                                 date=item["due_at"].strftime("%Y-%m-%d"),
