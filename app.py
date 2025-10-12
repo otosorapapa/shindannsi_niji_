@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import copy
-from datetime import date as dt_date, datetime, time as dt_time, timedelta
+from datetime import date as dt_date, datetime, time as dt_time, timedelta, timezone
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Pattern, Sequence, Set, Tuple
@@ -11380,7 +11380,7 @@ def practice_page(user: Dict) -> None:
         _render_retrieval_flashcards(problem)
 
         if not st.session_state.practice_started:
-            st.session_state.practice_started = datetime.now(datetime.UTC)
+            st.session_state.practice_started = datetime.now(timezone.utc)
 
         st.markdown('<div id="practice-answers"></div>', unsafe_allow_html=True)
 
