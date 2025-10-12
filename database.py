@@ -214,6 +214,14 @@ def _build_problem_from_seed(
                 elif card is not None:
                     normalized_cards.append({"label": str(card)})
 
+        skill_tags = seed_question.get("skill_tags") or seed_question.get("skills") or []
+        if isinstance(skill_tags, str):
+            skill_tags = [part.strip() for part in re.split(r"[|,/、]\s*", skill_tags) if part.strip()]
+        elif isinstance(skill_tags, list):
+            skill_tags = [str(tag).strip() for tag in skill_tags if str(tag).strip()]
+        else:
+            skill_tags = []
+
         question_entry: Dict[str, Any] = {
             "id": None,
             "prompt": seed_question.get("prompt", ""),
@@ -228,6 +236,9 @@ def _build_problem_from_seed(
             "video_url": seed_question.get("video_url"),
             "diagram_path": seed_question.get("diagram_path"),
             "diagram_caption": seed_question.get("diagram_caption"),
+            "skill_tags": skill_tags,
+            "difficulty": seed_question.get("question_difficulty")
+            or seed_question.get("difficulty"),
         }
 
         for extra_key in (
@@ -252,6 +263,11 @@ def _build_problem_from_seed(
         "context_text": context_text,
         "context": context_text,
         "questions": questions,
+        "difficulty": seed_problem.get("difficulty"),
+        "themes": seed_problem.get("themes", []),
+        "tendencies": seed_problem.get("tendencies", []),
+        "tags": seed_problem.get("tags", []),
+        "source_url": seed_problem.get("source_url"),
     }
 
 
@@ -299,7 +315,12 @@ def initialize_database(*, force: bool = False) -> None:
             case_label TEXT NOT NULL,
             title TEXT NOT NULL,
             overview TEXT NOT NULL,
-            context_text TEXT
+            context_text TEXT,
+            difficulty TEXT,
+            theme_tags_json TEXT,
+            tendency_tags_json TEXT,
+            topic_tags_json TEXT,
+            source_url TEXT
         );
 
         CREATE TABLE IF NOT EXISTS questions (
@@ -314,7 +335,10 @@ def initialize_database(*, force: bool = False) -> None:
             keywords_json TEXT NOT NULL,
             video_url TEXT,
             diagram_path TEXT,
-            diagram_caption TEXT
+            diagram_caption TEXT,
+            intent_cards_json TEXT DEFAULT '[]',
+            skill_tags_json TEXT,
+            question_difficulty TEXT
         );
 
         CREATE TABLE IF NOT EXISTS attempts (
@@ -441,6 +465,7 @@ def initialize_database(*, force: bool = False) -> None:
 
             _ensure_question_multimedia_columns(conn)
             _ensure_problem_context_columns(conn)
+            _ensure_problem_metadata_columns(conn)
             _ensure_attempt_answer_axis_column(conn)
 
             _seed_problems(conn, seed_payload)
@@ -462,21 +487,47 @@ def _seed_problems(conn: sqlite3.Connection, payload: Dict) -> None:
         row = cursor.fetchone()
         context_text = problem.get("context")
 
+        metadata_values = (
+            problem.get("difficulty"),
+            json.dumps(problem.get("themes", []), ensure_ascii=False) if problem.get("themes") else None,
+            json.dumps(problem.get("tendencies", []), ensure_ascii=False) if problem.get("tendencies") else None,
+            json.dumps(problem.get("tags", []), ensure_ascii=False) if problem.get("tags") else None,
+            problem.get("source_url"),
+        )
+
         if row:
             problem_id = row["id"]
             cursor.execute(
-                "UPDATE problems SET title = ?, overview = ?, context_text = ? WHERE id = ?",
-                (problem["title"], problem["overview"], context_text, problem_id),
+                """
+                UPDATE problems
+                SET title = ?, overview = ?, context_text = ?, difficulty = ?,
+                    theme_tags_json = ?, tendency_tags_json = ?, topic_tags_json = ?,
+                    source_url = ?
+                WHERE id = ?
+                """,
+                (
+                    problem["title"],
+                    problem["overview"],
+                    context_text,
+                    *metadata_values,
+                    problem_id,
+                ),
             )
         else:
             cursor.execute(
-                "INSERT INTO problems (year, case_label, title, overview, context_text) VALUES (?, ?, ?, ?, ?)",
+                """
+                INSERT INTO problems (
+                    year, case_label, title, overview, context_text, difficulty,
+                    theme_tags_json, tendency_tags_json, topic_tags_json, source_url
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
                 (
                     problem["year"],
                     problem["case"],
                     problem["title"],
                     problem["overview"],
                     context_text,
+                    *metadata_values,
                 ),
             )
             problem_id = cursor.lastrowid
@@ -498,6 +549,10 @@ def _seed_problems(conn: sqlite3.Connection, payload: Dict) -> None:
                 question.get("video_url"),
                 question.get("diagram_path"),
                 question.get("diagram_caption"),
+                json.dumps(question.get("skill_tags", []), ensure_ascii=False)
+                if question.get("skill_tags")
+                else None,
+                question.get("difficulty"),
             )
 
             if existing_question:
@@ -506,7 +561,8 @@ def _seed_problems(conn: sqlite3.Connection, payload: Dict) -> None:
                     UPDATE questions
                     SET prompt = ?, character_limit = ?, max_score = ?, model_answer = ?,
                         explanation = ?, keywords_json = ?, intent_cards_json = ?, video_url = ?,
-                        diagram_path = ?, diagram_caption = ?
+                        diagram_path = ?, diagram_caption = ?, skill_tags_json = ?,
+                        question_difficulty = ?
                     WHERE id = ?
                     """,
                     (*payload_values, existing_question["id"]),
@@ -517,8 +573,8 @@ def _seed_problems(conn: sqlite3.Connection, payload: Dict) -> None:
                     INSERT INTO questions (
                         problem_id, question_order, prompt, character_limit, max_score,
                         model_answer, explanation, keywords_json, intent_cards_json, video_url,
-                        diagram_path, diagram_caption
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        diagram_path, diagram_caption, skill_tags_json, question_difficulty
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         problem_id,
@@ -578,6 +634,14 @@ def _normalise_seed_payload(payload: Any) -> Dict[str, Any]:
             return cards
         return []
 
+    def _normalise_tag_list(raw: Any) -> List[str]:
+        if isinstance(raw, list):
+            return [str(tag).strip() for tag in raw if str(tag).strip()]
+        if isinstance(raw, str) and raw.strip():
+            parts = re.split(r"[|,/、]\s*", raw)
+            return [part.strip() for part in parts if part.strip()]
+        return []
+
     for entry in payload:
         if not isinstance(entry, dict):
             continue
@@ -599,8 +663,29 @@ def _normalise_seed_payload(payload: Any) -> Dict[str, Any]:
                 "title": title,
                 "overview": overview,
                 "questions": [],
+                "themes": [],
+                "tendencies": [],
+                "tags": [],
             },
         )
+
+        difficulty = entry.get("difficulty") or entry.get("level")
+        if difficulty and not problem.get("difficulty"):
+            problem["difficulty"] = str(difficulty)
+
+        for theme in _normalise_tag_list(entry.get("themes") or entry.get("theme_tags")):
+            if theme not in problem["themes"]:
+                problem["themes"].append(theme)
+        for tendency in _normalise_tag_list(entry.get("tendencies") or entry.get("tendency_tags")):
+            if tendency not in problem["tendencies"]:
+                problem["tendencies"].append(tendency)
+        for tag in _normalise_tag_list(entry.get("tags") or entry.get("topics")):
+            if tag not in problem["tags"]:
+                problem["tags"].append(tag)
+
+        source_url = entry.get("source_url") or entry.get("url")
+        if source_url and not problem.get("source_url"):
+            problem["source_url"] = str(source_url)
 
         for context_key in ("context", "context_text", "与件文全体", "与件文", "context_body"):
             context_value = entry.get(context_key)
@@ -620,6 +705,8 @@ def _normalise_seed_payload(payload: Any) -> Dict[str, Any]:
             "diagram_path": entry.get("diagram_path"),
             "diagram_caption": entry.get("diagram_caption"),
             "_order_hint": entry.get("question_index"),
+            "skill_tags": _normalise_tag_list(entry.get("skill_tags") or entry.get("skills")),
+            "difficulty": entry.get("question_difficulty") or entry.get("difficulty"),
         }
 
         problem["questions"].append(question)
@@ -658,6 +745,11 @@ def _normalise_seed_payload(payload: Any) -> Dict[str, Any]:
                 "title": problem["title"],
                 "overview": problem["overview"],
                 "context": problem.get("context"),
+                "difficulty": problem.get("difficulty"),
+                "themes": problem.get("themes", []),
+                "tendencies": problem.get("tendencies", []),
+                "tags": problem.get("tags", []),
+                "source_url": problem.get("source_url"),
                 "questions": questions,
             }
         )
@@ -683,6 +775,36 @@ def _ensure_question_multimedia_columns(conn: sqlite3.Connection) -> None:
         alterations.append(
             "ALTER TABLE questions ADD COLUMN intent_cards_json TEXT DEFAULT '[]'"
         )
+    if "skill_tags_json" not in columns:
+        alterations.append("ALTER TABLE questions ADD COLUMN skill_tags_json TEXT")
+    if "question_difficulty" not in columns:
+        alterations.append("ALTER TABLE questions ADD COLUMN question_difficulty TEXT")
+
+    for statement in alterations:
+        cursor.execute(statement)
+
+    if alterations:
+        conn.commit()
+
+
+def _ensure_problem_metadata_columns(conn: sqlite3.Connection) -> None:
+    """Ensure the problems table can store extended metadata such as tags."""
+
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(problems)")
+    columns = {row[1] for row in cursor.fetchall()}
+
+    alterations = []
+    if "difficulty" not in columns:
+        alterations.append("ALTER TABLE problems ADD COLUMN difficulty TEXT")
+    if "theme_tags_json" not in columns:
+        alterations.append("ALTER TABLE problems ADD COLUMN theme_tags_json TEXT")
+    if "tendency_tags_json" not in columns:
+        alterations.append("ALTER TABLE problems ADD COLUMN tendency_tags_json TEXT")
+    if "topic_tags_json" not in columns:
+        alterations.append("ALTER TABLE problems ADD COLUMN topic_tags_json TEXT")
+    if "source_url" not in columns:
+        alterations.append("ALTER TABLE problems ADD COLUMN source_url TEXT")
 
     for statement in alterations:
         cursor.execute(statement)
@@ -782,6 +904,12 @@ def _list_problems_impl(seed_signature: float) -> List[Dict[str, Any]]:
     seed_lookup = _load_seed_problem_lookup_cached(seed_signature)
     existing_keys = set()
     for row in rows:
+        row["themes"] = json.loads(row.get("theme_tags_json") or "[]")
+        row["tendencies"] = json.loads(row.get("tendency_tags_json") or "[]")
+        row["tags"] = json.loads(row.get("topic_tags_json") or "[]")
+        row.pop("theme_tags_json", None)
+        row.pop("tendency_tags_json", None)
+        row.pop("topic_tags_json", None)
         seed_problem = seed_lookup.get((row["year"], row["case_label"]))
         existing_keys.add((row["year"], row["case_label"]))
         if not seed_problem:
@@ -793,6 +921,16 @@ def _list_problems_impl(seed_signature: float) -> List[Dict[str, Any]]:
         context_text = seed_problem.get("context")
         if context_text:
             row["context_text"] = context_text
+        if seed_problem.get("difficulty"):
+            row["difficulty"] = seed_problem.get("difficulty")
+        if seed_problem.get("themes"):
+            row["themes"] = seed_problem.get("themes")
+        if seed_problem.get("tendencies"):
+            row["tendencies"] = seed_problem.get("tendencies")
+        if seed_problem.get("tags"):
+            row["tags"] = seed_problem.get("tags")
+        if seed_problem.get("source_url"):
+            row["source_url"] = seed_problem.get("source_url")
 
     _SEED_ONLY_ID_LOOKUP.clear()
     for (year, case_label), seed_problem in seed_lookup.items():
@@ -808,6 +946,11 @@ def _list_problems_impl(seed_signature: float) -> List[Dict[str, Any]]:
                 "overview": seed_problem.get("overview", ""),
                 "context_text": seed_problem.get("context")
                 or seed_problem.get("context_text"),
+                "difficulty": seed_problem.get("difficulty"),
+                "themes": seed_problem.get("themes", []),
+                "tendencies": seed_problem.get("tendencies", []),
+                "tags": seed_problem.get("tags", []),
+                "source_url": seed_problem.get("source_url"),
             }
         )
 
@@ -901,8 +1044,10 @@ def _fetch_problem_impl(problem_id: int, seed_signature: float) -> Optional[Dict
     question_rows = cur.fetchall()
     conn.close()
 
+    problem_data = dict(problem_row)
+
     seed_lookup = _load_seed_problem_lookup_cached(seed_signature)
-    seed_problem = seed_lookup.get((problem_row["year"], problem_row["case_label"]))
+    seed_problem = seed_lookup.get((problem_data["year"], problem_data["case_label"]))
     seed_questions: Dict[int, Dict[str, Any]] = {}
     if seed_problem:
         for idx, question in enumerate(seed_problem.get("questions", []), start=1):
@@ -910,28 +1055,29 @@ def _fetch_problem_impl(problem_id: int, seed_signature: float) -> Optional[Dict
 
     questions: List[Dict[str, Any]] = []
     for question in question_rows:
-        order = question["question_order"]
+        question_data = dict(question)
+        order = question_data["question_order"]
         seed_question = seed_questions.get(order)
-        keywords = json.loads(question["keywords_json"])
-        intent_cards = (
-            json.loads(question["intent_cards_json"])
-            if question["intent_cards_json"]
-            else []
-        )
+        keywords = json.loads(question_data.get("keywords_json") or "[]")
+        intent_cards = json.loads(question_data.get("intent_cards_json") or "[]")
 
         merged_question = {
-            "id": question["id"],
-            "prompt": question["prompt"],
-            "character_limit": question["character_limit"],
-            "max_score": question["max_score"],
-            "model_answer": question["model_answer"],
-            "explanation": question["explanation"],
+            "id": question_data["id"],
+            "prompt": question_data["prompt"],
+            "character_limit": question_data["character_limit"],
+            "max_score": question_data["max_score"],
+            "model_answer": question_data["model_answer"],
+            "explanation": question_data["explanation"],
             "keywords": keywords,
             "order": order,
             "intent_cards": intent_cards,
-            "video_url": question["video_url"],
-            "diagram_path": question["diagram_path"],
-            "diagram_caption": question["diagram_caption"],
+            "video_url": question_data.get("video_url"),
+            "diagram_path": question_data.get("diagram_path"),
+            "diagram_caption": question_data.get("diagram_caption"),
+            "skill_tags": json.loads(question_data.get("skill_tags_json") or "[]")
+            if question_data.get("skill_tags_json")
+            else [],
+            "difficulty": question_data.get("question_difficulty"),
         }
 
         if seed_question:
@@ -964,6 +1110,12 @@ def _fetch_problem_impl(problem_id: int, seed_signature: float) -> Optional[Dict
                 merged_question["diagram_path"] = seed_question.get("diagram_path")
             if seed_question.get("diagram_caption"):
                 merged_question["diagram_caption"] = seed_question.get("diagram_caption")
+            if seed_question.get("skill_tags"):
+                merged_question["skill_tags"] = [
+                    str(tag) for tag in seed_question.get("skill_tags", []) if str(tag).strip()
+                ]
+            if seed_question.get("difficulty") and not merged_question.get("difficulty"):
+                merged_question["difficulty"] = seed_question.get("difficulty")
             for extra_key in (
                 "question_text",
                 "body",
@@ -980,12 +1132,17 @@ def _fetch_problem_impl(problem_id: int, seed_signature: float) -> Optional[Dict
     context_text = problem_row["context_text"]
 
     problem_dict = {
-        "id": problem_row["id"],
-        "year": problem_row["year"],
-        "case_label": problem_row["case_label"],
-        "title": problem_row["title"],
-        "overview": problem_row["overview"],
+        "id": problem_data["id"],
+        "year": problem_data["year"],
+        "case_label": problem_data["case_label"],
+        "title": problem_data["title"],
+        "overview": problem_data["overview"],
         "questions": questions,
+        "difficulty": problem_data.get("difficulty"),
+        "themes": json.loads(problem_data.get("theme_tags_json") or "[]"),
+        "tendencies": json.loads(problem_data.get("tendency_tags_json") or "[]"),
+        "tags": json.loads(problem_data.get("topic_tags_json") or "[]"),
+        "source_url": problem_data.get("source_url"),
     }
 
     if seed_problem:
@@ -995,6 +1152,16 @@ def _fetch_problem_impl(problem_id: int, seed_signature: float) -> Optional[Dict
             problem_dict["overview"] = seed_problem["overview"]
         if seed_problem.get("context"):
             context_text = seed_problem.get("context")
+        if seed_problem.get("difficulty"):
+            problem_dict["difficulty"] = seed_problem.get("difficulty")
+        if seed_problem.get("themes"):
+            problem_dict["themes"] = seed_problem.get("themes")
+        if seed_problem.get("tendencies"):
+            problem_dict["tendencies"] = seed_problem.get("tendencies")
+        if seed_problem.get("tags"):
+            problem_dict["tags"] = seed_problem.get("tags")
+        if seed_problem.get("source_url"):
+            problem_dict["source_url"] = seed_problem.get("source_url")
 
     if context_text:
         problem_dict.update(
@@ -1236,6 +1403,20 @@ def update_scoring_log_self_evaluation(log_id: int, value: Optional[str]) -> Non
     cur = conn.cursor()
     cur.execute(
         "UPDATE attempt_scoring_logs SET self_evaluation = ? WHERE id = ?",
+        (normalized, log_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def update_scoring_log_notes(log_id: int, notes: Optional[str]) -> None:
+    """Persist a free-form review memo for the specified scoring log."""
+
+    normalized = (notes or "").strip() or None
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE attempt_scoring_logs SET notes = ? WHERE id = ?",
         (normalized, log_id),
     )
     conn.commit()
@@ -1697,6 +1878,43 @@ def fetch_question_practice_stats(user_id: int) -> Dict[int, Dict[str, Any]]:
             entry["best_ratio"] = entry["last_ratio"]
 
     return stats
+
+
+def fetch_question_master_stats() -> Dict[int, Dict[str, Any]]:
+    """Return aggregated performance metrics for every question across all users."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            q.id,
+            COUNT(aa.id) AS attempt_count,
+            AVG(CASE WHEN q.max_score > 0 THEN aa.score / q.max_score END) AS avg_ratio,
+            AVG(aa.score) AS avg_score,
+            MAX(aa.score) AS best_score,
+            AVG(log.keyword_coverage) AS avg_keyword_coverage
+        FROM questions q
+        LEFT JOIN attempt_answers aa ON aa.question_id = q.id
+        LEFT JOIN attempts a ON a.id = aa.attempt_id
+        LEFT JOIN attempt_scoring_logs log
+            ON log.attempt_id = a.id AND log.question_id = q.id
+        GROUP BY q.id
+        """,
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    metrics: Dict[int, Dict[str, Any]] = {}
+    for row in rows:
+        metrics[int(row["id"])] = {
+            "attempt_count": int(row["attempt_count"] or 0),
+            "avg_ratio": row["avg_ratio"],
+            "avg_score": row["avg_score"],
+            "best_score": row["best_score"],
+            "avg_keyword_coverage": row["avg_keyword_coverage"],
+        }
+    return metrics
 
 
 def list_unattempted_questions(user_id: int, *, limit: int = 5) -> List[Dict[str, Any]]:
@@ -2359,7 +2577,8 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
                log.duration_seconds AS log_duration_seconds,
                log.self_evaluation AS log_self_evaluation,
                log.keyword_coverage AS log_keyword_coverage,
-               log.checkpoints_json AS log_checkpoints_json
+               log.checkpoints_json AS log_checkpoints_json,
+               log.notes AS log_notes
         FROM attempt_answers aa
         JOIN questions q ON q.id = aa.question_id
         JOIN problems p ON p.id = q.problem_id
@@ -2398,6 +2617,7 @@ def fetch_attempt_detail(attempt_id: int) -> Dict:
                 "self_evaluation": row["log_self_evaluation"],
                 "keyword_coverage": row["log_keyword_coverage"],
                 "checkpoint_log": json.loads(row["log_checkpoints_json"]) if row["log_checkpoints_json"] else {},
+                "review_note": row["log_notes"],
             }
         )
 
@@ -2457,6 +2677,74 @@ def fetch_user_question_scores(user_id: int) -> List[Dict[str, Any]]:
         )
 
     return history
+
+
+def fetch_user_question_history_summary(user_id: int) -> List[Dict[str, Any]]:
+    """Return aggregated metrics per question for a specific user."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            q.id AS question_id,
+            p.year,
+            p.case_label,
+            q.question_order,
+            MAX(p.difficulty) AS problem_difficulty,
+            MAX(q.question_difficulty) AS question_difficulty,
+            MAX(p.theme_tags_json) AS theme_tags_json,
+            MAX(p.tendency_tags_json) AS tendency_tags_json,
+            MAX(p.topic_tags_json) AS topic_tags_json,
+            MAX(q.skill_tags_json) AS skill_tags_json,
+            COUNT(aa.id) AS attempt_count,
+            AVG(aa.score) AS avg_score,
+            MAX(aa.score) AS best_score,
+            MIN(aa.score) AS worst_score,
+            AVG(CASE WHEN q.max_score > 0 THEN aa.score / q.max_score END) AS avg_ratio,
+            MAX(COALESCE(a.submitted_at, a.started_at)) AS last_attempt_at,
+            AVG(log.keyword_coverage) AS avg_keyword_coverage,
+            MAX(q.max_score) AS max_score
+        FROM attempt_answers aa
+        JOIN attempts a ON a.id = aa.attempt_id
+        JOIN questions q ON q.id = aa.question_id
+        JOIN problems p ON p.id = q.problem_id
+        LEFT JOIN attempt_scoring_logs log
+            ON log.attempt_id = aa.attempt_id AND log.question_id = aa.question_id
+        WHERE a.user_id = ?
+        GROUP BY q.id, p.year, p.case_label, q.question_order
+        ORDER BY p.year DESC, p.case_label, q.question_order
+        """,
+        (user_id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    summary: List[Dict[str, Any]] = []
+    for row in rows:
+        summary.append(
+            {
+                "question_id": row["question_id"],
+                "year": row["year"],
+                "case_label": row["case_label"],
+                "question_order": row["question_order"],
+                "problem_difficulty": row["problem_difficulty"],
+                "question_difficulty": row["question_difficulty"],
+                "themes": json.loads(row["theme_tags_json"]) if row["theme_tags_json"] else [],
+                "tendencies": json.loads(row["tendency_tags_json"]) if row["tendency_tags_json"] else [],
+                "topics": json.loads(row["topic_tags_json"]) if row["topic_tags_json"] else [],
+                "skill_tags": json.loads(row["skill_tags_json"]) if row["skill_tags_json"] else [],
+                "attempt_count": int(row["attempt_count"] or 0),
+                "avg_score": row["avg_score"],
+                "best_score": row["best_score"],
+                "worst_score": row["worst_score"],
+                "avg_ratio": row["avg_ratio"],
+                "last_attempt_at": row["last_attempt_at"],
+                "avg_keyword_coverage": row["avg_keyword_coverage"],
+                "max_score": row["max_score"],
+            }
+        )
+    return summary
 
 
 def fetch_attempt_activity(attempt_id: int) -> List[Dict[str, Any]]:

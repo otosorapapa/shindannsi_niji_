@@ -49,6 +49,8 @@ def build_attempt_export_payload(
     attempt: Mapping[str, Any],
     answers: Sequence[Mapping[str, Any]],
     problem: Optional[Mapping[str, Any]] = None,
+    *,
+    highlight_snapshot: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     problem = problem or {}
     sorted_answers = sorted(
@@ -77,6 +79,7 @@ def build_attempt_export_payload(
                 "self_evaluation": entry.get("self_evaluation"),
                 "duration_seconds": entry.get("duration_seconds"),
                 "duration_minutes": _safe_minutes(entry.get("duration_seconds")),
+                "review_note": entry.get("review_note"),
             }
         )
 
@@ -109,6 +112,7 @@ def build_attempt_export_payload(
             "context": context_text,
         },
         "answers": prepared_answers,
+        "context_highlight": highlight_snapshot,
     }
     return payload
 
@@ -136,6 +140,7 @@ def attempt_csv_bytes(payload: Mapping[str, Any]) -> bytes:
                 "含まれたキーワード": matched,
                 "不足キーワード": missing,
                 "フィードバック": answer.get("feedback"),
+                "復習メモ": answer.get("review_note") or "",
             }
         )
     df = pd.DataFrame(rows)
@@ -202,6 +207,28 @@ def attempt_pdf_bytes(payload: Mapping[str, Any]) -> bytes:
             y -= 12
         y -= 6
 
+    highlight_snapshot = payload.get("context_highlight") or {}
+    marks = highlight_snapshot.get("marks") if isinstance(highlight_snapshot, Mapping) else None
+    if marks:
+        c.setFont(font_name, 11)
+        c.drawString(margin_x, y, "保存した与件ハイライト")
+        y -= 14
+        c.setFont(font_name, 9)
+        for idx, mark in enumerate(marks, start=1):
+            text = str(mark.get("text") or "").strip()
+            if not text:
+                continue
+            color = str(mark.get("color") or "")
+            prefix = f"{idx}. [{color}] " if color else f"{idx}. "
+            for line in simpleSplit(prefix + text, font_name, 9, text_width):
+                if y < margin_y:
+                    c.showPage()
+                    y = height - margin_y
+                    c.setFont(font_name, 9)
+                c.drawString(margin_x + 4, y, line)
+                y -= 11
+        y -= 8
+
     answers = payload.get("answers") or []
     for answer in answers:
         if y < margin_y + 80:
@@ -250,6 +277,19 @@ def attempt_pdf_bytes(payload: Mapping[str, Any]) -> bytes:
         y -= 11
         c.drawString(margin_x, y, f"不足キーワード: {missing}")
         y -= 14
+        review_note = answer.get("review_note") or ""
+        if review_note:
+            c.setFont(font_name, 9)
+            c.drawString(margin_x, y, "復習メモ")
+            y -= 11
+            for line in simpleSplit(str(review_note), font_name, 9, text_width):
+                if y < margin_y:
+                    c.showPage()
+                    y = height - margin_y
+                    c.setFont(font_name, 9)
+                c.drawString(margin_x + 4, y, line)
+                y -= 11
+            y -= 6
 
     c.showPage()
     c.save()
@@ -271,6 +311,21 @@ def build_printable_html(payload: Mapping[str, Any]) -> str:
     else:
         submitted_display = "-"
 
+    highlight_snapshot = payload.get("context_highlight") or {}
+    highlight_items: List[str] = []
+    if isinstance(highlight_snapshot, Mapping):
+        for mark in highlight_snapshot.get("marks", []):
+            text = str(mark.get("text") or "").strip()
+            if not text:
+                continue
+            color = html.escape(str(mark.get("color") or ""))
+            highlight_items.append(
+                f"<li class='highlight-item'><span class='highlight-chip {color}'>{html.escape(text)}</span></li>"
+            )
+    highlight_section = ""
+    if highlight_items:
+        highlight_section = "<h3>保存したハイライト</h3><ul class='highlight-list'>" + "".join(highlight_items) + "</ul>"
+
     answer_html: List[str] = []
     for answer in answers:
         keyword_summary = answer.get("keyword_summary") or {}
@@ -281,6 +336,11 @@ def build_printable_html(payload: Mapping[str, Any]) -> str:
             if answer.get("keyword_coverage") is not None
             else "-"
         )
+        review_block = ""
+        if answer.get("review_note"):
+            review_block = "<div class=\"answer-body\"><strong>復習メモ</strong><p>{note}</p></div>".format(
+                note=html.escape(str(answer.get("review_note") or ""))
+            )
         answer_html.append(
             """
             <section class="answer-card">
@@ -300,6 +360,7 @@ def build_printable_html(payload: Mapping[str, Any]) -> str:
                 <li>含まれたキーワード: {matched}</li>
                 <li>不足キーワード: {missing}</li>
               </ul>
+              {review_block}
             </section>
             """.format(
                 order=html.escape(str(answer.get("question_order") or "-")),
@@ -313,6 +374,7 @@ def build_printable_html(payload: Mapping[str, Any]) -> str:
                 coverage=html.escape(coverage),
                 matched=html.escape(matched),
                 missing=html.escape(missing),
+                review_block=review_block,
             )
         )
 
@@ -343,6 +405,9 @@ def build_printable_html(payload: Mapping[str, Any]) -> str:
       .answer-body p { margin: 4px 0; white-space: pre-wrap; }
       .keyword-list { list-style: none; padding: 0; margin: 6px 0 0; font-size: 11px; }
       .keyword-list li { margin-bottom: 2px; }
+      .highlight-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
+      .highlight-item { display: flex; }
+      .highlight-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #dbeafe; }
       .print-action { text-align: right; margin-bottom: 12px; }
       .print-button { padding: 6px 12px; border: 1px solid #444; background: #fff; cursor: pointer; border-radius: 6px; }
       @media print {
@@ -367,6 +432,7 @@ def build_printable_html(payload: Mapping[str, Any]) -> str:
         <article class="context-card">
           <h2>与件サマリ</h2>
           <p>{context}</p>
+          {highlight_section}
         </article>
         <article class="answer-stack">
           {answers}
@@ -379,7 +445,8 @@ def build_printable_html(payload: Mapping[str, Any]) -> str:
         submitted=submitted_display,
         mode=html.escape(attempt.get("mode", "-") or "-"),
         context=context,
-        answers="\n".join(answer_html),
+        highlight_section=highlight_section,
+        answers="".join(answer_html),
     )
     return html_text
 
