@@ -10,6 +10,7 @@ from uuid import uuid4
 from urllib.parse import urlencode
 import logging
 
+import base64
 import html
 import difflib
 import io
@@ -4656,7 +4657,22 @@ def _render_diagram_resource(diagram_path: Optional[str], caption: Optional[str]
         return
 
     try:
-        st.image(path.read_bytes(), caption=caption, use_column_width=True)
+        if path.suffix.lower() == ".svg":
+            svg_text = path.read_text(encoding="utf-8")
+            encoded = base64.b64encode(svg_text.encode("utf-8")).decode("ascii")
+            alt_text = caption or "図解"
+            figure_html = dedent(
+                f"""
+                <figure style="margin:0">
+                  <img src="data:image/svg+xml;base64,{encoded}" alt="{html.escape(alt_text)}" style="max-width:100%;height:auto;" />
+                </figure>
+                """
+            )
+            st.markdown(figure_html, unsafe_allow_html=True)
+            if caption:
+                st.caption(caption)
+        else:
+            st.image(path.read_bytes(), caption=caption, use_column_width=True)
     except Exception as exc:  # pragma: no cover - rendering guard
         st.warning(f"図解の表示中に問題が発生しました: {exc}", icon="⚠️")
 
@@ -4751,7 +4767,9 @@ def _render_model_answer_section(
         _render_video_player(video_url, key_prefix=context_id)
         st.caption("倍速再生と10秒スキップで効率的に復習できます。")
 
-    # 添付図解の表示は現在無効化しているため、diagram_path が指定されていても描画しない
+    if diagram_path:
+        st.markdown("**図解**")
+        _render_diagram_resource(diagram_path, caption=diagram_caption)
 
 def main_view() -> None:
     user = st.session_state.user
