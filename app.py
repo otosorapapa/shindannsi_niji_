@@ -181,6 +181,7 @@ CASE_ORDER = ["事例I", "事例II", "事例III", "事例IV"]
 
 GLOBAL_STYLESHEET_PATH = Path(__file__).parent / "assets" / "app.css"
 TWO_PANE_EXERCISE_HTML_PATH = Path(__file__).parent / "frontend" / "two_pane_exercise.html"
+HOME_DASHBOARD_HTML_PATH = Path(__file__).parent / "frontend" / "home_dashboard.html"
 
 
 CASEIII_TIMELINE = [
@@ -7468,1609 +7469,672 @@ def _build_case_performance_df(attempts: Sequence[Mapping[str, Any]]) -> pd.Data
 def dashboard_page(user: Dict) -> None:
     _inject_dashboard_styles()
 
-    st.title("ホームダッシュボード")
-    st.caption("学習状況のサマリと機能へのショートカット")
+    try:
+        attempts = database.list_attempts(user_id=user["id"])
+    except Exception:
+        logger.exception("Failed to load attempts for dashboard view")
+        attempts = []
 
-    attempts = database.list_attempts(user_id=user["id"])
-    gamification = _calculate_gamification(attempts)
-    stats = database.aggregate_statistics(user["id"])
-    keyword_records = database.fetch_keyword_performance(user["id"])
     try:
-        question_history_summary = database.fetch_user_question_history_summary(user["id"])
+        stats = database.aggregate_statistics(user["id"])
     except Exception:
-        logger.exception("Failed to load user question history summary for user %s", user.get("id"))
-        question_history_summary = []
-    summary_df = _build_dashboard_summary_df(question_history_summary)
+        logger.exception("Failed to aggregate statistics for dashboard")
+        stats = {}
+
     try:
-        global_question_metrics = database.fetch_question_master_stats()
+        keyword_records = database.fetch_keyword_performance(user["id"])
     except Exception:
-        logger.exception("Failed to load global question metrics for history view")
-        global_question_metrics = {}
-    dashboard_analysis = _prepare_dashboard_analysis_data(keyword_records)
-    question_progress = database.get_question_progress_summary(user["id"], recent_limit=5)
-    unattempted_questions = database.list_unattempted_questions(user["id"], limit=3)
-    due_review_items = database.list_due_reviews(user_id=user["id"], limit=3)
-    personalized_bundle = personalized_recommendation.generate_personalised_learning_plan(
-        user_id=user["id"],
-        attempts=attempts,
-        problem_catalog=database.list_problems(),
-        keyword_resource_map=KEYWORD_RESOURCE_MAP,
-        default_resources=DEFAULT_KEYWORD_RESOURCES,
-    )
+        logger.exception("Failed to load keyword performance for dashboard")
+        keyword_records = []
+
+    try:
+        question_progress = database.get_question_progress_summary(user["id"], recent_limit=5)
+    except Exception:
+        logger.exception("Failed to load question progress summary for dashboard")
+        question_progress = {
+            "recent_questions": [],
+            "total_questions": 0,
+            "studied_questions": 0,
+            "progress_ratio": 0.0,
+        }
+
+    try:
+        personalized_bundle = personalized_recommendation.generate_personalised_learning_plan(
+            user_id=user["id"],
+            attempts=attempts,
+            problem_catalog=database.list_problems(),
+            keyword_resource_map=KEYWORD_RESOURCE_MAP,
+            default_resources=DEFAULT_KEYWORD_RESOURCES,
+        )
+    except Exception:
+        logger.exception("Failed to generate personalised recommendations for dashboard")
+        personalized_bundle = {}
+
     question_recs: List[Dict[str, Any]] = personalized_bundle.get("question_recommendations") or []
 
-    def _truncate_text(value: Optional[str], limit: int = 36) -> str:
-        if value is None:
-            return ""
-        text = str(value).strip()
-        if len(text) <= limit:
-            return text
-        if limit <= 1:
-            return text[:limit]
-        return text[: limit - 1] + "…"
+    JST = timezone(timedelta(hours=9))
+
+    def _ensure_utc(value: Any) -> Optional[datetime]:
+        if isinstance(value, datetime):
+            dt = value
+        else:
+            dt = _parse_attempt_datetime(value)
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+
+    def _to_jst(value: Any) -> Optional[datetime]:
+        dt = _ensure_utc(value)
+        if dt is None:
+            return None
+        return dt.astimezone(JST)
+
+    def _format_short_datetime(value: Any) -> str:
+        dt = _to_jst(value)
+        if dt is None:
+            return "記録なし"
+        return f"{dt.month}/{dt.day} {dt.hour:02d}:{dt.minute:02d}"
+
+    def _format_short_date(value: Any) -> str:
+        dt = _to_jst(value)
+        if dt is None:
+            return "未設定"
+        return f"{dt.year}/{dt.month:02d}/{dt.day:02d}"
+
+    attempt_datetimes: List[datetime] = []
+    total_score = 0.0
+    total_max = 0.0
+    total_duration_seconds = 0
+
+    for attempt in attempts:
+        dt = _ensure_utc(attempt.get("submitted_at") or attempt.get("started_at"))
+        if dt is not None:
+            attempt_datetimes.append(dt)
+        try:
+            total_score += float(attempt.get("total_score") or 0)
+        except (TypeError, ValueError):
+            pass
+        try:
+            total_max += float(attempt.get("total_max_score") or 0)
+        except (TypeError, ValueError):
+            pass
+        duration_seconds = attempt.get("duration_seconds")
+        if duration_seconds is not None:
+            try:
+                total_duration_seconds += int(duration_seconds)
+            except (TypeError, ValueError):
+                continue
 
     total_attempts = len(attempts)
-    total_score = sum(row["total_score"] or 0 for row in attempts)
-    total_max = sum(row["total_max_score"] or 0 for row in attempts)
-    average_score = round(total_score / total_attempts, 1) if total_attempts else 0
+    average_score = round(total_score / total_attempts, 1) if total_attempts else 0.0
     completion_rate = (total_score / total_max * 100) if total_max else 0.0
+    total_learning_minutes = total_duration_seconds // 60
 
-    total_learning_minutes = sum((row.get("duration_seconds") or 0) for row in attempts) // 60
+    now_utc = datetime.now(timezone.utc)
+    recent_attempt_count = sum(1 for dt in attempt_datetimes if dt and dt >= now_utc - timedelta(days=30))
 
-    level_threshold = gamification.get("level_threshold") or 0
-    level_progress_ratio = (
-        gamification.get("level_progress", 0) / level_threshold if level_threshold else 0
-    )
-    level_progress_percent = max(0.0, min(level_progress_ratio * 100, 100.0))
+    def _calculate_streak(datetimes: Sequence[datetime]) -> int:
+        if not datetimes:
+            return 0
+        active_days = {
+            dt.astimezone(JST).date()
+            for dt in datetimes
+            if isinstance(dt, datetime)
+        }
+        if not active_days:
+            return 0
+        today = datetime.now(JST).date()
+        streak = 0
+        while today - timedelta(days=streak) in active_days:
+            streak += 1
+        return streak
 
-    next_milestone = gamification.get("next_milestone") or 0
-    streak_progress_ratio = (
-        gamification.get("attempts", 0) / next_milestone if next_milestone else 1.0
-    )
-    streak_progress_percent = max(0.0, min(streak_progress_ratio * 100, 100.0))
-    remaining_attempts = max(next_milestone - gamification.get("attempts", 0), 0) if next_milestone else 0
+    streak_days = _calculate_streak(attempt_datetimes)
+    latest_attempt_dt = max(attempt_datetimes) if attempt_datetimes else None
 
-    expected_minutes = max(total_attempts * 45, 180)
-    time_ratio = total_learning_minutes / expected_minutes if expected_minutes else 0.0
-    time_percent = max(0.0, min(time_ratio * 100, 100.0))
+    best_case_label: Optional[str] = None
+    best_case_ratio: Optional[float] = None
+    worst_case_label: Optional[str] = None
+    worst_case_ratio: Optional[float] = None
+    for case_label, values in stats.items():
+        avg_max = values.get("avg_max") or 0.0
+        avg_score = values.get("avg_score") or 0.0
+        try:
+            avg_max_value = float(avg_max)
+            avg_score_value = float(avg_score)
+        except (TypeError, ValueError):
+            continue
+        if not avg_max_value:
+            continue
+        ratio = avg_score_value / avg_max_value * 100
+        if best_case_ratio is None or ratio > best_case_ratio:
+            best_case_ratio = ratio
+            best_case_label = case_label
+        if worst_case_ratio is None or ratio < worst_case_ratio:
+            worst_case_ratio = ratio
+            worst_case_label = case_label
 
-    best_case_label = None
-    best_case_rate = 0.0
-    if stats:
-        case_ratios = [
-            (
-                case_label,
-                (values.get("avg_score", 0) / values.get("avg_max", 0) * 100)
-                if values.get("avg_max")
-                else 0.0,
-            )
-            for case_label, values in stats.items()
-        ]
-        if case_ratios:
-            best_case_label, best_case_rate = max(case_ratios, key=lambda item: item[1])
-
-    metric_cards = [
-        {
-            "label": "演習回数",
-            "value": f"{total_attempts}回",
-            "desc": "これまで解いたケースの累計",
-        },
-        {
-            "label": "平均得点",
-            "value": f"{average_score}点",
-            "desc": "全演習の平均スコア",
-        },
-        {
-            "label": "得点達成率",
-            "value": f"{completion_rate:.0f}%",
-            "desc": "満点に対する平均達成度",
-        },
-        {
-            "label": "得意な事例",
-            "value": best_case_label or "記録なし",
-            "desc": (
-                f"平均達成率 {best_case_rate:.0f}%" if best_case_label else "データが蓄積されると表示されます"
-            ),
-        },
-    ]
-
-    total_answer_count = int(summary_df["attempt_count"].sum()) if not summary_df.empty else total_attempts
-    latest_answer_dt = summary_df["last_attempt_at"].dropna().max() if not summary_df.empty else None
-    latest_answer_label = (
-        _format_datetime_label(latest_answer_dt)
-        if isinstance(latest_answer_dt, (datetime, str))
-        else ("記録なし" if total_attempts else "学習未開始")
-    )
-    active_learning_days = (
-        int(summary_df["last_attempt_at"].dropna().dt.date.nunique()) if not summary_df.empty else 0
-    )
     summary_cards = [
         {
-            "label": "総解答数",
-            "value": f"{total_answer_count}問",
-            "desc": "これまで提出した設問の累計",
+            "icon": "bx bx-calendar-check",
+            "title": "総解答数",
+            "value": f"{total_attempts} 回",
+            "delta_icon": "bx bx-time-five",
+            "delta": f"直近30日 {recent_attempt_count} 回" if total_attempts else "最初の演習を始めましょう",
+            "delta_class": "",
         },
         {
-            "label": "平均得点",
-            "value": f"{average_score:.1f}点" if total_attempts else "0点",
-            "desc": "全演習の平均スコア",
+            "icon": "bx bx-medal",
+            "title": "平均得点",
+            "value": f"{average_score:.1f} 点" if total_attempts else "データなし",
+            "delta_icon": "bx bx-trophy",
+            "delta": (
+                f"最高 {best_case_ratio:.0f}% ({best_case_label})"
+                if best_case_label and best_case_ratio is not None
+                else "得意事例は分析中"
+            ),
+            "delta_class": "",
         },
         {
-            "label": "直近の解答日",
-            "value": latest_answer_label,
-            "desc": "最後に提出した日付",
+            "icon": "bx bx-target-lock",
+            "title": "達成率",
+            "value": f"{completion_rate:.0f}%" if total_max else "0%",
+            "delta_icon": "bx bx-pulse",
+            "delta": (
+                f"累計学習 {_format_duration_minutes(total_learning_minutes)}"
+                if total_learning_minutes
+                else "学習時間を記録しましょう"
+            ),
+            "delta_class": "negative" if completion_rate and completion_rate < 60 else "",
         },
         {
-            "label": "学習継続日数",
-            "value": f"{active_learning_days}日" if active_learning_days else "記録中",
-            "desc": "解答履歴がある学習日",
+            "icon": "bx bx-time-five",
+            "title": "最新学習日",
+            "value": _format_short_date(latest_attempt_dt) if latest_attempt_dt else "未実施",
+            "delta_icon": "bx bx-bolt-circle",
+            "delta": f"連続学習 {streak_days} 日" if streak_days > 1 else "連続学習データなし",
+            "delta_class": "",
         },
     ]
 
-    def _format_question_location(year_value: Any, case_label: Any, order_value: Any) -> str:
-        parts: List[str] = []
-        if year_value:
-            parts.append(_format_reiwa_label(str(year_value)))
-        if case_label:
-            parts.append(str(case_label))
-        if order_value:
-            parts.append(f"設問{int(order_value)}")
-        return " ".join(parts) if parts else "演習"
-
-    latest_summary_entry: Optional[Dict[str, Any]] = None
-    if not summary_df.empty and summary_df["last_attempt_at"].notna().any():
-        latest_summary_entry = (
-            summary_df.sort_values("last_attempt_at", ascending=False).iloc[0].to_dict()
-        )
-
-    continue_focus: Optional[Dict[str, Any]] = None
-    continue_title = "直近の演習はまだありません"
-    continue_desc = "演習を始めるとこちらに続きが表示されます。"
-    if latest_summary_entry and latest_summary_entry.get("question_id"):
-        continue_focus = {
-            "case_label": latest_summary_entry.get("case_label"),
-            "year": latest_summary_entry.get("year"),
-            "question_id": latest_summary_entry.get("question_id"),
+    monthly_metrics: Dict[Tuple[int, int], Dict[str, float]] = defaultdict(
+        lambda: {
+            "score_sum": 0.0,
+            "score_count": 0,
+            "coverage_sum": 0.0,
+            "coverage_count": 0,
+            "time_sum": 0.0,
+            "time_count": 0,
         }
-        continue_title = _format_question_location(
-            latest_summary_entry.get("year"),
-            latest_summary_entry.get("case_label"),
-            latest_summary_entry.get("question_order"),
-        )
-        continue_desc = (
-            f"{_format_datetime_label(latest_summary_entry.get('last_attempt_at'))} 実施"
-        )
-
-    recommended_entry: Optional[Dict[str, Any]] = None
-    recommended_focus: Optional[Dict[str, Any]] = None
-    if question_recs:
-        recommended_entry = question_recs[0]
-    elif unattempted_questions:
-        recommended_entry = unattempted_questions[0]
-
-    recommended_title = "おすすめの問題は準備中です"
-    recommended_desc = "学習データが蓄積されるとレコメンドが表示されます。"
-    if recommended_entry:
-        rec_year = recommended_entry.get("year")
-        rec_case = recommended_entry.get("case_label")
-        rec_order = recommended_entry.get("question_order") or recommended_entry.get(
-            "question_no"
-        )
-        recommended_title = _format_question_location(rec_year, rec_case, rec_order)
-        recommended_desc = recommended_entry.get("reason") or "弱点分析に基づくおすすめ"
-        prompt_preview = _truncate_text(recommended_entry.get("prompt") or "", limit=40)
-        if prompt_preview:
-            recommended_desc = f"{recommended_desc}<br><span class='summary-cta-card__preview'>{prompt_preview}</span>"
-        if recommended_entry.get("question_id"):
-            recommended_focus = {
-                "case_label": rec_case,
-                "year": rec_year,
-                "question_id": recommended_entry.get("question_id"),
-            }
-
-    summary_cards_html = "".join(
-        dedent(
-            f"""
-            <article class="summary-card" role="article">
-                <p class="summary-card__label">{card['label']}</p>
-                <p class="summary-card__value">{card['value']}</p>
-                <p class="summary-card__meta">{card['desc']}</p>
-            </article>
-            """
-        ).strip()
-        for card in summary_cards
     )
 
-    timeline_events = _build_dashboard_timeline_events(attempts)
-    heatmap_context = _get_committee_heatmap_context()
+    for attempt in attempts:
+        dt = _ensure_utc(attempt.get("submitted_at") or attempt.get("started_at"))
+        if dt is None:
+            continue
+        key = (dt.year, dt.month)
+        total_score_value = attempt.get("total_score")
+        total_max_value = attempt.get("total_max_score")
+        score_ratio = None
+        if total_score_value is not None and total_max_value:
+            try:
+                score_ratio = float(total_score_value) / float(total_max_value) * 100
+            except (TypeError, ValueError, ZeroDivisionError):
+                score_ratio = None
+        if score_ratio is not None:
+            monthly_metrics[key]["score_sum"] += score_ratio
+            monthly_metrics[key]["score_count"] += 1
+        duration_seconds = attempt.get("duration_seconds")
+        if duration_seconds is not None:
+            try:
+                minutes = float(duration_seconds) / 60.0
+            except (TypeError, ValueError):
+                minutes = None
+            if minutes is not None:
+                monthly_metrics[key]["time_sum"] += minutes
+                monthly_metrics[key]["time_count"] += 1
 
-    upcoming_reviews = database.list_upcoming_reviews(user_id=user["id"], limit=6)
-    due_review_count = database.count_due_reviews(user_id=user["id"])
-
-    strength_tags = _calculate_strength_tags(stats)
-
-    latest_attempt = attempts[0] if attempts else None
-    next_focus_card = {
-        "icon": "target",
-        "accent": "indigo",
-        "title": "次に集中すべき事例",
-        "value": "最初の演習を始めましょう",
-        "desc": "演習を完了すると優先度が表示されます。",
-    }
-    if stats:
-        focus_case_label = None
-        focus_rate = None
-        for case_label, values in stats.items():
-            if not values.get("avg_max"):
+    for record in keyword_records:
+        q_dt = _ensure_utc(record.get("submitted_at"))
+        if q_dt is None:
+            continue
+        key = (q_dt.year, q_dt.month)
+        coverage = record.get("keyword_coverage")
+        if coverage is None:
+            keyword_hits = record.get("keyword_hits") or {}
+            total_keywords = len(keyword_hits)
+            if total_keywords:
+                coverage = sum(1 for hit in keyword_hits.values() if hit) / total_keywords
+        if coverage is not None:
+            try:
+                coverage_pct = float(coverage) * 100
+            except (TypeError, ValueError):
                 continue
-            ratio = values.get("avg_score", 0) / values.get("avg_max", 0) * 100
-            if focus_rate is None or ratio < focus_rate:
-                focus_rate = ratio
-                focus_case_label = case_label
-        if focus_case_label:
-            next_focus_card = {
-                "icon": "target",
-                "accent": "indigo",
-                "title": "次に集中すべき事例",
-                "value": focus_case_label,
-                "desc": f"平均達成率 {focus_rate:.0f}%。重点復習で底上げしましょう。",
-            }
+            monthly_metrics[key]["coverage_sum"] += coverage_pct
+            monthly_metrics[key]["coverage_count"] += 1
 
-    learning_time_card = {
-        "icon": "clock",
-        "accent": "teal",
-        "title": "累計学習時間",
-        "value": _format_duration_minutes(total_learning_minutes),
-        "desc": "記録された演習・模試の回答時間の合計",
-    }
-    if total_learning_minutes == 0:
-        learning_time_card["value"] = "0分"
-        learning_time_card["desc"] = "初回の演習で学習時間を記録しましょう。"
+    sorted_month_keys = sorted(monthly_metrics.keys())
+    if len(sorted_month_keys) > 12:
+        sorted_month_keys = sorted_month_keys[-12:]
 
-    latest_result_card = {
-        "icon": "trend",
-        "accent": "slate",
-        "title": "直近の結果",
-        "value": "データなし",
-        "desc": "演習を完了すると最新結果が表示されます。",
-    }
-    if latest_attempt:
-        latest_score = latest_attempt.get("total_score") or 0
-        latest_max = latest_attempt.get("total_max_score") or 0
-        latest_ratio = (latest_score / latest_max * 100) if latest_max else 0
-        latest_result_card = {
-            "icon": "trend",
-            "accent": "slate",
-            "title": "直近の結果",
-            "value": f"{latest_score:.0f} / {latest_max:.0f}点 ({latest_ratio:.0f}%)",
-            "desc": f"{_format_datetime_label(latest_attempt.get('submitted_at'))} 実施",
-        }
+    labels: List[str] = []
+    score_series: List[Optional[float]] = []
+    coverage_series: List[Optional[float]] = []
+    time_series: List[Optional[float]] = []
+    for year, month in sorted_month_keys:
+        label = f"{year}/{month:02d}"
+        labels.append(label)
+        stats_row = monthly_metrics[(year, month)]
+        score_value = (
+            round(stats_row["score_sum"] / stats_row["score_count"], 1)
+            if stats_row["score_count"]
+            else None
+        )
+        coverage_value = (
+            round(stats_row["coverage_sum"] / stats_row["coverage_count"], 1)
+            if stats_row["coverage_count"]
+            else None
+        )
+        time_value = (
+            round(stats_row["time_sum"] / stats_row["time_count"], 1)
+            if stats_row["time_count"]
+            else None
+        )
+        score_series.append(score_value)
+        coverage_series.append(coverage_value)
+        time_series.append(time_value)
 
-    latest_feedback_card = {
-        "icon": "bell",
-        "accent": "indigo",
-        "title": "最新のフィードバック",
-        "value": "通知はまだありません",
-        "desc": "演習を完了するとAI採点コメントが届きます。",
+    has_score_data = any(value is not None for value in score_series)
+    has_coverage_data = any(value is not None for value in coverage_series)
+    has_time_data = any(value is not None for value in time_series)
+
+    if not labels:
+        labels = []
+
+    chart_config = {
+        "labels": labels,
+        "datasets": {
+            "score": {
+                "label": "平均得点",
+                "borderColor": "#3057d5",
+                "backgroundColor": "rgba(48, 87, 213, 0.18)",
+                "data": score_series,
+                "tension": 0.34,
+                "fill": True,
+                "yAxisID": "y",
+            },
+            "keyword": {
+                "label": "キーワード網羅率",
+                "borderColor": "#21a179",
+                "backgroundColor": "rgba(33, 161, 121, 0.18)",
+                "data": coverage_series,
+                "tension": 0.32,
+                "fill": True,
+                "yAxisID": "y",
+            },
+            "time": {
+                "label": "平均解答時間 (分)",
+                "borderColor": "#f59f48",
+                "backgroundColor": "rgba(245, 159, 72, 0.22)",
+                "data": time_series,
+                "tension": 0.26,
+                "fill": True,
+                "yAxisID": "y",
+            },
+        },
+        "emptyMessage": "まだ十分なデータがありません。",
     }
-    latest_feedback_record: Optional[Dict[str, Any]] = None
-    for record in reversed(keyword_records):
-        feedback_text = (record.get("feedback") or "").strip()
-        if feedback_text:
-            latest_feedback_record = record
-            break
-    if latest_feedback_record:
-        attempt_id = latest_feedback_record.get("attempt_id")
-        summary = _summarize_feedback_text(latest_feedback_record.get("feedback"), limit=52)
-        if not summary:
-            summary = "採点コメントを確認しましょう"
-        question_number = _normalize_question_number(latest_feedback_record.get("question_order"))
-        case_label = str(latest_feedback_record.get("case_label") or "").strip()
-        year_label = str(latest_feedback_record.get("year") or "").strip()
-        base_parts: List[str] = []
-        if year_label:
-            base_parts.append(year_label)
-        if case_label:
-            base_parts.append(case_label)
-        location_parts = []
-        if base_parts:
-            location_parts.append(" ".join(base_parts))
-        if question_number is not None:
-            location_parts.append(f"設問{question_number}")
-        location_label = " / ".join(part for part in location_parts if part)
-        submitted_label = _format_datetime_label(latest_feedback_record.get("submitted_at"))
-        meta_label = location_label or "フィードバック"
-        if submitted_label and submitted_label != "記録なし":
-            meta_label = f"{meta_label} / {submitted_label} 実施"
-        desc_label = f"{meta_label} / クリックで採点詳細へ"
-        feedback_card = {
-            "icon": "bell",
-            "accent": "indigo",
-            "title": "最新のフィードバック",
-            "value": summary,
-            "desc": desc_label,
-        }
-        if attempt_id is not None:
-            feedback_card["url"] = f"?{urlencode({'nav': 'history', 'attempt': attempt_id})}"
-            aria_parts = []
-            if year_label:
-                aria_parts.append(year_label)
-            if case_label:
-                aria_parts.append(case_label)
-            if question_number is not None:
-                aria_parts.append(f"設問{question_number}")
-            if aria_parts:
-                feedback_card["aria_label"] = " ".join(aria_parts) + " の採点結果へ移動"
+
+    if has_score_data:
+        chart_config["initialKey"] = "score"
+    elif has_coverage_data:
+        chart_config["initialKey"] = "keyword"
+    elif has_time_data:
+        chart_config["initialKey"] = "time"
+    else:
+        chart_config["initialKey"] = None
+
+    chart_facts: List[Tuple[str, str]] = []
+    latest_label = labels[-1] if labels else "データ未登録"
+    chart_facts.append(("bx bx-calendar", f"最新: {latest_label}"))
+    recent_scores = [value for value in score_series if value is not None]
+    if recent_scores:
+        trailing = recent_scores[-3:]
+        chart_facts.append(("bx bx-trending-up", f"直近平均: {sum(trailing) / len(trailing):.1f} 点"))
+    else:
+        chart_facts.append(("bx bx-trending-up", "直近データなし"))
+    if best_case_label and best_case_ratio is not None:
+        chart_facts.append(("bx bx-rocket", f"得意: {best_case_label} ({best_case_ratio:.0f}%)"))
+    else:
+        chart_facts.append(("bx bx-rocket", "得意事例は分析中です"))
+    if worst_case_label and worst_case_ratio is not None:
+        chart_facts.append(("bx bx-bulb", f"伸びしろ: {worst_case_label} ({worst_case_ratio:.0f}%)"))
+    else:
+        chart_facts.append(("bx bx-bulb", "伸びしろ分析にはデータが必要です"))
+
+    def _truncate(text: Optional[str], limit: int = 36) -> str:
+        if not text:
+            return ""
+        normalized = str(text).strip()
+        if len(normalized) <= limit:
+            return normalized
+        if limit <= 1:
+            return normalized[:limit]
+        return normalized[: limit - 1] + "…"
+
+    question_metadata: Dict[int, Dict[str, Any]] = {}
+    for record in keyword_records:
+        question_id = record.get("question_id")
+        if not question_id:
+            continue
+        submitted_at = _ensure_utc(record.get("submitted_at"))
+        metadata = question_metadata.setdefault(question_id, {})
+        if submitted_at and (
+            metadata.get("submitted_at") is None or submitted_at > metadata.get("submitted_at")
+        ):
+            metadata.update(
+                {
+                    "submitted_at": submitted_at,
+                    "score": record.get("score"),
+                    "max_score": record.get("max_score"),
+                    "keyword_coverage": record.get("keyword_coverage"),
+                    "keyword_hits": record.get("keyword_hits"),
+                    "prompt": record.get("prompt"),
+                    "case_label": record.get("case_label"),
+                    "year": record.get("year"),
+                    "title": record.get("title"),
+                    "question_order": record.get("question_order"),
+                }
+            )
+            duration_seconds = record.get("duration_seconds")
+            if duration_seconds is not None:
+                try:
+                    metadata["duration_minutes"] = float(duration_seconds) / 60.0
+                except (TypeError, ValueError):
+                    metadata["duration_minutes"] = None
+
+    recent_questions: List[Dict[str, Any]] = question_progress.get("recent_questions", [])
+    for entry in recent_questions:
+        question_id = entry.get("question_id")
+        if not question_id:
+            continue
+        metadata = question_metadata.setdefault(question_id, {})
+        metadata.setdefault("case_label", entry.get("case_label"))
+        metadata.setdefault("year", entry.get("year"))
+        metadata.setdefault("title", entry.get("title"))
+        metadata.setdefault("question_order", entry.get("question_order"))
+        metadata.setdefault("prompt", entry.get("prompt"))
+        metadata["problem_id"] = entry.get("problem_id")
+        metadata["last_practiced_at"] = _ensure_utc(entry.get("last_practiced_at"))
+        metadata["due_at"] = _ensure_utc(entry.get("due_at"))
+
+    def _build_summary_cards_html() -> str:
+        parts: List[str] = []
+        for card in summary_cards:
+            delta_class = f" {card['delta_class']}" if card.get("delta_class") else ""
+            delta_html = (
+                f"<span class='delta{delta_class}'><i class='{card['delta_icon']}'></i>{html.escape(card['delta'])}</span>"
+                if card.get("delta")
+                else ""
+            )
+            parts.append(
+                dedent(
+                    f"""
+                    <article class="summary-card">
+                      <div class="icon-wrapper"><i class="{card['icon']}"></i></div>
+                      <h3>{html.escape(card['title'])}</h3>
+                      <strong>{html.escape(card['value'])}</strong>
+                      {delta_html}
+                    </article>
+                    """
+                ).strip()
+            )
+        if parts:
+            return "\n".join(parts)
+        return "<div class='empty-state'>学習記録がまだありません。最初の演習を登録するとダッシュボードが表示されます。</div>"
+
+    summary_cards_html = _build_summary_cards_html()
+
+    chart_facts_html = "\n".join(
+        f"<span><i class=\"{icon}\"></i> {html.escape(text)}</span>" for icon, text in chart_facts
+    )
+    if not chart_facts_html:
+        chart_facts_html = "<span>データがまだありません。</span>"
+
+    recent_items: List[str] = []
+    for item in recent_questions:
+        question_id = item.get("question_id")
+        metadata = question_metadata.get(question_id, {})
+        year_label = item.get("year") or metadata.get("year") or "―"
+        case_label = item.get("case_label") or metadata.get("case_label") or "事例"
+        question_number = item.get("question_order") or metadata.get("question_order")
+        header_label = f"{year_label} 年度 {case_label}"
+        if question_number:
+            header_label += f" 第 {question_number} 問"
+        tag_label = "最新記録"
+        due_at = metadata.get("due_at")
+        if due_at:
+            if due_at <= now_utc:
+                tag_label = "復習期限"
             else:
-                feedback_card["aria_label"] = "採点結果ページへ移動"
-        latest_feedback_card = feedback_card
+                tag_label = "復習予定"
+        score_value = metadata.get("score")
+        max_score_value = metadata.get("max_score")
+        score_icon = "bx bx-timer"
+        score_tone = "info"
+        score_text = "未採点"
+        if score_value is not None and max_score_value:
+            try:
+                ratio = float(score_value) / float(max_score_value) * 100
+            except (TypeError, ValueError, ZeroDivisionError):
+                ratio = None
+            if ratio is not None:
+                score_text = f"{float(score_value):.0f} / {float(max_score_value):.0f} 点"
+                if ratio >= 60:
+                    score_icon = "bx bx-trophy"
+                else:
+                    score_icon = "bx bx-low-vision"
+                    score_tone = "warning"
+        elif score_value is not None:
+            score_text = f"{float(score_value):.0f} 点"
+        score_chip_html = (
+            f"<span class='score-chip' data-tone='{score_tone}'><i class='{score_icon}'></i> {html.escape(score_text)}</span>"
+        )
+        meta_parts = [score_chip_html]
+        meta_parts.append(
+            f"<span><i class='bx bx-time-five'></i> {_format_short_datetime(metadata.get('last_practiced_at'))}</span>"
+        )
+        keyword_coverage = metadata.get("keyword_coverage")
+        if keyword_coverage is not None:
+            try:
+                coverage_pct = float(keyword_coverage) * 100
+            except (TypeError, ValueError):
+                coverage_pct = None
+            if coverage_pct is not None:
+                meta_parts.append(
+                    f"<span><i class='bx bx-brain'></i> 網羅 {coverage_pct:.1f}%</span>"
+                )
+        prompt_preview = _truncate(metadata.get("prompt"), limit=40)
+        if prompt_preview:
+            meta_parts.append(
+                f"<span><i class='bx bx-book-open'></i> {html.escape(prompt_preview)}</span>"
+            )
+        due_label = ""
+        if due_at:
+            status = "期限超過" if due_at <= now_utc else "次回復習"
+            due_label = f"<span><i class='bx bx-bell'></i> {status}: {_format_short_date(due_at)}</span>"
+        else:
+            due_label = (
+                f"<span><i class='bx bx-history'></i> {_format_short_datetime(metadata.get('last_practiced_at'))}</span>"
+            )
+        practice_payload = {
+            "case_label": case_label,
+            "year": year_label,
+            "question_id": question_id,
+        }
+        if None in practice_payload.values():
+            action_html = "<span><i class='bx bx-link'></i> 問題データ未連携</span>"
+        else:
+            payload_attr = html.escape(json.dumps(practice_payload, ensure_ascii=False), quote=True)
+            action_html = (
+                f"<a href='#' data-action='open-practice' data-payload='{payload_attr}'><i class='bx bx-link-external'></i>問題へ移動</a>"
+            )
+        recent_items.append(
+            dedent(
+                f"""
+                <article class="card-item">
+                  <h3>
+                    {html.escape(header_label)}
+                    <span class="tag">{html.escape(tag_label)}</span>
+                  </h3>
+                  <div class="meta-line">
+                    {'\n                    '.join(meta_parts)}
+                  </div>
+                  <div class="card-actions">
+                    {due_label}
+                    {action_html}
+                  </div>
+                </article>
+                """
+            ).strip()
+        )
 
-    toc_items = [
-        ("kpi-lane", "KPI"),
-        ("progress-lane", "進捗"),
-        ("notification-lane", "通知"),
-        ("analysis-lane", "ヒートマップ"),
-        ("insight-lane", "洞察"),
-    ]
-    toc_html = "".join(
-        f"<a href='#" + item_id + f"' class='dashboard-toc__link' data-target='{item_id}' aria-current='false'>{label}</a>"
-        for item_id, label in toc_items
+    if recent_items:
+        recent_items_html = "\n".join(recent_items)
+    else:
+        recent_items_html = "<div class='empty-state'>最近の記録がまだありません。演習を開始すると表示されます。</div>"
+
+    recommended_items: List[str] = []
+    for entry in question_recs:
+        question_id = entry.get("question_id")
+        metadata = question_metadata.get(question_id, {})
+        year_label = entry.get("year") or metadata.get("year") or "―"
+        case_label = entry.get("case_label") or metadata.get("case_label") or "事例"
+        question_number = metadata.get("question_order")
+        header_label = f"{year_label} 年度 {case_label}"
+        if question_number:
+            header_label += f" 第 {question_number} 問"
+        missing_keywords = entry.get("missing_keywords") or []
+        if missing_keywords:
+            tag_label = f"要強化: {missing_keywords[0]}"
+        else:
+            tag_label = "AI 推薦"
+        score_ratio = entry.get("score_ratio")
+        if score_ratio is not None:
+            try:
+                score_pct = float(score_ratio) * 100
+            except (TypeError, ValueError):
+                score_pct = None
+        else:
+            score_pct = None
+        if score_pct is not None:
+            if score_pct >= 60:
+                score_chip_html = (
+                    f"<span class='score-chip'><i class='bx bx-trophy'></i> 得点率 {score_pct:.0f}%</span>"
+                )
+            else:
+                score_chip_html = (
+                    f"<span class='score-chip' data-tone='warning'><i class='bx bx-low-vision'></i> 得点率 {score_pct:.0f}%</span>"
+                )
+        else:
+            score_chip_html = "<span class='score-chip' data-tone='info'><i class='bx bx-joystick'></i> 未挑戦</span>"
+        duration_minutes = entry.get("duration_minutes")
+        duration_label = (
+            f"想定 {duration_minutes:.0f} 分"
+            if isinstance(duration_minutes, (int, float)) and duration_minutes > 0
+            else "想定 40 分"
+        )
+        meta_parts = [score_chip_html]
+        meta_parts.append(f"<span><i class='bx bx-time'></i> {duration_label}</span>")
+        if missing_keywords:
+            meta_parts.append(
+                f"<span><i class='bx bx-target-lock'></i> 欠落 {html.escape(', '.join(missing_keywords[:2]))}</span>"
+            )
+        reason_text = entry.get("reason") or "復習推奨"
+        practice_payload = {
+            "case_label": case_label,
+            "year": year_label,
+            "question_id": question_id,
+        }
+        if None in practice_payload.values():
+            action_html = "<span><i class='bx bx-link'></i> 問題データ未連携</span>"
+        else:
+            payload_attr = html.escape(json.dumps(practice_payload, ensure_ascii=False), quote=True)
+            action_html = (
+                f"<a href='#' data-action='open-practice' data-payload='{payload_attr}'><i class='bx bx-play-circle'></i>演習を開始</a>"
+            )
+        recommended_items.append(
+            dedent(
+                f"""
+                <article class="card-item">
+                  <h3>
+                    {html.escape(header_label)}
+                    <span class="tag">{html.escape(tag_label)}</span>
+                  </h3>
+                  <div class="meta-line">
+                    {'\n                    '.join(meta_parts)}
+                  </div>
+                  <div class="card-actions">
+                    <span><i class='bx bx-bulb'></i> {html.escape(reason_text)}</span>
+                    {action_html}
+                  </div>
+                </article>
+                """
+            ).strip()
+        )
+
+    if recommended_items:
+        recommended_items_html = "\n".join(recommended_items)
+    else:
+        recommended_items_html = "<div class='empty-state'>おすすめ問題は現在ありません。演習を続けると弱点に応じて提示されます。</div>"
+
+    template = HOME_DASHBOARD_HTML_PATH.read_text(encoding="utf-8")
+    replacements = {
+        "{{SUMMARY_CARDS}}": summary_cards_html,
+        "{{CHART_FACTS}}": chart_facts_html,
+        "{{RECENT_ITEMS}}": recent_items_html,
+        "{{RECOMMENDED_ITEMS}}": recommended_items_html,
+        "{{CHART_CONFIG}}": json.dumps(chart_config, ensure_ascii=False),
+    }
+    for placeholder, value in replacements.items():
+        template = template.replace(placeholder, value)
+
+    component_value = components.html(
+        template,
+        height=1040,
+        scrolling=True,
+        key="home_dashboard_html",
     )
-    st.markdown(
-        f"<nav class='dashboard-toc' aria-label='ページ内ナビゲーション'>{toc_html}</nav>",
-        unsafe_allow_html=True,
-    )
 
-    def _navigate_to_practice(focus: Optional[Dict[str, Any]] = None) -> None:
-        st.session_state["navigation_selection"] = "過去問演習"
-        st.session_state["page"] = "過去問演習"
-        if focus:
-            st.session_state["practice_focus"] = focus
-        st.experimental_rerun()
-
-    grid_container = st.container()
-    with grid_container:
-        st.markdown("<div class='dashboard-grid'>", unsafe_allow_html=True)
-
-        st.markdown(
-            dedent(
-                f"""
-                <section class="dashboard-lane dashboard-lane--summary" id="summary-lane" data-section-id="summary-lane" role="region" aria-labelledby="summary-lane-title">
-                    <header class="dashboard-lane__header">
-                        <h2 id="summary-lane-title" class="dashboard-lane__title">進捗サマリー</h2>
-                        <p class="dashboard-lane__subtitle">最新の解答状況とおすすめアクションをダッシュボードで確認できます。</p>
-                    </header>
-                    <div class="dashboard-card card--tone-sand summary-metrics-card" role="group" aria-label="進捗指標">
-                        <div class="summary-card-grid">{summary_cards_html}</div>
-                    </div>
-                """
-            ),
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            "<div class='dashboard-card card--tone-blue summary-cta-card' role='group' aria-label='学習の続きとおすすめ'>",
-            unsafe_allow_html=True,
-        )
-        cta_cols = st.columns(2, gap="large")
-        with cta_cols[0]:
-            st.markdown("<div class='summary-cta-card__item'>", unsafe_allow_html=True)
-            st.markdown(
-                f"<p class='summary-cta-card__eyebrow'>続き</p><h3 class='summary-cta-card__title'>{continue_title}</h3><p class='summary-cta-card__meta'>{continue_desc}</p>",
-                unsafe_allow_html=True,
-            )
-            if st.button("続きから解く", key="dashboard_continue", use_container_width=True, disabled=continue_focus is None):
-                _navigate_to_practice(continue_focus)
-            st.markdown("</div>", unsafe_allow_html=True)
-        with cta_cols[1]:
-            st.markdown("<div class='summary-cta-card__item'>", unsafe_allow_html=True)
-            st.markdown(
-                f"<p class='summary-cta-card__eyebrow'>おすすめ</p><h3 class='summary-cta-card__title'>{recommended_title}</h3><p class='summary-cta-card__meta'>{recommended_desc}</p>",
-                unsafe_allow_html=True,
-            )
-            if st.button("次に解く問題", key="dashboard_recommend", use_container_width=True, disabled=recommended_focus is None):
-                _navigate_to_practice(recommended_focus)
-            st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown(
-            "<div class='dashboard-card card--tone-slate summary-analytics-card' role='group' aria-label='学習分析'>",
-            unsafe_allow_html=True,
-        )
-        if summary_df.empty:
-            st.info("学習データがまだありません。演習を開始するとグラフが表示されます。", icon="📝")
-            filtered_summary_df = summary_df
-        else:
-            year_options = sorted({str(year) for year in summary_df["year"].dropna()})
-            case_options = sorted({str(case) for case in summary_df["case_label"].dropna()})
-            type_options = sorted({str(qtype) for qtype in summary_df["question_type"].dropna()})
-            score_band_options = ["80%以上", "60〜79%", "40〜59%", "40%未満", "未計測"]
-            with st.expander("フィルタ・検索パネル", expanded=False):
-                filter_cols = st.columns(2)
-                with filter_cols[0]:
-                    selected_years = st.multiselect(
-                        "年度",
-                        year_options,
-                        default=year_options,
-                        key="dashboard_filter_years",
-                    )
-                    selected_types = st.multiselect(
-                        "設問タイプ",
-                        type_options,
-                        default=type_options,
-                        key="dashboard_filter_types",
-                    )
-                with filter_cols[1]:
-                    selected_cases = st.multiselect(
-                        "事例",
-                        case_options,
-                        default=case_options,
-                        key="dashboard_filter_cases",
-                    )
-                    selected_scores = st.multiselect(
-                        "得点帯",
-                        score_band_options,
-                        default=score_band_options,
-                        key="dashboard_filter_scores",
-                    )
-                search_query = st.text_input(
-                    "キーワード検索",
-                    key="dashboard_filter_query",
-                    placeholder="企業名・テーマ・メモで検索",
-                )
-
-            filtered_summary_df = summary_df.copy()
-            if selected_years:
-                filtered_summary_df = filtered_summary_df[
-                    filtered_summary_df["year"].astype(str).isin(selected_years)
-                ]
-            if selected_cases:
-                filtered_summary_df = filtered_summary_df[
-                    filtered_summary_df["case_label"].astype(str).isin(selected_cases)
-                ]
-            if selected_types:
-                filtered_summary_df = filtered_summary_df[
-                    filtered_summary_df["question_type"].astype(str).isin(selected_types)
-                ]
-            if selected_scores:
-                filtered_summary_df = filtered_summary_df[
-                    filtered_summary_df["score_band"].isin(selected_scores)
-                ]
-            if search_query:
-                normalized = search_query.strip().lower()
-                if normalized:
-                    filtered_summary_df = filtered_summary_df[
-                        filtered_summary_df.apply(
-                            lambda row: normalized
-                            in " ".join(
-                                str(value).lower()
-                                for value in [
-                                    row.get("case_label"),
-                                    row.get("question_type"),
-                                    row.get("score_band"),
-                                ]
-                                if value
-                            ),
-                            axis=1,
-                        )
-                    ]
-
-        if filtered_summary_df.empty:
-            st.warning("条件に一致するデータがありません。フィルタを調整してください。", icon="🔍")
-        else:
-            percent_series = filtered_summary_df["avg_ratio"].apply(
-                lambda value: float(value) * 100 if value is not None and float(value) <= 1 else float(value)
-            )
-            filtered_summary_df = filtered_summary_df.assign(avg_ratio_percent=percent_series)
-
-            yearly_df = (
-                filtered_summary_df.dropna(subset=["avg_ratio_percent", "year"])
-                .groupby("year", as_index=False)["avg_ratio_percent"].mean()
-                .sort_values("year")
-            )
-            type_df = (
-                filtered_summary_df.dropna(subset=["avg_ratio_percent", "question_type"])
-                .groupby("question_type", as_index=False)["avg_ratio_percent"].mean()
-                .sort_values("avg_ratio_percent", ascending=False)
-            )
-            theme_counter: Counter[str] = Counter()
-            for themes in filtered_summary_df["themes"]:
-                for theme in themes:
-                    if theme:
-                        theme_counter[str(theme)] += 1
-            theme_df = pd.DataFrame(
-                [{"theme": label, "count": count} for label, count in theme_counter.items()]
-            )
-
-            chart_cols = st.columns(3, gap="large")
-            with chart_cols[0]:
-                if yearly_df.empty:
-                    st.caption("年度別の得点推移を表示するには演習データが必要です。")
-                else:
-                    line_chart = (
-                        alt.Chart(yearly_df)
-                        .mark_line(point=True, color="#2563eb")
-                        .encode(
-                            x=alt.X("year:N", title="年度"),
-                            y=alt.Y("avg_ratio_percent:Q", title="平均得点率(%)", scale=alt.Scale(domain=[0, 100])),
-                            tooltip=["year:N", alt.Tooltip("avg_ratio_percent:Q", title="平均得点率", format=".1f")],
-                        )
-                        .properties(height=240)
-                    )
-                    st.altair_chart(line_chart, use_container_width=True)
-            with chart_cols[1]:
-                if type_df.empty:
-                    st.caption("設問タイプ別のデータが不足しています。")
-                else:
-                    bar_chart = (
-                        alt.Chart(type_df)
-                        .mark_bar(color="#14b8a6")
-                        .encode(
-                            y=alt.Y("question_type:N", title="設問タイプ", sort="-x"),
-                            x=alt.X("avg_ratio_percent:Q", title="平均得点率(%)", scale=alt.Scale(domain=[0, 100])),
-                            tooltip=[
-                                alt.Tooltip("question_type:N", title="タイプ"),
-                                alt.Tooltip("avg_ratio_percent:Q", title="平均得点率", format=".1f"),
-                            ],
-                        )
-                        .properties(height=240)
-                    )
-                    st.altair_chart(bar_chart, use_container_width=True)
-            with chart_cols[2]:
-                if theme_df.empty:
-                    st.caption("テーマ別の出題割合は現在集計中です。")
-                else:
-                    theme_df = theme_df.sort_values("count", ascending=False)
-                    pie_chart = (
-                        alt.Chart(theme_df)
-                        .mark_arc(innerRadius=40)
-                        .encode(
-                            theta=alt.Theta("count:Q", stack=True),
-                            color=alt.Color("theme:N", title="テーマ"),
-                            tooltip=[
-                                alt.Tooltip("theme:N", title="テーマ"),
-                                alt.Tooltip("count:Q", title="出題数"),
-                            ],
-                        )
-                        .properties(height=240)
-                    )
-                    st.altair_chart(pie_chart, use_container_width=True)
-        st.markdown("</div></section>", unsafe_allow_html=True)
-
-        kpi_tiles_html = []
-        kpi_tiles_html.append(
-            dedent(
-                f"""
-                <article class="kpi-tile" data-tone="blue" role="article">
-                    <p class="kpi-tile__label">累計ポイント</p>
-                    <p class="kpi-tile__value">{gamification['points']} pt</p>
-                    <p class="kpi-tile__meta">レベル{gamification['level']} / 次のレベルまであと {gamification['points_to_next_level']} pt</p>
-                    <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{level_progress_percent:.0f}" aria-label="次のレベルまで">
-                        <span class="progress-bar__label">次のレベルまで</span>
-                        <div class="progress-bar__track" aria-hidden="true">
-                            <div class="progress-bar__fill" style="--progress: {level_progress_percent:.0f}%"></div>
-                        </div>
-                        <span class="progress-bar__value">{level_progress_percent:.0f}%</span>
-                    </div>
-                </article>
-                """
-            ).strip()
-        )
-        streak_caption = (
-            f"次の称号まであと {remaining_attempts} 回の演習"
-            if next_milestone
-            else "最高ランクに到達しました！継続おめでとうございます。"
-        )
-        kpi_tiles_html.append(
-            dedent(
-                f"""
-                <article class="kpi-tile" data-tone="green" role="article">
-                    <p class="kpi-tile__label">連続学習日数</p>
-                    <p class="kpi-tile__value">{gamification['current_streak']}日</p>
-                    <p class="kpi-tile__meta">{streak_caption}</p>
-                    <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{streak_progress_percent:.0f}" aria-label="称号達成まで">
-                        <span class="progress-bar__label">称号達成まで</span>
-                        <div class="progress-bar__track" aria-hidden="true">
-                            <div class="progress-bar__fill" data-tone="yellow" style="--progress: {streak_progress_percent:.0f}%"></div>
-                        </div>
-                        <span class="progress-bar__value">{streak_progress_percent:.0f}%</span>
-                    </div>
-                </article>
-                """
-            ).strip()
-        )
-        badges = gamification.get("badges") or []
-        if badges:
-            badge_items = "".join(
-                f"<li><span>🏅</span><span>{badge['title']}</span></li>" for badge in badges[:4]
-            )
-            badge_meta = "直近の獲得バッジ"
-        else:
-            badge_items = "<li>バッジはまだありません。演習や模試で獲得を目指しましょう。</li>"
-            badge_meta = "実績が増えるとバッジが表示されます"
-        kpi_tiles_html.append(
-            dedent(
-                f"""
-                <article class="kpi-tile" data-tone="pink" role="article">
-                    <p class="kpi-tile__label">バッジコレクション</p>
-                    <p class="kpi-tile__value">{len(badges)}種</p>
-                    <p class="kpi-tile__meta">{badge_meta}</p>
-                    <ul class="kpi-tile__badges" aria-label="獲得バッジ一覧">{badge_items}</ul>
-                </article>
-                """
-            ).strip()
-        )
-        kpi_section_html = dedent(
-            f"""
-            <section class="dashboard-lane dashboard-lane--kpi" id="kpi-lane" data-section-id="kpi-lane" role="region" aria-labelledby="kpi-lane-title">
-                <header class="dashboard-lane__header">
-                    <h2 id="kpi-lane-title" class="dashboard-lane__title">KPIレーン</h2>
-                    <p class="dashboard-lane__subtitle">ポイントと連続学習の到達度をひと目で確認できます。</p>
-                </header>
-                <div class="dashboard-card card--tone-blue" role="group" aria-label="ポイントと連続学習の指標">
-                    <div class="kpi-tiles">
-                        {''.join(kpi_tiles_html)}
-                    </div>
-                </div>
-            </section>
-            """
-        )
-        st.markdown(kpi_section_html, unsafe_allow_html=True)
-
-        total_questions = question_progress.get("total_questions", 0)
-        studied_questions = question_progress.get("studied_questions", 0)
-        question_progress_percent = (
-            max(0.0, min(question_progress.get("progress_ratio", 0.0) * 100, 100.0))
-            if total_questions
-            else 0.0
-        )
-
-        progress_bars = [
-            {
-                "label": "設問カバレッジ",
-                "value": f"{question_progress_percent:.0f}%",
-                "progress": question_progress_percent,
-                "tone": "green",
-                "helper": f"{studied_questions} / {total_questions} 設問",
-            },
-            {
-                "label": "得点達成率",
-                "value": f"{completion_rate:.0f}%",
-                "progress": max(0.0, min(completion_rate, 100.0)),
-                "tone": "green",
-                "helper": f"平均 {average_score:.1f} 点",
-            },
-            {
-                "label": "次のレベルまで",
-                "value": f"{level_progress_percent:.0f}%",
-                "progress": level_progress_percent,
-                "tone": "blue",
-                "helper": f"あと {gamification['points_to_next_level']} pt",
-            },
-            {
-                "label": "称号達成まで",
-                "value": f"{streak_progress_percent:.0f}%",
-                "progress": streak_progress_percent,
-                "tone": "yellow",
-                "helper": f"残り {remaining_attempts} 回" if next_milestone else "達成済",
-            },
-            {
-                "label": "学習時間目安",
-                "value": f"{time_percent:.0f}%",
-                "progress": time_percent,
-                "tone": "blue",
-                "helper": f"{total_learning_minutes}分 / 目安 {expected_minutes}分",
-            },
-        ]
-        progress_bars_html = "".join(
-            dedent(
-                f"""
-                <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{bar['progress']:.0f}" aria-label="{bar['label']}" data-tone="{bar['tone']}">
-                    <span class="progress-bar__label">{bar['label']}</span>
-                    <div class="progress-bar__track" aria-hidden="true">
-                        <div class="progress-bar__fill" style="--progress: {bar['progress']:.0f}%"></div>
-                    </div>
-                    <span class="progress-bar__value">{bar['value']}</span>
-                    <span class="progress-bar__helper">{bar['helper']}</span>
-                </div>
-                """
-            ).strip()
-            for bar in progress_bars
-        )
-        metric_chips_html = "".join(
-            dedent(
-                f"""
-                <div class="metric-chip">
-                    <div class="metric-chip__label">{card['label']}</div>
-                    <p class="metric-chip__value">{card['value']}</p>
-                    <p class="metric-chip__desc">{card['desc']}</p>
-                </div>
-                """
-            ).strip()
-            for card in metric_cards
-        )
-        progress_section_html = dedent(
-            f"""
-            <section class="dashboard-lane" id="progress-lane" data-section-id="progress-lane" role="region" aria-labelledby="progress-lane-title">
-                <header class="dashboard-lane__header">
-                    <h2 id="progress-lane-title" class="dashboard-lane__title">進捗レーン</h2>
-                    <p class="dashboard-lane__subtitle">主要指標の進捗と履歴を一覧できます。</p>
-                </header>
-                <div class="dashboard-card card--tone-green" role="group" aria-label="進捗バー群">
-                    <div class="progress-grid">
-                        {progress_bars_html}
-                    </div>
-                    <div class="metric-grid">
-                        {metric_chips_html}
-                    </div>
-                </div>
-            </section>
-            """
-        )
-        st.markdown(progress_section_html, unsafe_allow_html=True)
-
-        accuracy_df = _build_accuracy_trend_df(attempts)
-        case_perf_df = _build_case_performance_df(attempts)
-        if not accuracy_df.empty or not case_perf_df.empty:
-            st.markdown(
-                dedent(
-                    """
-                    <section class="dashboard-lane" id="growth-lane" data-section-id="growth-lane" role="region" aria-labelledby="growth-lane-title">
-                        <header class="dashboard-lane__header">
-                            <h2 id="growth-lane-title" class="dashboard-lane__title">学習成長ダッシュボード</h2>
-                            <p class="dashboard-lane__subtitle">得点推移と事例別の成果をグラフで可視化します。</p>
-                        </header>
-                        <div class="dashboard-card card--tone-slate">
-                    """
-                ),
-                unsafe_allow_html=True,
-            )
-            if not accuracy_df.empty:
-                trend_chart = (
-                    alt.Chart(accuracy_df)
-                    .mark_line(point=alt.OverlayMarkDef(size=70, fill="#4338ca"), color="#6366f1")
-                    .encode(
-                        x=alt.X("submitted_at:T", title="実施日"),
-                        y=alt.Y("score_ratio:Q", title="得点率（%）", scale=alt.Scale(domain=[0, 100])),
-                        tooltip=[
-                            alt.Tooltip("submitted_at:T", title="実施日"),
-                            alt.Tooltip("score_ratio:Q", title="得点率(%)", format=".1f"),
-                            alt.Tooltip("rolling_avg:Q", title="3回移動平均", format=".1f"),
-                            alt.Tooltip("case_label:N", title="事例"),
-                            alt.Tooltip("title:N", title="ケース"),
-                        ],
-                    )
-                    .properties(height=280)
-                )
-                rolling_chart = (
-                    alt.Chart(accuracy_df)
-                    .mark_line(strokeDash=[6, 4], color="#0f766e")
-                    .encode(
-                        x="submitted_at:T",
-                        y="rolling_avg:Q",
-                        tooltip=[
-                            alt.Tooltip("rolling_avg:Q", title="3回移動平均", format=".1f"),
-                            alt.Tooltip("submitted_at:T", title="実施日"),
-                        ],
-                    )
-                )
-                st.altair_chart(trend_chart + rolling_chart, use_container_width=True)
-                st.caption("折れ線は各演習の得点率、点線は直近3回の移動平均です。右肩上がりなら学習の伸びが定着しています。")
-            if not case_perf_df.empty:
-                case_chart = (
-                    alt.Chart(case_perf_df)
-                    .mark_bar(color="#6366f1")
-                    .encode(
-                        x=alt.X("case_label:N", title="事例"),
-                        y=alt.Y("avg_ratio:Q", title="平均得点率（%）", scale=alt.Scale(domain=[0, 100])),
-                        tooltip=[
-                            alt.Tooltip("case_label:N", title="事例"),
-                            alt.Tooltip("avg_ratio:Q", title="平均得点率(%)", format=".1f"),
-                            alt.Tooltip("attempt_count:Q", title="演習回数"),
-                            alt.Tooltip("last_practiced:T", title="最終実施"),
-                        ],
-                    )
-                    .properties(height=260)
-                )
-                case_text = (
-                    alt.Chart(case_perf_df)
-                    .mark_text(dy=-12, color="#0f172a", fontWeight="bold")
-                    .encode(
-                        x="case_label:N",
-                        y="avg_ratio:Q",
-                        text="attempt_label:N",
-                    )
-                )
-                st.altair_chart(case_chart + case_text, use_container_width=True)
-                st.caption("棒グラフの数値は各事例の平均得点率。ラベルは累積演習回数です。苦手な事例の回数とスコアを可視化しました。")
-            st.markdown("</div></section>", unsafe_allow_html=True)
-
-        unattempted_count = max(total_questions - studied_questions, 0)
-        if total_questions:
-            progress_meter_html = dedent(
-                f"""
-                <div class="study-progress-meter" role="group" aria-label="設問カバレッジの進捗">
-                    <div class="study-progress-meter__header">
-                        <span class="study-progress-meter__title">学習済み設問</span>
-                        <span class="study-progress-meter__value">{studied_questions} / {total_questions}</span>
-                    </div>
-                    <div class="study-progress-meter__track" aria-hidden="true">
-                        <div class="study-progress-meter__fill" style="--progress: {question_progress_percent:.0f}%"></div>
-                    </div>
-                    <div class="study-progress-meter__footer">
-                        <span class="study-progress-meter__ratio">{question_progress_percent:.0f}%</span>
-                        <span class="study-progress-meter__helper">未演習 {unattempted_count} 設問</span>
-                    </div>
-                </div>
-                """
-            ).strip()
-        else:
-            progress_meter_html = (
-                "<p class='notification-empty'>問題データが登録されていません。</p>"
-            )
-
-        notification_groups: List[str] = []
-        now = datetime.now(timezone.utc)
-
-        if due_review_items:
-            due_items_html = "".join(
-                dedent(
-                    f"""
-                    <li class="notification-item" role="listitem">
-                        <span class="notification-item__badge" data-tone="alert">{'期限超過' if item['due_at'] <= now else '復習'}</span>
-                        <div class="notification-item__body">
-                            <span class="notification-item__title">{html.escape(f"{item['year']} {item['case_label']}")}</span>
-                            <span class="notification-item__subtitle">{html.escape(_truncate_text(item['title'], 38))}</span>
-                            <span class="notification-item__meta">期限: {item['due_at'].strftime('%Y-%m-%d')}</span>
-                            <span class="notification-item__meta">推奨 {item['recommended_items']}問 / 約{item['recommended_minutes']}分</span>
-                        </div>
-                    </li>
-                    """
-                ).strip()
-                for item in due_review_items
-            )
-            notification_groups.append(
-                dedent(
-                    """
-                    <div class="notification-group" data-tone="alert" role="group" aria-label="復習リマインダー">
-                        <span class="notification-group__title">復習リマインダー</span>
-                        <ul class="notification-list" role="list">
-                            {items}
-                        </ul>
-                    </div>
-                    """
-                ).strip().format(items=due_items_html)
-            )
-
-        if unattempted_questions:
-            unattempted_html = "".join(
-                dedent(
-                    f"""
-                    <li class="notification-item" role="listitem">
-                        <span class="notification-item__badge" data-tone="info">未着手</span>
-                        <div class="notification-item__body">
-                            <span class="notification-item__title">{html.escape(f"{item.get('year', '')} {item.get('case_label', '')}")}</span>
-                            <span class="notification-item__subtitle">設問{item['question_order']} | {html.escape(_truncate_text(item['prompt'], 38))}</span>
-                            <span class="notification-item__meta">『{html.escape(_truncate_text(item['title'], 26))}』</span>
-                        </div>
-                    </li>
-                    """
-                ).strip()
-                for item in unattempted_questions
-            )
-            notification_groups.append(
-                dedent(
-                    """
-                    <div class="notification-group" data-tone="info" role="group" aria-label="未着手の設問">
-                        <span class="notification-group__title">未着手の設問</span>
-                        <ul class="notification-list" role="list">
-                            {items}
-                        </ul>
-                    </div>
-                    """
-                ).strip().format(items=unattempted_html)
-            )
-
-        recent_records = question_progress.get("recent_questions", [])
-        if recent_records:
-            recent_html = []
-            for record in recent_records:
-                subtitle = f"設問{record['question_order']} | {_truncate_text(record['prompt'], 38)}"
-                meta_parts = []
-                if record.get("last_practiced_at"):
-                    meta_parts.append(
-                        f"最終 {record['last_practiced_at'].strftime('%Y-%m-%d %H:%M')}"
-                    )
-                if record.get("due_at"):
-                    due_state = "期限超過" if record["due_at"] <= now else "次回"
-                    due_label = (
-                        f"{due_state}: {record['due_at'].strftime('%Y-%m-%d')}"
-                    )
-                    meta_parts.append(due_label)
-                meta_html = "".join(
-                    f"<span class='notification-item__meta'>{html.escape(part)}</span>"
-                    for part in meta_parts
-                )
-                recent_html.append(
-                    dedent(
-                        f"""
-                        <li class="notification-item" role="listitem">
-                            <span class="notification-item__badge" data-tone="success">記録</span>
-                            <div class="notification-item__body">
-                                <span class="notification-item__title">{html.escape(f"{record.get('year', '')} {record.get('case_label', '')}")}</span>
-                                <span class="notification-item__subtitle">{html.escape(subtitle)}</span>
-                                {meta_html}
-                            </div>
-                        </li>
-                        """
-                    ).strip()
-                )
-            notification_groups.append(
-                dedent(
-                    """
-                    <div class="notification-group" data-tone="success" role="group" aria-label="直近の学習ログ">
-                        <span class="notification-group__title">直近の学習ログ</span>
-                        <ul class="notification-list" role="list">
-                            {items}
-                        </ul>
-                    </div>
-                    """
-                ).strip().format(items="".join(recent_html))
-            )
-
-        notification_groups_html = (
-            "".join(notification_groups)
-            if notification_groups
-            else "<p class='notification-empty'>現在対応が必要な通知はありません。</p>"
-        )
-
-        notification_section_html = dedent(
-            f"""
-            <section class="dashboard-lane" id="notification-lane" data-section-id="notification-lane" role="region" aria-labelledby="notification-lane-title">
-                <header class="dashboard-lane__header">
-                    <h2 id="notification-lane-title" class="dashboard-lane__title">学習通知センター</h2>
-                    <p class="dashboard-lane__subtitle">進捗バーとリマインダーをまとめて確認できます。</p>
-                </header>
-                <div class="dashboard-card card--tone-green study-notification-card">
-                    {progress_meter_html}
-                    {notification_groups_html}
-                </div>
-            </section>
-            """
-        ).strip()
-        st.markdown(notification_section_html, unsafe_allow_html=True)
-
-        if timeline_events:
-            timeline_items_html = "".join(
-                dedent(
-                    f"""
-                    <li class="achievement-timeline__item" data-case="{event['case_key']}">
-                        <p class="achievement-timeline__time">{event['date']}</p>
-                        <p class="achievement-timeline__title">{event['title']}</p>
-                        <p class="achievement-timeline__meta">{event['meta']}</p>
-                    </li>
-                    """
-                ).strip()
-                for event in timeline_events
-            )
-            timeline_html = dedent(
-                """
-                <div class="dashboard-card card--tone-pink" role="region" aria-labelledby="achievement-timeline-title">
-                    <div class="timeline-filter">
-                        <p id="achievement-timeline-title" class="timeline-filter__label">実績フィード（最新8件）</p>
-                        <div class="timeline-filter__actions">
-                            <button type="button" class="timeline-filter__clear">フィルタを解除</button>
-                        </div>
-                    </div>
-                    <ol class="achievement-timeline">{timeline_items_html}</ol>
-                </div>
-                """
-            )
-            st.markdown(timeline_html, unsafe_allow_html=True)
-        else:
-            st.markdown(
-                """
-                <div class="dashboard-card" role="region" aria-labelledby="achievement-timeline-title">
-                    <p id="achievement-timeline-title" class="timeline-filter__label">実績フィード</p>
-                    <p class="achievement-timeline__meta">演習を開始すると最新の実績がここに並びます。</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        review_card_header = dedent(
-            """
-            <section class="dashboard-lane" role="region" aria-labelledby="review-lane-title">
-                <header class="dashboard-lane__header">
-                    <h2 id="review-lane-title" class="dashboard-lane__title">🕒 復習ハブ</h2>
-                    <p class="dashboard-lane__subtitle">間隔反復アルゴリズムで優先度の高い復習タスクを整理します。</p>
-                </header>
-            """
-        )
-        st.markdown(review_card_header, unsafe_allow_html=True)
-        st.markdown(
-            "<div class='dashboard-card card--tone-blue review-card'>",
-            unsafe_allow_html=True,
-        )
-        if due_review_count:
-            st.markdown(
-                f"<p class='timeline-filter__label'>⏳ 復習ハブで管理しているタスクのうち {due_review_count}件が期限到来または超過しています。優先的に取り組みましょう。</p>",
-                unsafe_allow_html=True,
-            )
-        if upcoming_reviews:
-            now = datetime.now(timezone.utc)
-            schedule_df = pd.DataFrame(
-                [
-                    {
-                        "次回実施日": review["due_at"].strftime("%Y-%m-%d"),
-                        "事例": f"{review['year']} {review['case_label']}",
-                        "タイトル": review["title"],
-                        "前回達成度": f"{(review['last_score_ratio'] or 0) * 100:.0f}%",
-                        "推奨学習量": (
-                            f"{review['recommended_items']}問 / 約{review['recommended_minutes']}分"
-                        ),
-                        "復習アクション": (
-                            f"今日中に復習（推奨 {review['recommended_items']}問・約{review['recommended_minutes']}分）"
-                            if review["due_at"] <= now
-                            else (
-                                "次回 {date} に復習（推奨 {items}問・約{minutes}分)".format(
-                                    date=review["due_at"].strftime("%Y-%m-%d"),
-                                    items=review["recommended_items"],
-                                    minutes=review["recommended_minutes"],
-                                )
-                            )
-                        ),
-                        "間隔": f"{review['interval_days']}日",
+    if component_value:
+        try:
+            event = json.loads(component_value)
+        except (TypeError, json.JSONDecodeError):
+            event = None
+        if event:
+            action = event.get("action")
+            payload = event.get("payload") or {}
+            if action == "open-practice":
+                case_label = payload.get("case_label")
+                year = payload.get("year")
+                question_id = payload.get("question_id")
+                if case_label and year and question_id:
+                    st.session_state["navigation_selection"] = "過去問演習"
+                    st.session_state["page"] = "過去問演習"
+                    st.session_state["practice_focus"] = {
+                        "case_label": case_label,
+                        "year": year,
+                        "question_id": question_id,
                     }
-                    for review in upcoming_reviews
-                ]
-            )
-            st.data_editor(
-                schedule_df,
-                hide_index=True,
-                width="stretch",
-                disabled=True,
-            )
-            st.caption("演習結果に応じて復習ハブが次回の復習タイミングを自動提案します。")
-        else:
-            st.info("演習データが蓄積されると復習ハブが表示されます。")
-        st.markdown("</div></section>", unsafe_allow_html=True)
+                    st.experimental_rerun()
+            elif action in {"open-history", "open-recommendation-settings"}:
+                st.session_state["navigation_selection"] = "学習履歴"
+                st.session_state["page"] = "学習履歴"
+                st.experimental_rerun()
 
-        analysis_section_open = dedent(
-            """
-            <section class="dashboard-lane dashboard-lane--analysis" id="analysis-lane" data-section-id="analysis-lane" role="region" aria-labelledby="analysis-lane-title">
-                <header class="dashboard-lane__header">
-                    <p class="dashboard-lane__eyebrow"><span class="lane-badge lane-badge--beta">BETA</span><span>分析レーンは開発中の機能です。不具合は<a href="mailto:support@example.com" class="lane-badge__link">support@example.com</a>までお知らせください。</span></p>
-                    <h2 id="analysis-lane-title" class="dashboard-lane__title">分析レーン</h2>
-                    <p class="dashboard-lane__subtitle">試験委員の専門×事例ヒートマップと実績分析を確認できます。</p>
-                </header>
-            """
-        )
-        st.markdown(analysis_section_open, unsafe_allow_html=True)
-        st.markdown(
-            "<div class='dashboard-card card--tone-yellow heatmap-card' role='region' aria-labelledby='committee-heatmap-title'>",
-            unsafe_allow_html=True,
-        )
-        if heatmap_context:
-            legend_html = dedent(
-                f"""
-                <div class="heatmap-header">
-                    <p id="committee-heatmap-title" class="timeline-filter__label">{heatmap_context['year_label']} 試験委員“専門×事例”ヒートマップ</p>
-                    <p class="achievement-timeline__meta">色が濃いほど影響度が高い組み合わせです。</p>
-                </div>
-                <div class="heatmap-legend">
-                    <span class="heatmap-legend__swatch" aria-hidden="true"></span>
-                    <span>最小 {heatmap_context['min_weight']:.1f}</span>
-                    <span>中央値 {heatmap_context['median_weight']:.1f}</span>
-                    <span>最大 {heatmap_context['max_weight']:.1f}</span>
-                </div>
-                <div class="heatmap-highlight">
-                    <span>委員数: {heatmap_context['total_committees']} 名</span>
-                    <span>最注目の事例: {heatmap_context['top_case_label']} (重み {heatmap_context['top_case_weight']:.1f})</span>
-                    <span>強みの専門領域: {heatmap_context['top_domain_label']} (重み {heatmap_context['top_domain_weight']:.1f})</span>
-                </div>
-                """
-            )
-            st.markdown(legend_html, unsafe_allow_html=True)
-            st.altair_chart(heatmap_context["chart"], use_container_width=True)
-        else:
-            st.markdown(
-                "<p class='achievement-timeline__meta'>ヒートマップのデータが取得できませんでした。</p>",
-                unsafe_allow_html=True,
-            )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        if heatmap_context:
-            summary_df = heatmap_context["summary_df"]
-            st.markdown(
-                "<div class='dashboard-card card--tone-blue analysis-table-card'>",
-                unsafe_allow_html=True,
-            )
-            overview_tab, chart_tab = st.tabs(["進捗サマリ", "事例別分析"])
-            with overview_tab:
-                if attempts:
-                    summary_df_table = pd.DataFrame(
-                        [
-                            {
-                                "実施日": (
-                                    row["submitted_at"].strftime("%Y-%m-%d")
-                                    if isinstance(row["submitted_at"], datetime)
-                                    else row["submitted_at"]
-                                ),
-                                "年度": row["year"],
-                                "事例": row["case_label"],
-                                "モード": "模試" if row["mode"] == "mock" else "演習",
-                                "得点": row["total_score"],
-                                "満点": row["total_max_score"],
-                            }
-                            for row in attempts
-                        ]
-                    )
-                    st.data_editor(
-                        summary_df_table,
-                        width="stretch",
-                        hide_index=True,
-                        disabled=True,
-                    )
-                    st.caption("最近の受験結果を表形式で確認できます。列ヘッダーでソート可能です。")
-                else:
-                    st.info("まだ演習結果がありません。『過去問演習』から学習を開始しましょう。")
-            with chart_tab:
-                if stats:
-                    chart_data = []
-                    for case_label, values in stats.items():
-                        chart_data.append(
-                            {
-                                "事例": case_label,
-                                "得点": values.get("avg_score", 0),
-                                "満点": values.get("avg_max", 0),
-                            }
-                        )
-                    df = pd.DataFrame(chart_data)
-                    df["達成率"] = df.apply(
-                        lambda row: row["得点"] / row["満点"] * 100 if row["満点"] else 0,
-                        axis=1,
-                    )
-                    bar = (
-                        alt.Chart(df)
-                        .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
-                        .encode(
-                            y=alt.Y("事例:N", sort="-x", title=None),
-                            x=alt.X("達成率:Q", scale=alt.Scale(domain=[0, 100]), title="平均達成率 (%)"),
-                            color=alt.value("#2563eb"),
-                            tooltip=["事例", "得点", "満点", alt.Tooltip("達成率:Q", format=".1f")],
-                        )
-                    )
-                    target_line = (
-                        alt.Chart(pd.DataFrame({"ベンチマーク": [60]}))
-                        .mark_rule(color="#b45309", strokeDash=[6, 4])
-                        .encode(x="ベンチマーク:Q")
-                    )
-                    st.altair_chart(bar + target_line, use_container_width=True)
-                else:
-                    st.info("演習データが蓄積すると事例別の分析が表示されます。")
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        has_case_chart = not dashboard_analysis["case_chart_source"].empty
-        has_question_heatmap = not dashboard_analysis["question_source"].empty
-        has_keyword_heatmap = not dashboard_analysis["keyword_source"].empty
-
-        if has_case_chart or has_question_heatmap or has_keyword_heatmap:
-            st.markdown(
-                "<div class='dashboard-card card--tone-purple analysis-visual-card'>",
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                "<p class='timeline-filter__label'>得点率×キーワード網羅の弱点診断</p>",
-                unsafe_allow_html=True,
-            )
-
-            if has_case_chart:
-                st.markdown("#### 事例別レーダーチャート")
-                radar_source = dashboard_analysis["case_chart_source"].dropna(subset=["値"])
-                if not radar_source.empty:
-                    radar_chart = (
-                        alt.Chart(radar_source)
-                        .mark_line(point=True)
-                        .encode(
-                            theta=alt.Theta("指標:N", sort=["平均得点率", "平均キーワード網羅率"], title=None),
-                            radius=alt.Radius(
-                                "値:Q", scale=alt.Scale(domain=[0, 100]), title="達成率 (%)"
-                            ),
-                            color=alt.Color(
-                                "事例:N",
-                                sort=CASE_ORDER,
-                                scale=alt.Scale(range=["#2563eb", "#0f766e", "#b45309", "#db2777"]),
-                                title=None,
-                            ),
-                            tooltip=["事例", "指標", alt.Tooltip("値:Q", format=".1f")],
-                        )
-                        .properties(height=320)
-                    )
-                    st.altair_chart(radar_chart, use_container_width=True)
-                    improvement_low, improvement_high = dashboard_analysis["improvement_range"]
-                    st.caption(
-                        f"フェルミ推定では弱点分析を踏まえた学習時間の再配分により平均得点が"
-                        f"{improvement_low * 100:.0f}〜{improvement_high * 100:.0f}%向上する余地があります。"
-                    )
-                else:
-                    st.info("事例別のレーダーチャートを描画するには演習データが必要です。")
-
-            if has_question_heatmap:
-                st.markdown("#### 設問別のヒートマップ")
-                question_df = dashboard_analysis["question_source"].copy()
-                question_sort = dashboard_analysis["question_order_labels"] or "ascending"
-                score_heatmap = (
-                    alt.Chart(question_df.dropna(subset=["平均得点率"]))
-                    .mark_rect()
-                    .encode(
-                        x=alt.X("設問:N", sort=question_sort, title="設問"),
-                        y=alt.Y("事例:N", sort=CASE_ORDER, title=None),
-                        color=alt.Color(
-                            "平均得点率:Q",
-                            scale=alt.Scale(domain=[0, 100], range=["#e7f0ff", "#1d4ed8"]),
-                            title="平均得点率 (%)",
-                        ),
-                        tooltip=[
-                            "事例",
-                            "設問",
-                            alt.Tooltip("平均得点率:Q", format=".1f"),
-                            alt.Tooltip("平均キーワード網羅率:Q", format=".1f"),
-                        ],
-                    )
-                    .properties(height=260)
-                )
-                coverage_heatmap = (
-                    alt.Chart(question_df.dropna(subset=["平均キーワード網羅率"]))
-                    .mark_rect()
-                    .encode(
-                        x=alt.X("設問:N", sort=question_sort, title="設問"),
-                        y=alt.Y("事例:N", sort=CASE_ORDER, title=None),
-                        color=alt.Color(
-                            "平均キーワード網羅率:Q",
-                            scale=alt.Scale(domain=[0, 100], range=["#ecfdf5", "#0f766e"]),
-                            title="平均キーワード網羅率 (%)",
-                        ),
-                        tooltip=[
-                            "事例",
-                            "設問",
-                            alt.Tooltip("平均得点率:Q", format=".1f"),
-                            alt.Tooltip("平均キーワード網羅率:Q", format=".1f"),
-                        ],
-                    )
-                    .properties(height=260)
-                )
-                heatmap_col1, heatmap_col2 = st.columns(2)
-                with heatmap_col1:
-                    if score_heatmap.data.empty:
-                        st.info("得点率ヒートマップを表示するには得点データが必要です。")
-                    else:
-                        st.altair_chart(score_heatmap, use_container_width=True)
-                with heatmap_col2:
-                    if coverage_heatmap.data.empty:
-                        st.info("キーワード網羅率ヒートマップを表示するには判定データが必要です。")
-                    else:
-                        st.altair_chart(coverage_heatmap, use_container_width=True)
-                st.caption("濃淡が薄いセルは優先復習したい設問を示します。")
-
-            if has_keyword_heatmap:
-                st.markdown("#### テーマ別（キーワード）網羅率ヒートマップ")
-                keyword_df = dashboard_analysis["keyword_source"].copy()
-                keyword_sort = dashboard_analysis["keyword_labels"] or "ascending"
-                keyword_heatmap = (
-                    alt.Chart(keyword_df.dropna(subset=["網羅率"]))
-                    .mark_rect()
-                    .encode(
-                        x=alt.X("キーワード:N", sort=keyword_sort, title="キーワード"),
-                        y=alt.Y("事例:N", sort=CASE_ORDER, title=None),
-                        color=alt.Color(
-                            "網羅率:Q",
-                            scale=alt.Scale(domain=[0, 100], range=["#fff5e0", "#b45309"]),
-                            title="網羅率 (%)",
-                        ),
-                        tooltip=[
-                            "事例",
-                            "キーワード",
-                            alt.Tooltip("網羅率:Q", format=".1f"),
-                            alt.Tooltip("出題数:Q", format=".0f", title="出題数"),
-                        ],
-                    )
-                    .properties(height=260)
-                )
-                st.altair_chart(keyword_heatmap, use_container_width=True)
-                st.caption("特に網羅率が低いテーマは早期に補強しましょう。")
-
-            st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</section>", unsafe_allow_html=True)
-
-        insight_section_open = dedent(
-            """
-            <section class="dashboard-lane dashboard-lane--insight" id="insight-lane" data-section-id="insight-lane" role="region" aria-labelledby="insight-lane-title">
-                <header class="dashboard-lane__header">
-                    <p class="dashboard-lane__eyebrow"><span class="lane-badge lane-badge--beta">BETA</span><span>洞察レーンはベータ版です。気づいた点は<a href="mailto:support@example.com" class="lane-badge__link">support@example.com</a>までご連絡ください。</span></p>
-                    <h2 id="insight-lane-title" class="dashboard-lane__title">洞察レーン</h2>
-                    <p class="dashboard-lane__subtitle">強み・推奨テーマ・アクションプランを表示します。</p>
-                </header>
-            """
-        )
-        st.markdown(insight_section_open, unsafe_allow_html=True)
-
-        if due_review_count:
-            banner_html = dedent(
-                f"""
-                <details class="insight-banner" open data-banner-storage="dashboard-review-banner">
-                    <summary class="insight-banner__summary insight-banner__toggle">🔔 復習ハブ通知 ({due_review_count}件)</summary>
-                    <div class="insight-banner__content">復習ハブで期限が到来したタスクがあります。ハブ内の優先タスクから着手しましょう。</div>
-                </details>
-                """
-            )
-            st.markdown(banner_html, unsafe_allow_html=True)
-        elif heatmap_context and heatmap_context.get("primary_focus"):
-            focus = heatmap_context["primary_focus"]
-            rationale = focus.get("rationale") or ""
-            study_list = focus.get("study_list") or []
-            focus_html = dedent(
-                f"""
-                <details class="insight-banner" open data-banner-storage="dashboard-focus-banner">
-                    <summary class="insight-banner__summary insight-banner__toggle">🎯 今年の重心: {focus.get('label')}</summary>
-                    <div class="insight-banner__content">{rationale} {' / '.join(study_list[:3]) if study_list else ''}</div>
-                </details>
-                """
-            )
-            st.markdown(focus_html, unsafe_allow_html=True)
-
-        if strength_tags:
-            tags_html = "".join(
-                dedent(
-                    f"""
-                    <button type="button" class="insight-pill" data-case="{tag['case'].replace(' ', '').replace('　', '')}" data-strength="{tag['strength']}" aria-pressed="false">
-                        {tag['case']} ({tag['ratio']:.0f}%)
-                    </button>
-                    """
-                ).strip()
-                for tag in strength_tags
-            )
-            st.markdown(
-                dedent(
-                    f"""
-                    <div class="dashboard-card card--tone-pink" role="group" aria-label="強みタグ">
-                        <p class="timeline-filter__label">強み・注視したい事例タグ</p>
-                        <div class="insight-pill-group">{tags_html}</div>
-                        <p class="achievement-timeline__meta">タグをクリックすると実績フィードが該当事例でハイライトされます。</p>
-                    </div>
-                    """
-                ),
-                unsafe_allow_html=True,
-            )
-
-        insight_cards_data = [latest_feedback_card, next_focus_card, learning_time_card, latest_result_card]
-        insight_cards_html: List[str] = []
-        for card in insight_cards_data:
-            accent = card.get("accent", "indigo")
-            icon_name = card.get("icon", "target")
-            icon_svg, default_icon_label = _insight_icon_asset(icon_name)
-            icon_label = html.escape(card.get("icon_label") or default_icon_label)
-            title_html = html.escape(str(card.get("title", "")))
-            value_html = html.escape(str(card.get("value", "")))
-            desc_html = html.escape(str(card.get("desc", "")))
-            clickable = bool(card.get("url"))
-            card_inner = dedent(
-                f"""
-                <div class="insight-card" data-accent="{accent}"{' data-clickable="true"' if clickable else ''}>
-                    <div class="insight-icon" data-accent="{accent}">
-                        <span class="insight-icon__glyph" aria-hidden="true">{icon_svg}</span>
-                        <span class="insight-icon__label">{icon_label}</span>
-                    </div>
-                    <div class="insight-copy">
-                        <p class="insight-title">{title_html}</p>
-                        <p class="insight-value">{value_html}</p>
-                        <p class="insight-desc">{desc_html}</p>
-                    </div>
-                </div>
-                """
-            ).strip()
-            if clickable:
-                url_value = html.escape(card["url"], quote=True)
-                aria_label = html.escape(card.get("aria_label") or card.get("title", ""), quote=True)
-                card_markup = dedent(
-                    f"""
-                    <a class="insight-card-link" href="{url_value}" aria-label="{aria_label}">
-                        {card_inner}
-                    </a>
-                    """
-                ).strip()
-            else:
-                card_markup = card_inner
-            insight_cards_html.append(card_markup)
-        insight_cards_html_str = "".join(insight_cards_html)
-        st.markdown(
-            dedent(
-                f"""
-                <div class="dashboard-card card--tone-green" role="group" aria-label="学習ハイライト">
-                    <div class="insight-grid">{insight_cards_html_str}</div>
-                </div>
-                """
-            ),
-            unsafe_allow_html=True,
-        )
-
-        if heatmap_context:
-            rec_html_parts = []
-            for item in heatmap_context.get("recommendations") or []:
-                themes = item.get("themes", [])
-                comment = item.get("comment")
-                bullet = f"<li><strong>{item.get('case', '')} × {item.get('domain', '')}</strong>"
-                if comment:
-                    bullet += f" — {comment}"
-                if themes:
-                    bullet += f"<br><span class='achievement-timeline__meta'>推奨演習: {' / '.join(themes[:3])}</span>"
-                bullet += "</li>"
-                rec_html_parts.append(bullet)
-            cross_html_parts = []
-            for entry in heatmap_context.get("cross_focuses") or []:
-                cases = "・".join(entry.get("cases", []))
-                headline = f"<li><strong>{entry.get('label', '')}</strong>"
-                if cases:
-                    headline += f" ({cases})"
-                rationale = entry.get("rationale")
-                if rationale:
-                    headline += f" — {rationale}"
-                study_list = entry.get("study_list") or []
-                if study_list:
-                    headline += f"<br><span class='achievement-timeline__meta'>推奨演習: {' / '.join(study_list[:3])}</span>"
-                headline += "</li>"
-                cross_html_parts.append(headline)
-            st.markdown(
-                dedent(
-                    f"""
-                    <div class="dashboard-card" role="region" aria-label="推奨テーマ">
-                        <p class="timeline-filter__label">推奨テーマと横断候補</p>
-                        <ul>{''.join(rec_html_parts) or '<li>推奨テーマは現在分析中です。</li>'}</ul>
-                        <ul>{''.join(cross_html_parts)}</ul>
-                    </div>
-                    """
-                ),
-                unsafe_allow_html=True,
-            )
-
-        personalized_context = personalized_bundle.get("context")
-        problem_recs = personalized_bundle.get("problem_recommendations") or []
-        question_recs = personalized_bundle.get("question_recommendations") or []
-        resource_recs = personalized_bundle.get("resource_recommendations") or []
-
-        sections: List[str] = []
-
-        if problem_recs:
-            problem_items: List[str] = []
-            for rec in problem_recs:
-                summary = personalized_recommendation.format_recommendation_summary(rec)
-                reason = html.escape(rec.get("reason") or "")
-                problem_items.append(
-                    f"<li><strong>{summary}</strong><br><span class='achievement-timeline__meta'>{reason}</span></li>"
-                )
-            sections.append(
-                dedent(
-                    f"""
-                    <div class="personalized-section" role="group" aria-label="おすすめの事例">
-                        <p class="timeline-filter__label">おすすめの年度・事例</p>
-                        <ol>{''.join(problem_items)}</ol>
-                    </div>
-                    """
-                )
-            )
-
-        if question_recs:
-            question_items: List[str] = []
-            for rec in question_recs:
-                header = f"{html.escape(str(rec.get('year') or '―'))} {html.escape(str(rec.get('case_label') or ''))}".strip()
-                prompt = html.escape(rec.get("prompt") or "設問文を確認してください")
-                reason = html.escape(rec.get("reason") or "復習推奨")
-                missing = rec.get("missing_keywords") or []
-                missing_html = ""
-                if missing:
-                    missing_html = (
-                        "<br><span class='achievement-timeline__meta'>不足キーワード: "
-                        + " / ".join(html.escape(keyword) for keyword in missing[:4])
-                        + "</span>"
-                    )
-                question_items.append(
-                    "<li>"
-                    + (f"<strong>{header}</strong><br>" if header else "")
-                    + prompt
-                    + f"<br><span class='achievement-timeline__meta'>{reason}</span>"
-                    + missing_html
-                    + "</li>"
-                )
-            sections.append(
-                dedent(
-                    f"""
-                    <div class="personalized-section" role="group" aria-label="重点設問">
-                        <p class="timeline-filter__label">重点設問</p>
-                        <ol>{''.join(question_items)}</ol>
-                    </div>
-                    """
-                )
-            )
-
-        if resource_recs:
-            resource_items: List[str] = []
-            for resource in resource_recs:
-                label = html.escape(resource.get("label") or "参考資料")
-                url = html.escape(resource.get("url") or "#")
-                reason = html.escape(resource.get("reason") or "")
-                resource_items.append(
-                    "<li>"
-                    + f"<a href='{url}' target='_blank' rel='noopener noreferrer'>{label}</a>"
-                    + (f"<br><span class='achievement-timeline__meta'>{reason}</span>" if reason else "")
-                    + "</li>"
-                )
-            sections.append(
-                dedent(
-                    f"""
-                    <div class="personalized-section" role="group" aria-label="おすすめ教材">
-                        <p class="timeline-filter__label">おすすめ教材</p>
-                        <ol>{''.join(resource_items)}</ol>
-                    </div>
-                    """
-                )
-            )
-
-        message_text = getattr(personalized_context, "message", "") if personalized_context else ""
-        message_html = (
-            f"<p class='achievement-timeline__meta'>{html.escape(message_text)}</p>" if message_text else ""
-        )
-
-        if message_html or sections:
-            sections_html = "".join(sections) or "<p class='achievement-timeline__meta'>推奨項目を準備中です。</p>"
-            st.markdown(
-                dedent(
-                    f"""
-                    <div class="dashboard-card card--tone-blue" role="region" aria-label="パーソナライズ推薦">
-                        <p class="timeline-filter__label">パーソナライズ推薦 <span class="beta-badge" aria-label="ベータ版機能">Beta</span></p>
-                        {message_html}
-                        {sections_html}
-                    </div>
-                    """
-                ),
-                unsafe_allow_html=True,
-            )
-            st.caption("※ベータ版機能です。不具合は『設定 > サポート』からお知らせください。")
-
-        st.markdown(
-            dedent(
-                """
-                <div class="dashboard-card" role="region" aria-label="ショートカット">
-                    <div class="action-grid">
-                        <div class="action-card">
-                            <strong>過去問演習</strong>
-                            <p>年度・事例を指定して弱点補強の演習を行いましょう。</p>
-                        </div>
-                        <div class="action-card">
-                            <strong>模擬試験</strong>
-                            <p>タイマー付きの本番形式で得点力とタイムマネジメントを鍛えます。</p>
-                        </div>
-                        <div class="action-card">
-                            <strong>学習履歴</strong>
-                            <p>得点推移を可視化し、改善の兆しや課題を振り返りましょう。</p>
-                        </div>
-                    </div>
-                </div>
-                """
-            ),
-            unsafe_allow_html=True,
-        )
-
-        st.markdown("</section>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    _render_study_planner(user)
-
-    st.markdown("### 過去問タイムライン")
-    st.caption("令和6年から4年にかけての事例III『生産』テーマの変遷を俯瞰できます。ホバーで原紙PDFリンクを確認できます。")
-    _render_caseiii_timeline()
-
-
-
+    return
 def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
     if not attempts:
         return {
