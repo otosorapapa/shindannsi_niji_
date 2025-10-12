@@ -4457,7 +4457,6 @@ def _render_problem_context_block(
         highlight_html,
         height=estimated_height,
         scrolling=True,
-        key=f"context-highlight::{snapshot_key or element_id}",
     )
 
     snapshot: Optional[Dict[str, Any]] = None
@@ -5278,7 +5277,10 @@ def main_view() -> None:
         )
         st.markdown("</div>", unsafe_allow_html=True)
 
-    page = st.session_state[navigation_key]
+    page = st.session_state.get(navigation_key)
+    if page not in navigation_items:
+        page = nav_labels[0]
+        st.session_state[navigation_key] = page
     st.session_state.page = page
     navigation_items[page](user)
 
