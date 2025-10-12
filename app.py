@@ -1212,10 +1212,11 @@ def _render_practice_timer(problem_id: Optional[int], *, default_minutes: int = 
                 const bar = root.querySelector('.timer-progress__bar');
                 const status = root.querySelector('.timer-status');
 
+                const formatNumber = (value) => value.toString().padStart(2, '0');
                 const formatTime = (seconds) => {{
                     const mins = Math.floor(seconds / 60);
                     const secs = Math.floor(seconds % 60);
-                    return `${{String(mins).padStart(2, '0')}}:${{String(secs).padStart(2, '0')}}`;
+                    return `${{formatNumber(mins)}}:${{formatNumber(secs)}}`;
                 }};
 
                 if (!window.Streamlit) {{
@@ -1267,14 +1268,12 @@ def _render_practice_timer(problem_id: Optional[int], *, default_minutes: int = 
         """
     )
 
-    component_key = f"{state_key}::component"
     component_value = components.html(
         timer_html,
         height=160,
-        key=component_key,
     )
 
-    payload_raw = _extract_component_value(component_value, key=component_key)
+    payload_raw = _extract_component_value(component_value)
     if payload_raw:
         try:
             payload = json.loads(payload_raw)
@@ -4482,23 +4481,14 @@ def _render_problem_context_block(
         """
     )
 
-    component_key = (
-        f"problem-context::{snapshot_key}" if snapshot_key else None
-    )
-    component_kwargs = {
-        "height": estimated_height,
-        "scrolling": True,
-    }
-    if component_key:
-        component_kwargs["key"] = component_key
-
     component_value = components.html(
         highlight_html,
-        **component_kwargs,
+        height=estimated_height,
+        scrolling=True,
     )
 
     snapshot: Optional[Dict[str, Any]] = None
-    payload_raw = _extract_component_value(component_value, key=component_key)
+    payload_raw = _extract_component_value(component_value)
     if payload_raw:
         try:
             payload = json.loads(payload_raw)
@@ -5265,11 +5255,12 @@ def main_view() -> None:
     )
 
     nav_labels = list(navigation_items.keys())
-    if st.session_state.page not in navigation_items:
-        st.session_state.page = nav_labels[0]
+    current_page = st.session_state.get("page")
+    if current_page not in navigation_items:
+        current_page = nav_labels[0]
+    st.session_state.page = current_page
 
     navigation_key = "navigation_selection"
-    current_page = st.session_state.page
 
     if navigation_key not in st.session_state:
         st.session_state[navigation_key] = current_page
