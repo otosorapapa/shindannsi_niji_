@@ -1251,7 +1251,7 @@ def _render_practice_timer(problem_id: Optional[int], *, default_minutes: int = 
         key=f"{state_key}::component",
     )
 
-    if component_value:
+    if isinstance(component_value, str) and component_value:
         try:
             payload = json.loads(component_value)
         except json.JSONDecodeError:
@@ -4460,7 +4460,7 @@ def _render_problem_context_block(
     )
 
     snapshot: Optional[Dict[str, Any]] = None
-    if component_value:
+    if isinstance(component_value, str) and component_value:
         try:
             payload = json.loads(component_value)
         except json.JSONDecodeError:
