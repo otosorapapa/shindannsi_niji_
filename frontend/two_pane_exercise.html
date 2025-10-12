@@ -17,15 +17,15 @@
     <style>
       body[data-app="exercise"] {
         /* カラーと余白のカスタムプロパティ */
-        --color-primary: #22467d;
-        --color-primary-dark: #182f57;
-        --color-accent: #f1873b;
-        --color-accent-strong: #d66b1f;
-        --color-bg: #f3f6fb;
+        --color-primary: #1f3a68;
+        --color-primary-dark: #142a4d;
+        --color-accent: #f28c2f;
+        --color-accent-strong: #d9741f;
+        --color-bg: #f4f7fb;
         --color-surface: #ffffff;
-        --color-text: #1d2638;
-        --color-text-strong: #132036;
-        --color-border: rgba(19, 32, 54, 0.12);
+        --color-text: #1c273a;
+        --color-text-strong: #122038;
+        --color-border: rgba(18, 33, 56, 0.12);
         --color-chip-bg: color-mix(in srgb, var(--color-primary) 14%, #ffffff 86%);
         --color-chip-active: var(--color-primary);
         --color-chip-active-text: #ffffff;
@@ -3435,9 +3435,10 @@
               <h3 class="heading-md">ハイライトメモ</h3>
               <button
                 type="button"
-                class="analysis-info__trigger"
+                class="analysis-info__trigger has-tooltip"
                 aria-label="ハイライトメモを閉じる"
                 data-highlight-close
+                data-tooltip="ハイライトメモを閉じる"
               >
                 <span class="analysis-info__icon" aria-hidden="true">
                   <i class="bx bx-x"></i>
@@ -3476,9 +3477,13 @@
               </button>
               <button
                 type="button"
-                class="ui-button ui-button--primary"
+                class="ui-button ui-button--primary has-tooltip"
                 data-highlight-save
+                data-tooltip="ハイライトメモを保存"
               >
+                <span class="icon icon--sm" aria-hidden="true">
+                  <i class="bx bx-save"></i>
+                </span>
                 メモを保存
               </button>
             </div>
@@ -3895,9 +3900,13 @@
                     </p>
                     <button
                       type="button"
-                      class="ui-button ui-button--ghost question-card__memo-button"
+                      class="ui-button ui-button--ghost question-card__memo-button has-tooltip"
                       data-question-memo-attach="q1"
+                      data-tooltip="選択中のハイライトにメモをコピー"
                     >
+                      <span class="icon icon--sm" aria-hidden="true">
+                        <i class="bx bx-export"></i>
+                      </span>
                       ハイライトにコピー
                     </button>
                   </div>
@@ -3908,11 +3917,12 @@
                   0 / 120 字
                 </div>
                 <button
-                  class="analysis-info__trigger"
+                  class="analysis-info__trigger has-tooltip"
                   type="button"
                   aria-expanded="false"
                   aria-controls="analysis-info-1"
                   data-info-target="analysis-info-1"
+                  data-tooltip="分析ツールの説明を表示"
                 >
                   <span class="analysis-info__icon" aria-hidden="true">
                     <i class="bx bx-info-circle"></i>
@@ -3947,10 +3957,14 @@
                   <span class="example-expressions__title">例示表現</span>
                   <button
                     type="button"
-                    class="example-expressions__undo"
+                    class="example-expressions__undo has-tooltip"
                     data-example-undo
+                    data-tooltip="直前に挿入した表現を元に戻す"
                     disabled
                   >
+                    <span class="icon icon--sm" aria-hidden="true">
+                      <i class="bx bx-undo"></i>
+                    </span>
                     挿入を取り消す
                   </button>
                 </div>
@@ -4087,9 +4101,13 @@
                     </p>
                     <button
                       type="button"
-                      class="ui-button ui-button--ghost question-card__memo-button"
+                      class="ui-button ui-button--ghost question-card__memo-button has-tooltip"
                       data-question-memo-attach="q2"
+                      data-tooltip="選択中のハイライトにメモをコピー"
                     >
+                      <span class="icon icon--sm" aria-hidden="true">
+                        <i class="bx bx-export"></i>
+                      </span>
                       ハイライトにコピー
                     </button>
                   </div>
@@ -4100,11 +4118,12 @@
                   0 / 160 字
                 </div>
                 <button
-                  class="analysis-info__trigger"
+                  class="analysis-info__trigger has-tooltip"
                   type="button"
                   aria-expanded="false"
                   aria-controls="analysis-info-2"
                   data-info-target="analysis-info-2"
+                  data-tooltip="分析ツールの説明を表示"
                 >
                   <span class="analysis-info__icon" aria-hidden="true">
                     <i class="bx bx-info-circle"></i>
@@ -4139,10 +4158,14 @@
                   <span class="example-expressions__title">例示表現</span>
                   <button
                     type="button"
-                    class="example-expressions__undo"
+                    class="example-expressions__undo has-tooltip"
                     data-example-undo
+                    data-tooltip="直前に挿入した表現を元に戻す"
                     disabled
                   >
+                    <span class="icon icon--sm" aria-hidden="true">
+                      <i class="bx bx-undo"></i>
+                    </span>
                     挿入を取り消す
                   </button>
                 </div>
@@ -4279,9 +4302,13 @@
                     </p>
                     <button
                       type="button"
-                      class="ui-button ui-button--ghost question-card__memo-button"
+                      class="ui-button ui-button--ghost question-card__memo-button has-tooltip"
                       data-question-memo-attach="q3"
+                      data-tooltip="選択中のハイライトにメモをコピー"
                     >
+                      <span class="icon icon--sm" aria-hidden="true">
+                        <i class="bx bx-export"></i>
+                      </span>
                       ハイライトにコピー
                     </button>
                   </div>
@@ -4292,11 +4319,12 @@
                   0 / 160 字
                 </div>
                 <button
-                  class="analysis-info__trigger"
+                  class="analysis-info__trigger has-tooltip"
                   type="button"
                   aria-expanded="false"
                   aria-controls="analysis-info-3"
                   data-info-target="analysis-info-3"
+                  data-tooltip="分析ツールの説明を表示"
                 >
                   <span class="analysis-info__icon" aria-hidden="true">
                     <i class="bx bx-info-circle"></i>
@@ -4331,10 +4359,14 @@
                   <span class="example-expressions__title">例示表現</span>
                   <button
                     type="button"
-                    class="example-expressions__undo"
+                    class="example-expressions__undo has-tooltip"
                     data-example-undo
+                    data-tooltip="直前に挿入した表現を元に戻す"
                     disabled
                   >
+                    <span class="icon icon--sm" aria-hidden="true">
+                      <i class="bx bx-undo"></i>
+                    </span>
                     挿入を取り消す
                   </button>
                 </div>
@@ -4471,9 +4503,13 @@
                     </p>
                     <button
                       type="button"
-                      class="ui-button ui-button--ghost question-card__memo-button"
+                      class="ui-button ui-button--ghost question-card__memo-button has-tooltip"
                       data-question-memo-attach="q4"
+                      data-tooltip="選択中のハイライトにメモをコピー"
                     >
+                      <span class="icon icon--sm" aria-hidden="true">
+                        <i class="bx bx-export"></i>
+                      </span>
                       ハイライトにコピー
                     </button>
                   </div>
@@ -4484,11 +4520,12 @@
                   0 / 200 字
                 </div>
                 <button
-                  class="analysis-info__trigger"
+                  class="analysis-info__trigger has-tooltip"
                   type="button"
                   aria-expanded="false"
                   aria-controls="analysis-info-4"
                   data-info-target="analysis-info-4"
+                  data-tooltip="分析ツールの説明を表示"
                 >
                   <span class="analysis-info__icon" aria-hidden="true">
                     <i class="bx bx-info-circle"></i>
@@ -4523,10 +4560,14 @@
                   <span class="example-expressions__title">例示表現</span>
                   <button
                     type="button"
-                    class="example-expressions__undo"
+                    class="example-expressions__undo has-tooltip"
                     data-example-undo
+                    data-tooltip="直前に挿入した表現を元に戻す"
                     disabled
                   >
+                    <span class="icon icon--sm" aria-hidden="true">
+                      <i class="bx bx-undo"></i>
+                    </span>
                     挿入を取り消す
                   </button>
                 </div>
