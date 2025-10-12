@@ -15576,1147 +15576,924 @@ def mock_exam_page(user: Dict) -> None:
                 st.caption("特筆すべき弱点は検出されませんでした。")
 
 
-def history_page(user: Dict) -> None:
-    st.title("学習履歴")
-    st.caption("演習記録・得点推移・エクスポートを確認します。")
 
-    history_records = database.fetch_learning_history(user["id"])
-    if not history_records:
+@st.cache_data(show_spinner=False)
+def _load_attempt_detail_cached(attempt_id: int) -> Dict[str, Any]:
+    """Cached wrapper around :func:`database.fetch_attempt_detail`."""
+
+    return database.fetch_attempt_detail(attempt_id)
+
+
+def _structure_guide_for_case(case_label: Optional[str]) -> List[str]:
+    """Return a simple writing guide for the specified case."""
+
+    guides = {
+        "事例I": [
+            "環境変化と課題の整理",
+            "根本原因の把握",
+            "経営・組織面の打ち手",
+            "期待効果とリスクフォロー",
+        ],
+        "事例II": [
+            "顧客・市場の特定",
+            "提供価値の差別化",
+            "チャネル・プロモーション施策",
+            "効果測定と次のアクション",
+        ],
+        "事例III": [
+            "現状工程と課題",
+            "ボトルネック分析",
+            "改善施策と体制づくり",
+            "定量効果と継続管理",
+        ],
+        "事例IV": [
+            "財務状況の要約",
+            "指標と課題の読み取り",
+            "改善施策（投資・資金調達）",
+            "リスクとモニタリング",
+        ],
+    }
+    default_guide = [
+        "与件の重要キーワードを冒頭で整理",
+        "課題→原因→施策→効果の流れを明示",
+        "定量・定性の根拠を添える",
+    ]
+    return guides.get(case_label, default_guide)
+
+
+def _history_hotkey_listener(tab_mapping: Mapping[str, str]) -> Optional[str]:
+    """Install keyboard shortcuts for the history view and return triggered action."""
+
+    script = dedent(f"""
+    <script>
+        const TAB_MAP = {json.dumps(tab_mapping)};
+        const sendValue = (value) => {{
+            if (window.parent && window.parent.Streamlit) {{
+                window.parent.Streamlit.setComponentValue(value);
+            }}
+        }};
+        if (window.parent && window.parent.Streamlit) {{
+            window.parent.Streamlit.setComponentReady();
+            window.parent.Streamlit.setFrameHeight(0);
+        }}
+        window.addEventListener('keydown', (event) => {{
+            if (event.repeat) {{
+                return;
+            }}
+            if (!event.altKey && !event.metaKey && !event.ctrlKey) {{
+                if (event.code === 'BracketLeft') {{
+                    event.preventDefault();
+                    sendValue('range:back');
+                    return;
+                }} else if (event.code === 'BracketRight') {{
+                    event.preventDefault();
+                    sendValue('range:forward');
+                    return;
+                }}
+            }}
+            if (event.altKey && !event.metaKey && !event.ctrlKey) {{
+                const tabKey = TAB_MAP[event.code];
+                if (tabKey) {{
+                    event.preventDefault();
+                    sendValue('tab:' + tabKey);
+                }}
+            }}
+        }});
+    </script>
+    """)
+    return components.html(script, height=0, key="history_hotkey_handler")
+
+
+def _render_history_table(rows: Sequence[Mapping[str, Any]], *, selected_id: Optional[int]) -> Optional[int]:
+    """Render the clickable attempt table and return the selected attempt id if changed."""
+
+    if not rows:
+        return None
+
+    def _format_ratio(value: Optional[float]) -> str:
+        if value is None:
+            return "-"
+        try:
+            return f"{float(value) * 100:.1f}%"
+        except (TypeError, ValueError):
+            return "-"
+
+    body_rows: List[str] = []
+    for row in rows:
+        attempt_id = int(row["attempt_id"])
+        is_selected = " is-selected" if selected_id == attempt_id else ""
+        submitted = row.get("display_date") or "-"
+        score = row.get("score_display") or "-"
+        study = row.get("study_minutes")
+        study_display = f"{study:.1f}分" if isinstance(study, (int, float)) else "-"
+        ratio = _format_ratio(row.get("ratio"))
+        title = escape(str(row.get("title") or ""))
+        case_label = escape(str(row.get("case") or ""))
+        mode = escape(str(row.get("mode") or ""))
+        body_rows.append(
+            f"<tr class='history-row{is_selected}' data-attempt='{attempt_id}'>"
+            f"<td>{submitted}</td><td>{case_label}</td><td class='history-title'>{title}</td>"
+            f"<td>{score}</td><td>{ratio}</td><td>{study_display}</td><td>{mode}</td></tr>"
+        )
+
+    table_height = min(520, 96 + len(body_rows) * 42)
+    table_html = dedent(f"""
+    <style>
+        .history-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }}
+        .history-table thead th {{
+            position: sticky;
+            top: 0;
+            background: var(--background-color, #f8f9fb);
+            z-index: 1;
+            padding: 6px 8px;
+            text-align: left;
+            border-bottom: 1px solid #d8dde3;
+        }}
+        .history-table tbody td {{
+            padding: 8px 10px;
+            border-bottom: 1px solid #ecf0f4;
+            white-space: nowrap;
+        }}
+        .history-table tbody tr.history-row {{
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }}
+        .history-table tbody tr.history-row:hover {{
+            background: rgba(38, 132, 255, 0.12);
+        }}
+        .history-table tbody tr.is-selected {{
+            background: rgba(38, 132, 255, 0.16);
+            border-left: 3px solid #2684ff;
+        }}
+        .history-table td.history-title {{
+            max-width: 220px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }}
+    </style>
+    <table class="history-table">
+        <thead>
+            <tr>
+                <th>日付</th>
+                <th>年度/事例</th>
+                <th>タイトル</th>
+                <th>得点</th>
+                <th>得点率</th>
+                <th>学習時間</th>
+                <th>モード</th>
+            </tr>
+        </thead>
+        <tbody>
+            {''.join(body_rows)}
+        </tbody>
+    </table>
+    <script>
+        const rows = document.querySelectorAll('.history-table tbody tr.history-row');
+        const sendValue = (value) => {{
+            if (window.parent && window.parent.Streamlit) {{
+                window.parent.Streamlit.setComponentValue(value);
+            }}
+        }};
+        rows.forEach((row) => {{
+            row.addEventListener('click', () => {{
+                sendValue(row.dataset.attempt);
+            }});
+        }});
+        if (window.parent && window.parent.Streamlit) {{
+            window.parent.Streamlit.setComponentReady();
+            window.parent.Streamlit.setFrameHeight({table_height});
+        }}
+    </script>
+    """)
+    value = components.html(table_html, height=table_height, key="history_table_component")
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _reset_history_exam_overlay_state() -> None:
+    """Ensure the mock exam overlay is hidden when entering history view."""
+
+    st.session_state.pop("mock_notice_toggle", None)
+    st.session_state.pop("mock_overlay_state", None)
+    _remove_mock_notice_overlay()
+
+
+def _render_attempt_detail_panel(
+    attempt_id: int,
+    *,
+    filtered_df: pd.DataFrame,
+    keyword_df: pd.DataFrame,
+) -> None:
+    """Render the right-pane detail including answer, feedback, and keyword status."""
+
+    try:
+        detail = _load_attempt_detail_cached(int(attempt_id))
+    except Exception:
+        st.error("演習詳細の取得に失敗しました。再度お試しください。")
+        return
+
+    attempt = detail.get("attempt") or {}
+    answers = detail.get("answers") or []
+    if not answers:
+        st.caption("データなし")
+        return
+
+    attempt_row = filtered_df[filtered_df["attempt_id"] == attempt_id]
+    year = attempt_row["年度"].iloc[-1] if not attempt_row.empty else attempt.get("year")
+    case_label = attempt_row["事例"].iloc[-1] if not attempt_row.empty else attempt.get("case_label")
+    title = attempt_row["タイトル"].iloc[-1] if not attempt_row.empty else attempt.get("title")
+    submitted_at = attempt.get("submitted_at")
+    if submitted_at:
+        try:
+            submitted_display = datetime.fromisoformat(str(submitted_at)).strftime("%Y-%m-%d %H:%M")
+        except ValueError:
+            submitted_display = str(submitted_at)
+    else:
+        submitted_display = "-"
+    total_score = attempt.get("total_score")
+    total_max = attempt.get("total_max_score")
+    if total_score is None and not attempt_row.empty:
+        total_score = attempt_row["得点"].iloc[-1]
+    if total_max is None and not attempt_row.empty:
+        total_max = attempt_row["満点"].iloc[-1]
+
+    avg_keyword = None
+    coverage_values: List[float] = []
+    for entry in answers:
+        coverage = entry.get("keyword_coverage")
+        if coverage is None and entry.get("keyword_hits"):
+            hits = entry.get("keyword_hits")
+            if isinstance(hits, dict) and hits:
+                coverage = sum(1 for hit in hits.values() if hit) / len(hits)
+        if coverage is not None:
+            coverage_values.append(float(coverage))
+    if coverage_values:
+        avg_keyword = sum(coverage_values) / len(coverage_values)
+
+    char_total = 0
+    for entry in answers:
+        text = entry.get("answer_text") or ""
+        char_total += len(str(text))
+
+    st.markdown("### 演習詳細")
+    st.markdown(
+        f"**{year or ''} {case_label or ''}** — {title or '演習タイトル未設定'}"
+    )
+    meta_cols = st.columns(3)
+    with meta_cols[0]:
+        if total_score is not None and total_max is not None:
+            st.metric("総合得点", f"{float(total_score):.1f}/{float(total_max):.1f}")
+        else:
+            st.metric("総合得点", total_score or "-")
+    with meta_cols[1]:
+        st.metric("回答数", f"{len(answers)}問")
+    with meta_cols[2]:
+        st.metric(
+            "平均キーワード網羅率",
+            f"{avg_keyword * 100:.1f}%" if avg_keyword is not None else "-",
+        )
+    st.caption(f"提出日時: {submitted_display}")
+
+    char_col, guide_col = st.columns([1, 2])
+    with char_col:
+        st.metric("総文字数", f"{char_total}字")
+    with guide_col:
+        st.markdown("**構成ガイド**")
+        for item in _structure_guide_for_case(case_label):
+            st.markdown(f"- {item}")
+
+    if not st.session_state.get("history_detail_css_injected"):
+        st.markdown(
+            """
+            <style>
+                .answer-panel {
+                    background: #f7f9fc;
+                    border: 1px solid #d6deeb;
+                    border-radius: 8px;
+                    padding: 0.75rem;
+                    max-height: 220px;
+                    overflow-y: auto;
+                    white-space: pre-wrap;
+                    line-height: 1.5;
+                }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.session_state["history_detail_css_injected"] = True
+
+    for entry in answers:
+        question_order = entry.get("question_order")
+        question_label = f"設問{int(question_order)}" if question_order else "設問"
+        st.markdown(f"#### {question_label}")
+        answer_cols = st.columns([3, 2, 2])
+        answer_text = entry.get("answer_text") or ""
+        char_count = len(str(answer_text))
+        with answer_cols[0]:
+            st.markdown("**回答文**")
+            st.markdown(
+                f"<div class='answer-panel'>{escape(str(answer_text))}</div>",
+                unsafe_allow_html=True,
+            )
+            st.caption(f"字数: {char_count}字")
+        with answer_cols[1]:
+            st.markdown("**講評**")
+            feedback = entry.get("feedback")
+            if feedback:
+                st.write(feedback)
+            else:
+                st.caption("講評データなし")
+        with answer_cols[2]:
+            st.markdown("**キーワード達成状況**")
+            keyword_hits = entry.get("keyword_hits") or {}
+            if isinstance(keyword_hits, dict):
+                matched = [kw for kw, hit in keyword_hits.items() if hit]
+                missing = [kw for kw, hit in keyword_hits.items() if not hit]
+            else:
+                matched, missing = [], []
+            coverage = entry.get("keyword_coverage")
+            if coverage is None and keyword_hits:
+                coverage = (
+                    sum(1 for hit in keyword_hits.values() if hit) / len(keyword_hits)
+                    if keyword_hits
+                    else None
+                )
+            st.metric(
+                "網羅率",
+                f"{coverage * 100:.1f}%" if coverage is not None else "-",
+            )
+            if matched:
+                st.markdown("達成: " + "、".join(matched))
+            if missing:
+                st.markdown("不足: " + "、".join(missing))
+            if not matched and not missing:
+                st.caption("キーワード情報なし")
+
+    if not keyword_df.empty:
+        related = keyword_df[keyword_df["attempt_id"] == attempt_id]
+        if not related.empty:
+            st.markdown("##### キーワード別メモ")
+            summary_rows = []
+            for _, row in related.iterrows():
+                summary_rows.append(
+                    {
+                        "設問": f"設問{int(row.get('question_order') or 0)}",
+                        "網羅率(%)": f"{float(row.get('keyword_coverage') or 0) * 100:.1f}",
+                        "得点": row.get("score"),
+                        "フィードバック": row.get("feedback") or "",
+                    }
+                )
+            if summary_rows:
+                st.dataframe(pd.DataFrame(summary_rows), hide_index=True, use_container_width=True)
+
+
+def history_page(user: Dict) -> None:
+    _reset_history_exam_overlay_state()
+    logger = logging.getLogger(__name__)
+
+    st.session_state.setdefault("history_selected_attempt", None)
+    st.session_state.setdefault("history_active_tab", "一覧")
+    st.session_state.setdefault("history_tab_selector", "一覧")
+
+    try:
+        history_records = database.fetch_learning_history(user["id"])
+    except Exception:
+        logger.exception("Failed to load learning history for user %s", user["id"])
+        st.error("学習履歴の取得に失敗しました。時間を置いて再度お試しください。")
+        history_records = []
+
+    try:
+        keyword_records = database.fetch_keyword_performance(user["id"])
+    except Exception:
+        logger.exception("Failed to load keyword performance for user %s", user["id"])
+        keyword_records = []
+
+    try:
+        question_scores = database.fetch_user_question_scores(user["id"])
+    except Exception:
+        logger.exception("Failed to load question scores for user %s", user["id"])
+        question_scores = []
+
+    try:
+        question_summary = database.fetch_user_question_history_summary(user["id"])
+    except Exception:
+        logger.exception("Failed to load question summary for user %s", user["id"])
+        question_summary = []
+
+    history_df = pd.DataFrame(history_records)
+    if "日付" in history_df:
+        history_df["日付"] = pd.to_datetime(history_df["日付"], errors="coerce")
+    if "学習時間(分)" in history_df:
+        history_df["学習時間(分)"] = pd.to_numeric(history_df["学習時間(分)"], errors="coerce").fillna(0.0)
+    else:
+        history_df["学習時間(分)"] = 0.0
+    if "得点率" not in history_df:
+        history_df["得点率"] = None
+
+    keyword_df = pd.DataFrame(keyword_records)
+    if not keyword_df.empty and "submitted_at" in keyword_df:
+        keyword_df["submitted_at"] = pd.to_datetime(keyword_df["submitted_at"], errors="coerce")
+    if not keyword_df.empty and "keyword_hits" not in keyword_df:
+        keyword_df["keyword_hits"] = [{} for _ in range(len(keyword_df))]
+
+    question_score_df = pd.DataFrame(question_scores)
+    if not question_score_df.empty and "submitted_at" in question_score_df:
+        question_score_df["submitted_at"] = pd.to_datetime(question_score_df["submitted_at"], errors="coerce")
+
+    question_summary_df = pd.DataFrame(question_summary)
+
+    if history_df.empty and keyword_df.empty:
+        st.title("学習履歴")
+        st.caption("演習記録・得点推移・エクスポートを確認します。")
         st.info("まだ演習履歴がありません。演習を実施するとここに表示されます。")
         return
 
-    history_df = pd.DataFrame(history_records)
-    history_df["日付"] = pd.to_datetime(history_df["日付"], errors="coerce")
-    if "学習時間(分)" in history_df.columns:
-        history_df["学習時間(分)"] = pd.to_numeric(
-            history_df["学習時間(分)"], errors="coerce"
-        ).fillna(0.0)
-    else:
-        history_df["学習時間(分)"] = 0.0
-    history_df.sort_values("日付", inplace=True)
-
-    focus_attempt_id = st.session_state.get("history_focus_attempt")
-    highlight_from_notification = st.session_state.get("history_focus_from_notification")
-    if focus_attempt_id is not None:
-        try:
-            focus_attempt_int = int(focus_attempt_id)
-        except (TypeError, ValueError):
-            focus_attempt_int = None
-        if focus_attempt_int is not None:
-            attempt_id_series = pd.to_numeric(history_df.get("attempt_id"), errors="coerce")
-            attempt_ids = set(attempt_id_series.dropna().astype(int).tolist())
-            if focus_attempt_int in attempt_ids:
-                if highlight_from_notification:
-                    st.success("通知センターで選択した演習結果を表示しています。", icon="🔔")
-                else:
-                    st.info("指定した演習結果を表示しています。", icon="📄")
-                render_attempt_results(focus_attempt_int)
-                if st.button("通知センターのハイライトを閉じる", key="clear_history_focus"):
-                    st.session_state.history_focus_attempt = None
-                    st.session_state.history_focus_from_notification = False
-                    st.experimental_rerun()
-                st.session_state.history_focus_from_notification = False
-                st.divider()
-            else:
-                st.warning("指定された演習結果が見つかりませんでした。", icon="⚠️")
-                st.session_state.history_focus_attempt = None
-                st.session_state.history_focus_from_notification = False
-        else:
-            st.session_state.history_focus_attempt = None
-            st.session_state.history_focus_from_notification = False
-
-    keyword_records = database.fetch_keyword_performance(user["id"])
-    score_history_export = _prepare_history_log_export(history_df)
-    answer_history_export = _prepare_answer_log_export(keyword_records)
-    score_csv_bytes = score_history_export.to_csv(index=False).encode("utf-8-sig")
-    answer_csv_bytes = (
-        answer_history_export.to_csv(index=False).encode("utf-8-sig")
-        if not answer_history_export.empty
-        else None
-    )
-    archive_bytes = _build_learning_log_archive(score_csv_bytes, answer_csv_bytes)
-
-    st.subheader("学習ログのエクスポート")
-    st.caption(
-        "演習の得点推移と設問別の回答ログをダウンロードし、自己分析や講師との共有に活用できます。"
-    )
-    export_col1, export_col2, export_col3 = st.columns(3)
-    with export_col1:
-        st.download_button(
-            "得点推移CSVをダウンロード",
-            data=score_csv_bytes,
-            file_name="score_history.csv",
-            mime="text/csv",
-        )
-    with export_col2:
-        st.download_button(
-            "解答ログCSVをダウンロード",
-            data=answer_csv_bytes or b"",
-            file_name="answer_history.csv",
-            mime="text/csv",
-            disabled=answer_csv_bytes is None,
-        )
-        if answer_csv_bytes is None:
-            st.caption("採点済みの設問データがまだありません。演習を進めると自動で記録されます。")
-    with export_col3:
-        st.download_button(
-            "学習ログ一括ZIP",
-            data=archive_bytes,
-            file_name="learning_logs.zip",
-            mime="application/zip",
-        )
-
-    stats = _compute_learning_stats(history_df)
-    progress_overview = _compute_progress_overview(history_df)
-    reminder_settings = database.get_reminder_settings(user["id"])
-    review_schedule = database.list_upcoming_reviews(user_id=user["id"], limit=10)
-    due_reviews_count = database.count_due_reviews(user_id=user["id"])
-    active_interval = (
-        reminder_settings["interval_days"] if reminder_settings else stats["recommended_interval"]
-    )
-    reminder_time_value = _safe_time_from_string(
-        reminder_settings["reminder_time"] if reminder_settings else None
-    )
-    selected_channels = (
-        list(reminder_settings["preferred_channels"])
-        if reminder_settings
-        else ["メール通知"]
-    )
-    next_trigger_dt = _parse_iso_datetime(
-        reminder_settings["next_trigger_at"] if reminder_settings else None
-    )
-    last_notified_dt = _parse_iso_datetime(
-        reminder_settings["last_notified_at"] if reminder_settings else None
-    )
-
-    st.subheader("進捗ハイライトとスケジュール")
-    summary_col1, summary_col2, summary_col3 = st.columns(3)
-    summary_col1.metric("累計演習", f"{stats['total_sessions']}回")
-    avg_display = f"{stats['recent_average']:.1f}点" if stats["recent_average"] is not None else "ー"
-    summary_col2.metric("直近5回平均", avg_display)
-    summary_col3.metric("連続学習日数", f"{stats['streak_days']}日")
-
-    if stats["last_study_at"] is not None:
-        st.info(
-            f"直近の演習は {stats['last_study_at'].strftime('%Y-%m-%d %H:%M')} 実施。"
-            f"推奨間隔 {stats['recommended_interval']}日 → 次回の目安は"
-            f" {stats['next_study_at'].strftime('%Y-%m-%d %H:%M')} ごろです。"
-        )
-    else:
-        st.info("これから学習を始めましょう。初期推奨リマインダーは3日おきです。")
-
-    if review_schedule:
-        st.markdown("#### 復習ハブ予定リスト")
-        if due_reviews_count:
-            st.warning(
-                f"復習ハブで {due_reviews_count}件の期限が到来しています。『過去問演習』から優先的に復習しましょう。",
-                icon="📌",
-            )
-        review_df = pd.DataFrame(
-            [
-                {
-                    "次回実施日": item["due_at"].strftime("%Y-%m-%d"),
-                    "事例": f"{item['year']} {item['case_label']}",
-                    "タイトル": item["title"],
-                    "達成度": f"{(item['last_score_ratio'] or 0) * 100:.0f}%",
-                    "推奨学習量": (
-                        f"{item['recommended_items']}問 / 約{item['recommended_minutes']}分"
-                    ),
-                    "復習アクション": (
-                        f"今日中に復習（推奨 {item['recommended_items']}問・約{item['recommended_minutes']}分）"
-                        if item["due_at"] <= datetime.now(timezone.utc)
-                        else (
-                            "次回 {date} に復習（推奨 {items}問・約{minutes}分)".format(
-                                date=item["due_at"].strftime("%Y-%m-%d"),
-                                items=item["recommended_items"],
-                                minutes=item["recommended_minutes"],
-                            )
-                        )
-                    ),
-                    "間隔": f"{item['interval_days']}日",
-                }
-                for item in review_schedule
-            ]
-        )
-        st.dataframe(review_df, width="stretch")
-    else:
-        st.caption("演習完了後に復習ハブの予定が自動生成されます。")
-
-    with st.expander("リマインダー設定", expanded=reminder_settings is None):
-        st.write("学習リズムに合わせて通知頻度・時刻・チャネルをカスタマイズできます。")
-        cadence_labels = {
-            "recommended": f"推奨 ({stats['recommended_interval']}日おき)",
-            "every_other_day": "隔日 (2日おき)",
-            "weekly": "週1回 (7日間隔)",
-            "custom": "カスタム設定",
-        }
-        default_cadence = reminder_settings["cadence"] if reminder_settings else "recommended"
-        custom_default = (
-            reminder_settings["interval_days"]
-            if reminder_settings and reminder_settings["cadence"] == "custom"
-            else stats["recommended_interval"]
-        )
-
-        with st.form("reminder_form"):
-            cadence_choice = st.selectbox(
-                "通知頻度",
-                options=list(cadence_labels.keys()),
-                index=list(cadence_labels.keys()).index(default_cadence)
-                if default_cadence in cadence_labels
-                else 0,
-                format_func=lambda key: cadence_labels[key],
-            )
-            custom_interval = None
-            if cadence_choice == "custom":
-                custom_interval = st.number_input(
-                    "通知間隔（日）",
-                    min_value=1,
-                    max_value=30,
-                    value=int(custom_default),
-                    step=1,
+    header_col1, header_col2 = st.columns([2, 3])
+    with header_col1:
+        st.title("学習履歴")
+        st.caption("演習履歴、分析レポート、エクスポートをワンビューで整理しました。")
+    with header_col2:
+        filter_container = st.container()
+        with filter_container:
+            st.markdown("<div style='text-align:right;'>フィルターをまとめて操作できます。</div>", unsafe_allow_html=True)
+            filter_col1, filter_col2, filter_col3, filter_col4 = st.columns([1, 1, 1, 0.8])
+            year_options = sorted({str(y) for y in history_df.get("年度", pd.Series(dtype=str)).dropna().unique()})
+            case_options = sorted({str(c) for c in history_df.get("事例", pd.Series(dtype=str)).dropna().unique()})
+            tag_pool: Set[str] = set()
+            for column in ("テーマタグ", "傾向タグ", "トピックタグ"):
+                if column in history_df:
+                    for tags in history_df[column]:
+                        if isinstance(tags, list):
+                            tag_pool.update(str(tag) for tag in tags if tag)
+            tag_options = sorted(tag_pool)
+            with filter_col1:
+                selected_years = st.multiselect("年度", options=year_options, key="history_filter_years")
+            with filter_col2:
+                selected_cases = st.multiselect("事例", options=case_options, key="history_filter_cases")
+            with filter_col3:
+                selected_tags = st.multiselect("タグ", options=tag_options, key="history_filter_tags")
+            with filter_col4:
+                overlay_active = bool(st.session_state.get("mock_session"))
+                end_exam = st.button(
+                    "試験モード終了",
+                    type="secondary",
+                    help="模試のタイマーとオーバーレイを停止します。",
+                    disabled=not overlay_active,
                 )
-            reminder_time_input = st.time_input("通知時刻", value=reminder_time_value)
-            channel_options = ["メール通知", "スマートフォン通知"]
-            channels_selection = st.multiselect(
-                "通知チャネル",
-                options=channel_options,
-                default=[c for c in selected_channels if c in channel_options] or channel_options[:1],
-            )
+                if end_exam:
+                    st.session_state.pop("mock_session", None)
+                    st.session_state.pop("mock_notice_toggle", None)
+                    _remove_mock_notice_overlay()
+                    st.success("試験モードを終了しました。")
 
-            submitted = st.form_submit_button("設定を保存")
-
-            if submitted:
-                if not channels_selection:
-                    st.warning("通知チャネルを1つ以上選択してください。")
-                else:
-                    if cadence_choice == "recommended":
-                        interval_days = stats["recommended_interval"]
-                    elif cadence_choice == "every_other_day":
-                        interval_days = 2
-                    elif cadence_choice == "weekly":
-                        interval_days = 7
-                    else:
-                        interval_days = int(custom_interval) if custom_interval else 1
-
-                    next_trigger = _calculate_next_reminder(
-                        stats["reference_datetime"], interval_days, reminder_time_input
-                    )
-                    database.upsert_reminder_settings(
-                        user_id=user["id"],
-                        cadence=cadence_choice,
-                        interval_days=interval_days,
-                        preferred_channels=channels_selection,
-                        reminder_time=reminder_time_input.strftime("%H:%M"),
-                        next_trigger_at=next_trigger,
-                    )
-                    st.success(
-                        f"リマインダーを保存しました。次回通知予定: {next_trigger.strftime('%Y-%m-%d %H:%M')}"
-                    )
-                    reminder_settings = database.get_reminder_settings(user["id"])
-                    active_interval = reminder_settings["interval_days"]
-                    reminder_time_value = _safe_time_from_string(reminder_settings["reminder_time"])
-                    selected_channels = list(reminder_settings["preferred_channels"])
-                    next_trigger_dt = _parse_iso_datetime(reminder_settings["next_trigger_at"])
-                    last_notified_dt = _parse_iso_datetime(reminder_settings["last_notified_at"])
-
-    if reminder_settings and next_trigger_dt:
-        st.success(
-            f"次回の通知予定: {next_trigger_dt.strftime('%Y-%m-%d %H:%M')}"
-            f" / チャネル: {'、'.join(selected_channels)}"
-        )
-        if last_notified_dt:
-            st.caption(f"前回記録された通知送信: {last_notified_dt.strftime('%Y-%m-%d %H:%M')}")
-        if st.button("テスト通知を送信（シミュレーション）"):
-            simulated_next = next_trigger_dt + timedelta(days=active_interval)
-            database.mark_reminder_sent(
-                reminder_settings["id"], next_trigger_at=simulated_next
-            )
-            st.info(
-                f"通知送信を記録しました（ダミー）。次回予定: {simulated_next.strftime('%Y-%m-%d %H:%M')}"
-            )
-            reminder_settings = database.get_reminder_settings(user["id"])
-            active_interval = reminder_settings["interval_days"]
-            reminder_time_value = _safe_time_from_string(reminder_settings["reminder_time"])
-            selected_channels = list(reminder_settings["preferred_channels"])
-            next_trigger_dt = _parse_iso_datetime(reminder_settings["next_trigger_at"])
-            last_notified_dt = _parse_iso_datetime(reminder_settings["last_notified_at"])
-    else:
-        st.info("リマインダーを設定すると、メールやスマートフォン通知と連携した学習習慣づくりをサポートできます。")
-
-    schedule_preview = _build_schedule_preview(
-        stats["reference_datetime"],
-        active_interval,
-        reminder_time_value,
-        selected_channels,
-        first_event=next_trigger_dt,
+    badges: List[str] = []
+    if selected_years:
+        badges.append("<span class='history-badge'>年度: " + ", ".join(selected_years) + "</span>")
+    if selected_cases:
+        badges.append("<span class='history-badge'>事例: " + ", ".join(selected_cases) + "</span>")
+    if selected_tags:
+        badges.append("<span class='history-badge'>タグ: " + ", ".join(selected_tags) + "</span>")
+    badge_html = " ".join(badges) if badges else "<span class='history-badge --muted'>フィルタ未選択</span>"
+    st.markdown(
+        """
+        <style>
+            .history-badge {
+                display: inline-flex;
+                align-items: center;
+                padding: 0.2rem 0.55rem;
+                border-radius: 999px;
+                background: rgba(38, 132, 255, 0.12);
+                color: #1855a6;
+                font-size: 0.75rem;
+                margin-right: 0.35rem;
+                margin-bottom: 0.25rem;
+            }
+            .history-badge.--muted {
+                background: #f0f3f8;
+                color: #6b778c;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
-    st.dataframe(schedule_preview, width="stretch")
-    st.caption("今後の通知予定（サンプル）を確認し、リマインダー運用のイメージを掴めます。")
-
-    st.caption(
-        "通知APIやワークフロー自動化ツールと連携すると、保存した予定に合わせたメール送信やモバイル通知の運用が可能です。"
-    )
-
-    st.subheader("学習レベルと進捗状況")
-    level_info = progress_overview["level"]
-    level_col, summary_col = st.columns([1, 2])
-    with level_col:
-        st.metric("現在のレベル", f"Lv.{int(level_info['level'])}")
-        st.caption(f"累計経験値: {level_info['total_experience']:.0f} XP")
-    with summary_col:
-        st.markdown("次のレベルまで")
-        st.progress(level_info["progress_ratio"])
-        st.caption(
-            f"あと {level_info['xp_to_next_level']:.0f} XP でレベル{int(level_info['level']) + 1}"
-        )
-        overall = progress_overview["overall"]
-        st.caption(
-            f"年度×事例の進捗: {overall['completed']} / {overall['total']}"
-            f" ({overall['ratio'] * 100:.0f}%)"
-        )
-
-    year_col, case_col = st.columns(2)
-    with year_col:
-        st.markdown("##### 年度別進捗")
-        if progress_overview["years"]:
-            for year_item in progress_overview["years"]:
-                st.markdown(
-                    f"**{year_item['label']}** {year_item['completed']} / {year_item['total']} 事例"
-                )
-                st.progress(year_item["ratio"])
-        else:
-            st.info("問題データが登録されていません。")
-
-    with case_col:
-        st.markdown("##### 事例別進捗")
-        if progress_overview["cases"]:
-            for case_item in progress_overview["cases"]:
-                st.markdown(
-                    f"**{case_item['label']}** {case_item['completed']} / {case_item['total']} 年度"
-                )
-                st.progress(case_item["ratio"])
-        else:
-            st.info("問題データが登録されていません。")
-
-    st.divider()
-
-    unique_years = sorted(history_df["年度"].dropna().unique())
-    unique_cases = sorted(history_df["事例"].dropna().unique())
-    modes = {"practice": "演習", "mock": "模試"}
-
-    filter_col1, filter_col2, filter_col3 = st.columns(3)
-    with filter_col1:
-        selected_years = st.multiselect("年度で絞り込む", options=unique_years)
-    with filter_col2:
-        selected_cases = st.multiselect("事例で絞り込む", options=unique_cases)
-    with filter_col3:
-        selected_modes = st.multiselect("モード", options=list(modes.keys()), format_func=lambda key: modes[key])
+    st.markdown(badge_html, unsafe_allow_html=True)
 
     filtered_df = history_df.copy()
     if selected_years:
-        filtered_df = filtered_df[filtered_df["年度"].isin(selected_years)]
+        filtered_df = filtered_df[filtered_df["年度"].astype(str).isin(selected_years)]
     if selected_cases:
-        filtered_df = filtered_df[filtered_df["事例"].isin(selected_cases)]
-    if selected_modes:
-        selected_mode_labels = [modes[key] for key in selected_modes]
-        filtered_df = filtered_df[filtered_df["モード"].isin(selected_mode_labels)]
+        filtered_df = filtered_df[filtered_df["事例"].astype(str).isin(selected_cases)]
+    if selected_tags:
+        tag_set = set(selected_tags)
+        def _has_selected_tags(row: pd.Series) -> bool:
+            combined: Set[str] = set()
+            for column in ("テーマタグ", "傾向タグ", "トピックタグ"):
+                tags = row.get(column)
+                if isinstance(tags, list):
+                    combined.update(str(tag) for tag in tags if tag)
+            return bool(combined & tag_set)
+        filtered_df = filtered_df[filtered_df.apply(_has_selected_tags, axis=1)]
 
-    filtered_keyword_records = keyword_records
-    if selected_years:
-        filtered_keyword_records = [
-            record for record in filtered_keyword_records if record["year"] in selected_years
-        ]
-    if selected_cases:
-        filtered_keyword_records = [
-            record for record in filtered_keyword_records if record["case_label"] in selected_cases
-        ]
-    if selected_modes:
-        filtered_keyword_records = [
-            record for record in filtered_keyword_records if record["mode"] in selected_modes
-        ]
+    if "日付" in filtered_df:
+        filtered_df.sort_values("日付", inplace=True)
 
-    keyword_analysis_data = _analyze_keyword_records(filtered_keyword_records)
-    report_data = _build_learning_report(filtered_df)
+    hotkey_payload = _history_hotkey_listener({
+        "Digit1": "一覧",
+        "Digit2": "グラフ",
+        "Digit3": "分析レポート",
+        "Digit4": "キーワード分析",
+        "Digit5": "設問別分析",
+        "Digit6": "エクスポート",
+    })
 
-    overview_tab, chart_tab, report_tab, keyword_tab, question_tab, detail_tab = st.tabs(
-        ["一覧", "グラフ", "分析レポート", "キーワード分析", "設問別分析", "詳細・エクスポート"]
+    if isinstance(hotkey_payload, str):
+        if hotkey_payload.startswith("tab:"):
+            target = hotkey_payload.split(":", 1)[1]
+            if target in ("一覧", "グラフ", "分析レポート", "キーワード分析", "設問別分析", "エクスポート"):
+                if st.session_state.get("history_active_tab") != target:
+                    st.session_state["history_active_tab"] = target
+                    st.session_state["history_tab_selector"] = target
+                    st.experimental_rerun()
+        elif hotkey_payload == "range:back":
+            slider_value = st.session_state.get("history_period_slider")
+            if slider_value:
+                start, end = slider_value
+                delta = timedelta(days=7)
+                st.session_state["history_period_slider"] = (start - delta, end - delta)
+                st.experimental_rerun()
+        elif hotkey_payload == "range:forward":
+            slider_value = st.session_state.get("history_period_slider")
+            if slider_value:
+                start, end = slider_value
+                delta = timedelta(days=7)
+                st.session_state["history_period_slider"] = (start + delta, end + delta)
+                st.experimental_rerun()
+
+    tab_labels = ["一覧", "グラフ", "分析レポート", "キーワード分析", "設問別分析", "エクスポート"]
+    active_tab = st.session_state.get("history_tab_selector")
+    if active_tab not in tab_labels:
+        active_tab = tab_labels[0]
+    selected_tab = st.radio(
+        "学習履歴タブ",
+        options=tab_labels,
+        horizontal=True,
+        index=tab_labels.index(active_tab),
+        key="history_tab_selector",
+        label_visibility="collapsed",
     )
+    st.session_state["history_active_tab"] = selected_tab
 
-    with overview_tab:
-        display_df = filtered_df.copy()
-        display_df["日付"] = display_df["日付"].dt.strftime("%Y-%m-%d %H:%M")
-        st.data_editor(
-            display_df.drop(columns=["attempt_id"]),
-            hide_index=True,
-            width="stretch",
-            disabled=True,
-        )
-        st.caption("複数条件でフィルタした演習履歴を確認できます。列名をクリックすると並び替えできます。")
-
-    with chart_tab:
-        score_history = filtered_df.dropna(subset=["得点", "日付"])
-        if score_history.empty:
-            st.info("選択した条件に該当する得点推移がありません。")
+    if selected_tab == "一覧":
+        if filtered_df.empty:
+            st.warning("データなし。別のフィルタ条件をお試しください。")
         else:
-            line_chart = (
-                alt.Chart(score_history)
-                .mark_line(point=True)
-                .encode(
-                    x="日付:T",
-                    y="得点:Q",
-                    color="事例:N",
-                    tooltip=["日付", "年度", "事例", "得点", "満点", "モード"],
-                )
-                .properties(height=320)
-            )
-            st.altair_chart(line_chart, use_container_width=True)
+            overview_cols = st.columns(4)
+            with overview_cols[0]:
+                st.metric("演習件数", f"{len(filtered_df)}回")
+            with overview_cols[1]:
+                avg_score = filtered_df["得点"].dropna()
+                st.metric("平均得点", f"{avg_score.mean():.1f}" if not avg_score.empty else "-")
+            with overview_cols[2]:
+                ratio_series = filtered_df["得点率"].dropna()
+                st.metric("平均得点率", f"{ratio_series.mean() * 100:.1f}%" if not ratio_series.empty else "-")
+            with overview_cols[3]:
+                st.metric("累計学習時間", f"{filtered_df['学習時間(分)'].sum():.1f}分")
 
-            avg_df = score_history.groupby("事例", as_index=False)["得点"].mean()
-            st.subheader("事例別平均点")
-            bar_chart = alt.Chart(avg_df).mark_bar().encode(x="事例:N", y="得点:Q")
-            st.altair_chart(bar_chart, use_container_width=True)
-
-    with report_tab:
-        module_summary = report_data["module_summary"]
-        if module_summary.empty:
-            st.info("分析レポートを表示するには該当する演習データが必要です。")
-        else:
-            pdca = report_data["pdca"]
-            st.markdown("#### PDCAハイライト")
-            plan_col, do_col = st.columns(2)
-            with plan_col:
-                st.markdown("**Plan**")
-                st.markdown(pdca.get("plan") or "重点対象を選ぶための演習データを蓄積しましょう。")
-            with do_col:
-                st.markdown("**Do**")
-                st.markdown(pdca.get("do") or "直近の学習実績をもとに実行状況を確認します。")
-            check_col, act_col = st.columns(2)
-            with check_col:
-                st.markdown("**Check**")
-                st.markdown(pdca.get("check") or "週次推移を確認できるデータを集めましょう。")
-            with act_col:
-                st.markdown("**Act**")
-                st.markdown(pdca.get("act") or "改善アクションを検討できるよう追加演習を実施しましょう。")
-
-            st.markdown("#### モジュール別サマリ")
-            module_display = module_summary.copy()
-            if "直近実施日" in module_display.columns:
-                module_display["直近実施日"] = pd.to_datetime(
-                    module_display["直近実施日"], errors="coerce"
-                ).dt.strftime("%Y-%m-%d")
-            for column in ["平均得点", "直近得点"]:
-                if column in module_display.columns:
-                    module_display[column] = module_display[column].map(
-                        lambda v: f"{v:.1f}" if pd.notna(v) else "-"
-                    )
-            for column in ["平均得点率", "直近得点率"]:
-                if column in module_display.columns:
-                    module_display[column] = module_display[column].map(
-                        lambda v: f"{v:.1f}%" if pd.notna(v) else "-"
-                    )
-            if "学習時間(分)" in module_display.columns:
-                module_display["学習時間(分)"] = module_display["学習時間(分)"].map(
-                    lambda v: f"{v:.0f}"
-                )
-            if "学習時間(時間)" in module_display.columns:
-                module_display["学習時間(時間)"] = module_display["学習時間(時間)"].map(
-                    lambda v: f"{v:.1f}"
-                )
-            st.dataframe(module_display, width="stretch", hide_index=True)
-
-            monthly_df = report_data["monthly_summary"]
-            weekly_df = report_data["weekly_summary"]
-            monthly_tab, weekly_tab_inner = st.tabs(["月次トレンド", "週次トレンド"])
-
-            with monthly_tab:
-                if monthly_df.empty:
-                    st.info("月次トレンドを表示できるデータがありません。")
-                else:
-                    monthly_chart_df = monthly_df.sort_values("期間開始")
-                    unique_months = monthly_chart_df["期間開始"].dropna().unique()
-                    if len(unique_months) > 12:
-                        allowed = set(sorted(unique_months)[-12:])
-                        monthly_chart_df = monthly_chart_df[
-                            monthly_chart_df["期間開始"].isin(allowed)
-                        ]
-
-                    score_chart = (
-                        alt.Chart(monthly_chart_df)
-                        .mark_line(point=True)
-                        .encode(
-                            x=alt.X("期間開始:T", title="月"),
-                            y=alt.Y(
-                                "平均得点率:Q",
-                                title="平均得点率 (%)",
-                                scale=alt.Scale(domain=[0, 100]),
-                            ),
-                            color="モジュール:N",
-                            tooltip=[
-                                "期間ラベル",
-                                "モジュール",
-                                alt.Tooltip("平均得点:Q", format=".1f"),
-                                alt.Tooltip("平均得点率:Q", format=".1f"),
-                                "演習回数",
-                            ],
-                        )
-                    )
-                    st.altair_chart(score_chart, use_container_width=True)
-
-                    time_chart = (
-                        alt.Chart(monthly_chart_df)
-                        .mark_bar(opacity=0.65)
-                        .encode(
-                            x=alt.X("期間開始:T", title="月"),
-                            y=alt.Y(
-                                "学習時間(時間):Q",
-                                title="学習時間 (時間)",
-                                stack="zero",
-                            ),
-                            color="モジュール:N",
-                            tooltip=[
-                                "期間ラベル",
-                                "モジュール",
-                                alt.Tooltip("学習時間(時間):Q", format=".1f"),
-                                "演習回数",
-                            ],
-                        )
-                    )
-                    st.altair_chart(time_chart, use_container_width=True)
-
-                    monthly_table = monthly_chart_df.copy()
-                    monthly_table["期間"] = monthly_table["期間ラベル"]
-                    monthly_table["期間開始"] = monthly_table["期間開始"].dt.strftime("%Y-%m-%d")
-                    monthly_table["平均得点"] = monthly_table["平均得点"].map(
-                        lambda v: f"{v:.1f}" if pd.notna(v) else "-"
-                    )
-                    monthly_table["平均得点率"] = monthly_table["平均得点率"].map(
-                        lambda v: f"{v:.1f}%" if pd.notna(v) else "-"
-                    )
-                    monthly_table["学習時間(時間)"] = monthly_table["学習時間(時間)"].map(
-                        lambda v: f"{v:.1f}"
-                    )
-                    monthly_table["学習時間(分)"] = monthly_table["学習時間(分)"].map(
-                        lambda v: f"{v:.0f}"
-                    )
-                    monthly_display_cols = [
-                        "期間",
-                        "モジュール",
-                        "演習回数",
-                        "学習時間(分)",
-                        "学習時間(時間)",
-                        "平均得点",
-                        "平均得点率",
-                    ]
-                    st.dataframe(
-                        monthly_table[monthly_display_cols],
-                        width="stretch",
-                        hide_index=True,
-                    )
-
-            with weekly_tab_inner:
-                if weekly_df.empty:
-                    st.info("週次トレンドを表示できるデータがありません。")
-                else:
-                    weekly_chart_df = weekly_df.sort_values("期間開始")
-                    unique_weeks = weekly_chart_df["期間開始"].dropna().unique()
-                    if len(unique_weeks) > 12:
-                        allowed_weeks = set(sorted(unique_weeks)[-12:])
-                        weekly_chart_df = weekly_chart_df[
-                            weekly_chart_df["期間開始"].isin(allowed_weeks)
-                        ]
-
-                    weekly_score_chart = (
-                        alt.Chart(weekly_chart_df)
-                        .mark_line(point=True)
-                        .encode(
-                            x=alt.X("期間開始:T", title="週"),
-                            y=alt.Y(
-                                "平均得点率:Q",
-                                title="平均得点率 (%)",
-                                scale=alt.Scale(domain=[0, 100]),
-                            ),
-                            color="モジュール:N",
-                            tooltip=[
-                                "期間ラベル",
-                                "モジュール",
-                                alt.Tooltip("平均得点:Q", format=".1f"),
-                                alt.Tooltip("平均得点率:Q", format=".1f"),
-                                "演習回数",
-                            ],
-                        )
-                    )
-                    st.altair_chart(weekly_score_chart, use_container_width=True)
-
-                    weekly_time_chart = (
-                        alt.Chart(weekly_chart_df)
-                        .mark_bar(opacity=0.65)
-                        .encode(
-                            x=alt.X("期間開始:T", title="週"),
-                            y=alt.Y(
-                                "学習時間(時間):Q",
-                                title="学習時間 (時間)",
-                                stack="zero",
-                            ),
-                            color="モジュール:N",
-                            tooltip=[
-                                "期間ラベル",
-                                "モジュール",
-                                alt.Tooltip("学習時間(時間):Q", format=".1f"),
-                                "演習回数",
-                            ],
-                        )
-                    )
-                    st.altair_chart(weekly_time_chart, use_container_width=True)
-
-                    weekly_table = weekly_chart_df.copy()
-                    weekly_table["期間"] = weekly_table["期間ラベル"]
-                    weekly_table["期間開始"] = weekly_table["期間開始"].dt.strftime("%Y-%m-%d")
-                    weekly_table["平均得点"] = weekly_table["平均得点"].map(
-                        lambda v: f"{v:.1f}" if pd.notna(v) else "-"
-                    )
-                    weekly_table["平均得点率"] = weekly_table["平均得点率"].map(
-                        lambda v: f"{v:.1f}%" if pd.notna(v) else "-"
-                    )
-                    weekly_table["学習時間(時間)"] = weekly_table["学習時間(時間)"].map(
-                        lambda v: f"{v:.1f}"
-                    )
-                    weekly_table["学習時間(分)"] = weekly_table["学習時間(分)"].map(
-                        lambda v: f"{v:.0f}"
-                    )
-                    weekly_display_cols = [
-                        "期間",
-                        "モジュール",
-                        "演習回数",
-                        "学習時間(分)",
-                        "学習時間(時間)",
-                        "平均得点",
-                        "平均得点率",
-                    ]
-                    st.dataframe(
-                        weekly_table[weekly_display_cols],
-                        width="stretch",
-                        hide_index=True,
-                    )
-
-            export_tables = report_data.get("export", {})
-            module_export = export_tables.get("モジュール別サマリ", pd.DataFrame())
-            if not module_export.empty:
-                module_csv = module_export.copy()
-                if "直近実施日" in module_csv.columns:
-                    module_csv["直近実施日"] = pd.to_datetime(
-                        module_csv["直近実施日"], errors="coerce"
-                    ).dt.strftime("%Y-%m-%d %H:%M:%S")
-                csv_bytes = module_csv.to_csv(index=False).encode("utf-8-sig")
-                st.download_button(
-                    "モジュール別サマリをCSVでダウンロード",
-                    data=csv_bytes,
-                    file_name="learning_report_modules.csv",
-                    mime="text/csv",
+            table_rows = []
+            for _, row in filtered_df.iterrows():
+                table_rows.append(
+                    {
+                        "attempt_id": row["attempt_id"],
+                        "display_date": row["日付"].strftime("%Y-%m-%d %H:%M") if pd.notna(row["日付"]) else "-",
+                        "case": f"{row['年度']} {row['事例']}",
+                        "title": row["タイトル"],
+                        "score_display": f"{row['得点']}/{row['満点']}" if pd.notna(row["得点"]) and pd.notna(row["満点"]) else "-",
+                        "ratio": row.get("得点率"),
+                        "study_minutes": float(row["学習時間(分)"]) if pd.notna(row["学習時間(分)"]) else None,
+                        "mode": row.get("モード"),
+                    }
                 )
 
-            excel_bytes = _prepare_learning_report_excel(export_tables)
-            if excel_bytes:
-                st.download_button(
-                    "学習レポートをExcelでダウンロード",
-                    data=excel_bytes,
-                    file_name="learning_report.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            selected_attempt = st.session_state.get("history_selected_attempt")
+            if selected_attempt is not None:
+                try:
+                    selected_attempt = int(selected_attempt)
+                except (TypeError, ValueError):
+                    selected_attempt = None
+            new_selection = _render_history_table(table_rows, selected_id=selected_attempt)
+            if new_selection:
+                selected_attempt = new_selection
+            if not selected_attempt and table_rows:
+                selected_attempt = int(table_rows[-1]["attempt_id"])
+            st.session_state["history_selected_attempt"] = selected_attempt
+
+            st.markdown("#### 選択した演習の答案と採点結果")
+            if selected_attempt:
+                _render_attempt_detail_panel(
+                    selected_attempt,
+                    filtered_df=filtered_df,
+                    keyword_df=keyword_df,
                 )
-
-    with keyword_tab:
-        answers_df = keyword_analysis_data["answers"]
-        summary_df = keyword_analysis_data["summary"]
-        recommendations = keyword_analysis_data["recommendations"]
-
-        if answers_df.empty and summary_df.empty:
-            st.info("キーワード採点の記録がまだありません。演習を重ねると分析が表示されます。")
-        else:
-            if not answers_df.empty:
-                scatter_source = answers_df.dropna(subset=["キーワード網羅率", "得点率"])
-                if not scatter_source.empty:
-                    scatter_chart = (
-                        alt.Chart(scatter_source)
-                        .mark_circle(size=90, opacity=0.75)
-                        .encode(
-                            x=alt.X(
-                                "キーワード網羅率:Q",
-                                title="キーワード網羅率 (%)",
-                                scale=alt.Scale(domain=[0, 100]),
-                            ),
-                            y=alt.Y(
-                                "得点率:Q",
-                                title="設問得点率 (%)",
-                                scale=alt.Scale(domain=[0, 100]),
-                            ),
-                            color=alt.Color("事例:N"),
-                            tooltip=[
-                                "年度",
-                                "事例",
-                                "タイトル",
-                                "設問",
-                                alt.Tooltip("キーワード網羅率:Q", format=".1f"),
-                                alt.Tooltip("得点率:Q", format=".1f"),
-                                "不足キーワード表示",
-                            ],
-                        )
-                    )
-                    st.subheader("キーワード網羅率と得点率の相関")
-                    st.altair_chart(scatter_chart, use_container_width=True)
-                    st.caption("左下に位置する設問はキーワード・得点ともに伸びしろがあります。重点的に復習しましょう。")
-                else:
-                    st.info("スコアとキーワード判定が揃った設問がまだありません。")
-
-            if not summary_df.empty:
-                st.markdown("#### 頻出キーワードの達成状況")
-                display_summary = summary_df.copy()
-                display_summary["達成率(%)"] = display_summary["達成率(%)"].map(
-                    lambda v: f"{v:.0f}%"
-                )
-                st.data_editor(
-                    display_summary,
-                    hide_index=True,
-                    width="stretch",
-                    disabled=True,
-                )
-                st.caption("出題頻度が高いキーワードほど上位に表示されます。達成率が低いキーワードは計画的に復習しましょう。")
-
-            if recommendations:
-                st.markdown("#### 優先して復習したいテーマ")
-                for recommendation in recommendations[:5]:
-                    keyword = recommendation["keyword"]
-                    hit_rate = recommendation["hit_rate"] * 100
-                    attempts = recommendation["attempts"]
-                    example = recommendation.get("example")
-                    resources = KEYWORD_RESOURCE_MAP.get(keyword, DEFAULT_KEYWORD_RESOURCES)
-                    lines = [
-                        f"- **{keyword}** — 達成率 {hit_rate:.0f}% / 出題 {attempts}回",
-                    ]
-                    if example:
-                        lines.append(f"    - 出題例: {example}")
-                    for resource in resources:
-                        lines.append(f"    - [参考資料]({resource['url']}): {resource['label']}")
-                    st.markdown("\n".join(lines))
-
-            if not answers_df.empty:
-                st.markdown("#### 設問別キーワード判定一覧")
-                detail_df = answers_df[
-                    [
-                        "年度",
-                        "事例",
-                        "タイトル",
-                        "設問",
-                        "モード",
-                        "キーワード網羅率",
-                        "得点率",
-                        "自己評価",
-                        "所要時間(分)",
-                        "含まれたキーワード表示",
-                        "不足キーワード表示",
-                    ]
-                ].copy()
-                detail_df["キーワード網羅率"] = detail_df["キーワード網羅率"].map(
-                    lambda v: f"{v:.0f}%" if pd.notna(v) else "-"
-                )
-                detail_df["得点率"] = detail_df["得点率"].map(
-                    lambda v: f"{v:.0f}%" if pd.notna(v) else "-"
-                )
-                detail_df["所要時間(分)"] = detail_df["所要時間(分)"].map(
-                    lambda v: f"{v:.1f}" if pd.notna(v) else "-"
-                )
-                st.data_editor(detail_df, hide_index=True, width="stretch", disabled=True)
-                st.caption("各設問の到達状況と不足キーワードを一覧化しました。学習計画に反映してください。")
-
-            st.divider()
-            st.subheader("過去問キーワード解析")
-            st.caption("過去問本文を自然言語処理で解析し、学習計画づくりに役立つ頻出テーマを抽出しました。")
-
-            corpus = keyword_analysis.load_question_corpus()
-            available_years = keyword_analysis.list_available_years(corpus)
-            if not available_years:
-                st.info("過去問データが見つからないため、解析を実行できませんでした。")
             else:
-                default_years = min(3, len(available_years)) or 1
-                recent_years = st.slider(
-                    "解析対象の年度数",
-                    min_value=1,
-                    max_value=len(available_years),
-                    value=default_years,
-                    help="最新から何年分の過去問を集計するかを指定します。",
-                    key="keyword_analysis_recent_years",
+                st.info("右のペインに表示する演習を一覧から選択してください。")
+
+    elif selected_tab == "グラフ":
+        if filtered_df.empty:
+            st.warning("データなし。演習を追加するとグラフが表示されます。")
+        else:
+            st.markdown("### スコアと学習時間の推移")
+            if filtered_df["日付"].dropna().empty:
+                st.info("日付情報が不足しています。")
+            else:
+                min_date = filtered_df["日付"].min().date()
+                max_date = filtered_df["日付"].max().date()
+                slider_key = "history_period_slider"
+                default_range = (min_date, max_date)
+                stored_range = st.session_state.get(slider_key, default_range)
+                start_value = min(max(stored_range[0], min_date), max_date)
+                end_value = min(max(stored_range[1], min_date), max_date)
+                if start_value > end_value:
+                    start_value, end_value = min_date, max_date
+                selected_range = st.slider(
+                    "表示期間",
+                    min_value=min_date,
+                    max_value=max_date,
+                    value=(start_value, end_value),
+                    format="YYYY-MM-DD",
+                    key=slider_key,
                 )
-
-                insights = keyword_analysis.generate_keyword_insights(
-                    corpus=corpus,
-                    recent_years=recent_years,
-                    top_n=36,
-                    min_occurrence=2,
-                    theme_top_n=8,
+                st.session_state[slider_key] = selected_range
+                range_mask = (filtered_df["日付"].dt.date >= selected_range[0]) & (
+                    filtered_df["日付"].dt.date <= selected_range[1]
                 )
-
-                target_years = insights.get("selected_years", [])
-                if target_years:
-                    st.caption(
-                        "対象年度: "
-                        + "、".join(target_years)
-                        + f" / 解析設問数: {insights.get('document_count', 0)}"
-                    )
+                period_df = filtered_df[range_mask].copy()
+                if period_df.empty:
+                    st.warning("指定期間にはデータがありません。")
                 else:
-                    st.caption(f"解析設問数: {insights.get('document_count', 0)}")
-
-                case_options = ["全体"] + insights.get("case_labels", [])
-                selected_case = st.selectbox(
-                    "キーワードクラウド表示対象",
-                    options=case_options,
-                    key="keyword_analysis_case",
-                )
-
-                if selected_case == "全体":
-                    cloud_df = insights.get("cloud_overall", pd.DataFrame())
-                else:
-                    cloud_map = insights.get("cloud_by_case", {})
-                    cloud_df = cloud_map.get(selected_case, pd.DataFrame())
-
-                if cloud_df.empty:
-                    st.info("指定した条件でキーワードを抽出できませんでした。年度や事例を変更して再度お試しください。")
-                else:
-                    cloud_layout = keyword_analysis.prepare_cloud_layout(cloud_df, columns=6)
-                    cloud_layout["weight"] = cloud_layout["weight"].clip(lower=0.1)
-                    if not cloud_layout.empty:
-                        rows = int(cloud_layout["row"].max()) + 1
-                    else:
-                        rows = 1
-                    cloud_chart = (
-                        alt.Chart(cloud_layout)
-                        .mark_text(baseline="middle")
+                    period_df["得点率(%)"] = period_df["得点率"].apply(lambda v: v * 100 if pd.notna(v) else None)
+                    score_chart = (
+                        alt.Chart(period_df)
+                        .mark_line(point=True)
                         .encode(
-                            x=alt.X("col:O", axis=None),
-                            y=alt.Y("row:O", axis=None, sort="descending"),
-                            text="keyword",
-                            size=alt.Size("weight:Q", legend=None, scale=alt.Scale(range=[18, 68])),
-                            color=alt.Color("weight:Q", legend=None, scale=alt.Scale(scheme="blues")),
-                            tooltip=["keyword", alt.Tooltip("count:Q", title="出現回数")],
+                            x=alt.X("日付:T", title="日付"),
+                            y=alt.Y("得点率(%)", type="quantitative", title="得点率(%)"),
+                            tooltip=[
+                                "日付:T",
+                                "得点",
+                                "満点",
+                                alt.Tooltip("得点率(%)", type="quantitative", format=".1f"),
+                            ],
+                            color=alt.value("#1f77b4"),
                         )
-                        .properties(width=640, height=max(220, rows * 70))
+                        .properties(height=260)
                     )
-                    st.altair_chart(cloud_chart, use_container_width=True)
+                    with st.expander("得点率の推移", expanded=True):
+                        st.altair_chart(score_chart, use_container_width=True)
+                        latest_attempt = period_df.sort_values("日付").iloc[-1]
+                        if st.button("最新演習を右ペインで開く", key="graph_focus_latest"):
+                            st.session_state["history_selected_attempt"] = int(latest_attempt["attempt_id"])
+                            st.session_state["history_active_tab"] = "一覧"
+                            st.session_state["history_tab_selector"] = "一覧"
+                            st.experimental_rerun()
 
-                    cloud_display = cloud_df.copy()
-                    cloud_display["重要度(%)"] = (cloud_display["weight"] * 100).map(lambda v: f"{v:.0f}%")
-                    cloud_display.rename(
-                        columns={"keyword": "キーワード", "count": "出現回数"}, inplace=True
-                    )
-                    st.dataframe(
-                        cloud_display[["キーワード", "出現回数", "重要度(%)"]],
-                        width="stretch",
-                        hide_index=True,
-                    )
-
-                theme_case_options = ["全体"] + insights.get("case_labels", [])
-                selected_theme_case = st.selectbox(
-                    "頻出テーマ表示対象",
-                    options=theme_case_options,
-                    key="keyword_analysis_theme_case",
-                )
-
-                if selected_theme_case == "全体":
-                    theme_df = insights.get("themes_overall", pd.DataFrame())
-                else:
-                    theme_map = insights.get("themes_by_case", {})
-                    theme_df = theme_map.get(selected_theme_case, pd.DataFrame())
-
-                if theme_df.empty:
-                    st.info("頻出テーマを算出できませんでした。対象期間や事例を変更してみてください。")
-                else:
-                    theme_display = theme_df.copy()
-                    theme_display["重要度(指数)"] = (
-                        theme_display["score"] * 100
-                    ).map(lambda v: f"{v:.1f}")
-                    theme_display.rename(columns={"keyword": "テーマ"}, inplace=True)
-                    theme_chart = (
-                        alt.Chart(theme_display)
+                    period_df["学習時間(h)"] = period_df["学習時間(分)"].apply(lambda v: v / 60 if pd.notna(v) else None)
+                    time_chart = (
+                        alt.Chart(period_df)
                         .mark_bar()
                         .encode(
-                            x=alt.X("score:Q", title="重要度 (TF-IDF平均)", axis=alt.Axis(format=".2f")),
-                            y=alt.Y("テーマ:N", sort="-x"),
-                            tooltip=["テーマ", alt.Tooltip("score:Q", title="重要度", format=".2f")],
+                            x=alt.X("日付:T", title="日付"),
+                            y=alt.Y("学習時間(h):Q", title="学習時間 (時間)", stack=None),
+                            tooltip=["日付:T", alt.Tooltip("学習時間(h):Q", format=".2f")],
+                            color=alt.value("#ff7f0e"),
                         )
-                        .properties(height=max(200, 28 * len(theme_display)), width=640)
+                        .properties(height=220)
                     )
-                    st.altair_chart(theme_chart, use_container_width=True)
-                    st.dataframe(
-                        theme_display[["テーマ", "重要度(指数)"]],
-                        width="stretch",
-                        hide_index=True,
-                    )
+                    with st.expander("学習時間の推移", expanded=False):
+                        st.altair_chart(time_chart, use_container_width=True)
 
-    with question_tab:
-        if not question_history_summary:
-            st.info("まだ設問別の履歴がありません。演習を進めると自動で集計されます。")
+                    if not question_score_df.empty:
+                        case_chart = (
+                            alt.Chart(question_score_df)
+                            .mark_circle(size=80)
+                            .encode(
+                                x=alt.X("submitted_at:T", title="日付"),
+                                y=alt.Y("score:Q", title="得点"),
+                                color=alt.Color("case_label:N", title="事例"),
+                                tooltip=["year:N", "case_label:N", "question_order:N", "score:Q", "keyword_coverage:Q"],
+                            )
+                            .properties(height=260)
+                        )
+                        with st.expander("設問ごとの得点散布図", expanded=False):
+                            st.altair_chart(case_chart, use_container_width=True)
+
+    elif selected_tab == "分析レポート":
+        if filtered_df.empty:
+            st.warning("データなし。演習記録が蓄積されると自動生成されます。")
         else:
-            summary_df = pd.DataFrame(question_history_summary)
-            summary_df["last_attempt_at"] = pd.to_datetime(
-                summary_df["last_attempt_at"], errors="coerce"
+            stats = _compute_learning_stats(filtered_df)
+            progress = _compute_progress_overview(filtered_df)
+            st.markdown("### PDCAハイライト")
+            cards = st.columns(3)
+            cards[0].metric("Plan", progress.get("plan_focus", "着手準備"))
+            cards[1].metric("Do", f"直近学習 {stats['total_sessions']}回")
+            cards[2].metric(
+                "Check",
+                f"平均 {stats['recent_average']:.1f}点" if stats["recent_average"] is not None else "-",
             )
-            for column in ["themes", "tendencies", "topics", "skill_tags"]:
-                summary_df[column] = summary_df[column].apply(
-                    lambda value: value if isinstance(value, list) else []
-                )
-            summary_df["difficulty_label"] = summary_df.apply(
-                lambda row: str(
-                    row.get("question_difficulty")
-                    or row.get("problem_difficulty")
-                    or "未分類"
-                ),
+            with st.expander("モジュール別サマリ", expanded=True):
+                module_summary = progress.get("module_summary") or []
+                if module_summary:
+                    st.dataframe(pd.DataFrame(module_summary), hide_index=True, use_container_width=True)
+                else:
+                    st.caption("データなし")
+            with st.expander("月次・週次トレンド", expanded=False):
+                monthly = progress.get("monthly_trend") or []
+                weekly = progress.get("weekly_trend") or []
+                if not monthly and not weekly:
+                    st.caption("データなし")
+                else:
+                    trend_cols = st.columns(2)
+                    if monthly:
+                        monthly_df = pd.DataFrame(monthly)
+                        chart = alt.Chart(monthly_df).mark_line(point=True).encode(
+                            x="period:N", y="score:Q", tooltip=["period:N", "score:Q"]
+                        )
+                        trend_cols[0].altair_chart(chart, use_container_width=True)
+                    if weekly:
+                        weekly_df = pd.DataFrame(weekly)
+                        chart = alt.Chart(weekly_df).mark_bar().encode(
+                            x="period:N", y="score:Q", tooltip=["period:N", "score:Q"]
+                        )
+                        trend_cols[1].altair_chart(chart, use_container_width=True)
+
+    elif selected_tab == "キーワード分析":
+        if keyword_df.empty:
+            st.warning("データなし。採点済みの設問が増えると表示されます。")
+        else:
+            keyword_df = keyword_df.copy()
+            keyword_df["keyword_count"] = keyword_df["keyword_hits"].apply(lambda d: len(d) if isinstance(d, dict) else 0)
+            keyword_df["keyword_coverage_pct"] = keyword_df["keyword_coverage"].apply(lambda v: v * 100 if pd.notna(v) else None)
+            keyword_df["score_ratio"] = keyword_df.apply(
+                lambda row: (row["score"] / row["max_score"]) * 100 if row.get("max_score") else None,
                 axis=1,
             )
-            available_years = (
-                summary_df["year"].dropna().astype(str).sort_values(ascending=False).unique().tolist()
+            keyword_df["importance"] = keyword_df.apply(
+                lambda row: min(100, (row.get("max_score") or 0) * 10 + (row.get("keyword_count") or 0) * 5),
+                axis=1,
             )
-            available_cases = (
-                summary_df["case_label"].dropna().astype(str).unique().tolist()
-            )
-            available_cases.sort(
-                key=lambda label: (
-                    CASE_ORDER.index(label) if label in CASE_ORDER else len(CASE_ORDER),
-                    label,
+            scatter_chart = (
+                alt.Chart(keyword_df)
+                .mark_circle(size=90)
+                .encode(
+                    x=alt.X("keyword_coverage_pct:Q", title="キーワード網羅率(%)"),
+                    y=alt.Y("score_ratio:Q", title="得点率(%)"),
+                    color=alt.Color("importance:Q", title="重要度", scale=alt.Scale(scheme="plasma")),
+                    tooltip=["year:N", "case_label:N", "question_order:N", "keyword_coverage_pct:Q", "score_ratio:Q"],
                 )
+                .properties(height=280)
             )
-            available_difficulties = sorted(
-                {label for label in summary_df["difficulty_label"].unique() if label}
+            with st.expander("キーワード達成散布図", expanded=True):
+                st.altair_chart(scatter_chart, use_container_width=True)
+            table_columns = [
+                "year",
+                "case_label",
+                "question_order",
+                "keyword_coverage_pct",
+                "score",
+                "max_score",
+                "importance",
+            ]
+            keyword_table = keyword_df[table_columns].rename(
+                columns={
+                    "year": "年度",
+                    "case_label": "事例",
+                    "question_order": "設問",
+                    "keyword_coverage_pct": "網羅率(%)",
+                    "score": "得点",
+                    "max_score": "満点",
+                    "importance": "重要度指数",
+                }
             )
-            concept_tags: Set[str] = set()
-            for column in ("themes", "tendencies", "topics"):
-                for tags in summary_df[column]:
-                    concept_tags.update(tag for tag in tags if tag)
-            skill_tags: Set[str] = set()
-            for tags in summary_df["skill_tags"]:
-                skill_tags.update(tag for tag in tags if tag)
+            st.dataframe(keyword_table, hide_index=True, use_container_width=True, height=260)
 
-            filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
-            with filter_col1:
-                selected_years = st.multiselect("年度", options=available_years)
-            with filter_col2:
-                selected_cases = st.multiselect("事例", options=available_cases)
-            with filter_col3:
-                selected_difficulties = st.multiselect(
-                    "難易度", options=available_difficulties, default=[]
-                )
-            with filter_col4:
-                selected_concepts = st.multiselect(
-                    "テーマ/傾向タグ", options=sorted(concept_tags), default=[]
-                )
-
-            selected_skills = st.multiselect(
-                "スキルタグ", options=sorted(skill_tags), default=[], key="question_skill_filter"
-            )
-
-            filtered_summary = summary_df.copy()
-            if selected_years:
-                filtered_summary = filtered_summary[
-                    filtered_summary["year"].astype(str).isin(selected_years)
-                ]
-            if selected_cases:
-                filtered_summary = filtered_summary[
-                    filtered_summary["case_label"].astype(str).isin(selected_cases)
-                ]
-            if selected_difficulties:
-                filtered_summary = filtered_summary[
-                    filtered_summary["difficulty_label"].isin(selected_difficulties)
-                ]
-            if selected_concepts:
-                concept_set = set(selected_concepts)
-                filtered_summary = filtered_summary[
-                    filtered_summary.apply(
-                        lambda row: bool(
-                            concept_set
-                            & (set(row["themes"]) | set(row["tendencies"]) | set(row["topics"]))
-                        ),
-                        axis=1,
-                    )
-                ]
-            if selected_skills:
-                skill_set = set(selected_skills)
-                filtered_summary = filtered_summary[
-                    filtered_summary["skill_tags"].apply(lambda tags: bool(skill_set & set(tags)))
-                ]
-
-            if filtered_summary.empty:
-                st.warning("選択した条件に一致する設問がありません。フィルタを調整してください。")
+            st.markdown("#### 優先復習テーマ")
+            low_keywords = keyword_df.dropna(subset=["keyword_coverage_pct"]).sort_values(by="keyword_coverage_pct").head(10)
+            if low_keywords.empty:
+                st.caption("データなし")
             else:
-                ratio_map = {}
-                if global_question_metrics:
-                    ratio_map = {
-                        qid: metrics.get("avg_ratio")
-                        for qid, metrics in global_question_metrics.items()
-                    }
+                carousel_idx = st.session_state.get("keyword_carousel_index", 0) % len(low_keywords)
+                carousel_row = low_keywords.iloc[carousel_idx]
+                st.markdown(
+                    f"**{carousel_row['year']} {carousel_row['case_label']} 設問{int(carousel_row['question_order'] or 0)}** — 網羅率 {carousel_row['keyword_coverage_pct']:.1f}%"
+                )
+                st.caption("クリックで関連問題を一覧タブにフォーカスします。")
+                if st.button("関連問題を開く", key="keyword_carousel_jump"):
+                    st.session_state["history_selected_attempt"] = int(carousel_row["attempt_id"])
+                    st.session_state["history_active_tab"] = "一覧"
+                    st.session_state["history_tab_selector"] = "一覧"
+                    st.experimental_rerun()
+                prev_col, next_col = st.columns(2)
+                if prev_col.button("◀ 前へ", key="keyword_carousel_prev"):
+                    st.session_state["keyword_carousel_index"] = (carousel_idx - 1) % len(low_keywords)
+                    st.experimental_rerun()
+                if next_col.button("次へ ▶", key="keyword_carousel_next"):
+                    st.session_state["keyword_carousel_index"] = (carousel_idx + 1) % len(low_keywords)
+                    st.experimental_rerun()
 
-                display_df = filtered_summary.copy()
-                display_df["年度"] = display_df["year"].astype(str).map(_format_reiwa_label)
-                display_df["事例"] = display_df["case_label"].astype(str)
-                display_df["設問"] = display_df["question_order"].map(
-                    lambda v: f"設問{int(v)}" if pd.notna(v) else "-"
-                )
-                display_df["平均得点"] = display_df["avg_score"].map(
-                    lambda v: f"{v:.1f}" if pd.notna(v) else "-"
-                )
-                display_df["最高得点"] = display_df["best_score"].map(
-                    lambda v: f"{v:.1f}" if pd.notna(v) else "-"
-                )
-                display_df["最低得点"] = display_df["worst_score"].map(
-                    lambda v: f"{v:.1f}" if pd.notna(v) else "-"
-                )
-                display_df["平均得点率(%)"] = display_df["avg_ratio"].map(
-                    lambda v: f"{v * 100:.1f}" if pd.notna(v) else "-"
-                )
-                display_df["平均キーワード網羅率(%)"] = display_df["avg_keyword_coverage"].map(
-                    lambda v: f"{v * 100:.1f}" if pd.notna(v) else "-"
-                )
-                display_df["全体平均得点率(%)"] = display_df["question_id"].map(
-                    lambda qid: f"{ratio_map.get(qid) * 100:.1f}"
-                    if ratio_map.get(qid) is not None
-                    else "-"
-                )
-                display_df["直近実施日"] = display_df["last_attempt_at"].dt.strftime(
-                    "%Y-%m-%d"
-                )
-                display_df["難易度"] = display_df["difficulty_label"]
-                display_df["テーマ"] = display_df["themes"].map(
-                    lambda tags: "、".join(tags) if tags else "-"
-                )
-                display_df["傾向タグ"] = display_df["tendencies"].map(
-                    lambda tags: "、".join(tags) if tags else "-"
-                )
-                display_df["トピックタグ"] = display_df["topics"].map(
-                    lambda tags: "、".join(tags) if tags else "-"
-                )
-                display_df["スキルタグ"] = display_df["skill_tags"].map(
-                    lambda tags: "、".join(tags) if tags else "-"
-                )
-                display_df.sort_values(
-                    by=["year", "case_label", "question_order"],
-                    ascending=[False, True, True],
-                    inplace=True,
-                )
-                table_columns = [
-                    "年度",
-                    "事例",
-                    "設問",
-                    "難易度",
-                    "実施回数",
-                    "平均得点",
-                    "最高得点",
-                    "最低得点",
-                    "平均得点率(%)",
-                    "全体平均得点率(%)",
-                    "平均キーワード網羅率(%)",
-                    "直近実施日",
-                    "テーマ",
-                    "傾向タグ",
-                    "トピックタグ",
-                    "スキルタグ",
+    elif selected_tab == "設問別分析":
+        if question_summary_df.empty:
+            st.warning("データなし。演習結果が蓄積されると分析できます。")
+        else:
+            summary_df = question_summary_df.copy()
+            if "avg_ratio" in summary_df:
+                summary_df["avg_ratio"] = summary_df["avg_ratio"].apply(lambda v: v * 100 if pd.notna(v) else None)
+            display_columns = [
+                col for col in [
+                    "year",
+                    "case_label",
+                    "question_order",
+                    "attempt_count",
+                    "avg_score",
+                    "avg_ratio",
+                    "avg_keyword_coverage",
+                    "last_attempt_at",
                 ]
-                display_df.rename(columns={"attempt_count": "実施回数"}, inplace=True)
-                st.dataframe(
-                    display_df[table_columns],
-                    hide_index=True,
-                    use_container_width=True,
+                if col in summary_df
+            ]
+            display_df = summary_df[display_columns].rename(
+                columns={
+                    "year": "年度",
+                    "case_label": "事例",
+                    "question_order": "設問",
+                    "attempt_count": "実施回数",
+                    "avg_score": "平均得点",
+                    "avg_ratio": "平均得点率(%)",
+                    "avg_keyword_coverage": "平均キーワード網羅率",
+                    "last_attempt_at": "直近実施日",
+                }
+            )
+            st.dataframe(display_df, hide_index=True, use_container_width=True)
+
+    else:  # エクスポート
+        export_source = filtered_df if not filtered_df.empty else history_df
+        score_export = _prepare_history_log_export(export_source)
+        score_csv = score_export.to_csv(index=False).encode("utf-8-sig")
+        keyword_export = _prepare_answer_log_export(keyword_records)
+        answer_csv = keyword_export.to_csv(index=False).encode("utf-8-sig") if not keyword_export.empty else None
+        archive_bytes = _build_learning_log_archive(score_csv, answer_csv)
+
+        st.markdown("### エクスポートセンター")
+        export_cols = st.columns(3)
+        with export_cols[0]:
+            st.download_button("得点推移CSV", data=score_csv, file_name="score_history.csv", mime="text/csv")
+        with export_cols[1]:
+            st.download_button(
+                "解答ログCSV",
+                data=answer_csv or b"",
+                file_name="answer_history.csv",
+                mime="text/csv",
+                disabled=answer_csv is None,
+                help=None if answer_csv is not None else "採点済みデータがありません",
+            )
+        with export_cols[2]:
+            st.download_button(
+                "学習ログZIP",
+                data=archive_bytes,
+                file_name="learning_logs.zip",
+                mime="application/zip",
+            )
+
+        selected_attempt = st.session_state.get("history_selected_attempt")
+        if selected_attempt:
+            try:
+                detail = _load_attempt_detail_cached(int(selected_attempt))
+            except Exception:
+                st.error("選択中の演習詳細を取得できませんでした。")
+            else:
+                payload = export_utils.build_attempt_export_payload(
+                    detail["attempt"],
+                    detail["answers"],
                 )
-                st.caption("演習済みの設問を年度・タグ別に比較できます。列ヘッダをクリックすると並び替えできます。")
-
-                improvement_candidates = display_df[
-                    (display_df["平均得点率(%)"] != "-")
-                    & (display_df["実施回数"] > 0)
-                ].copy()
-                if not improvement_candidates.empty:
-                    improvement_candidates["平均得点率(%)"] = improvement_candidates[
-                        "平均得点率(%)"
-                    ].astype(float)
-                    improvement_candidates.sort_values(
-                        by=["平均得点率(%)", "直近実施日"], ascending=[True, True], inplace=True
-                    )
-                    st.markdown("#### 改善優先度が高い設問")
-                    st.caption("平均得点率が低い順に最大5件まで表示します。重点復習の参考にしてください。")
-                    st.dataframe(
-                        improvement_candidates.head(5)[
-                            ["年度", "事例", "設問", "平均得点率(%)", "最高得点", "実施回数", "直近実施日"]
-                        ],
-                        hide_index=True,
-                        use_container_width=True,
-                    )
-
-                avg_ratio_series = filtered_summary["avg_ratio"].dropna()
-                avg_ratio_pct = avg_ratio_series.mean() * 100 if not avg_ratio_series.empty else None
-                metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
-                with metrics_col1:
-                    st.metric("演習済み設問数", f"{len(filtered_summary)}問")
-                with metrics_col2:
-                    st.metric(
-                        "平均得点率",
-                        f"{avg_ratio_pct:.1f}%" if avg_ratio_pct is not None else "-",
-                    )
-                with metrics_col3:
-                    st.metric(
-                        "平均実施回数",
-                        f"{filtered_summary['attempt_count'].mean():.1f}回",
-                    )
-
-    with detail_tab:
-        csv_export = filtered_df.copy()
-        csv_export["日付"] = csv_export["日付"].dt.strftime("%Y-%m-%d %H:%M:%S")
-        csv_bytes = csv_export.drop(columns=["attempt_id"]).to_csv(index=False).encode("utf-8-sig")
-        st.download_button(
-            "CSVをダウンロード",
-            data=csv_bytes,
-            file_name="history.csv",
-            mime="text/csv",
-        )
-
-        attempt_ids = [
-            int(value)
-            for value in filtered_df.get("attempt_id", pd.Series(dtype=int)).dropna().unique()
-        ]
-        scoring_logs = database.fetch_scoring_logs_for_attempts(attempt_ids)
-        if scoring_logs:
-            log_csv = export_utils.scoring_logs_csv_bytes(scoring_logs)
-            log_json = export_utils.scoring_logs_json_bytes(scoring_logs)
-            log_pdf = export_utils.scoring_logs_pdf_bytes(scoring_logs)
-            log_col1, log_col2, log_col3 = st.columns(3)
-            with log_col1:
+                pdf_bytes = export_utils.attempt_pdf_bytes(payload)
                 st.download_button(
-                    "採点ログCSV",
-                    data=log_csv,
-                    file_name="scoring_logs.csv",
-                    mime="text/csv",
-                )
-            with log_col2:
-                st.download_button(
-                    "採点ログJSON",
-                    data=log_json,
-                    file_name="scoring_logs.json",
-                    mime="application/json",
-                )
-            with log_col3:
-                st.download_button(
-                    "採点ログPDF",
-                    data=log_pdf,
-                    file_name="scoring_logs.pdf",
+                    "選択中の演習PDF",
+                    data=pdf_bytes,
+                    file_name=f"attempt_{selected_attempt}.pdf",
                     mime="application/pdf",
                 )
-            st.caption("フィルタ済みの採点ログを一括出力できます。復習計画や分析ツールへの取り込みにご利用ください。")
+            st.caption("一覧タブで選んだ演習のPDFエクスポートも利用できます。")
+        else:
+            st.caption("一覧タブで演習を選択するとPDFエクスポートが有効になります。")
 
-        recent_history = filtered_df.dropna(subset=["日付"]).sort_values("日付", ascending=False)
-        if recent_history.empty:
-            st.info("詳細表示できる履歴がありません。フィルタ条件を変更してください。")
-            return
-
-        options = list(recent_history.index)
-        selected_idx = st.selectbox(
-            "詳細を確認する演習",
-            options=options,
-            format_func=lambda idx: f"{recent_history.loc[idx, '日付'].strftime('%Y-%m-%d %H:%M')} {recent_history.loc[idx, '年度']} {recent_history.loc[idx, '事例']}",
-        )
-        attempt_id = int(recent_history.loc[selected_idx, "attempt_id"])
-        render_attempt_results(attempt_id)
 
 
 def settings_page(user: Dict) -> None:

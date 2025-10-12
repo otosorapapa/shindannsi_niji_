@@ -2358,7 +2358,7 @@ def fetch_all_attempt_scores() -> List[Dict[str, Any]]:
 
 
 def fetch_learning_history(user_id: int) -> List[Dict]:
-    """Return simplified attempt records for analytics on the history page."""
+    """Return aggregated learning history rows for the specified user."""
 
     conn = get_connection()
     cur = conn.cursor()
@@ -2366,6 +2366,7 @@ def fetch_learning_history(user_id: int) -> List[Dict]:
         """
         SELECT
             a.id,
+            a.started_at,
             a.submitted_at,
             a.total_score,
             a.total_max_score,
@@ -2373,11 +2374,37 @@ def fetch_learning_history(user_id: int) -> List[Dict]:
             a.mode,
             p.year,
             p.case_label,
-            p.title
+            p.title,
+            p.theme_tags_json,
+            p.tendency_tags_json,
+            p.topic_tags_json,
+            COUNT(aa.id) AS answer_count,
+            AVG(aa.score) AS avg_answer_score,
+            SUM(aa.score) AS summed_answer_score,
+            SUM(q.max_score) AS summed_max_score,
+            AVG(log.keyword_coverage) AS avg_keyword_coverage
         FROM attempts a
         JOIN problems p ON p.id = a.problem_id
+        LEFT JOIN attempt_answers aa ON aa.attempt_id = a.id
+        LEFT JOIN questions q ON q.id = aa.question_id
+        LEFT JOIN attempt_scoring_logs log
+            ON log.attempt_id = aa.attempt_id AND log.question_id = aa.question_id
         WHERE a.user_id = ? AND a.submitted_at IS NOT NULL
-        ORDER BY a.submitted_at
+        GROUP BY
+            a.id,
+            a.started_at,
+            a.submitted_at,
+            a.total_score,
+            a.total_max_score,
+            a.duration_seconds,
+            a.mode,
+            p.year,
+            p.case_label,
+            p.title,
+            p.theme_tags_json,
+            p.tendency_tags_json,
+            p.topic_tags_json
+        ORDER BY COALESCE(a.submitted_at, a.started_at)
         """,
         (user_id,),
     )
@@ -2386,17 +2413,60 @@ def fetch_learning_history(user_id: int) -> List[Dict]:
 
     history: List[Dict] = []
     for row in rows:
+        duration_seconds = row["duration_seconds"] or 0
+        try:
+            study_minutes = (float(duration_seconds) / 60.0) if duration_seconds else 0.0
+        except (TypeError, ValueError):
+            study_minutes = 0.0
+
+        try:
+            theme_tags = json.loads(row["theme_tags_json"]) if row["theme_tags_json"] else []
+        except json.JSONDecodeError:
+            theme_tags = []
+
+        try:
+            tendency_tags = (
+                json.loads(row["tendency_tags_json"]) if row["tendency_tags_json"] else []
+            )
+        except json.JSONDecodeError:
+            tendency_tags = []
+
+        try:
+            topic_tags = json.loads(row["topic_tags_json"]) if row["topic_tags_json"] else []
+        except json.JSONDecodeError:
+            topic_tags = []
+
+        total_max_score = row["total_max_score"] or row["summed_max_score"]
+        total_score = row["total_score"]
+        if total_score is None and row["summed_answer_score"] is not None:
+            total_score = row["summed_answer_score"]
+
+        ratio = None
+        if total_score is not None and total_max_score:
+            try:
+                ratio = float(total_score) / float(total_max_score)
+            except (TypeError, ValueError, ZeroDivisionError):
+                ratio = None
+
         history.append(
             {
                 "attempt_id": row["id"],
+                "started_at": row["started_at"],
                 "日付": row["submitted_at"],
                 "年度": row["year"],
                 "事例": row["case_label"],
                 "タイトル": row["title"],
-                "得点": row["total_score"],
-                "満点": row["total_max_score"],
-                "学習時間(分)": (row["duration_seconds"] or 0) / 60 if row["duration_seconds"] else 0,
+                "得点": total_score,
+                "満点": total_max_score,
+                "得点率": ratio,
+                "平均設問得点": row["avg_answer_score"],
+                "回答数": row["answer_count"],
+                "平均キーワード網羅率": row["avg_keyword_coverage"],
+                "学習時間(分)": study_minutes,
                 "モード": "模試" if row["mode"] == "mock" else "演習",
+                "テーマタグ": theme_tags,
+                "傾向タグ": tendency_tags,
+                "トピックタグ": topic_tags,
             }
         )
 
