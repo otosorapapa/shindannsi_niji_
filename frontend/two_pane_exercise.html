@@ -232,14 +232,153 @@
         font-style: italic;
       }
 
+      body[data-app="exercise"] .app-shell {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-lg);
+      }
+
+      body[data-app="exercise"] .app-header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-md);
+        padding: 16px var(--spacing-lg);
+        background-color: color-mix(
+          in srgb,
+          var(--color-bg) 85%,
+          var(--color-surface)
+        );
+        border-bottom: 1px solid color-mix(
+          in srgb,
+          var(--color-border) 70%,
+          transparent
+        );
+        backdrop-filter: blur(16px);
+      }
+
+      body[data-app="exercise"] .app-header__group {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+      }
+
+      body[data-app="exercise"] .app-header__title {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      body[data-app="exercise"] .app-header__title h1 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 700;
+      }
+
+      body[data-app="exercise"] .app-header__title span {
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .app-header__button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--spacing-xs);
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--color-border);
+        background-color: var(--color-surface);
+        color: var(--color-text-strong);
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .app-header__button:hover,
+      body[data-app="exercise"] .app-header__button:focus-visible {
+        border-color: var(--color-chip-active);
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
+      }
+
+      body[data-app="exercise"] .app-header__icon {
+        width: 20px;
+        height: 20px;
+        color: currentColor;
+      }
+
+      body[data-app="exercise"] .app-progress {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-md);
+        padding: 0 var(--spacing-lg);
+      }
+
+      body[data-app="exercise"] .progress-indicator {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-md);
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-radius: 14px;
+        border: 1px solid var(--color-border);
+        background-color: var(--color-surface);
+      }
+
+      body[data-app="exercise"] .progress-indicator__bar {
+        position: relative;
+        flex: 1;
+        height: 8px;
+        border-radius: 999px;
+        background-color: var(--color-chip-bg);
+        overflow: hidden;
+      }
+
+      body[data-app="exercise"] .progress-indicator__bar span {
+        display: block;
+        height: 100%;
+        width: 45%;
+        border-radius: inherit;
+        background: linear-gradient(
+          90deg,
+          var(--color-chip-active) 0%,
+          color-mix(in srgb, var(--color-chip-active) 80%, transparent) 100%
+        );
+      }
+
+      body[data-app="exercise"] .progress-indicator__meta {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        font-size: 0.9rem;
+      }
+
+      body[data-app="exercise"] .progress-indicator__spinner {
+        width: 20px;
+        height: 20px;
+        border-radius: 999px;
+        border: 2px solid color-mix(
+          in srgb,
+          var(--color-chip-active) 30%,
+          transparent
+        );
+        border-top-color: var(--color-chip-active);
+        animation: exercise-spinner 1s linear infinite;
+      }
+
       body[data-app="exercise"] .layout {
         display: flex;
         align-items: flex-start;
         gap: var(--spacing-xl);
         max-width: 1200px;
         margin: 0 auto;
-        padding: var(--spacing-xl) var(--spacing-lg)
-          calc(var(--spacing-xl) + var(--spacing-lg));
+        padding: 0 var(--spacing-lg) calc(var(--spacing-xl) + var(--spacing-lg));
+        width: 100%;
       }
 
       body[data-app="exercise"] .context-pane {
@@ -301,8 +440,113 @@
         flex: 1 1 auto;
         display: flex;
         flex-direction: column;
-        gap: var(--spacing-xl);
+        gap: var(--spacing-lg);
         min-width: 0;
+      }
+
+      body[data-app="exercise"] .exercise__controls {
+        display: grid;
+        gap: var(--spacing-md);
+        width: var(--content-max-width);
+        margin: 0 auto;
+      }
+
+      body[data-app="exercise"] .control-card {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-md);
+        border-radius: var(--radius-card);
+        border: 1px solid var(--color-border);
+        background-color: var(--color-surface);
+      }
+
+      body[data-app="exercise"] .search-field {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      body[data-app="exercise"] .search-field input {
+        width: 100%;
+        padding: 12px 16px 12px 42px;
+        border-radius: 12px;
+        border: 1px solid var(--color-border);
+        background-color: var(--color-bg);
+        font-size: 0.95rem;
+      }
+
+      body[data-app="exercise"] .search-field svg {
+        position: absolute;
+        left: 14px;
+        width: 18px;
+        height: 18px;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .filter-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .filter-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--color-border);
+        background-color: var(--color-chip-bg);
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color var(--transition-duration) ease,
+          background-color var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .filter-chip svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      body[data-app="exercise"] .filter-chip[data-active="true"] {
+        background-color: var(--color-chip-active);
+        border-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
+      }
+
+      body[data-app="exercise"] .question-index {
+        display: grid;
+        gap: var(--spacing-xs);
+        padding-left: 1.25rem;
+        margin: 0;
+        color: var(--color-text);
+      }
+
+      body[data-app="exercise"] .question-index a {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        padding: 6px 0;
+        color: inherit;
+        font-weight: 600;
+      }
+
+      body[data-app="exercise"] .reference-card {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-xs);
+        padding: var(--spacing-md);
+        border-radius: var(--radius-card);
+        border: 1px solid var(--color-border);
+        background-color: var(--color-bg);
+        color: var(--color-text);
+      }
+
+      body[data-app="exercise"] .reference-card__body {
+        font-size: 0.92rem;
+        color: var(--color-text-muted);
       }
 
       body[data-app="exercise"] .exercise__tabs {
@@ -392,6 +636,12 @@
         gap: var(--spacing-xl);
         justify-items: center;
         padding-block: var(--spacing-sm) var(--spacing-xl);
+      }
+
+      @keyframes exercise-spinner {
+        to {
+          transform: rotate(360deg);
+        }
       }
 
       body[data-app="exercise"] .question-card {
@@ -675,12 +925,96 @@
     </style>
   </head>
   <body data-app="exercise">
-    <div class="layout">
-      <aside
-        class="context-pane"
-        role="region"
-        aria-labelledby="context-heading"
-      >
+    <div class="app-shell">
+      <header class="app-header" role="banner">
+        <div class="app-header__group">
+          <button
+            class="app-header__button"
+            type="button"
+            aria-label="演習一覧に戻る"
+          >
+            <svg
+              class="app-header__icon"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M15.75 19.5 8.25 12l7.5-7.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.8"
+              />
+            </svg>
+            戻る
+          </button>
+          <div class="app-header__title">
+            <h1>診断士二次 演習ハブ</h1>
+            <span>事例I / 令和6年度</span>
+          </div>
+        </div>
+        <div class="app-header__group" role="navigation" aria-label="主要操作">
+          <button class="app-header__button" type="button">
+            <svg
+              class="app-header__icon"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M21 21l-4.35-4.35m1.35-4.15a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.8"
+              />
+            </svg>
+            検索
+          </button>
+          <button class="app-header__button" type="button">
+            <svg
+              class="app-header__icon"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M6 9h12M4.5 6H19.5M9 12h6m-7.5 3H15"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.8"
+              />
+            </svg>
+            フィルタ
+          </button>
+        </div>
+      </header>
+      <section class="app-progress" aria-label="進捗状況">
+        <div class="progress-indicator" role="status">
+          <div class="progress-indicator__spinner" aria-hidden="true"></div>
+          <div class="progress-indicator__bar" aria-hidden="true">
+            <span></span>
+          </div>
+          <div class="progress-indicator__meta">
+            <span>問題を読み込み中</span>
+            <span aria-label="残り時間 約32分">
+              ⏱️ <time datetime="PT32M">32分</time>
+            </span>
+          </div>
+          <span class="sr-only">問題を読み込み中です</span>
+        </div>
+      </section>
+      <div class="layout">
+        <aside
+          class="context-pane"
+          role="region"
+          aria-labelledby="context-heading"
+        >
         <header class="context-pane__header">
           <div class="context-pane__miniheader">
             <strong>事例I 令和6年</strong>
@@ -719,6 +1053,103 @@
 
       <main class="exercise" role="main" aria-labelledby="exercise-heading">
         <h2 id="exercise-heading" class="sr-only">演習と設問</h2>
+        <section class="exercise__controls" aria-label="問題の検索と整理">
+          <div class="control-card" role="group" aria-labelledby="search-heading">
+            <h3 id="search-heading" class="heading-md">問題検索</h3>
+            <label class="sr-only" for="problem-search">問題文やキーワードを検索</label>
+            <div class="search-field">
+              <input
+                id="problem-search"
+                type="search"
+                name="problem-search"
+                placeholder="キーワードや設問番号で検索"
+              />
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path
+                  d="M21 21l-4.35-4.35m1.35-4.15a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.8"
+                />
+              </svg>
+            </div>
+          </div>
+          <div class="control-card" role="group" aria-labelledby="filter-heading">
+            <h3 id="filter-heading" class="heading-md">検索フィルタ</h3>
+            <div class="filter-chips" role="list">
+              <button class="filter-chip" type="button" role="listitem" data-active="true">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="m5 12 4 4 10-10"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.8"
+                  />
+                </svg>
+                未回答
+              </button>
+              <button class="filter-chip" type="button" role="listitem">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="m5 12 4 4 10-10"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.8"
+                  />
+                </svg>
+                解答済み
+              </button>
+              <button class="filter-chip" type="button" role="listitem">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="m5 12 4 4 10-10"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.8"
+                  />
+                </svg>
+                要復習
+              </button>
+              <button class="filter-chip" type="button" role="listitem">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="m5 12 4 4 10-10"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.8"
+                  />
+                </svg>
+                解説あり
+              </button>
+            </div>
+          </div>
+          <div class="control-card" role="group" aria-labelledby="index-heading">
+            <h3 id="index-heading" class="heading-md">問題一覧</h3>
+            <ol class="question-index">
+              <li><a href="#question-1">Q1 経営課題の整理</a></li>
+              <li><a href="#question-2">Q2 顧客共創の提案</a></li>
+              <li><a href="#question-3">Q3 技能伝承の仕組み</a></li>
+              <li><a href="#question-4">Q4 評価制度の再設計</a></li>
+            </ol>
+          </div>
+          <div class="reference-card" role="complementary" aria-labelledby="reference-heading">
+            <h3 id="reference-heading" class="heading-md">解説メモ</h3>
+            <div class="reference-card__body">
+              与件文から導かれるポイントをメモとして整理しています。設問に
+              迷ったら、キーワードと因果関係の視点を確認しましょう。
+            </div>
+          </div>
+        </section>
         <nav
           class="exercise__tabs"
           role="tablist"
@@ -1001,6 +1432,7 @@
           </button>
         </footer>
       </main>
+    </div>
     </div>
 
     <script>
