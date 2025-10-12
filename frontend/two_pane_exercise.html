@@ -142,6 +142,96 @@
         border-radius: 8px;
       }
 
+      body[data-app="exercise"] .ui-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--spacing-xs);
+        padding: 10px 16px;
+        border-radius: 999px;
+        border: 1px solid var(--color-border);
+        background-color: var(--color-surface);
+        color: var(--color-text-strong);
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        cursor: pointer;
+        line-height: 1.35;
+        transition: background-color var(--transition-duration) ease,
+          color var(--transition-duration) ease,
+          border-color var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease,
+          transform var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .ui-button:focus-visible {
+        border-radius: 999px;
+      }
+
+      body[data-app="exercise"] .ui-button:hover {
+        border-color: var(--color-chip-active);
+      }
+
+      body[data-app="exercise"] .ui-button--lg {
+        padding: 12px 20px;
+        font-size: 1rem;
+      }
+
+      body[data-app="exercise"] .ui-button--primary {
+        background-color: var(--color-chip-active);
+        border-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
+        font-weight: 700;
+      }
+
+      body[data-app="exercise"] .ui-button--primary:hover,
+      body[data-app="exercise"] .ui-button--primary:focus-visible {
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
+        transform: translateY(-1px);
+      }
+
+      body[data-app="exercise"] .ui-button--subtle {
+        justify-content: flex-start;
+        padding: var(--spacing-xs) var(--spacing-sm);
+        background-color: var(--color-chip-bg);
+        border-color: transparent;
+        color: var(--color-text);
+        font-size: 0.92rem;
+      }
+
+      body[data-app="exercise"] .ui-button--subtle:hover,
+      body[data-app="exercise"] .ui-button--subtle:focus-visible {
+        background-color: color-mix(
+          in srgb,
+          var(--color-chip-active) 18%,
+          transparent
+        );
+        border-color: var(--color-chip-active);
+        color: var(--color-text-strong);
+      }
+
+      body[data-app="exercise"] .ui-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 8px;
+        background-color: rgba(28, 47, 85, 0.12);
+        color: var(--color-chip-active);
+        font-size: 0.72rem;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: 0.05em;
+        transition: background-color var(--transition-duration) ease,
+          color var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .ui-icon--support::before {
+        content: "i";
+        font-style: italic;
+      }
+
       body[data-app="exercise"] .layout {
         display: flex;
         align-items: flex-start;
@@ -427,25 +517,20 @@
       }
 
       body[data-app="exercise"] .support-block__toggle {
-        display: inline-flex;
-        align-items: center;
-        gap: var(--spacing-xs);
-        cursor: pointer;
-        background: none;
-        border: 1px solid transparent;
-        padding: var(--spacing-xs) var(--spacing-sm);
-        font: inherit;
-        color: inherit;
-        border-radius: 999px;
-        transition: background-color var(--transition-duration) ease,
-          border-color var(--transition-duration) ease,
-          color var(--transition-duration) ease;
+        width: 100%;
+        border-color: transparent;
+        color: var(--color-text);
       }
 
       body[data-app="exercise"] .support-block__toggle:hover,
       body[data-app="exercise"] .support-block__toggle:focus-visible {
-        background-color: var(--color-chip-bg);
+        color: var(--color-text-strong);
+      }
+
+      body[data-app="exercise"] .support-block__toggle[aria-expanded="true"] {
+        background-color: var(--color-chip-active);
         border-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
       }
 
       body[data-app="exercise"] .support-block__content {
@@ -466,56 +551,27 @@
         }
       }
 
-      body[data-app="exercise"] .icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 28px;
-        height: 28px;
-        border-radius: 8px;
-        background-color: rgba(28, 47, 85, 0.12);
-        color: var(--color-chip-active);
-        font-size: 0.75rem;
-        font-weight: 700;
-        line-height: 1;
-        letter-spacing: 0.05em;
-        transition: background-color var(--transition-duration) ease,
-          color var(--transition-duration) ease;
-      }
-
-      body[data-app="exercise"] .icon--support::before {
-        content: "i";
-        font-style: italic;
-      }
-
-      body[data-app="exercise"] .support-block__toggle .icon {
-        width: 24px;
-        height: 24px;
-        background-color: rgba(28, 47, 85, 0.12);
-        font-size: 0.72rem;
-      }
-
-      body[data-app="exercise"] .support-block__toggle:hover .icon,
-      body[data-app="exercise"] .support-block__toggle:focus-visible .icon,
-      body[data-app="exercise"] .support-block__toggle[aria-expanded="true"] .icon {
-        background-color: var(--color-chip-active);
-        color: var(--color-chip-active-text);
-      }
-
       body[data-app="exercise"] .support-block__label {
         font-weight: 600;
         letter-spacing: 0.01em;
       }
 
       @media (prefers-color-scheme: dark) {
-        body[data-app="exercise"] .icon {
+        body[data-app="exercise"] .ui-button--subtle {
+          background-color: rgba(90, 126, 219, 0.18);
+        }
+
+        body[data-app="exercise"] .ui-icon {
           background-color: rgba(90, 126, 219, 0.28);
           color: var(--color-chip-active-text);
         }
+      }
 
-        body[data-app="exercise"] .support-block__toggle .icon {
-          background-color: rgba(90, 126, 219, 0.32);
-        }
+      body[data-app="exercise"] .support-block__toggle:hover .ui-icon,
+      body[data-app="exercise"] .support-block__toggle:focus-visible .ui-icon,
+      body[data-app="exercise"] .support-block__toggle[aria-expanded="true"] .ui-icon {
+        background-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
       }
 
       body[data-app="exercise"] .question-card--active::after {
@@ -556,26 +612,7 @@
       }
 
       body[data-app="exercise"] .cta-button {
-        display: inline-flex;
-        align-items: center;
         gap: var(--spacing-xs);
-        padding: 12px 20px;
-        border-radius: 999px;
-        border: 1px solid transparent;
-        background-color: var(--color-chip-active);
-        color: var(--color-chip-active-text);
-        font-weight: 700;
-        font-size: 1rem;
-        cursor: pointer;
-        transition: transform var(--transition-duration) ease,
-          box-shadow var(--transition-duration) ease,
-          background-color var(--transition-duration) ease;
-      }
-
-      body[data-app="exercise"] .cta-button:hover,
-      body[data-app="exercise"] .cta-button:focus-visible {
-        box-shadow: 0 0 0 3px var(--color-focus-ring);
-        transform: translateY(-1px);
       }
 
       body[data-app="exercise"] .cta-button__verb {
@@ -779,13 +816,13 @@
             </div>
             <div class="support-block">
               <button
-                class="support-block__toggle"
+                class="support-block__toggle ui-button ui-button--subtle"
                 type="button"
                 aria-expanded="false"
                 aria-controls="support-1"
                 data-support-id="support-1"
               >
-                <span class="icon icon--support" aria-hidden="true"></span>
+                <span class="ui-icon ui-icon--support" aria-hidden="true"></span>
                 <span class="support-block__label">活用する 思考補助</span>
               </button>
               <div id="support-1" class="support-block__content" hidden>
@@ -831,13 +868,13 @@
             </div>
             <div class="support-block">
               <button
-                class="support-block__toggle"
+                class="support-block__toggle ui-button ui-button--subtle"
                 type="button"
                 aria-expanded="false"
                 aria-controls="support-2"
                 data-support-id="support-2"
               >
-                <span class="icon icon--support" aria-hidden="true"></span>
+                <span class="ui-icon ui-icon--support" aria-hidden="true"></span>
                 <span class="support-block__label">確認する 注意事項</span>
               </button>
               <div id="support-2" class="support-block__content" hidden>
@@ -883,13 +920,13 @@
             </div>
             <div class="support-block">
               <button
-                class="support-block__toggle"
+                class="support-block__toggle ui-button ui-button--subtle"
                 type="button"
                 aria-expanded="false"
                 aria-controls="support-3"
                 data-support-id="support-3"
               >
-                <span class="icon icon--support" aria-hidden="true"></span>
+                <span class="ui-icon ui-icon--support" aria-hidden="true"></span>
                 <span class="support-block__label">参照する Tips</span>
               </button>
               <div id="support-3" class="support-block__content" hidden>
@@ -935,13 +972,13 @@
             </div>
             <div class="support-block">
               <button
-                class="support-block__toggle"
+                class="support-block__toggle ui-button ui-button--subtle"
                 type="button"
                 aria-expanded="false"
                 aria-controls="support-4"
                 data-support-id="support-4"
               >
-                <span class="icon icon--support" aria-hidden="true"></span>
+                <span class="ui-icon ui-icon--support" aria-hidden="true"></span>
                 <span class="support-block__label">確認する ゴール像</span>
               </button>
               <div id="support-4" class="support-block__content" hidden>
@@ -954,7 +991,7 @@
         <footer class="exercise__footer">
           <button
             type="button"
-            class="cta-button"
+            class="cta-button ui-button ui-button--primary ui-button--lg"
             id="next-question-button"
             data-target="question-2"
             aria-label="次の設問へ進む"
