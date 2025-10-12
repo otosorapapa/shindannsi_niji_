@@ -436,6 +436,65 @@
         animation: exercise-spinner 1s linear infinite;
       }
 
+      body[data-app="exercise"] .panel-switcher {
+        padding: var(--spacing-sm) var(--spacing-lg) 0;
+      }
+
+      body[data-app="exercise"] .panel-switcher__inner {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+        justify-content: flex-start;
+      }
+
+      body[data-app="exercise"] .panel-switcher__button {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--color-border);
+        background: var(--color-surface);
+        color: var(--color-text);
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        cursor: pointer;
+        transition: background-color var(--transition-duration) ease,
+          border-color var(--transition-duration) ease,
+          color var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .panel-switcher__button[aria-pressed='true'] {
+        background: var(--color-chip-active);
+        border-color: var(--color-chip-active);
+        color: var(--color-chip-active-text);
+        box-shadow: 0 0 0 3px color-mix(
+          in srgb,
+          var(--color-chip-active) 35%,
+          transparent
+        );
+      }
+
+      body[data-app="exercise"] .panel-switcher__button:hover,
+      body[data-app="exercise"] .panel-switcher__button:focus-visible {
+        border-color: var(--color-chip-active);
+        color: var(--color-text-strong);
+      }
+
+      body[data-app="exercise"] .panel-switcher__icon {
+        color: currentColor;
+      }
+
+      body[data-app="exercise"] [data-panel-collapsed='true'] {
+        display: none !important;
+      }
+
+      body[data-app="exercise"] .panel-switcher__button[aria-pressed='true']
+        .panel-switcher__icon {
+        color: var(--color-chip-active-text);
+      }
+
       body[data-app="exercise"] .layout {
         display: flex;
         align-items: flex-start;
@@ -494,6 +553,86 @@
       body[data-app="exercise"] .context-pane__meta dt {
         font-weight: 600;
         letter-spacing: 0.02em;
+      }
+
+      body[data-app="exercise"] .context-pane__search {
+        margin-top: var(--spacing-md);
+        display: grid;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .context-pane__search-field {
+        position: relative;
+      }
+
+      body[data-app="exercise"] .context-pane__search-field input {
+        width: 100%;
+        padding: 10px 40px 10px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--color-border);
+        background: var(--color-surface);
+        font-size: 0.95rem;
+        color: inherit;
+      }
+
+      body[data-app="exercise"] .context-pane__search-field input:focus {
+        outline: none;
+        border-color: var(--color-chip-active);
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
+      }
+
+      body[data-app="exercise"] .context-pane__search-icon {
+        position: absolute;
+        top: 50%;
+        right: 12px;
+        transform: translateY(-50%);
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .context-pane__search-controls {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        font-size: 0.85rem;
+      }
+
+      body[data-app="exercise"] .context-pane__search-nav {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid var(--color-border);
+        background: var(--color-surface);
+        color: var(--color-text);
+        cursor: pointer;
+        transition: border-color var(--transition-duration) ease,
+          color var(--transition-duration) ease,
+          background-color var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .context-pane__search-nav[disabled] {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+
+      body[data-app="exercise"] .context-pane__search-nav:not([disabled]):hover,
+      body[data-app="exercise"]
+        .context-pane__search-nav:not([disabled]):focus-visible {
+        border-color: var(--color-chip-active);
+        color: var(--color-chip-active);
+      }
+
+      body[data-app="exercise"] .context-pane__actions {
+        margin-top: var(--spacing-md);
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      body[data-app="exercise"] .context-pane__jump {
+        font-size: 0.9rem;
+        gap: 6px;
       }
 
       body[data-app="exercise"] .context-pane__body {
@@ -1084,6 +1223,112 @@
         border-radius: 4px;
       }
 
+      body[data-app="exercise"] .context-search__hit {
+        background: color-mix(
+          in srgb,
+          var(--color-chip-active) 35%,
+          var(--color-layer-subtle)
+        );
+        padding: 0 2px;
+        border-radius: 4px;
+      }
+
+      body[data-app="exercise"] .context-search__hit[data-active='true'] {
+        outline: 2px solid color-mix(
+          in srgb,
+          var(--color-chip-active) 60%,
+          transparent
+        );
+      }
+
+      body[data-app="exercise"] .example-expressions {
+        margin-top: var(--spacing-sm);
+        display: grid;
+        gap: var(--spacing-xs);
+        background: color-mix(in srgb, var(--color-chip-bg) 35%, transparent);
+        border-radius: 14px;
+        padding: var(--spacing-sm);
+      }
+
+      body[data-app="exercise"] .example-expressions__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-xs);
+        font-size: 0.88rem;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .example-expressions__title {
+        font-weight: 700;
+        color: var(--color-text-strong);
+      }
+
+      body[data-app="exercise"] .example-expressions__list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-xs);
+      }
+
+      body[data-app="exercise"] .example-expression-chip {
+        border: none;
+        background: var(--color-surface);
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        line-height: 1.4;
+        color: var(--color-text);
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(15, 23, 39, 0.08);
+        transition: transform var(--transition-duration) ease,
+          box-shadow var(--transition-duration) ease,
+          background-color var(--transition-duration) ease;
+      }
+
+      body[data-app="exercise"] .example-expression-chip:focus-visible,
+      body[data-app="exercise"] .example-expression-chip:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(15, 23, 39, 0.16);
+      }
+
+      body[data-app="exercise"] .example-expression-chip[draggable='true'] {
+        user-select: none;
+      }
+
+      body[data-app="exercise"] .example-expressions__undo {
+        border: none;
+        background: transparent;
+        color: var(--color-chip-active);
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      body[data-app="exercise"] .example-expressions__undo:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      body[data-app="exercise"] .save-status {
+        margin-top: var(--spacing-xs);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.82rem;
+        color: var(--color-text-muted);
+      }
+
+      body[data-app="exercise"] .save-status[data-state='saving'] {
+        color: var(--color-chip-active);
+      }
+
+      body[data-app="exercise"] .save-status__icon {
+        font-size: var(--icon-size-sm);
+      }
+
       body[data-app="exercise"] .shortcut-launcher {
         border: none;
         background: transparent;
@@ -1542,12 +1787,51 @@
           <span class="sr-only">問題を読み込み中です</span>
         </div>
       </section>
+      <section class="panel-switcher" aria-label="表示するパネルを選択">
+        <div class="panel-switcher__inner" role="toolbar" aria-label="主要パネル">
+          <button
+            type="button"
+            class="panel-switcher__button"
+            data-panel-trigger="overview"
+            aria-pressed="false"
+          >
+            <span class="icon panel-switcher__icon" aria-hidden="true">
+              <i class="bx bx-list-ul"></i>
+            </span>
+            設問
+          </button>
+          <button
+            type="button"
+            class="panel-switcher__button"
+            data-panel-trigger="scenario"
+            aria-pressed="false"
+          >
+            <span class="icon panel-switcher__icon" aria-hidden="true">
+              <i class="bx bx-book-reader"></i>
+            </span>
+            与件文
+          </button>
+          <button
+            type="button"
+            class="panel-switcher__button"
+            data-panel-trigger="answer"
+            aria-pressed="false"
+          >
+            <span class="icon panel-switcher__icon" aria-hidden="true">
+              <i class="bx bx-edit"></i>
+            </span>
+            解答欄
+          </button>
+        </div>
+      </section>
       <div class="layout">
         <aside
           id="section-scenario"
           class="context-pane"
           role="region"
           aria-labelledby="context-heading"
+          data-panel-section="scenario"
+          data-panel-collapsed="true"
         >
         <header class="context-pane__header">
           <div class="context-pane__miniheader">
@@ -1565,6 +1849,51 @@
             <dt>キーワード</dt>
             <dd>技能伝承 / 開発連携</dd>
           </dl>
+          <div class="context-pane__search" role="search">
+            <label class="sr-only" for="scenario-search">与件文を検索</label>
+            <div class="context-pane__search-field">
+              <input
+                id="scenario-search"
+                type="search"
+                placeholder="与件文内を検索"
+                data-scenario-search
+              />
+              <span class="icon icon--sm context-pane__search-icon" aria-hidden="true">
+                <i class="bx bx-search"></i>
+              </span>
+            </div>
+            <div class="context-pane__search-controls">
+              <button
+                type="button"
+                class="context-pane__search-nav"
+                data-scenario-search-prev
+                aria-label="前の一致へ"
+                disabled
+              >
+                <span class="icon icon--sm" aria-hidden="true">
+                  <i class="bx bx-chevron-up"></i>
+                </span>
+              </button>
+              <button
+                type="button"
+                class="context-pane__search-nav"
+                data-scenario-search-next
+                aria-label="次の一致へ"
+                disabled
+              >
+                <span class="icon icon--sm" aria-hidden="true">
+                  <i class="bx bx-chevron-down"></i>
+                </span>
+              </button>
+              <span
+                class="context-pane__search-count text-muted"
+                data-scenario-search-count
+                aria-live="polite"
+              >
+                0 件
+              </span>
+            </div>
+          </div>
         </header>
         <div class="context-pane__body">
           <!-- 与件文を常時参照できるよう縦スクロール可能に配置 -->
@@ -1583,6 +1912,16 @@
           今後は、設計段階からの顧客共創、外部パートナーとの連携強化、そ
           れに伴う評価制度の再設計が検討課題である。
         </div>
+        <div class="context-pane__actions">
+          <button
+            type="button"
+            class="ui-button ui-button--subtle context-pane__jump"
+            data-selection-jump
+            hidden
+          >
+            選択箇所を回答欄へジャンプ
+          </button>
+        </div>
       </aside>
 
       <main class="exercise" role="main" aria-labelledby="exercise-heading">
@@ -1591,6 +1930,8 @@
           id="section-overview"
           class="exercise__controls"
           aria-label="問題の検索と整理"
+          data-panel-section="overview"
+          data-panel-collapsed="true"
         >
           <div class="control-card" role="group" aria-labelledby="search-heading">
             <h3 id="search-heading" class="heading-md">問題検索</h3>
@@ -1722,6 +2063,8 @@
           role="tablist"
           aria-label="設問タブ"
           data-wheel-scroll="true"
+          data-panel-section="answer"
+          data-panel-collapsed="true"
         >
           <!-- ホイールでも操作できる設問タブ -->
           <button
@@ -1781,6 +2124,8 @@
           id="section-answer"
           class="exercise__questions"
           aria-live="polite"
+          data-panel-section="answer"
+          data-panel-collapsed="true"
         >
           <article
             id="question-1"
@@ -1845,6 +2190,60 @@
                     使い方動画を見る
                   </a>
                 </div>
+              </div>
+              <div
+                class="example-expressions"
+                role="group"
+                aria-label="設問1の例示表現"
+                data-example-for="answer-1"
+              >
+                <div class="example-expressions__header">
+                  <span class="example-expressions__title">例示表現</span>
+                  <button
+                    type="button"
+                    class="example-expressions__undo"
+                    data-example-undo
+                    disabled
+                  >
+                    挿入を取り消す
+                  </button>
+                </div>
+                <div class="example-expressions__list" role="list">
+                  <button
+                    type="button"
+                    class="example-expression-chip"
+                    role="listitem"
+                    draggable="true"
+                    data-example-text="設計と生産のBOM分断が手戻りを誘発"
+                  >
+                    設計と生産のBOM分断が手戻りを誘発
+                  </button>
+                  <button
+                    type="button"
+                    class="example-expression-chip"
+                    role="listitem"
+                    draggable="true"
+                    data-example-text="熟練技能の暗黙知が形式知化できていない"
+                  >
+                    熟練技能の暗黙知が形式知化できていない
+                  </button>
+                  <button
+                    type="button"
+                    class="example-expression-chip"
+                    role="listitem"
+                    draggable="true"
+                    data-example-text="顧客ニーズの高度化に開発体制が追随できない"
+                  >
+                    顧客ニーズの高度化に開発体制が追随できない
+                  </button>
+                </div>
+                <div class="sr-only" data-example-live aria-live="polite"></div>
+              </div>
+              <div class="save-status" role="status" data-save-status>
+                <span class="icon save-status__icon" aria-hidden="true">
+                  <i class="bx bx-save"></i>
+                </span>
+                <span class="save-status__text">保存済み</span>
               </div>
             </div>
             <div class="support-block">
@@ -1934,6 +2333,60 @@
                   </a>
                 </div>
               </div>
+              <div
+                class="example-expressions"
+                role="group"
+                aria-label="設問2の例示表現"
+                data-example-for="answer-2"
+              >
+                <div class="example-expressions__header">
+                  <span class="example-expressions__title">例示表現</span>
+                  <button
+                    type="button"
+                    class="example-expressions__undo"
+                    data-example-undo
+                    disabled
+                  >
+                    挿入を取り消す
+                  </button>
+                </div>
+                <div class="example-expressions__list" role="list">
+                  <button
+                    type="button"
+                    class="example-expression-chip"
+                    role="listitem"
+                    draggable="true"
+                    data-example-text="営業・設計・生産で顧客課題を共通理解"
+                  >
+                    営業・設計・生産で顧客課題を共通理解
+                  </button>
+                  <button
+                    type="button"
+                    class="example-expression-chip"
+                    role="listitem"
+                    draggable="true"
+                    data-example-text="共創レビューで要求を段階的に合意形成"
+                  >
+                    共創レビューで要求を段階的に合意形成
+                  </button>
+                  <button
+                    type="button"
+                    class="example-expression-chip"
+                    role="listitem"
+                    draggable="true"
+                    data-example-text="クラウドBOMで設計変更を即時共有"
+                  >
+                    クラウドBOMで設計変更を即時共有
+                  </button>
+                </div>
+                <div class="sr-only" data-example-live aria-live="polite"></div>
+              </div>
+              <div class="save-status" role="status" data-save-status>
+                <span class="icon save-status__icon" aria-hidden="true">
+                  <i class="bx bx-save"></i>
+                </span>
+                <span class="save-status__text">保存済み</span>
+              </div>
             </div>
             <div class="support-block">
               <button
@@ -2021,6 +2474,60 @@
                     使い方動画を見る
                   </a>
                 </div>
+              </div>
+              <div
+                class="example-expressions"
+                role="group"
+                aria-label="設問3の例示表現"
+                data-example-for="answer-3"
+              >
+                <div class="example-expressions__header">
+                  <span class="example-expressions__title">例示表現</span>
+                  <button
+                    type="button"
+                    class="example-expressions__undo"
+                    data-example-undo
+                    disabled
+                  >
+                    挿入を取り消す
+                  </button>
+                </div>
+                <div class="example-expressions__list" role="list">
+                  <button
+                    type="button"
+                    class="example-expression-chip"
+                    role="listitem"
+                    draggable="true"
+                    data-example-text="作業動画と要点字幕で匠のコツを可視化"
+                  >
+                    作業動画と要点字幕で匠のコツを可視化
+                  </button>
+                  <button
+                    type="button"
+                    class="example-expression-chip"
+                    role="listitem"
+                    draggable="true"
+                    data-example-text="段階別チェックリストで習熟度を測定"
+                  >
+                    段階別チェックリストで習熟度を測定
+                  </button>
+                  <button
+                    type="button"
+                    class="example-expression-chip"
+                    role="listitem"
+                    draggable="true"
+                    data-example-text="メンター面談で学習計画をリフレクション"
+                  >
+                    メンター面談で学習計画をリフレクション
+                  </button>
+                </div>
+                <div class="sr-only" data-example-live aria-live="polite"></div>
+              </div>
+              <div class="save-status" role="status" data-save-status>
+                <span class="icon save-status__icon" aria-hidden="true">
+                  <i class="bx bx-save"></i>
+                </span>
+                <span class="save-status__text">保存済み</span>
               </div>
             </div>
             <div class="support-block">
@@ -2110,6 +2617,60 @@
                   </a>
                 </div>
               </div>
+              <div
+                class="example-expressions"
+                role="group"
+                aria-label="設問4の例示表現"
+                data-example-for="answer-4"
+              >
+                <div class="example-expressions__header">
+                  <span class="example-expressions__title">例示表現</span>
+                  <button
+                    type="button"
+                    class="example-expressions__undo"
+                    data-example-undo
+                    disabled
+                  >
+                    挿入を取り消す
+                  </button>
+                </div>
+                <div class="example-expressions__list" role="list">
+                  <button
+                    type="button"
+                    class="example-expression-chip"
+                    role="listitem"
+                    draggable="true"
+                    data-example-text="知識共有と後進育成を評価指標に反映"
+                  >
+                    知識共有と後進育成を評価指標に反映
+                  </button>
+                  <button
+                    type="button"
+                    class="example-expression-chip"
+                    role="listitem"
+                    draggable="true"
+                    data-example-text="DX活用件数を成果評価に連動"
+                  >
+                    DX活用件数を成果評価に連動
+                  </button>
+                  <button
+                    type="button"
+                    class="example-expression-chip"
+                    role="listitem"
+                    draggable="true"
+                    data-example-text="行動指標で共創行動とナレッジ共有を促す"
+                  >
+                    行動指標で共創行動とナレッジ共有を促す
+                  </button>
+                </div>
+                <div class="sr-only" data-example-live aria-live="polite"></div>
+              </div>
+              <div class="save-status" role="status" data-save-status>
+                <span class="icon save-status__icon" aria-hidden="true">
+                  <i class="bx bx-save"></i>
+                </span>
+                <span class="save-status__text">保存済み</span>
+              </div>
             </div>
             <div class="support-block">
               <button
@@ -2134,7 +2695,11 @@
             </div>
           </article>
         </section>
-        <footer class="exercise__footer">
+        <footer
+          class="exercise__footer"
+          data-panel-section="answer"
+          data-panel-collapsed="true"
+        >
           <button
             type="button"
             class="cta-button ui-button ui-button--primary ui-button--lg"
@@ -2340,6 +2905,78 @@
             })
             .filter(Boolean);
 
+          const panelButtons = Array.from(
+            appRoot.querySelectorAll('[data-panel-trigger]')
+          );
+          const getPanelSections = (panelId) =>
+            Array.from(
+              appRoot.querySelectorAll(
+                `[data-panel-section="${panelId}"]`
+              )
+            );
+          const panelSections = {
+            overview: getPanelSections('overview'),
+            scenario: getPanelSections('scenario'),
+            answer: getPanelSections('answer'),
+          };
+          const panelState = new Map();
+
+          const panelBySection = new Map([
+            ['section-overview', 'overview'],
+            ['section-scenario', 'scenario'],
+            ['section-answer', 'answer'],
+          ]);
+
+          let activeQuestionId = null;
+
+          const setPanelState = (panelId, expanded) => {
+            if (!panelId) return;
+            const isExpanded = Boolean(expanded);
+            panelState.set(panelId, isExpanded);
+            const sections = panelSections[panelId] || [];
+            sections.forEach((section) => {
+              section.dataset.panelCollapsed = String(!isExpanded);
+            });
+            panelButtons.forEach((button) => {
+              if (button.dataset.panelTrigger === panelId) {
+                button.setAttribute('aria-pressed', String(isExpanded));
+              }
+            });
+          };
+
+          const ensurePanelOpen = (panelId) => {
+            if (!panelId) return;
+            if (!panelState.get(panelId)) {
+              setPanelState(panelId, true);
+            }
+          };
+
+          panelButtons.forEach((button) => {
+            button.setAttribute('aria-pressed', 'false');
+            button.addEventListener(
+              'click',
+              () => {
+                const panelId = button.dataset.panelTrigger;
+                if (!panelId) return;
+                const nextState = !(panelState.get(panelId) ?? false);
+                setPanelState(panelId, nextState);
+                if (nextState) {
+                  const firstSection = panelSections[panelId]?.[0];
+                  firstSection?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                  });
+                }
+              },
+              { signal }
+            );
+          });
+
+          Object.keys(panelSections).forEach((panelId) =>
+            setPanelState(panelId, false)
+          );
+          setPanelState('answer', true);
+
           const setActiveAnchor = (targetId) => {
             headerAnchors.forEach((button) => {
               const isActive = button.dataset.target === targetId;
@@ -2352,6 +2989,10 @@
               (item) => item.targetId === targetId
             );
             if (!entry) return;
+            const panelId = panelBySection.get(targetId);
+            if (panelId) {
+              ensurePanelOpen(panelId);
+            }
             entry.target.scrollIntoView({ behavior: 'smooth', block: 'start' });
             setActiveAnchor(targetId);
           };
@@ -2653,6 +3294,8 @@
             );
           }
 
+          let updateSelectionJumpVisibility = () => {};
+
           const unwrapMark = (mark) => {
             if (!mark || !mark.parentNode) return;
             const parent = mark.parentNode;
@@ -2684,6 +3327,7 @@
               const newRange = document.createRange();
               newRange.selectNode(wrapper);
               selection.addRange(newRange);
+              updateSelectionJumpVisibility();
               return true;
             } catch (error) {
               return false;
@@ -2725,8 +3369,215 @@
                 }
               });
             }
+            if (removed) {
+              updateSelectionJumpVisibility();
+            }
             return removed;
           };
+
+          const scenarioPane = appRoot.querySelector('#section-scenario');
+          const scenarioBody =
+            scenarioPane?.querySelector('.context-pane__body') || null;
+          const scenarioSearchInput = scenarioPane?.querySelector(
+            '[data-scenario-search]'
+          );
+          const scenarioSearchNext = scenarioPane?.querySelector(
+            '[data-scenario-search-next]'
+          );
+          const scenarioSearchPrev = scenarioPane?.querySelector(
+            '[data-scenario-search-prev]'
+          );
+          const scenarioSearchCount = scenarioPane?.querySelector(
+            '[data-scenario-search-count]'
+          );
+          const selectionJumpButton = scenarioPane?.querySelector(
+            '[data-selection-jump]'
+          );
+
+          const scenarioSearchState = {
+            matches: [],
+            activeIndex: -1,
+          };
+
+          const clearScenarioHighlights = () => {
+            scenarioSearchState.matches.forEach((mark) => {
+              if (
+                mark instanceof Element &&
+                mark.classList.contains('context-search__hit')
+              ) {
+                unwrapMark(mark);
+              }
+            });
+            scenarioSearchState.matches = [];
+            scenarioSearchState.activeIndex = -1;
+          };
+
+          const updateScenarioSearchControls = () => {
+            const total = scenarioSearchState.matches.length;
+            if (scenarioSearchCount) {
+              scenarioSearchCount.textContent = `${total} 件`;
+            }
+            if (scenarioSearchNext) {
+              scenarioSearchNext.disabled = total <= 1;
+            }
+            if (scenarioSearchPrev) {
+              scenarioSearchPrev.disabled = total <= 1;
+            }
+            scenarioSearchState.matches.forEach((mark, index) => {
+              if (mark instanceof Element) {
+                mark.dataset.active = String(
+                  index === scenarioSearchState.activeIndex
+                );
+              }
+            });
+          };
+
+          const focusScenarioHit = (index) => {
+            const total = scenarioSearchState.matches.length;
+            if (!total) {
+              scenarioSearchState.activeIndex = -1;
+              updateScenarioSearchControls();
+              return;
+            }
+            const normalized = ((index % total) + total) % total;
+            scenarioSearchState.activeIndex = normalized;
+            const target = scenarioSearchState.matches[normalized];
+            if (target?.scrollIntoView) {
+              target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            updateScenarioSearchControls();
+          };
+
+          const applyScenarioSearch = (query) => {
+            if (!scenarioBody) {
+              return;
+            }
+            clearScenarioHighlights();
+            if (!query) {
+              updateScenarioSearchControls();
+              return;
+            }
+            const lowerQuery = query.toLowerCase();
+            const walker = document.createTreeWalker(
+              scenarioBody,
+              NodeFilter.SHOW_TEXT,
+              null
+            );
+            const matches = [];
+            let currentNode;
+            while ((currentNode = walker.nextNode())) {
+              if (!currentNode.nodeValue) {
+                continue;
+              }
+              if (
+                currentNode.parentElement?.closest(
+                  'mark.text-highlight, mark.context-search__hit'
+                )
+              ) {
+                continue;
+              }
+              let textNode = currentNode;
+              while (textNode && textNode.nodeType === Node.TEXT_NODE) {
+                const text = textNode.nodeValue;
+                if (!text) {
+                  break;
+                }
+                const lowerText = text.toLowerCase();
+                const matchIndex = lowerText.indexOf(lowerQuery);
+                if (matchIndex === -1) {
+                  break;
+                }
+                const range = document.createRange();
+                range.setStart(textNode, matchIndex);
+                range.setEnd(textNode, matchIndex + query.length);
+                const mark = document.createElement('mark');
+                mark.className = 'context-search__hit';
+                range.surroundContents(mark);
+                matches.push(mark);
+                const nextNode = mark.nextSibling;
+                if (!nextNode || nextNode.nodeType !== Node.TEXT_NODE) {
+                  break;
+                }
+                textNode = nextNode;
+              }
+            }
+            scenarioSearchState.matches = matches;
+            if (matches.length) {
+              focusScenarioHit(0);
+            } else {
+              scenarioSearchState.activeIndex = -1;
+              updateScenarioSearchControls();
+            }
+          };
+
+          updateSelectionJumpVisibility = () => {
+            if (!selectionJumpButton || !scenarioBody) {
+              return;
+            }
+            const selection = window.getSelection();
+            const hasSelection =
+              selection &&
+              !selection.isCollapsed &&
+              scenarioBody.contains(selection.anchorNode);
+            const hasHighlight =
+              scenarioBody.querySelector('mark.text-highlight') !== null;
+            selectionJumpButton.hidden = !(hasSelection || hasHighlight);
+          };
+
+          if (scenarioSearchInput) {
+            scenarioSearchInput.addEventListener(
+              'input',
+              () => {
+                const query = scenarioSearchInput.value.trim();
+                if (query) {
+                  ensurePanelOpen('scenario');
+                }
+                applyScenarioSearch(query);
+              },
+              { signal }
+            );
+          }
+
+          if (scenarioSearchNext) {
+            scenarioSearchNext.addEventListener(
+              'click',
+              () => {
+                focusScenarioHit(scenarioSearchState.activeIndex + 1);
+              },
+              { signal }
+            );
+          }
+
+          if (scenarioSearchPrev) {
+            scenarioSearchPrev.addEventListener(
+              'click',
+              () => {
+                focusScenarioHit(scenarioSearchState.activeIndex - 1);
+              },
+              { signal }
+            );
+          }
+
+          if (selectionJumpButton) {
+            selectionJumpButton.addEventListener(
+              'click',
+              () => {
+                ensurePanelOpen('answer');
+                if (activeQuestionId) {
+                  scrollToQuestion(activeQuestionId);
+                }
+              },
+              { signal }
+            );
+          }
+
+          document.addEventListener(
+            'selectionchange',
+            () => updateSelectionJumpVisibility(),
+            { signal }
+          );
+
+          updateSelectionJumpVisibility();
 
           document.addEventListener(
             'keydown',
@@ -2777,6 +3628,7 @@
           const answerTextareas = appRoot.querySelectorAll(
             '.question-card__textarea'
           );
+          const insertionHistory = new Map();
 
           const activateCard = (card) => {
             questionCards.forEach((c) =>
@@ -2833,6 +3685,7 @@
               ? appRoot.querySelector(`#${escapeSelector(targetId)}`)
               : null;
             if (!target) return;
+            ensurePanelOpen('answer');
             target.scrollIntoView({ behavior: 'smooth', block: 'start' });
             if (target.focus) {
               try {
@@ -2844,6 +3697,7 @@
             activateCard(target);
             updateTabs(targetId);
             updateFooterCta(targetId);
+            activeQuestionId = targetId;
             setActiveAnchor('section-answer');
           };
 
@@ -2913,6 +3767,7 @@
 
           if (questionCards.length) {
             updateFooterCta(questionCards[0].id);
+            activeQuestionId = questionCards[0].id;
           }
 
           const observer = new IntersectionObserver(
@@ -2923,6 +3778,7 @@
                   updateTabs(id);
                   updateFooterCta(id);
                   activateCard(entry.target);
+                  activeQuestionId = id;
                   setActiveAnchor('section-answer');
                 }
               });
@@ -2992,6 +3848,51 @@
               textareaId && answerDrafts[textareaId]
                 ? answerDrafts[textareaId]
                 : null;
+            const inputContainer = textarea.closest('.question-card__input');
+            const saveStatus = inputContainer?.querySelector('[data-save-status]');
+            const saveStatusText = saveStatus?.querySelector(
+              '.save-status__text'
+            );
+            const exampleContainer = textareaId
+              ? appRoot.querySelector(
+                  `[data-example-for="${escapeSelector(textareaId)}"]`
+                )
+              : null;
+            const exampleChips = exampleContainer
+              ? Array.from(
+                  exampleContainer.querySelectorAll('[data-example-text]')
+                )
+              : [];
+            const undoButton = exampleContainer?.querySelector(
+              '[data-example-undo]'
+            );
+            const exampleLiveRegion = exampleContainer?.querySelector(
+              '[data-example-live]'
+            );
+
+            const announceExample = (message) => {
+              if (exampleLiveRegion) {
+                exampleLiveRegion.textContent = message;
+              }
+            };
+
+            const setUndoAvailability = (available) => {
+              if (undoButton) {
+                undoButton.disabled = !available;
+              }
+            };
+
+            const setSaveStatus = (state) => {
+              if (!saveStatus || !saveStatusText) {
+                return;
+              }
+              saveStatus.dataset.state = state;
+              if (state === 'saving') {
+                saveStatusText.textContent = '保存中';
+              } else {
+                saveStatusText.textContent = '保存済み';
+              }
+            };
 
             if (savedDraft && typeof savedDraft.value === 'string') {
               textarea.value = savedDraft.value;
@@ -3000,6 +3901,10 @@
             if (counter) {
               updateCounter(textarea, counter);
             }
+
+            textarea.dataset.exampleInsertion = 'false';
+            setUndoAvailability(false);
+            setSaveStatus('saved');
 
             let saveTimer;
 
@@ -3014,12 +3919,96 @@
                 };
               }
               persistDrafts();
+              setSaveStatus('saved');
             };
 
             const scheduleSave = () => {
               clearTimeout(saveTimer);
+              setSaveStatus('saving');
               saveTimer = window.setTimeout(saveDraft, 300);
             };
+
+            const insertExampleText = (text) => {
+              if (!text) {
+                return;
+              }
+              const start =
+                typeof textarea.selectionStart === 'number'
+                  ? textarea.selectionStart
+                  : textarea.value.length;
+              const end =
+                typeof textarea.selectionEnd === 'number'
+                  ? textarea.selectionEnd
+                  : start;
+              textarea.setRangeText(text, start, end, 'end');
+              textarea.dataset.exampleInsertion = 'true';
+              insertionHistory.set(textarea, {
+                text,
+                start,
+                end: start + text.length,
+              });
+              setUndoAvailability(true);
+              announceExample(`${text} を挿入しました。`);
+              textarea.dispatchEvent(new Event('input', { bubbles: true }));
+              try {
+                textarea.focus({ preventScroll: true });
+              } catch (error) {
+                textarea.focus();
+              }
+            };
+
+            exampleChips.forEach((chip) => {
+              chip.addEventListener(
+                'click',
+                () => {
+                  insertExampleText(chip.dataset.exampleText || '');
+                },
+                { signal }
+              );
+
+              chip.addEventListener(
+                'dragstart',
+                (event) => {
+                  const text = chip.dataset.exampleText || '';
+                  event.dataTransfer?.setData('text/plain', text);
+                  event.dataTransfer?.setDragImage?.(chip, 10, 10);
+                  event.dataTransfer?.setData('text/uri-list', '');
+                  event.dataTransfer.effectAllowed = 'copy';
+                },
+                { signal }
+              );
+            });
+
+            if (undoButton) {
+              undoButton.addEventListener(
+                'click',
+                () => {
+                  const history = insertionHistory.get(textarea);
+                  if (!history) {
+                    return;
+                  }
+                  const { text, start, end } = history;
+                  const currentSlice = textarea.value.slice(start, end);
+                  if (currentSlice === text) {
+                    textarea.setSelectionRange(start, end);
+                    textarea.dataset.exampleInsertion = 'true';
+                    textarea.setRangeText('', start, end, 'start');
+                    textarea.dispatchEvent(
+                      new Event('input', { bubbles: true })
+                    );
+                    announceExample(`${text} を削除しました。`);
+                  }
+                  insertionHistory.delete(textarea);
+                  setUndoAvailability(false);
+                  try {
+                    textarea.focus({ preventScroll: true });
+                  } catch (error) {
+                    textarea.focus();
+                  }
+                },
+                { signal }
+              );
+            }
 
             textarea.addEventListener(
               'input',
@@ -3027,7 +4016,46 @@
                 if (counter) {
                   updateCounter(textarea, counter);
                 }
+                if (textarea.dataset.exampleInsertion === 'true') {
+                  textarea.dataset.exampleInsertion = 'false';
+                } else {
+                  insertionHistory.delete(textarea);
+                  setUndoAvailability(false);
+                }
                 scheduleSave();
+              },
+              { signal }
+            );
+
+            textarea.addEventListener(
+              'dragover',
+              (event) => {
+                if (event.dataTransfer) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'copy';
+                }
+              },
+              { signal }
+            );
+
+            textarea.addEventListener(
+              'drop',
+              (event) => {
+                const text = event.dataTransfer?.getData('text/plain');
+                if (!text) {
+                  return;
+                }
+                event.preventDefault();
+                const start =
+                  typeof textarea.selectionStart === 'number'
+                    ? textarea.selectionStart
+                    : textarea.value.length;
+                const end =
+                  typeof textarea.selectionEnd === 'number'
+                    ? textarea.selectionEnd
+                    : start;
+                textarea.setSelectionRange(start, end);
+                insertExampleText(text);
               },
               { signal }
             );
