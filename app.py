@@ -63,6 +63,18 @@ def _extract_component_value(
     return None
 
 
+NAVIGATION_REDIRECT_KEY = "_navigation_redirect"
+
+
+def _request_navigation(target: str) -> None:
+    """Schedule a navigation change for the next rerun."""
+
+    if not target:
+        return
+    st.session_state[NAVIGATION_REDIRECT_KEY] = target
+    st.session_state["page"] = target
+
+
 import committee_analysis
 import database
 import export_utils
@@ -1638,9 +1650,7 @@ def _init_session_state() -> None:
     if nav_targets:
         nav_value = nav_targets[0]
         if nav_value == "history":
-            st.session_state.page = "学習履歴"
-            st.session_state["navigation_selection"] = "学習履歴"
-            st.session_state["mobile_navigation"] = "学習履歴"
+            _request_navigation("学習履歴")
             st.session_state["history_focus_from_notification"] = True
             if attempt_targets:
                 attempt_token = attempt_targets[0]
@@ -5349,6 +5359,12 @@ def main_view() -> None:
         "設定": settings_page,
     }
 
+    navigation_key = "navigation_selection"
+    redirect_target = st.session_state.pop(NAVIGATION_REDIRECT_KEY, None)
+    if redirect_target in navigation_items:
+        st.session_state[navigation_key] = redirect_target
+        st.session_state["page"] = redirect_target
+
     st.sidebar.title("ナビゲーション")
     st.sidebar.markdown(
         dedent(
@@ -5477,8 +5493,6 @@ def main_view() -> None:
     if current_page not in navigation_items:
         current_page = nav_labels[0]
     st.session_state.page = current_page
-
-    navigation_key = "navigation_selection"
 
     if navigation_key not in st.session_state:
         st.session_state[navigation_key] = current_page
@@ -8105,34 +8119,33 @@ def dashboard_page(user: Dict) -> None:
         template,
         height=1040,
         scrolling=True,
-        key="home_dashboard_html",
     )
 
-    if component_value:
+    event_raw = _extract_component_value(component_value)
+    if event_raw:
         try:
-            event = json.loads(component_value)
-        except (TypeError, json.JSONDecodeError):
+            event = json.loads(event_raw)
+        except json.JSONDecodeError:
             event = None
-        if event:
-            action = event.get("action")
-            payload = event.get("payload") or {}
-            if action == "open-practice":
-                case_label = payload.get("case_label")
-                year = payload.get("year")
-                question_id = payload.get("question_id")
-                if case_label and year and question_id:
-                    st.session_state["navigation_selection"] = "過去問演習"
-                    st.session_state["page"] = "過去問演習"
-                    st.session_state["practice_focus"] = {
-                        "case_label": case_label,
-                        "year": year,
-                        "question_id": question_id,
-                    }
+        else:
+            if event:
+                action = event.get("action")
+                payload = event.get("payload") or {}
+                if action == "open-practice":
+                    case_label = payload.get("case_label")
+                    year = payload.get("year")
+                    question_id = payload.get("question_id")
+                    if case_label and year and question_id:
+                        _request_navigation("過去問演習")
+                        st.session_state["practice_focus"] = {
+                            "case_label": case_label,
+                            "year": year,
+                            "question_id": question_id,
+                        }
+                        st.experimental_rerun()
+                elif action in {"open-history", "open-recommendation-settings"}:
+                    _request_navigation("学習履歴")
                     st.experimental_rerun()
-            elif action in {"open-history", "open-recommendation-settings"}:
-                st.session_state["navigation_selection"] = "学習履歴"
-                st.session_state["page"] = "学習履歴"
-                st.experimental_rerun()
 
     return
 def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
@@ -14690,6 +14703,10 @@ def history_page(user: Dict) -> None:
             st.session_state.history_focus_from_notification = False
 
     keyword_records = database.fetch_keyword_performance(user["id"])
+    question_history_summary = (
+        database.fetch_user_question_history_summary(user["id"]) or []
+    )
+    global_question_metrics = database.fetch_question_master_stats() or {}
     score_history_export = _prepare_history_log_export(history_df)
     answer_history_export = _prepare_answer_log_export(keyword_records)
     score_csv_bytes = score_history_export.to_csv(index=False).encode("utf-8-sig")
