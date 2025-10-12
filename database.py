@@ -1584,6 +1584,89 @@ def get_question_progress_summary(user_id: int, *, recent_limit: int = 5) -> Dic
     }
 
 
+def fetch_question_practice_stats(user_id: int) -> Dict[int, Dict[str, Any]]:
+    """Return attempt statistics per question for the given user."""
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT id, max_score FROM questions")
+    stats: Dict[int, Dict[str, Any]] = {}
+    for row in cur.fetchall():
+        stats[row["id"]] = {
+            "max_score": row["max_score"],
+            "attempt_count": 0,
+            "avg_ratio": None,
+            "best_ratio": None,
+            "last_ratio": None,
+            "last_score": None,
+            "last_submitted_at": None,
+        }
+
+    cur.execute(
+        """
+        SELECT
+            aa.question_id,
+            aa.score,
+            q.max_score,
+            COALESCE(a.submitted_at, a.started_at) AS submitted_at
+        FROM attempt_answers aa
+        JOIN attempts a ON a.id = aa.attempt_id
+        JOIN questions q ON q.id = aa.question_id
+        WHERE a.user_id = ?
+        ORDER BY submitted_at ASC
+        """,
+        (user_id,),
+    )
+
+    rows = cur.fetchall()
+    conn.close()
+
+    for row in rows:
+        question_id = row["question_id"]
+        max_score = row["max_score"]
+        entry = stats.setdefault(
+            question_id,
+            {
+                "max_score": max_score,
+                "attempt_count": 0,
+                "avg_ratio": None,
+                "best_ratio": None,
+                "last_ratio": None,
+                "last_score": None,
+                "last_submitted_at": None,
+            },
+        )
+        entry["max_score"] = max_score
+        entry["attempt_count"] = int(entry.get("attempt_count", 0)) + 1
+        score = row["score"]
+        ratio = None
+        if score is not None and max_score:
+            ratio = max(min(score / max_score, 1.0), 0.0)
+            entry["best_ratio"] = (
+                ratio
+                if entry.get("best_ratio") is None
+                else max(float(entry["best_ratio"]), ratio)
+            )
+            entry["_total_ratio"] = entry.get("_total_ratio", 0.0) + ratio
+            entry["_sample_count"] = int(entry.get("_sample_count", 0)) + 1
+            entry["last_ratio"] = ratio
+        entry["last_score"] = score
+        entry["last_submitted_at"] = row["submitted_at"]
+
+    for entry in stats.values():
+        total_ratio = entry.pop("_total_ratio", None)
+        sample_count = entry.pop("_sample_count", 0)
+        if sample_count and total_ratio is not None:
+            entry["avg_ratio"] = total_ratio / sample_count
+        else:
+            entry["avg_ratio"] = entry.get("avg_ratio")
+        if entry.get("best_ratio") is None and entry.get("last_ratio") is not None:
+            entry["best_ratio"] = entry["last_ratio"]
+
+    return stats
+
+
 def list_unattempted_questions(user_id: int, *, limit: int = 5) -> List[Dict[str, Any]]:
     """Return questions the user has not attempted yet (or has no saved answers)."""
 
