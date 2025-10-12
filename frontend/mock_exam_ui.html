@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="ja" data-app="mock-exam">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>模擬試験モード UI 改善プロトタイプ</title>
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        --color-bg: #f3f6fb;
+        --color-surface: #ffffff;
+        --color-surface-alt: rgba(255, 255, 255, 0.8);
+        --color-border: rgba(30, 45, 75, 0.14);
+        --color-divider: rgba(30, 45, 75, 0.08);
+        --color-text: #18294b;
+        --color-text-muted: rgba(24, 41, 75, 0.65);
+        --color-primary: #315bff;
+        --color-primary-strong: #2345b2;
+        --color-accent: #f59f48;
+        --color-danger: #de5b5b;
+        --color-success: #1f9d65;
+        --radius-card: 18px;
+        --radius-chip: 999px;
+        --shadow-base: 0 16px 40px rgba(16, 31, 66, 0.08);
+        --shadow-hover: 0 20px 50px rgba(16, 31, 66, 0.12);
+        --transition: 200ms ease;
+        font-size: 16px;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Noto Sans JP", system-ui, -apple-system, "BlinkMacSystemFont",
+          "Segoe UI", sans-serif;
+        color: var(--color-text);
+        background: linear-gradient(180deg, #edf2ff 0%, #f3f6fb 60%, #eff3fb 100%);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-family: "M PLUS Rounded 1c", "Noto Sans JP", sans-serif;
+        margin: 0;
+      }
+
+      .app {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .top-bar {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: rgba(250, 252, 255, 0.95);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--color-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px clamp(16px, 2.5vw, 32px);
+        gap: 16px;
+      }
+
+      .top-bar__group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .top-bar__title {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .top-bar__title h1 {
+        font-size: clamp(1.25rem, 1.1rem + 0.5vw, 1.6rem);
+        line-height: 1.35;
+      }
+
+      .top-bar__meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.9rem;
+        color: var(--color-text-muted);
+      }
+
+      .timer-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: var(--radius-chip);
+        padding: 6px 14px;
+        background: rgba(49, 91, 255, 0.14);
+        color: var(--color-primary-strong);
+        font-weight: 600;
+      }
+
+      .timer-chip[data-warning="true"] {
+        background: rgba(245, 159, 72, 0.18);
+        color: var(--color-accent);
+      }
+
+      .timer-chip i {
+        font-size: 1.1rem;
+      }
+
+      .notice-toggle {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        border: 1px solid var(--color-border);
+        background: var(--color-surface);
+        display: grid;
+        place-items: center;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        transition: background var(--transition), transform var(--transition);
+      }
+
+      .notice-toggle:hover,
+      .notice-toggle:focus-visible {
+        outline: none;
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+        transform: translateY(-1px);
+      }
+
+      .notice-panel {
+        position: absolute;
+        inset: auto 16px -1px 16px;
+        transform: translateY(100%);
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 16px;
+        box-shadow: var(--shadow-base);
+        padding: 18px 20px;
+        display: none;
+      }
+
+      .notice-panel[data-visible="true"] {
+        display: block;
+      }
+
+      .layout {
+        flex: 1;
+        display: grid;
+        grid-template-columns: minmax(320px, 32%) minmax(0, 1fr) auto;
+        gap: 0;
+        min-height: 0;
+      }
+
+      .context-pane {
+        border-right: 1px solid var(--color-border);
+        background: var(--color-surface);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .context-pane__header {
+        padding: 20px 24px 12px;
+        border-bottom: 1px solid var(--color-divider);
+      }
+
+      .context-pane__scroll {
+        padding: 0 24px 24px;
+        overflow-y: auto;
+      }
+
+      .context-pane__section {
+        margin-bottom: 18px;
+      }
+
+      .context-pane__section h3 {
+        font-size: 1rem;
+        margin-bottom: 8px;
+      }
+
+      .context-pane[data-collapsed="true"] {
+        display: none;
+      }
+
+      .exam-pane {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .question-tabs {
+        display: flex;
+        gap: 8px;
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--color-border);
+        background: var(--color-surface-alt);
+        backdrop-filter: blur(8px);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      .question-tab {
+        appearance: none;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        background: transparent;
+        padding: 10px 16px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: background var(--transition), color var(--transition),
+          border var(--transition);
+      }
+
+      .question-tab i {
+        font-size: 1.1rem;
+      }
+
+      .question-tab[data-active="true"] {
+        background: var(--color-surface);
+        border-color: var(--color-primary);
+        color: var(--color-primary-strong);
+        box-shadow: 0 10px 20px rgba(49, 91, 255, 0.15);
+      }
+
+      .question-panel {
+        display: none;
+        flex-direction: column;
+        height: 100%;
+      }
+
+      .question-panel[data-active="true"] {
+        display: flex;
+      }
+
+      .question-panel__inner {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(240px, 26%);
+        gap: 24px;
+        padding: 24px clamp(16px, 3vw, 32px) 80px;
+        overflow-y: auto;
+        flex: 1;
+      }
+
+      .answer-area {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-height: 0;
+      }
+
+      .answer-toolbar {
+        position: sticky;
+        top: 68px;
+        z-index: 5;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 16px;
+        padding: 14px 16px;
+        display: grid;
+        gap: 10px;
+        box-shadow: var(--shadow-base);
+      }
+
+      .progress-bar {
+        position: relative;
+        width: 100%;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(49, 91, 255, 0.12);
+        overflow: hidden;
+      }
+
+      .progress-bar span {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #315bff, #4ac7f5);
+        transform-origin: left center;
+        transform: scaleX(0);
+        transition: transform 160ms ease;
+      }
+
+      .progress-meta {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .progress-chip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        background: rgba(49, 91, 255, 0.08);
+        font-size: 0.9rem;
+      }
+
+      .progress-chip i {
+        font-size: 1.1rem;
+        color: var(--color-primary);
+      }
+
+      .progress-chip[data-type="coverage"] {
+        background: rgba(31, 157, 101, 0.14);
+      }
+
+      .progress-chip[data-type="coverage"] i {
+        color: var(--color-success);
+      }
+
+      .answer-textarea {
+        width: 100%;
+        min-height: 320px;
+        flex: 1;
+        resize: vertical;
+        border-radius: 16px;
+        border: 1px solid var(--color-border);
+        padding: 18px;
+        font-size: 1rem;
+        line-height: 1.7;
+        font-family: "Noto Sans JP", sans-serif;
+        background: var(--color-surface);
+        box-shadow: inset 0 1px 3px rgba(10, 18, 44, 0.06);
+      }
+
+      .answer-textarea:focus-visible {
+        outline: 2px solid rgba(49, 91, 255, 0.4);
+        border-color: var(--color-primary);
+      }
+
+      .structure-panel {
+        border-left: 1px solid var(--color-border);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.82);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 18px 16px;
+        position: sticky;
+        top: 76px;
+        height: calc(100vh - 140px);
+        overflow-y: auto;
+        transition: transform var(--transition), opacity var(--transition);
+      }
+
+      .structure-panel[data-hidden="true"] {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(12px);
+      }
+
+      .structure-panel h3 {
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .structure-panel ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 8px;
+      }
+
+      .structure-chip {
+        padding: 6px 12px;
+        border-radius: var(--radius-chip);
+        border: 1px solid var(--color-border);
+        background: rgba(49, 91, 255, 0.06);
+        font-size: 0.85rem;
+      }
+
+      .noun-item {
+        padding: 8px 12px;
+        border-radius: 12px;
+        background: rgba(24, 41, 75, 0.06);
+        font-size: 0.85rem;
+      }
+
+      .tools-sidebar {
+        width: 68px;
+        background: rgba(21, 35, 66, 0.82);
+        color: #f0f3ff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 18px 12px;
+        gap: 16px;
+        transition: width var(--transition);
+        overflow: hidden;
+      }
+
+      .tools-sidebar[data-collapsed="true"] {
+        width: 24px;
+        padding-inline: 4px;
+      }
+
+      .tools-toggle {
+        background: none;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        transition: background var(--transition);
+      }
+
+      .tools-toggle:hover,
+      .tools-toggle:focus-visible {
+        background: rgba(255, 255, 255, 0.18);
+        outline: none;
+      }
+
+      .tool-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.08);
+        color: inherit;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        transition: transform var(--transition), background var(--transition);
+        position: relative;
+      }
+
+      .tool-icon:hover,
+      .tool-icon:focus-visible {
+        transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.16);
+        outline: none;
+      }
+
+      .tool-icon span {
+        font-size: 0.7rem;
+        position: absolute;
+        bottom: -14px;
+        background: rgba(0, 0, 0, 0.35);
+        padding: 2px 6px;
+        border-radius: 8px;
+        display: none;
+      }
+
+      .tool-icon:focus-visible span,
+      .tool-icon:hover span {
+        display: block;
+      }
+
+      .exam-footer {
+        position: sticky;
+        bottom: 0;
+        margin-top: auto;
+        background: rgba(250, 252, 255, 0.92);
+        border-top: 1px solid var(--color-border);
+        padding: 18px clamp(16px, 3vw, 32px);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .exam-footer__status {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--color-text-muted);
+        font-size: 0.9rem;
+      }
+
+      .primary-button {
+        border: none;
+        background: linear-gradient(90deg, #315bff, #5d8bff);
+        color: #fff;
+        padding: 14px 24px;
+        font-size: 1rem;
+        font-weight: 600;
+        border-radius: 14px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: var(--shadow-base);
+        transition: transform var(--transition), box-shadow var(--transition);
+      }
+
+      .primary-button:hover,
+      .primary-button:focus-visible {
+        outline: none;
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-hover);
+      }
+
+      .submit-check {
+        position: fixed;
+        inset: 0;
+        background: rgba(16, 27, 54, 0.55);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+      }
+
+      .submit-check[data-visible="true"] {
+        display: flex;
+      }
+
+      .submit-check__dialog {
+        width: min(520px, calc(100% - 32px));
+        background: #fff;
+        border-radius: 18px;
+        padding: 28px;
+        box-shadow: var(--shadow-hover);
+        display: grid;
+        gap: 16px;
+      }
+
+      .submit-check__list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 10px;
+        font-size: 0.95rem;
+      }
+
+      .submit-check__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+      }
+
+      .ghost-button {
+        border: 1px solid var(--color-border);
+        background: #fff;
+        color: var(--color-text);
+        padding: 10px 18px;
+        border-radius: 12px;
+        cursor: pointer;
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(16, 27, 54, 0.58);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 160;
+      }
+
+      .modal[data-visible="true"] {
+        display: flex;
+      }
+
+      .modal__dialog {
+        width: min(720px, calc(100% - 40px));
+        max-height: calc(100% - 80px);
+        overflow: auto;
+        background: #fff;
+        border-radius: 20px;
+        padding: 28px;
+        box-shadow: var(--shadow-hover);
+        display: grid;
+        gap: 16px;
+      }
+
+      .modal__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .modal__header h2 {
+        font-size: 1.2rem;
+      }
+
+      .modal__close {
+        border: none;
+        background: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+      }
+
+      .dashboard {
+        display: none;
+        flex-direction: column;
+        gap: 24px;
+        padding: 24px clamp(16px, 3vw, 48px) 48px;
+      }
+
+      .dashboard[data-visible="true"] {
+        display: flex;
+      }
+
+      .dashboard__header {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+      }
+
+      .summary-card {
+        background: var(--color-surface);
+        border-radius: 20px;
+        padding: 20px 22px;
+        border: 1px solid rgba(30, 45, 75, 0.08);
+        box-shadow: var(--shadow-base);
+        display: grid;
+        gap: 8px;
+      }
+
+      .summary-card strong {
+        font-size: 1.8rem;
+      }
+
+      .chart-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        gap: 24px;
+      }
+
+      .chart-card {
+        background: var(--color-surface);
+        border-radius: 20px;
+        padding: 18px 20px;
+        border: 1px solid rgba(30, 45, 75, 0.1);
+        box-shadow: var(--shadow-base);
+      }
+
+      .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+      }
+
+      .history-table th,
+      .history-table td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--color-divider);
+      }
+
+      .history-table th {
+        color: var(--color-text-muted);
+        font-weight: 500;
+      }
+
+      @media (max-width: 1200px) {
+        .layout {
+          grid-template-columns: minmax(260px, 34%) minmax(0, 1fr) 68px;
+        }
+
+        .question-panel__inner {
+          grid-template-columns: minmax(0, 1fr);
+        }
+
+        .structure-panel {
+          order: -1;
+          position: relative;
+          height: auto;
+        }
+      }
+
+      @media (max-width: 960px) {
+        .layout {
+          grid-template-columns: minmax(0, 1fr);
+        }
+
+        .context-pane {
+          position: fixed;
+          inset: 68px auto auto 0;
+          width: min(420px, 90vw);
+          max-height: calc(100vh - 88px);
+          border-right: none;
+          border-radius: 0 18px 18px 0;
+          box-shadow: var(--shadow-hover);
+          display: none;
+        }
+
+        .context-pane[data-collapsed="false"] {
+          display: flex;
+        }
+
+        .tools-sidebar {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body data-total-minutes="150">
+    <div class="app" data-mode="exam">
+      <header class="top-bar">
+        <div class="top-bar__group">
+          <div class="top-bar__title">
+            <h1>模擬試験モード</h1>
+            <div class="top-bar__meta">
+              <span>事例 I～IV / 令和6年度 模擬セット</span>
+              <span class="timer-chip" data-timer>
+                <i class="bx bx-timer"></i>
+                <span data-timer-display>150:00</span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="top-bar__group">
+          <div class="notice-toggle" data-notice-toggle aria-label="注意事項を表示">
+            <i class="bx bx-info-circle"></i>
+          </div>
+        </div>
+        <div class="notice-panel" data-notice-panel>
+          <h2>本番モードの注意事項</h2>
+          <ul>
+            <li>模試開始後の与件文閲覧・回答入力は記録されます。</li>
+            <li>制限時間は150分です。終了5分前になるとタイマーが強調表示されます。</li>
+            <li>ショートカット: <kbd>g</kbd> 左ペイン、<kbd>Ctrl+↑/↓</kbd> 設問切替、<kbd>Ctrl+Shift+S</kbd> サイドパネル。</li>
+          </ul>
+        </div>
+      </header>
+      <div class="layout">
+        <aside class="context-pane" data-context-pane data-collapsed="false">
+          <div class="context-pane__header">
+            <h2>与件文</h2>
+            <p class="top-bar__meta">ドラフト工業は地域密着型で成長してきた...</p>
+          </div>
+          <div class="context-pane__scroll">
+            <section class="context-pane__section">
+              <h3>第1段落</h3>
+              <p>
+                1948年創業のドラフト工業は、精密部品の OEM 供給を中心に販路を
+                拡大し、現在は医療機器向けの高精度加工を強みとしている。売上は
+                堅調である一方、ベテラン技能者の退職が続き、技術承継が課題とな
+                っている。
+              </p>
+            </section>
+            <section class="context-pane__section">
+              <h3>第2段落</h3>
+              <p>
+                主力顧客の海外移管により、新規市場開拓の必要性が高まっている。
+                社長は IoT を活用した予防保全サービスを構想し、自社の加工デー
+                タをもとにしたデータビジネスへの転換を模索している。
+              </p>
+            </section>
+            <section class="context-pane__section">
+              <h3>第3段落</h3>
+              <p>
+                若手社員は学習意欲が高いが、部署を越えた情報共有が進まず、企画
+                案が形になりにくい。外部連携による新規開発と既存工場の稼働率向
+                上を両立できる施策が求められている。
+              </p>
+            </section>
+          </div>
+        </aside>
+        <main class="exam-pane" data-exam-pane>
+          <nav class="question-tabs" role="tablist">
+            <button class="question-tab" data-question-tab="q1" data-active="true" role="tab">
+              <i class="bx bx-edit"></i>
+              設問1
+            </button>
+            <button class="question-tab" data-question-tab="q2" role="tab">
+              <i class="bx bx-target-lock"></i>
+              設問2
+            </button>
+            <button class="question-tab" data-question-tab="q3" role="tab">
+              <i class="bx bx-rocket"></i>
+              設問3
+            </button>
+            <button class="question-tab" data-question-tab="q4" role="tab">
+              <i class="bx bx-analyse"></i>
+              設問4
+            </button>
+          </nav>
+          <section class="question-panel" data-question-panel="q1" data-active="true">
+            <div class="question-panel__inner">
+              <div class="answer-area">
+                <div class="answer-toolbar" data-answer-toolbar>
+                  <div class="progress-bar" aria-hidden="true">
+                    <span data-progress-bar></span>
+                  </div>
+                  <div class="progress-meta">
+                    <div class="progress-chip" data-type="chars">
+                      <i class="bx bx-text"></i>
+                      <span data-remaining>残り 200 文字</span>
+                    </div>
+                    <div class="progress-chip" data-type="coverage">
+                      <i class="bx bx-pulse"></i>
+                      <span data-coverage>要素カバー率 0%</span>
+                    </div>
+                    <div class="progress-chip" data-type="zenkaku">
+                      <i class="bx bx-shape-square"></i>
+                      <span data-zenkaku>全角換算 0字</span>
+                    </div>
+                    <div class="progress-chip" data-type="keywords">
+                      <i class="bx bx-bulb"></i>
+                      <span data-keywords>重要キーワード 0件</span>
+                    </div>
+                  </div>
+                </div>
+                <article>
+                  <h2>設問1：経営課題を 200 字以内で整理せよ。</h2>
+                  <textarea
+                    class="answer-textarea"
+                    data-answer
+                    data-max-length="200"
+                    placeholder="与件文を参照しながら、課題と背景を簡潔に記述してください。"
+                  ></textarea>
+                </article>
+              </div>
+              <aside class="structure-panel" data-structure-panel>
+                <section>
+                  <h3><i class="bx bx-sitemap"></i> 構造ラベル</h3>
+                  <ul>
+                    <li class="structure-chip">現状課題</li>
+                    <li class="structure-chip">要因分析</li>
+                    <li class="structure-chip">方向性</li>
+                  </ul>
+                </section>
+                <section>
+                  <h3><i class="bx bx-purchase-tag"></i> 名詞抽出</h3>
+                  <ul>
+                    <li class="noun-item">高精度加工</li>
+                    <li class="noun-item">技術承継</li>
+                    <li class="noun-item">IoT 予防保全</li>
+                    <li class="noun-item">若手育成</li>
+                  </ul>
+                </section>
+              </aside>
+            </div>
+          </section>
+          <section class="question-panel" data-question-panel="q2">
+            <div class="question-panel__inner">
+              <div class="answer-area">
+                <div class="answer-toolbar" data-answer-toolbar>
+                  <div class="progress-bar" aria-hidden="true">
+                    <span data-progress-bar></span>
+                  </div>
+                  <div class="progress-meta">
+                    <div class="progress-chip" data-type="chars">
+                      <i class="bx bx-text"></i>
+                      <span data-remaining>残り 240 文字</span>
+                    </div>
+                    <div class="progress-chip" data-type="coverage">
+                      <i class="bx bx-pulse"></i>
+                      <span data-coverage>要素カバー率 0%</span>
+                    </div>
+                    <div class="progress-chip" data-type="zenkaku">
+                      <i class="bx bx-shape-square"></i>
+                      <span data-zenkaku>全角換算 0字</span>
+                    </div>
+                    <div class="progress-chip" data-type="keywords">
+                      <i class="bx bx-bulb"></i>
+                      <span data-keywords>重要キーワード 0件</span>
+                    </div>
+                  </div>
+                </div>
+                <article>
+                  <h2>設問2：新規サービス提案を 240 字以内で述べよ。</h2>
+                  <textarea
+                    class="answer-textarea"
+                    data-answer
+                    data-max-length="240"
+                    placeholder="課題解決のための戦略と活用資源を整理してください。"
+                  ></textarea>
+                </article>
+              </div>
+              <aside class="structure-panel" data-structure-panel>
+                <section>
+                  <h3><i class="bx bx-sitemap"></i> 構造ラベル</h3>
+                  <ul>
+                    <li class="structure-chip">ターゲット</li>
+                    <li class="structure-chip">提供価値</li>
+                    <li class="structure-chip">運用体制</li>
+                  </ul>
+                </section>
+                <section>
+                  <h3><i class="bx bx-purchase-tag"></i> 名詞抽出</h3>
+                  <ul>
+                    <li class="noun-item">予防保全</li>
+                    <li class="noun-item">遠隔モニタリング</li>
+                    <li class="noun-item">データ連携</li>
+                    <li class="noun-item">アライアンス</li>
+                  </ul>
+                </section>
+              </aside>
+            </div>
+          </section>
+          <section class="question-panel" data-question-panel="q3">
+            <div class="question-panel__inner">
+              <div class="answer-area">
+                <div class="answer-toolbar" data-answer-toolbar>
+                  <div class="progress-bar" aria-hidden="true">
+                    <span data-progress-bar></span>
+                  </div>
+                  <div class="progress-meta">
+                    <div class="progress-chip" data-type="chars">
+                      <i class="bx bx-text"></i>
+                      <span data-remaining>残り 200 文字</span>
+                    </div>
+                    <div class="progress-chip" data-type="coverage">
+                      <i class="bx bx-pulse"></i>
+                      <span data-coverage>要素カバー率 0%</span>
+                    </div>
+                    <div class="progress-chip" data-type="zenkaku">
+                      <i class="bx bx-shape-square"></i>
+                      <span data-zenkaku>全角換算 0字</span>
+                    </div>
+                    <div class="progress-chip" data-type="keywords">
+                      <i class="bx bx-bulb"></i>
+                      <span data-keywords>重要キーワード 0件</span>
+                    </div>
+                  </div>
+                </div>
+                <article>
+                  <h2>設問3：人材育成施策を 200 字以内で提案せよ。</h2>
+                  <textarea
+                    class="answer-textarea"
+                    data-answer
+                    data-max-length="200"
+                    placeholder="技能承継と若手活躍を両立させる施策を記載してください。"
+                  ></textarea>
+                </article>
+              </div>
+              <aside class="structure-panel" data-structure-panel>
+                <section>
+                  <h3><i class="bx bx-sitemap"></i> 構造ラベル</h3>
+                  <ul>
+                    <li class="structure-chip">研修設計</li>
+                    <li class="structure-chip">OJT</li>
+                    <li class="structure-chip">評価制度</li>
+                  </ul>
+                </section>
+                <section>
+                  <h3><i class="bx bx-purchase-tag"></i> 名詞抽出</h3>
+                  <ul>
+                    <li class="noun-item">技能マップ</li>
+                    <li class="noun-item">師弟制度</li>
+                    <li class="noun-item">キャリアラダー</li>
+                  </ul>
+                </section>
+              </aside>
+            </div>
+          </section>
+          <section class="question-panel" data-question-panel="q4">
+            <div class="question-panel__inner">
+              <div class="answer-area">
+                <div class="answer-toolbar" data-answer-toolbar>
+                  <div class="progress-bar" aria-hidden="true">
+                    <span data-progress-bar></span>
+                  </div>
+                  <div class="progress-meta">
+                    <div class="progress-chip" data-type="chars">
+                      <i class="bx bx-text"></i>
+                      <span data-remaining>残り 160 文字</span>
+                    </div>
+                    <div class="progress-chip" data-type="coverage">
+                      <i class="bx bx-pulse"></i>
+                      <span data-coverage>要素カバー率 0%</span>
+                    </div>
+                    <div class="progress-chip" data-type="zenkaku">
+                      <i class="bx bx-shape-square"></i>
+                      <span data-zenkaku>全角換算 0字</span>
+                    </div>
+                    <div class="progress-chip" data-type="keywords">
+                      <i class="bx bx-bulb"></i>
+                      <span data-keywords>重要キーワード 0件</span>
+                    </div>
+                  </div>
+                </div>
+                <article>
+                  <h2>設問4：収益モデルの改善策を 160 字以内で答えよ。</h2>
+                  <textarea
+                    class="answer-textarea"
+                    data-answer
+                    data-max-length="160"
+                    placeholder="既存顧客への追加価値提供とコスト構造の見直しを含めて記述してください。"
+                  ></textarea>
+                </article>
+              </div>
+              <aside class="structure-panel" data-structure-panel>
+                <section>
+                  <h3><i class="bx bx-sitemap"></i> 構造ラベル</h3>
+                  <ul>
+                    <li class="structure-chip">価格戦略</li>
+                    <li class="structure-chip">収益源</li>
+                    <li class="structure-chip">コスト最適化</li>
+                  </ul>
+                </section>
+                <section>
+                  <h3><i class="bx bx-purchase-tag"></i> 名詞抽出</h3>
+                  <ul>
+                    <li class="noun-item">サブスクリプション</li>
+                    <li class="noun-item">保守契約</li>
+                    <li class="noun-item">パートナー連携</li>
+                  </ul>
+                </section>
+              </aside>
+            </div>
+          </section>
+          <footer class="exam-footer" data-exam-footer>
+            <div class="exam-footer__status" data-footer-status>
+              <i class="bx bx-save"></i>
+              自動保存済み（3分前）
+            </div>
+            <button class="primary-button" data-submit>
+              <i class="bx bx-paper-plane"></i>
+              模試を提出
+            </button>
+          </footer>
+        </main>
+        <aside class="tools-sidebar" data-tools-sidebar>
+          <button class="tools-toggle" data-tools-toggle aria-label="補助ツールを折りたたむ">
+            <i class="bx bx-chevrons-right"></i>
+          </button>
+          <button class="tool-icon" data-tool="mece" aria-label="MECEスキャナ (eキー)">
+            <i class="bx bx-grid-alt"></i>
+            <span>e</span>
+          </button>
+          <button class="tool-icon" data-tool="theme" aria-label="趣旨カード (hキー)">
+            <i class="bx bx-notepad"></i>
+            <span>h</span>
+          </button>
+          <button class="tool-icon" data-tool="frame" aria-label="頻出フレーム (fキー)">
+            <i class="bx bx-layer"></i>
+            <span>f</span>
+          </button>
+          <button class="tool-icon" data-tool="model" aria-label="模範解答比較 (mキー)">
+            <i class="bx bx-check-shield"></i>
+            <span>m</span>
+          </button>
+        </aside>
+      </div>
+    </div>
+
+    <div class="submit-check" data-submit-check>
+      <div class="submit-check__dialog" role="dialog" aria-modal="true">
+        <h2>提出前チェック</h2>
+        <p>各設問の入力状況を確認し、不足があれば戻って修正してください。</p>
+        <ul class="submit-check__list" data-submit-summary></ul>
+        <div class="submit-check__actions">
+          <button class="ghost-button" data-submit-cancel>戻る</button>
+          <button class="primary-button" data-submit-confirm>
+            <i class="bx bx-paper-plane"></i>
+            提出して結果を見る
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard" data-dashboard>
+      <header class="dashboard__header">
+        <div>
+          <h1>模試結果ダッシュボード</h1>
+          <p class="top-bar__meta">得点内訳と過去模試との比較を確認できます。</p>
+        </div>
+        <button class="ghost-button" data-back-to-exam>編集に戻る</button>
+      </header>
+      <section class="card-grid" data-score-cards>
+        <!-- Cards injected by script -->
+      </section>
+      <section class="chart-grid">
+        <article class="chart-card">
+          <h2>設問別得点と模範解答差分</h2>
+          <canvas id="scoreChart" height="220"></canvas>
+        </article>
+        <article class="chart-card">
+          <h2>年度別・設問タイプ別の正答率推移</h2>
+          <canvas id="trendChart" height="220"></canvas>
+        </article>
+      </section>
+      <section class="chart-card">
+        <h2>過去の模試履歴比較</h2>
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>受験日</th>
+              <th>セット</th>
+              <th>得点率</th>
+              <th>事例バランス</th>
+              <th>平均解答時間</th>
+            </tr>
+          </thead>
+          <tbody data-history-table>
+            <!-- Rows injected by script -->
+          </tbody>
+        </table>
+      </section>
+    </div>
+    <div class="modal" data-modal="mece" role="dialog" aria-modal="true">
+      <div class="modal__dialog">
+        <div class="modal__header">
+          <h2>MECE スキャナ</h2>
+          <button class="modal__close" data-modal-close>&times;</button>
+        </div>
+        <p>
+          入力した回答をクラスタリングし、抜け漏れや重複をハイライトします。各段落に「市場・顧客」「提供価値」「オペレーション」「組織・人材」などのカテゴリを割り当て、網羅性を確認しましょう。
+        </p>
+        <ul>
+          <li>不足カテゴリ: 組織・人材</li>
+          <li>重複箇所: 提供価値の記述が重複</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="modal" data-modal="theme" role="dialog" aria-modal="true">
+      <div class="modal__dialog">
+        <div class="modal__header">
+          <h2>趣旨カード</h2>
+          <button class="modal__close" data-modal-close>&times;</button>
+        </div>
+        <p>
+          事例企業の課題意図と評価観点をまとめたカードです。与件文の背景・課題・解決ストーリーを俯瞰しながら答案を整えましょう。
+        </p>
+        <ul>
+          <li>課題意図: データ活用によるサービス高付加価値化</li>
+          <li>評価観点: 再現性のあるオペレーション・収益性・人材活用</li>
+          <li>NG: 単なる設備投資のみの記述、外部依存過多</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="modal" data-modal="frame" role="dialog" aria-modal="true">
+      <div class="modal__dialog">
+        <div class="modal__header">
+          <h2>頻出フレーム</h2>
+          <button class="modal__close" data-modal-close>&times;</button>
+        </div>
+        <p>
+          模範的なロジック展開フレームを参照し、答案構造をチェックしてください。キーワードをドラッグ＆ドロップして答案に挿入することもできます。
+        </p>
+        <ol>
+          <li>現状課題 &rarr; 要因分析 &rarr; 施策 &rarr; 効果</li>
+          <li>顧客セグメント &rarr; 提供価値 &rarr; 実行体制</li>
+          <li>短期施策 &rarr; 中長期展望 &rarr; KPI 設定</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="modal" data-modal="model" role="dialog" aria-modal="true">
+      <div class="modal__dialog">
+        <div class="modal__header">
+          <h2>模範解答比較</h2>
+          <button class="modal__close" data-modal-close>&times;</button>
+        </div>
+        <p>
+          自身の答案と模範解答の差分をヒートマップで表示します。重要キーワードの有無や論点漏れを確認しましょう。
+        </p>
+        <ul>
+          <li>一致キーワード: 技術承継、IoT サービス、データ利活用</li>
+          <li>不足キーワード: リカーリング収益、外部パートナー活用</li>
+          <li>差分スコア: -8点（重点論点の不足）</li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      const body = document.body;
+      const totalMinutes = Number(body.dataset.totalMinutes || 150);
+      const startTime = Date.now();
+      const timerDisplay = document.querySelector('[data-timer-display]');
+      const timerChip = document.querySelector('[data-timer]');
+      const noticeToggle = document.querySelector('[data-notice-toggle]');
+      const noticePanel = document.querySelector('[data-notice-panel]');
+      const contextPane = document.querySelector('[data-context-pane]');
+      const questionTabs = Array.from(
+        document.querySelectorAll('[data-question-tab]')
+      );
+      const questionPanels = Array.from(
+        document.querySelectorAll('[data-question-panel]')
+      );
+      const structurePanels = document.querySelectorAll('[data-structure-panel]');
+      const toolsSidebar = document.querySelector('[data-tools-sidebar]');
+      const toolsToggle = document.querySelector('[data-tools-toggle]');
+      const submitButton = document.querySelector('[data-submit]');
+      const submitCheck = document.querySelector('[data-submit-check]');
+      const submitSummary = document.querySelector('[data-submit-summary]');
+      const submitCancel = document.querySelector('[data-submit-cancel]');
+      const submitConfirm = document.querySelector('[data-submit-confirm]');
+      const dashboard = document.querySelector('[data-dashboard]');
+      const appShell = document.querySelector('.app');
+      const backToExam = document.querySelector('[data-back-to-exam]');
+      const examLayout = document.querySelector('.layout');
+      const examFooter = document.querySelector('[data-exam-footer]');
+
+      const answerAreas = Array.from(document.querySelectorAll('[data-answer]'));
+
+      const modals = new Map(
+        Array.from(document.querySelectorAll('[data-modal]')).map((modal) => [
+          modal.dataset.modal,
+          modal,
+        ])
+      );
+
+      const modalCloseButtons = document.querySelectorAll('[data-modal-close]');
+
+      let activeQuestionIndex = 0;
+      let timerInterval = null;
+
+      const formatTime = (seconds) => {
+        const safeSeconds = Math.max(seconds, 0);
+        const minutes = Math.floor(safeSeconds / 60)
+          .toString()
+          .padStart(2, '0');
+        const secs = Math.floor(safeSeconds % 60)
+          .toString()
+          .padStart(2, '0');
+        return `${minutes}:${secs}`;
+      };
+
+      const updateTimer = () => {
+        const now = Date.now();
+        const elapsedSeconds = Math.floor((now - startTime) / 1000);
+        const remainingSeconds = totalMinutes * 60 - elapsedSeconds;
+        if (timerDisplay) {
+          timerDisplay.textContent = formatTime(remainingSeconds);
+        }
+        if (timerChip) {
+          timerChip.dataset.warning = remainingSeconds <= 300;
+        }
+        if (remainingSeconds <= 0 && timerInterval) {
+          window.clearInterval(timerInterval);
+          timerInterval = null;
+        }
+      };
+
+      timerInterval = window.setInterval(updateTimer, 1000);
+      updateTimer();
+
+      noticeToggle?.addEventListener('click', () => {
+        const isVisible = noticePanel?.dataset.visible === 'true';
+        if (noticePanel) {
+          noticePanel.dataset.visible = (!isVisible).toString();
+        }
+      });
+
+      const switchQuestion = (index) => {
+        const clampedIndex = Math.max(0, Math.min(questionTabs.length - 1, index));
+        activeQuestionIndex = clampedIndex;
+        questionTabs.forEach((tab, idx) => {
+          const isActive = idx === clampedIndex;
+          tab.dataset.active = isActive.toString();
+          const panelId = tab.dataset.questionTab;
+          const panel = document.querySelector(
+            `[data-question-panel="${panelId}"]`
+          );
+          if (panel) {
+            panel.dataset.active = isActive.toString();
+          }
+        });
+        const activePanel = questionPanels[clampedIndex];
+        const activeTextarea = activePanel?.querySelector('[data-answer]');
+        activeTextarea?.focus({ preventScroll: false });
+      };
+
+      questionTabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => switchQuestion(index));
+      });
+
+      const computeCoverage = (value, maxLength) => {
+        if (!value) return 0;
+        const ratio = value.length / maxLength;
+        const baseline = 0.35;
+        return Math.min(100, Math.round((baseline + ratio * 0.8) * 100));
+      };
+
+      const computeZenkakuCount = (value) => {
+        if (!value) return 0;
+        let count = 0;
+        for (const char of value) {
+          count += char.charCodeAt(0) <= 0x007f ? 0.5 : 1;
+        }
+        return Math.round(count);
+      };
+
+      const computeKeywords = (value) => {
+        if (!value) return 0;
+        const keywords = ['技術', 'サービス', '人材', '収益', 'データ'];
+        return keywords.reduce(
+          (acc, keyword) => (value.includes(keyword) ? acc + 1 : acc),
+          0
+        );
+      };
+
+      answerAreas.forEach((textarea) => {
+        const toolbar = textarea
+          .closest('.answer-area')
+          ?.querySelector('[data-answer-toolbar]');
+        const progressBar = toolbar?.querySelector('[data-progress-bar]');
+        const remaining = toolbar?.querySelector('[data-remaining]');
+        const coverage = toolbar?.querySelector('[data-coverage]');
+        const zenkaku = toolbar?.querySelector('[data-zenkaku]');
+        const keywords = toolbar?.querySelector('[data-keywords]');
+        const maxLength = Number(textarea.dataset.maxLength || textarea.maxLength || 400);
+
+        const updateToolbar = () => {
+          const value = textarea.value || '';
+          const used = value.length;
+          const remainingChars = Math.max(0, maxLength - used);
+          const ratio = Math.min(1, used / maxLength);
+          if (progressBar) {
+            progressBar.style.transform = `scaleX(${ratio})`;
+          }
+          if (remaining) {
+            remaining.textContent = `残り ${remainingChars} 文字`;
+          }
+          if (coverage) {
+            coverage.textContent = `要素カバー率 ${computeCoverage(value, maxLength)}%`;
+          }
+          if (zenkaku) {
+            zenkaku.textContent = `全角換算 ${computeZenkakuCount(value)}字`;
+          }
+          if (keywords) {
+            keywords.textContent = `重要キーワード ${computeKeywords(value)}件`;
+          }
+        };
+
+        textarea.addEventListener('input', updateToolbar);
+        updateToolbar();
+      });
+
+      const toggleContextPane = () => {
+        if (!contextPane) return;
+        const collapsed = contextPane.dataset.collapsed === 'true';
+        contextPane.dataset.collapsed = (!collapsed).toString();
+      };
+
+      const toggleStructurePanels = () => {
+        structurePanels.forEach((panel) => {
+          const hidden = panel.dataset.hidden === 'true';
+          panel.dataset.hidden = (!hidden).toString();
+        });
+      };
+
+      document.addEventListener('keydown', (event) => {
+        if (event.target instanceof HTMLTextAreaElement && event.ctrlKey) {
+          if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault();
+            const offset = event.key === 'ArrowUp' ? -1 : 1;
+            switchQuestion(activeQuestionIndex + offset);
+          }
+        }
+
+        const isTextField =
+          event.target instanceof HTMLInputElement ||
+          event.target instanceof HTMLTextAreaElement ||
+          (event.target instanceof HTMLElement && event.target.isContentEditable);
+
+        if (
+          event.key === 'g' &&
+          !event.metaKey &&
+          !event.ctrlKey &&
+          !event.altKey &&
+          !isTextField
+        ) {
+          event.preventDefault();
+          toggleContextPane();
+        }
+
+        if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 's') {
+          event.preventDefault();
+          toggleStructurePanels();
+        }
+
+        if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+          const key = event.key.toLowerCase();
+          if (key === 'h') {
+            event.preventDefault();
+            openModal('theme');
+          }
+          if (key === 'f') {
+            event.preventDefault();
+            openModal('frame');
+          }
+          if (key === 'm') {
+            event.preventDefault();
+            openModal('model');
+          }
+          if (key === 'e') {
+            event.preventDefault();
+            openModal('mece');
+          }
+        }
+
+        if (event.key === 'Escape') {
+          closeAllModals();
+          if (submitCheck?.dataset.visible === 'true') {
+            submitCheck.dataset.visible = 'false';
+          }
+        }
+      });
+
+      toolsToggle?.addEventListener('click', () => {
+        const collapsed = toolsSidebar?.dataset.collapsed === 'true';
+        if (toolsSidebar) {
+          toolsSidebar.dataset.collapsed = (!collapsed).toString();
+        }
+      });
+
+      const openModal = (name) => {
+        const modal = modals.get(name);
+        if (modal) {
+          modal.dataset.visible = 'true';
+        }
+      };
+
+      const closeModal = (modal) => {
+        modal.dataset.visible = 'false';
+      };
+
+      const closeAllModals = () => {
+        modals.forEach((modal) => {
+          modal.dataset.visible = 'false';
+        });
+      };
+
+      modals.forEach((modal) => {
+        modal.addEventListener('click', (event) => {
+          if (event.target === modal) {
+            closeModal(modal);
+          }
+        });
+      });
+
+      modalCloseButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          const modal = button.closest('[data-modal]');
+          if (modal) closeModal(modal);
+        });
+      });
+
+      document.querySelectorAll('[data-tool]').forEach((button) => {
+        button.addEventListener('click', () => {
+          openModal(button.dataset.tool);
+        });
+      });
+
+      const buildSubmitSummary = () => {
+        if (!submitSummary) return;
+        submitSummary.innerHTML = '';
+        answerAreas.forEach((textarea, index) => {
+          const maxLength = Number(textarea.dataset.maxLength || 0);
+          const used = textarea.value.length;
+          const remaining = Math.max(0, maxLength - used);
+          const li = document.createElement('li');
+          li.textContent = `設問${index + 1}: ${used}文字 / ${maxLength}文字 (残り ${remaining})`;
+          submitSummary.appendChild(li);
+        });
+      };
+
+      submitButton?.addEventListener('click', () => {
+        buildSubmitSummary();
+        if (submitCheck) {
+          submitCheck.dataset.visible = 'true';
+        }
+      });
+
+      submitCancel?.addEventListener('click', () => {
+        if (submitCheck) submitCheck.dataset.visible = 'false';
+      });
+
+      const showDashboard = () => {
+        appShell.dataset.mode = 'result';
+        dashboard.dataset.visible = 'true';
+        if (examLayout) examLayout.style.display = 'none';
+        if (examFooter) examFooter.style.display = 'none';
+        generateScoreCards();
+        renderCharts();
+        populateHistory();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+
+      submitConfirm?.addEventListener('click', () => {
+        if (submitCheck) submitCheck.dataset.visible = 'false';
+        showDashboard();
+      });
+
+      backToExam?.addEventListener('click', () => {
+        dashboard.dataset.visible = 'false';
+        appShell.dataset.mode = 'exam';
+        if (examLayout) examLayout.style.display = '';
+        if (examFooter) examFooter.style.display = '';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+      const scoreCardsData = [
+        { label: '総合得点率', value: '68%', description: '合格基準まであと12pt' },
+        { label: '事例 I', value: '72点', description: '思考整理と一貫性が向上' },
+        { label: '事例 II', value: '64点', description: '新市場戦略の論点を補強' },
+        { label: '事例 III', value: '70点', description: 'オペレーション改善を明確化' },
+      ];
+
+      const generateScoreCards = () => {
+        const container = document.querySelector('[data-score-cards]');
+        if (!container) return;
+        container.innerHTML = '';
+        scoreCardsData.forEach((card) => {
+          const article = document.createElement('article');
+          article.className = 'summary-card';
+          article.innerHTML = `<span>${card.label}</span><strong>${card.value}</strong><p class="top-bar__meta">${card.description}</p>`;
+          container.appendChild(article);
+        });
+      };
+
+      const renderCharts = () => {
+        const scoreCtx = document.getElementById('scoreChart');
+        const trendCtx = document.getElementById('trendChart');
+
+        if (scoreCtx) {
+          new Chart(scoreCtx, {
+            type: 'bar',
+            data: {
+              labels: ['設問1', '設問2', '設問3', '設問4'],
+              datasets: [
+                {
+                  label: '得点',
+                  data: [18, 16, 17, 14],
+                  backgroundColor: 'rgba(49, 91, 255, 0.7)',
+                },
+                {
+                  label: '模範解答との差',
+                  data: [-2, -4, -1, -3],
+                  backgroundColor: 'rgba(245, 159, 72, 0.7)',
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  suggestedMax: 25,
+                },
+              },
+            },
+          });
+        }
+
+        if (trendCtx) {
+          new Chart(trendCtx, {
+            type: 'line',
+            data: {
+              labels: ['R4', 'R5', 'R6 模試1', 'R6 模試2'],
+              datasets: [
+                {
+                  label: '経営戦略系',
+                  data: [58, 62, 66, 70],
+                  borderColor: '#315bff',
+                  tension: 0.3,
+                },
+                {
+                  label: 'オペレーション系',
+                  data: [55, 60, 63, 68],
+                  borderColor: '#f59f48',
+                  tension: 0.3,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  suggestedMax: 100,
+                  ticks: { stepSize: 10 },
+                },
+              },
+            },
+          });
+        }
+      };
+
+      const populateHistory = () => {
+        const tbody = document.querySelector('[data-history-table]');
+        if (!tbody) return;
+        const histories = [
+          {
+            date: '2024-01-14',
+            title: '直前予想セットA',
+            score: '64%',
+            balance: 'I:68 / II:62 / III:58',
+            time: '142分',
+          },
+          {
+            date: '2024-02-11',
+            title: 'テーマ別演習セット',
+            score: '66%',
+            balance: 'I:70 / II:60 / III:64',
+            time: '135分',
+          },
+          {
+            date: '2024-03-09',
+            title: '模試セットβ',
+            score: '67%',
+            balance: 'I:72 / II:63 / III:65',
+            time: '138分',
+          },
+        ];
+        tbody.innerHTML = '';
+        histories.forEach((history) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${history.date}</td><td>${history.title}</td><td>${history.score}</td><td>${history.balance}</td><td>${history.time}</td>`;
+          tbody.appendChild(tr);
+        });
+      };
+
+      document.querySelectorAll('[data-tool]').forEach((button) => {
+        button.addEventListener('mouseenter', () => {
+          button.classList.add('is-hover');
+        });
+        button.addEventListener('mouseleave', () => {
+          button.classList.remove('is-hover');
+        });
+      });
+    </script>
+  </body>
+</html>
