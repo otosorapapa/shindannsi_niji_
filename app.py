@@ -11232,6 +11232,7 @@ def practice_page(user: Dict) -> None:
 
     answers: List[RecordedAnswer] = []
     question_specs: List[QuestionSpec] = []
+    missing_question_numbers: List[int] = []
     submitted = False
 
     with main_col:
@@ -11409,6 +11410,8 @@ def practice_page(user: Dict) -> None:
                     keywords=question["keywords"],
                 )
             )
+            if question.get("id") is None:
+                missing_question_numbers.append(idx)
             visibility_key = _guideline_visibility_key(problem["id"], question["id"])
             if visibility_key not in st.session_state:
                 st.session_state[visibility_key] = True
@@ -11536,11 +11539,37 @@ def practice_page(user: Dict) -> None:
 
         st.markdown('<div id="practice-actions"></div>', unsafe_allow_html=True)
 
+        if missing_question_numbers:
+            formatted_numbers = "、".join(f"設問{num}" for num in missing_question_numbers)
+            st.warning(
+                f"{formatted_numbers} のIDが未登録のため、採点結果を保存できません。設定ページからデータを更新してから再度お試しください。",
+                icon="⚠️",
+            )
+
         submitted = st.button("AI採点に送信", type="primary")
 
         st.markdown('</div>', unsafe_allow_html=True)
 
     if submitted:
+        if missing_question_numbers:
+            formatted_numbers = "、".join(f"設問{num}" for num in missing_question_numbers)
+            problem_year = _normalize_text_block(problem.get("year")) or ""
+            problem_case = _normalize_text_block(
+                problem.get("case_label") or problem.get("case")
+            )
+            logger.error(
+                "Aborting practice submission for problem %s (year=%s, case=%s) due to missing question IDs: %s",
+                problem.get("id"),
+                problem_year,
+                problem_case,
+                formatted_numbers,
+            )
+            st.error(
+                "設問IDが登録されていないため採点結果を保存できません。設定ページでデータを再登録し、再度お試しください。",
+                icon="⚠️",
+            )
+            return
+
         submitted_at = datetime.utcnow()
         activity_summary = _summarise_question_activity(problem, submitted_at)
         answers = []
@@ -13598,6 +13627,31 @@ def mock_exam_page(user: Dict) -> None:
                 continue
             answers: List[RecordedAnswer] = []
             case_question_results: List[Dict[str, Any]] = []
+            missing_question_numbers = [
+                idx
+                for idx, question in enumerate(problem["questions"], start=1)
+                if question.get("id") is None
+            ]
+            if missing_question_numbers:
+                formatted_numbers = "、".join(
+                    f"設問{num}" for num in missing_question_numbers
+                )
+                problem_year = _normalize_text_block(problem.get("year")) or ""
+                problem_case = _normalize_text_block(
+                    problem.get("case_label") or problem.get("case")
+                )
+                logger.error(
+                    "Skipping mock attempt for problem %s (year=%s, case=%s) due to missing question IDs: %s",
+                    problem_id,
+                    problem_year,
+                    problem_case,
+                    formatted_numbers,
+                )
+                st.error(
+                    f"{problem_year} {problem_case} の {formatted_numbers} に設問IDが登録されていないため採点結果を保存できません。",
+                    icon="⚠️",
+                )
+                continue
             for question in problem["questions"]:
                 text = st.session_state.drafts.get(_draft_key(problem_id, question["id"]), "")
                 result = scoring.score_answer(
