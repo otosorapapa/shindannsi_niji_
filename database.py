@@ -13,7 +13,7 @@ import re
 import sqlite3
 import zlib
 from dataclasses import dataclass
-from datetime import date as dt_date, datetime, time as dt_time, timedelta
+from datetime import date as dt_date, datetime, time as dt_time, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 from threading import Lock
@@ -2727,7 +2727,7 @@ def _parse_iso_datetime(value: Any, *, field: str) -> Optional[datetime]:
         return None
 
     if isinstance(value, datetime):
-        return value
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
     text = str(value).strip()
     if not text:
@@ -2742,7 +2742,8 @@ def _parse_iso_datetime(value: Any, *, field: str) -> Optional[datetime]:
 
     for candidate in candidates:
         try:
-            return datetime.fromisoformat(candidate)
+            parsed = datetime.fromisoformat(candidate)
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
         except ValueError:
             continue
 
