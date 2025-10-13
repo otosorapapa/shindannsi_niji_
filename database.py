@@ -616,23 +616,42 @@ def _normalise_seed_payload(payload: Any) -> Dict[str, Any]:
         return []
 
     def _normalise_intent_cards(raw: Any) -> List[Dict[str, Any]]:
-        if isinstance(raw, list):
-            return [card for card in raw if isinstance(card, dict)]
+        cards: List[Dict[str, Any]] = []
+
+        def _walk(value: Any) -> None:
+            if isinstance(value, dict):
+                label = value.get("label")
+                example = value.get("example")
+                if label and example:
+                    cards.append({"label": str(label), "example": str(example)})
+            elif isinstance(value, list):
+                for item in value:
+                    _walk(item)
+
+        _walk(raw)
+        if cards:
+            return cards
+
         if isinstance(raw, str) and raw.strip():
-            cards: List[Dict[str, Any]] = []
             for chunk in raw.split("|"):
                 chunk = chunk.strip()
                 if not chunk:
                     continue
                 try:
-                    cards.append(json.loads(chunk))
+                    parsed = json.loads(chunk)
                 except json.JSONDecodeError:
-                    # Fallback: attempt to interpret ``label:example`` patterns.
                     if ":" in chunk:
                         label, example = chunk.split(":", 1)
                         cards.append({"label": label.strip(), "example": example.strip()})
-            return cards
-        return []
+                    continue
+                if isinstance(parsed, dict):
+                    label = parsed.get("label")
+                    example = parsed.get("example")
+                    if label and example:
+                        cards.append({"label": str(label), "example": str(example)})
+                elif isinstance(parsed, list):
+                    _walk(parsed)
+        return cards
 
     def _normalise_tag_list(raw: Any) -> List[str]:
         if isinstance(raw, list):
