@@ -2517,6 +2517,14 @@ def _format_preview_text(text: str, max_length: int = 72) -> str:
     return compact[: max_length - 1].rstrip(" 、。.,;・") + "…"
 
 
+def _queue_textarea_update(textarea_state_key: str, new_text: str) -> None:
+    if not textarea_state_key:
+        return
+
+    pending_updates = st.session_state.setdefault("_pending_textarea_updates", {})
+    pending_updates[textarea_state_key] = new_text
+
+
 def _insert_template_snippet(
     draft_key: str, textarea_state_key: str, snippet: str
 ) -> None:
@@ -2533,7 +2541,7 @@ def _insert_template_snippet(
         new_text = snippet
 
     st.session_state.drafts[draft_key] = new_text
-    st.session_state[textarea_state_key] = new_text
+    _queue_textarea_update(textarea_state_key, new_text)
 
 
 def _resolve_question_card_theme() -> str:
@@ -9761,6 +9769,12 @@ def _question_input(
 
     textarea_state_key = f"{widget_prefix}{key}"
 
+    pending_updates = st.session_state.get("_pending_textarea_updates")
+    if pending_updates and textarea_state_key in pending_updates:
+        st.session_state[textarea_state_key] = pending_updates.pop(textarea_state_key)
+        if not pending_updates:
+            st.session_state.pop("_pending_textarea_updates", None)
+
     if not anchor_id:
         anchor_source = (
             question_index
@@ -9881,7 +9895,7 @@ def _question_input(
         disabled=restore_disabled,
     ):
         st.session_state.drafts[key] = saved_text
-        st.session_state[textarea_state_key] = saved_text
+        _queue_textarea_update(textarea_state_key, saved_text)
         status_placeholder.info("保存済みの下書きを復元しました。")
 
     with st.expander("保存済みの案と模範解答比較", expanded=False):
@@ -9928,7 +9942,9 @@ def _question_input(
                     disabled=selected_snapshot is None,
                 ) and selected_snapshot:
                     st.session_state.drafts[key] = selected_snapshot.get("text", "")
-                    st.session_state[textarea_state_key] = selected_snapshot.get("text", "")
+                    _queue_textarea_update(
+                        textarea_state_key, selected_snapshot.get("text", "")
+                    )
                     st.success(f"「{selected_snapshot.get('label', '案')}」を復元しました。", icon="📄")
             with action_cols[1]:
                 comparison_choice_key = f"snapshot_compare_choice::{key}"
