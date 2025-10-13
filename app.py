@@ -5301,12 +5301,12 @@ def _render_case_iv_bridge(draft_key: str) -> None:
                 f"安全余裕率は{_format_percent(safety_margin_ratio)}で、{action_text}"
             )
 
-    analysis_text = "".join(analysis_lines)
+    analysis_text = "\n".join(analysis_lines)
     draft_state_key = f"{prefix}_draft"
     st.session_state[draft_state_key] = analysis_text
 
     st.markdown("**④ 示唆ドラフト**")
-    st.caption("計算結果を要約した文章をコピーして答案骨子に活用できます。")
+    st.caption("計算結果を要約した文章をコピーして答案骨子に活用できます。必要に応じてテキストとして保存も可能です。")
     st.text_area(
         "ドラフト (自動生成)",
         value=st.session_state[draft_state_key],
@@ -5314,6 +5314,16 @@ def _render_case_iv_bridge(draft_key: str) -> None:
         key=draft_state_key,
         disabled=True,
     )
+    if analysis_text.strip():
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        st.download_button(
+            "ドラフトをテキストでダウンロード",
+            data=analysis_text.encode("utf-8"),
+            file_name=f"cvp_draft_{timestamp}.txt",
+            mime="text/plain",
+            key=f"{prefix}_draft_download",
+            help="計算メモをローカルに保存し、答案作成や復習時に再利用できます。",
+        )
 
 
 def _ensure_media_styles() -> None:
