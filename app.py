@@ -11816,6 +11816,26 @@ def _render_case1_nav_tab(
 
     rows: List[Dict[str, object]] = []
     keyword_store: Mapping[str, Mapping[str, bool]] = st.session_state.get("_case1_keyword_hits", {})
+    question_specs: List[QuestionSpec] = [
+        QuestionSpec(
+            id=q.get("id"),
+            prompt=q.get("prompt"),
+            max_score=q.get("max_score"),
+            model_answer=q.get("model_answer"),
+            keywords=q.get("keywords"),
+        )
+        for q in problem.get("questions", [])
+    ]
+
+    missing_numbers = [
+        idx
+        for idx, q in enumerate(problem.get("questions", []), start=1)
+        if q.get("id") is None
+    ]
+
+    if not st.session_state.practice_started:
+        st.session_state.practice_started = datetime.now(timezone.utc)
+
     problem_id = problem.get("id")
     for idx, entry in enumerate(question_entries):
         question = problem.get("questions", [])[idx]
@@ -12233,6 +12253,10 @@ def _render_case1_workspace(
     *,
     problem_context: Optional[str],
 ) -> None:
+    if problem.get("case_label") == "事例III":
+        _render_case3_workspace(problem, user, problem_context=problem_context)
+        return
+
     _ensure_case1_styles()
 
     question_entries: List[Dict[str, Any]] = []
@@ -12374,6 +12398,664 @@ def _render_case1_workspace(
     st.markdown("<div class='case1-bottom-section'>", unsafe_allow_html=True)
     _render_case1_retrieval_flashcards(problem)
     st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_case3_workspace(
+    problem: Mapping[str, Any],
+    user: Mapping[str, Any],
+    *,
+    problem_context: Optional[str],
+) -> None:
+    _ensure_case1_styles()
+    _ensure_case3_styles()
+
+    question_entries: List[Dict[str, Any]] = []
+    for idx, q in enumerate(problem.get("questions", []), start=1):
+        raw_prompt = _normalize_text_block(q.get("prompt") or q.get("設問見出し") or "")
+        preview_text = _format_preview_text(raw_prompt, 32) if raw_prompt else "概要未登録"
+        question_entries.append(
+            {
+                "label": f"設問{idx}",
+                "title": raw_prompt or f"設問{idx}",
+                "preview": preview_text,
+                "max_score": q.get("max_score"),
+            }
+        )
+
+    if not question_entries:
+        st.warning("設問が登録されていません。設定ページで問題データを更新してください。", icon="⚠️")
+        return
+
+    problem_id = problem.get("id")
+    selected_key = _case1_selected_question_key(problem_id)
+    if selected_key not in st.session_state:
+        st.session_state[selected_key] = 0
+    selected_index = st.session_state[selected_key]
+    selected_index = max(0, min(selected_index, len(question_entries) - 1))
+    st.session_state[selected_key] = selected_index
+
+    header_cols = st.columns([0.6, 0.4])
+    with header_cols[0]:
+        title = problem.get("title") or problem.get("name") or "過去問演習"
+        st.markdown(
+            f"<div class='case3-header'><h1>{html.escape(str(title))}</h1></div>",
+            unsafe_allow_html=True,
+        )
+    with header_cols[1]:
+        limit_hint = None
+        if problem.get("questions"):
+            limit_hint = _normalize_text_block(
+                problem.get("questions", [])[selected_index].get("character_limit")
+            )
+        limit_label = f"目安文字数: {limit_hint}字" if limit_hint else "80字目安"
+        st.markdown(
+            f"<div class='case3-limit-indicator'>{html.escape(limit_label)}</div>",
+            unsafe_allow_html=True,
+        )
+
+    toolbar_cols = st.columns([0.5, 0.25, 0.25])
+    with toolbar_cols[0]:
+        _render_practice_timer(problem.get("id"), confirm_on_start=True)
+    with toolbar_cols[1]:
+        st.markdown("<div class='case1-toolbar__status'>保存: 自動保存中</div>", unsafe_allow_html=True)
+    with toolbar_cols[2]:
+        if st.button("設定", key=f"case3-settings-{problem.get('id')}"):
+            _request_navigation("設定")
+
+    nav_col, answer_col, support_col = st.columns([0.22, 0.48, 0.30], gap="large")
+
+    with nav_col:
+        st.markdown("<div class='case3-nav-pane'>", unsafe_allow_html=True)
+        st.markdown("<h3>設問ショートカット</h3>", unsafe_allow_html=True)
+        for idx, entry in enumerate(question_entries):
+            question = problem.get("questions", [])[idx]
+            max_score = entry.get("max_score")
+            score_label = f"{max_score}点" if max_score not in (None, "") else "配点不明"
+            try:
+                draft_key = _draft_key(int(problem_id), int(question.get("id")))
+            except (TypeError, ValueError, AttributeError):
+                draft_key = _draft_key(int(problem_id or 0), int(-(idx + 1)))
+            text_value = st.session_state.get("drafts", {}).get(draft_key, "")
+            answered = bool(text_value.strip())
+            active = idx == selected_index
+            card_label = "\n".join(
+                [
+                    f"設問{idx + 1}｜{score_label}",
+                    entry.get("preview") or "詳細未登録",
+                    "✅ 回答済" if answered else "⏺ 未回答",
+                ]
+            )
+            button_key = f"case3-nav::{problem_id}::{idx}"
+            if st.button(
+                card_label,
+                key=button_key,
+                use_container_width=True,
+                type="primary" if active else "secondary",
+            ):
+                st.session_state[selected_key] = idx
+                st.experimental_rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    current_index = st.session_state[selected_key]
+    question = problem.get("questions", [])[current_index]
+
+    with answer_col:
+        _render_case3_answer_area(
+            problem,
+            question,
+            question_index=current_index,
+            problem_context=problem_context,
+        )
+        st.markdown("<div class='case3-submit-area'>", unsafe_allow_html=True)
+        if missing_numbers:
+            formatted_numbers = "、".join(f"設問{num}" for num in missing_numbers)
+            st.warning(
+                f"{formatted_numbers} のIDが未登録のため、採点結果を保存できません。設定ページでデータを更新してください。",
+                icon="⚠️",
+            )
+        submit = st.button(
+            "AI採点に送信",
+            type="primary",
+            key=f"case3-submit-{problem.get('id')}",
+            use_container_width=True,
+        )
+        if submit:
+            _handle_case1_submission(problem, user, question_specs, missing_numbers)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with support_col:
+        tab_key = f"case3-panel-tab::{problem_id}"
+        default_tab = st.session_state.get(tab_key, "頻出フレーム")
+        try:
+            selected_tab = st.radio(
+                "分析・補助パネル",
+                ["頻出フレーム", "模範解答・採点基準", "MECE/因果図"],
+                horizontal=True,
+                label_visibility="collapsed",
+                key=tab_key,
+            )
+        except TypeError:
+            if tab_key not in st.session_state:
+                st.session_state[tab_key] = default_tab
+            selected_tab = st.radio(
+                "分析・補助パネル",
+                ["頻出フレーム", "模範解答・採点基準", "MECE/因果図"],
+                key=tab_key,
+            )
+
+        if selected_tab == "頻出フレーム":
+            _render_case3_frame_templates(problem, question, question_index=current_index)
+        elif selected_tab == "模範解答・採点基準":
+            _render_case3_guideline_panel(problem, question, question_index=current_index)
+        else:
+            _render_case3_mece_panel(problem, question, question_index=current_index)
+
+    st.markdown("<div class='case1-bottom-section'>", unsafe_allow_html=True)
+    _render_case1_retrieval_flashcards(problem)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_case3_answer_area(
+    problem: Mapping[str, Any],
+    question: Mapping[str, Any],
+    *,
+    question_index: int,
+    problem_context: Optional[str],
+) -> None:
+    st.markdown("<div class='case3-answer-pane'>", unsafe_allow_html=True)
+
+    prompt_text = _normalize_text_block(
+        question.get("prompt") or question.get("設問見出し") or question.get("title")
+    )
+    st.markdown(
+        f"<div class='case3-question-heading'><span class='case3-question-number'>設問{question_index + 1}</span><span class='case3-question-title'>{html.escape(prompt_text or '設問')}</span></div>",
+        unsafe_allow_html=True,
+    )
+
+    body_text = _normalize_text_block(
+        _select_first(question, ["設問文", "問題文", "question_text", "body"])
+    )
+    if body_text:
+        st.caption(body_text)
+
+    if problem_context:
+        with st.expander("与件文を参照", expanded=False):
+            problem_identifier = problem.get("id") or problem.get("title") or "default"
+            search_key = f"case3-search-{problem_identifier}::{question.get('id')}"
+            search_query = st.text_input(
+                "与件文内検索",
+                key=search_key,
+                placeholder="キーワードで絞り込み",
+            )
+            match_count, highlight_snapshot = _render_problem_context_block(
+                problem_context,
+                search_query,
+                snapshot_key=str(problem_identifier),
+                auto_palette=True,
+                auto_save=True,
+                compact_controls=True,
+            )
+            if highlight_snapshot:
+                highlight_store = st.session_state.setdefault("context_highlights", {})
+                highlight_store[str(problem_identifier)] = highlight_snapshot
+            normalized_query = (search_query or "").strip()
+            if normalized_query:
+                if match_count:
+                    st.caption(f"該当箇所: {match_count}件")
+                else:
+                    st.caption("該当箇所は見つかりませんでした。")
+            else:
+                st.caption("ハイライトは選択と同時に自動保存されます。")
+
+    problem_id = problem.get("id")
+    draft_key = _case3_resolve_draft_key(problem, question, question_index)
+
+    saved_payload = _get_saved_answer_payload(draft_key)
+    if hasattr(st.session_state, "drafts"):
+        st.session_state.drafts.setdefault(draft_key, saved_payload.get("autosave", ""))
+    else:
+        st.session_state.drafts = {draft_key: saved_payload.get("autosave", "")}
+
+    textarea_key = f"case3::{draft_key}"
+    placeholder = "ここに解答を入力してください。QCD・4Mなどのフレームで整理しましょう。"
+    limit_hint = question.get("character_limit")
+    limit_value: Optional[int] = None
+    if limit_hint not in (None, ""):
+        try:
+            limit_value = int(limit_hint)
+        except (TypeError, ValueError):
+            limit_value = None
+        else:
+            placeholder = (
+                f"ここに解答を入力してください（目安: {limit_value}字）。"
+                "QCD・4M視点で因果を明示しましょう。"
+            )
+
+    text = st.text_area(
+        "回答入力",
+        key=textarea_key,
+        value=st.session_state.drafts.get(draft_key, ""),
+        height=260,
+        label_visibility="collapsed",
+        placeholder=placeholder,
+    )
+    st.session_state.drafts[draft_key] = text
+    _track_question_activity(draft_key, text)
+
+    keyword_hits = _render_case3_progress_cluster(text, question, limit_value=limit_value)
+    st.markdown("<div class='case3-progress-spacer'></div>", unsafe_allow_html=True)
+
+    modal_button_key = f"case3-guideline-button::{problem_id}::{question_index}"
+    tab_key = f"case3-panel-tab::{problem_id}"
+    if st.button(
+        "模範解答・採点ガイドを表示",
+        key=modal_button_key,
+        use_container_width=True,
+    ):
+        st.session_state[tab_key] = "模範解答・採点基準"
+        st.experimental_rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    keyword_store = st.session_state.setdefault("_case1_keyword_hits", {})
+    keyword_store[draft_key] = keyword_hits
+
+
+def _render_case3_progress_cluster(
+    text: str,
+    question: Mapping[str, Any],
+    *,
+    limit_value: Optional[int],
+) -> Mapping[str, bool]:
+    fullwidth_length = _compute_fullwidth_length(text)
+    effective_limit = limit_value or 240
+    used_ratio = min(fullwidth_length / effective_limit, 1.0) if effective_limit else 0.0
+    remaining = max(effective_limit - fullwidth_length, 0)
+
+    keywords = _resolve_question_keywords(question)
+    keyword_hits: Mapping[str, bool] = {}
+    coverage_ratio = 0.0
+    matched = 0
+    total_keywords = 0
+    if keywords:
+        cleaned_keywords = [kw for kw in keywords if kw]
+        if cleaned_keywords:
+            keyword_hits = scoring.keyword_match_score(text, cleaned_keywords)
+            matched = sum(1 for value in keyword_hits.values() if value)
+            total_keywords = len(keyword_hits)
+            coverage_ratio = matched / total_keywords if total_keywords else 0.0
+
+    noun_count, verb_count = _count_case3_pos(text)
+    structure_target = 8
+    structure_ratio = (
+        min((noun_count + verb_count) / structure_target, 1.0)
+        if structure_target
+        else 0.0
+    )
+
+    st.markdown("<div class='case3-progress-cluster'>", unsafe_allow_html=True)
+    segments = [
+        {
+            "label": f"残字 {remaining}字",
+            "ratio": used_ratio,
+            "color": "#2f9e44" if used_ratio < 0.9 else "#d9480f",
+        },
+        {
+            "label": f"要点 {int(coverage_ratio * 100)}% ({matched}/{total_keywords or '-'})",
+            "ratio": coverage_ratio,
+            "color": "#1971c2" if coverage_ratio >= 0.6 else "#adb5bd",
+        },
+        {
+            "label": f"構造 名詞{noun_count}/述語{verb_count}",
+            "ratio": structure_ratio,
+            "color": "#5f3dc4" if verb_count and noun_count else "#868e96",
+        },
+    ]
+
+    bar_html = "<div class='case3-progress-bar'>"
+    for segment in segments:
+        width = max(segment["ratio"] * 100, 4)
+        bar_html += (
+            f"<div class='case3-progress-segment' style='width:{width}%;background:{segment['color']}'>"
+            f"<span>{escape(segment['label'])}</span></div>"
+        )
+    bar_html += "</div>"
+    st.markdown(bar_html, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    return keyword_hits
+
+
+def _render_case3_frame_templates(
+    problem: Mapping[str, Any],
+    question: Mapping[str, Any],
+    *,
+    question_index: int,
+) -> None:
+    st.markdown("<h4>事例Ⅲ頻出フレーム</h4>", unsafe_allow_html=True)
+    frames = _case3_frame_definitions()
+    frame_names = [frame["label"] for frame in frames]
+    frame_key = (
+        f"case3-frame-select::{problem.get('id')}::{question.get('id')}::{question_index}"
+    )
+    selected_label = st.selectbox(
+        "フレームを選択",
+        frame_names,
+        key=frame_key,
+    )
+
+    selected_frame = next((frame for frame in frames if frame["label"] == selected_label), frames[0])
+    st.info(selected_frame["description"], icon="🧭")
+    st.markdown("<div class='case3-template-preview'>", unsafe_allow_html=True)
+    st.code(selected_frame["template"], language="markdown")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    if st.button(
+        f"このフレーズを回答欄に挿入（{selected_frame['label']}）",
+        key=(
+            f"case3-insert-frame::{problem.get('id')}::{question.get('id')}::{question_index}"
+        ),
+        use_container_width=True,
+    ):
+        _insert_case3_template(
+            problem,
+            question,
+            selected_frame["template"],
+            question_index=question_index,
+        )
+
+
+def _render_case3_guideline_panel(
+    problem: Mapping[str, Any],
+    question: Mapping[str, Any],
+    *,
+    question_index: int,
+) -> None:
+    st.markdown("<h4>模範解答・採点基準</h4>", unsafe_allow_html=True)
+    model_answer = _normalize_text_block(question.get("model_answer"))
+    keywords = _resolve_question_keywords(question)
+    draft_key = _case3_resolve_draft_key(problem, question, question_index)
+    keyword_hits = st.session_state.get("_case1_keyword_hits", {}).get(draft_key, {})
+    if keyword_hits:
+        matched = sum(1 for value in keyword_hits.values() if value)
+        total = len(keyword_hits)
+        coverage_ratio = matched / total if total else 0.0
+        st.progress(coverage_ratio, text=f"要点被覆率 {coverage_ratio * 100:.0f}%")
+        missing = [kw for kw, hit in keyword_hits.items() if not hit]
+        if missing:
+            st.caption("不足キーワード: " + "、".join(missing))
+
+    with st.expander("模範解答", expanded=True):
+        if model_answer:
+            st.markdown(model_answer)
+        else:
+            st.caption("模範解答が未登録です。設定ページで更新してください。")
+
+    with st.expander("キーワード評価", expanded=False):
+        if keywords:
+            st.write("評価対象キーワード")
+            st.markdown("・" + "\n・".join(keywords))
+        else:
+            st.caption("評価キーワードが未登録です。")
+
+    with st.expander("構造評価", expanded=False):
+        axis = _normalize_text_block(question.get("axis"))
+        if axis:
+            st.markdown(axis)
+        else:
+            st.caption("構造評価の観点が未登録です。")
+
+    with st.expander("採点ガイドライン", expanded=False):
+        guideline = _normalize_text_block(
+            question.get("grading_guideline") or question.get("guideline")
+        )
+        if guideline:
+            st.markdown(guideline)
+        else:
+            st.caption("採点ガイドラインが未登録です。")
+
+
+def _render_case3_mece_panel(
+    problem: Mapping[str, Any],
+    question: Mapping[str, Any],
+    *,
+    question_index: int,
+) -> None:
+    st.markdown("<h4>MECE/因果図ツール</h4>", unsafe_allow_html=True)
+    draft_text = _case3_current_text(problem, question, question_index=question_index)
+    analysis = _render_mece_status_labels(draft_text)
+    st.markdown("<div class='case3-mece-report'>", unsafe_allow_html=True)
+    _render_mece_causal_scanner(draft_text, analysis=analysis)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown("<h5>設備・人員・素材・情報の因果整理</h5>", unsafe_allow_html=True)
+    categories = ["設備", "人員", "素材", "情報"]
+    inputs: Dict[str, str] = {}
+    for category in categories:
+        inputs[category] = st.text_input(
+            f"{category}の課題／強み",
+            key=(
+                f"case3-causal::{problem.get('id')}::{question.get('id')}::{question_index}::{category}"
+            ),
+            placeholder=f"{category}の現状や課題を入力",
+        )
+    desired_effect = st.text_input(
+        "期待する効果",
+        key=(
+            f"case3-causal-effect::{problem.get('id')}::{question.get('id')}::{question_index}"
+        ),
+        placeholder="例: 生産リードタイム短縮、歩留まり向上",
+    )
+
+    if any(inputs.values()) or desired_effect:
+        graph_lines = ["```mermaid", "graph TD"]
+        effect_node = "Effect"
+        for category, value in inputs.items():
+            node_id = hashlib.md5(f"{category}:{value}".encode("utf-8")).hexdigest()[:6]
+            label = escape(value or category)
+            graph_lines.append(f"    {node_id}[{category}: {label}]")
+            graph_lines.append(f"    {node_id} --> {effect_node}")
+        if desired_effect:
+            graph_lines.append(f"    {effect_node}[成果: {escape(desired_effect)}]")
+        else:
+            graph_lines.append(f"    {effect_node}[成果: 改善効果]")
+        graph_lines.append("```")
+        st.markdown("\n".join(graph_lines))
+
+    if st.button(
+        "因果フレーズを回答欄に挿入",
+        key=(
+            f"case3-insert-causal::{problem.get('id')}::{question.get('id')}::{question_index}"
+        ),
+        use_container_width=True,
+    ):
+        fragments = [
+            f"【{category}】{inputs[category]}" for category in categories if inputs.get(category)
+        ]
+        if desired_effect:
+            fragments.append(f"⇒ {desired_effect}")
+        template = (
+            " / ".join(fragments) if fragments else "設備・人員・素材・情報を整理しよう"
+        )
+        _insert_case3_template(
+            problem,
+            question,
+            template,
+            question_index=question_index,
+        )
+
+
+def _case3_resolve_draft_key(
+    problem: Mapping[str, Any],
+    question: Mapping[str, Any],
+    question_index: int,
+) -> str:
+    problem_id = problem.get("id")
+    try:
+        return _draft_key(int(problem_id), int(question.get("id")))
+    except (TypeError, ValueError, AttributeError):
+        return _draft_key(int(problem_id or 0), int(-(question_index + 1)))
+
+
+def _case3_current_text(
+    problem: Mapping[str, Any],
+    question: Mapping[str, Any],
+    *,
+    question_index: int,
+) -> str:
+    draft_key = _case3_resolve_draft_key(problem, question, question_index)
+    return st.session_state.get("drafts", {}).get(draft_key, "")
+
+
+def _case3_frame_definitions() -> List[Dict[str, str]]:
+    return [
+        {
+            "label": "QCD",
+            "description": "品質(Q)、コスト(C)、納期(D)の観点で課題と改善策を整理します。",
+            "template": "Q: 品質課題は〜。/ C: コスト面では〜。/ D: 納期は〜。→ 生産性向上につなげる。",
+        },
+        {
+            "label": "4M",
+            "description": "Man・Machine・Material・Methodの視点で原因を網羅します。",
+            "template": "Man: 人員の課題は〜。/ Machine: 設備は〜。/ Material: 材料は〜。/ Method: 手順は〜。",
+        },
+        {
+            "label": "4M/5M",
+            "description": "Measurementを含めて管理面の抜け漏れを点検します。",
+            "template": "Man〜、Machine〜、Material〜、Method〜、Measurement〜を整備し再発防止。",
+        },
+        {
+            "label": "ECRS",
+            "description": "Eliminate・Combine・Rearrange・Simplifyの順で業務改善を検討します。",
+            "template": "E: 無駄工程を削除。/ C: 工程を統合。/ R: レイアウトを再配置。/ S: 手順を簡素化。",
+        },
+        {
+            "label": "5S",
+            "description": "整理・整頓・清掃・清潔・躾で現場力を高めます。",
+            "template": "整理: 不要物除去。整頓: 置き場明確化。清掃: 点検を兼ねる。清潔: 標準維持。躾: ルール徹底。",
+        },
+        {
+            "label": "IE",
+            "description": "Industrial Engineeringで工程分析・ラインバランスを明確化します。",
+            "template": "工程分析でムダを特定→ラインバランス調整→標準時間設定→見える化・改善定着。",
+        },
+    ]
+
+
+def _insert_case3_template(
+    problem: Mapping[str, Any],
+    question: Mapping[str, Any],
+    template: str,
+    *,
+    question_index: int,
+) -> None:
+    draft_key = _case3_resolve_draft_key(problem, question, question_index)
+    textarea_key = f"case3::{draft_key}"
+    current_text = st.session_state.get("drafts", {}).get(draft_key, "")
+    appended = (current_text + "\n" + template).strip()
+    st.session_state.setdefault("drafts", {})[draft_key] = appended
+    st.session_state[textarea_key] = appended
+    st.experimental_rerun()
+
+
+def _count_case3_pos(text: str) -> Tuple[int, int]:
+    kanji_blocks = re.findall(r"[一-龠々〆ヵヶ]+", text)
+    verb_patterns = re.findall(
+        r"[ぁ-んァ-ヶー]{1,8}(する|した|して|させる|できる|となる|向上|改善|短縮|増加|削減)",
+        text,
+    )
+    noun_count = len(kanji_blocks)
+    verb_count = len(verb_patterns)
+    return noun_count, verb_count
+
+
+def _ensure_case3_styles() -> None:
+    if st.session_state.get("_case3_style_loaded"):
+        return
+    st.markdown(
+        """
+        <style>
+        .case3-header h1 {
+            margin-bottom: 0.3rem;
+        }
+        .case3-limit-indicator {
+            text-align: right;
+            font-weight: 600;
+            padding: 0.8rem 1rem;
+            background: var(--secondary-background-color,#f1f3f5);
+            border-radius: 0.75rem;
+        }
+        .case3-nav-pane h3 {
+            margin-bottom: 0.6rem;
+        }
+        .case3-answer-pane {
+            position: relative;
+            padding: 0.5rem 0;
+        }
+        .case3-question-heading {
+            display: flex;
+            gap: 0.75rem;
+            align-items: baseline;
+            margin-bottom: 0.4rem;
+        }
+        .case3-question-number {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #1864ab;
+        }
+        .case3-question-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+        .case3-progress-cluster {
+            margin-top: 0.4rem;
+        }
+        .case3-progress-bar {
+            display: flex;
+            gap: 0.4rem;
+            align-items: stretch;
+        }
+        .case3-progress-segment {
+            flex: 1 1 auto;
+            min-width: 20%;
+            border-radius: 0.6rem;
+            color: white;
+            padding: 0.35rem 0.45rem;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.2;
+        }
+        .case3-progress-segment span {
+            font-weight: 600;
+        }
+        .case3-progress-spacer {
+            height: 0.4rem;
+        }
+        .case3-template-preview {
+            margin-bottom: 0.5rem;
+        }
+        .case3-nav-pane button[kind="secondary"],
+        .case3-nav-pane button[kind="primary"] {
+            text-align: left;
+            white-space: pre-wrap;
+            height: auto;
+            padding: 0.75rem 0.85rem;
+            border-radius: 0.9rem;
+        }
+        .case3-submit-area {
+            margin-top: 1.2rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state["_case3_style_loaded"] = True
+
+
 def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。与件ハイライトと詳細解説で復習効果を高めましょう。")
