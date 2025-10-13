@@ -2358,7 +2358,7 @@ def fetch_all_attempt_scores() -> List[Dict[str, Any]]:
 
 
 def fetch_learning_history(user_id: int) -> List[Dict]:
-    """Return simplified attempt records for analytics on the history page."""
+    """Return aggregated attempt records for analytics on the history page."""
 
     conn = get_connection()
     cur = conn.cursor()
@@ -2367,16 +2367,21 @@ def fetch_learning_history(user_id: int) -> List[Dict]:
         SELECT
             a.id,
             a.submitted_at,
-            a.total_score,
-            a.total_max_score,
-            a.duration_seconds,
             a.mode,
+            a.duration_seconds,
             p.year,
             p.case_label,
-            p.title
+            p.title,
+            COALESCE(SUM(aa.score), a.total_score) AS total_score,
+            COALESCE(SUM(q.max_score), a.total_max_score) AS total_max_score,
+            COUNT(aa.id) AS answered_questions,
+            AVG(aa.score) AS average_score
         FROM attempts a
         JOIN problems p ON p.id = a.problem_id
+        LEFT JOIN attempt_answers aa ON aa.attempt_id = a.id
+        LEFT JOIN questions q ON q.id = aa.question_id
         WHERE a.user_id = ? AND a.submitted_at IS NOT NULL
+        GROUP BY a.id, a.submitted_at, a.mode, a.duration_seconds, p.year, p.case_label, p.title
         ORDER BY a.submitted_at
         """,
         (user_id,),
@@ -2386,6 +2391,15 @@ def fetch_learning_history(user_id: int) -> List[Dict]:
 
     history: List[Dict] = []
     for row in rows:
+        duration_seconds = row["duration_seconds"]
+        duration_minutes: Optional[float]
+        if duration_seconds is None:
+            duration_minutes = None
+        else:
+            try:
+                duration_minutes = round(float(duration_seconds) / 60.0, 1)
+            except (TypeError, ValueError):
+                duration_minutes = None
         history.append(
             {
                 "attempt_id": row["id"],
@@ -2394,8 +2408,10 @@ def fetch_learning_history(user_id: int) -> List[Dict]:
                 "事例": row["case_label"],
                 "タイトル": row["title"],
                 "得点": row["total_score"],
+                "平均得点": row["average_score"],
+                "設問数": row["answered_questions"],
                 "満点": row["total_max_score"],
-                "学習時間(分)": (row["duration_seconds"] or 0) / 60 if row["duration_seconds"] else 0,
+                "学習時間(分)": duration_minutes,
                 "モード": "模試" if row["mode"] == "mock" else "演習",
             }
         )
