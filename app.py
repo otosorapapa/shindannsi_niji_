@@ -197,6 +197,18 @@ CASE_ICON_MAP = {
 }
 
 
+PROBLEM_TABLE_KEY_LABELS = {
+    "balance_sheet": "貸借対照表",
+    "income_statement": "損益計算書",
+    "cash_flow": "キャッシュフロー計算書",
+    "cash_flow_statement": "キャッシュフロー計算書",
+    "manufacturing_cost": "製造原価報告書",
+    "supplement": "補足資料",
+    "supplementary": "補足資料",
+    "supplemental": "補足資料",
+}
+
+
 GLOBAL_STYLESHEET_PATH = Path(__file__).parent / "assets" / "app.css"
 HOME_DASHBOARD_HTML_PATH = Path(__file__).parent / "frontend" / "home_dashboard.html"
 
@@ -870,6 +882,74 @@ def _collect_problem_context_text(problem: Dict[str, Any]) -> Optional[str]:
         return None
 
     return "\n\n".join(fragments)
+
+
+def _normalize_problem_tables(raw: Any) -> List[Dict[str, str]]:
+    normalized: List[Dict[str, str]] = []
+    seen_texts: Set[str] = set()
+
+    def _first_content_line(text: str) -> str:
+        for line in text.splitlines():
+            candidate = line.strip()
+            if not candidate:
+                continue
+            if candidate.startswith(("(", "（")):
+                continue
+            return candidate
+        return ""
+
+    def _label_from_key(key: Optional[str], text: str, index: int) -> str:
+        base_key = (str(key or "").strip().lower())
+        label = PROBLEM_TABLE_KEY_LABELS.get(base_key)
+        if not label and key:
+            label = str(key).replace("_", " ").title()
+        if not label:
+            label = f"資料{index + 1}"
+        first_line = _first_content_line(text)
+        if first_line and len(first_line) <= 32:
+            return first_line
+        return label
+
+    def _append_entry(label: str, text: str) -> None:
+        trimmed = text.strip()
+        if not trimmed:
+            return
+        signature = trimmed
+        if signature in seen_texts:
+            return
+        seen_texts.add(signature)
+        normalized.append({"label": label, "text": trimmed})
+
+    def _walk(value: Any, *, key: Optional[str] = None) -> None:
+        if isinstance(value, dict):
+            for sub_key, sub_value in value.items():
+                _walk(sub_value, key=str(sub_key))
+            return
+        if isinstance(value, (list, tuple, set)):
+            for item in value:
+                _walk(item, key=key)
+            return
+        text = _normalize_text_block(value)
+        if not text:
+            return
+        label = _label_from_key(key, text, len(normalized))
+        _append_entry(label, text)
+
+    _walk(raw)
+    return normalized
+
+
+def _render_problem_tables(tables: Sequence[Mapping[str, str]]) -> None:
+    if not tables:
+        return
+
+    st.markdown("##### 添付資料")
+    st.caption("財務諸表などの表形式データをテキストで確認できます。")
+    for index, table in enumerate(tables, start=1):
+        label = table.get("label") or f"資料{index}"
+        text = table.get("text") or ""
+        with st.expander(str(label), expanded=False):
+            st.code(str(text), language="text")
 
 
 def _coerce_points(value: Any) -> List[str]:
@@ -14726,11 +14806,13 @@ def practice_page(user: Dict) -> None:
     st.write(problem["overview"])
 
     problem_context = _collect_problem_context_text(problem)
+    problem_tables = _normalize_problem_tables(problem.get("tables_raw"))
     if problem.get("case_label") == "事例I":
         _render_case1_workspace(problem, user, problem_context=problem_context)
         return
 
     layout_container = st.container()
+    tables_rendered_in_context = False
     if problem_context:
         _inject_context_column_styles()
         st.markdown(
@@ -14805,6 +14887,9 @@ def practice_page(user: Dict) -> None:
 
             st.markdown("</div></div></section></div></div>", unsafe_allow_html=True)
             _inject_context_panel_behavior()
+            if problem_tables:
+                _render_problem_tables(problem_tables)
+                tables_rendered_in_context = True
     else:
         main_col = layout_container
 
@@ -14814,6 +14899,8 @@ def practice_page(user: Dict) -> None:
     submitted = False
 
     with main_col:
+        if problem_tables and not tables_rendered_in_context:
+            _render_problem_tables(problem_tables)
         st.markdown('<div class="practice-main-column">', unsafe_allow_html=True)
         current_problem_id = problem.get("id") if problem else None
         _render_practice_timer(current_problem_id)
