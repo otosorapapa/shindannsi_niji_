@@ -16430,7 +16430,6 @@ def history_page(user: Dict) -> None:
         </script>
         """,
         height=0,
-        key="history_keyboard_listener",
     )
 
     if shortcut_event in ("[", "]") and not history_df.empty:
