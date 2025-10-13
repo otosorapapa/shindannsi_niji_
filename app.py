@@ -1957,6 +1957,7 @@ def _inject_practice_question_styles() -> None:
                 font-weight: 600;
                 letter-spacing: 0.02em;
                 padding: 0.55rem 1.05rem;
+                text-decoration: none;
                 cursor: pointer;
                 min-width: 0;
                 transform: translateY(0);
@@ -12150,7 +12151,7 @@ def practice_page(user: Dict) -> None:
             if problem_context:
                 context_return_html = "\n" + dedent(
                     """
-                        <button type=\"button\" class=\"practice-return-button practice-return-context-button\" aria-label=\"与件文に戻る\">
+                        <a href=\"#context-panel\" class=\"practice-return-button practice-return-context-button\" aria-label=\"与件文に戻る\">
                             <span class=\"practice-return-button-icon\" aria-hidden=\"true\">
                                 <svg viewBox=\"0 0 24 24\" focusable=\"false\" aria-hidden=\"true\">
                                     <path d=\"M5.5 4A2.5 2.5 0 0 1 8 1.5h6a1 1 0 0 1 1 1V19l-2.7-1.35a3.5 3.5 0 0 0-3.12 0L6.5 19H6a2 2 0 0 1-2-2V5.5A1.5 1.5 0 0 1 5.5 4z\" fill=\"currentColor\" />
@@ -12158,7 +12159,7 @@ def practice_page(user: Dict) -> None:
                                 </svg>
                             </span>
                             <span class=\"practice-return-button-text\">与件文に戻る</span>
-                        </button>
+                        </a>
                     """
                 ).strip()
             nav_items = "".join(
