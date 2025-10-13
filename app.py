@@ -220,91 +220,158 @@ CASEIII_TIMELINE = [
 CASE_FRAME_SHORTCUTS = {
     "事例I": [
         {
-            "label": "さちのひほ",
-            "snippet": "【さちのひほ】採用で人材を確保し、配置で適材適所を図り、能力開発と評価で成長を促し、報酬・処遇で定着とモチベーションを高める。",
-            "description": "人事施策を採用・配置・育成・評価・報酬の流れで整理。",
+            "label": "7S",
+            "snippet": "【7S視点】戦略: 市場・競争環境に適応した方向性を明示する。組織: 階層・権限と部門間連携を再設計する。制度: 評価・報酬とガバナンスを整える。人材: 採用・配置・育成で人材力を底上げする。スキル: 技術・暗黙知を体系化し共有する。スタイル: 風土・リーダーシップを協働型へ変革する。共有価値: 経営理念と強みを浸透させ一体感を醸成する。",
+            "description": "ハード・ソフト両面から組織変革の要素を網羅して整理。",
         },
         {
-            "label": "けぶかいねこ",
-            "snippet": "【けぶかいねこ】権限委譲で現場裁量を高め、部門編成と階層を見直し、情報共有とコミュニケーションを活性化し、ネットワーク・コラボで連携を強化する。",
-            "description": "組織構造とコミュニケーションの課題整理に活用。",
+            "label": "VRIO",
+            "snippet": "【VRIO分析】Value: 顧客価値を高める資源か。Rarity: 他社が保有しない希少性があるか。Imitability: 模倣困難な仕組み・知見か。Organization: 活かす仕組み・人材配置が整っているか。→ 強みを活用し弱点を補完する戦略を提示する。",
+            "description": "自社資源の競争優位性と活用方策を整理する枠組み。",
+        },
+        {
+            "label": "人事制度4機能",
+            "snippet": "【人事制度4機能】採用: 求める人材像とチャネルを明確化する。育成: OJT・研修・キャリアパスで能力向上を支援する。評価: 目標管理と多面評価で納得性を高める。報酬: 賃金・処遇・インセンティブで定着と挑戦を促す。",
+            "description": "採用・育成・評価・報酬の連携で人材マネジメントを構築。",
+        },
+        {
+            "label": "モチベーション理論",
+            "snippet": "【モチベーション理論】衛生要因を整備し不満を除去する上で、動機づけ要因（成長機会・承認・やりがい）を強化する。期待理論では目標の明確化・達成手段の提示・成果と報酬の連動を設計する。",
+            "description": "職務充実と評価・報酬の連動でやる気を引き出す観点。",
         },
     ],
     "事例II": [
         {
-            "label": "売上分解",
-            "snippet": "【売上分解】客数＝新規顧客×来店頻度、客単価＝平均購買額×関連購買・高付加価値提案。デジタル施策や五感に訴えるプロモーションにより新規獲得・来店頻度・客単価を向上させる。",
-            "description": "客数・客単価の分解にデジタル施策と体験型プロモーションを紐づけて整理。",
+            "label": "3C",
+            "snippet": "【3C分析】Customer: ターゲット顧客のニーズ・購買行動を把握する。Competitor: 競合の強み・弱みを把握し差別化要因を特定する。Company: 自社の資源・強みを活かし価値提案を磨き上げる。→ 提供価値と打ち手を整合させる。",
+            "description": "顧客・競合・自社の観点からマーケ課題を整理。",
         },
         {
-            "label": "顧客ステージ別施策",
-            "snippet": "【顧客ステージ別施策】新規顧客：SNS・インフルエンサー活用や体験型イベントで認知拡大。既存顧客：コミュニティ運営や会員施策でリピート促進・LTV向上。ロイヤル顧客：アンバサダープログラムによる口コミ拡散。",
-            "description": "新規・既存・ロイヤルの各ステージに合わせた打ち手を整理。",
+            "label": "STP",
+            "snippet": "【STP】Segmentation: 市場をニーズ・行動で細分化。Targeting: 重点ターゲット層を明確化。Positioning: 競合比較で優位な価値訴求を設計。→ 一貫したメッセージとチャネル施策を構築する。",
+            "description": "セグメント戦略と提供価値の設計に活用。",
         },
         {
-            "label": "チャネル・協業",
-            "snippet": "【チャネル・協業】自社EC・D2Cとリアル店舗を連動させたオムニチャネル戦略。地域イベントや観光資源と連携した集客、SNS広告やPB開発等により販路と接点を拡大する。",
-            "description": "オンラインとリアル、地域連携を組み合わせた販路拡大策を検討。",
+            "label": "4P/4C",
+            "snippet": "【4P/4C】Product/Customer Value: 顧客価値を高める商品・サービスを設計。Price/Cost: 価値に見合う価格と負担感を調整。Place/Convenience: チャネルと購買導線を最適化。Promotion/Communication: デジタル・リアルで一貫した情報発信を行う。",
+            "description": "企業視点と顧客視点の両面でマーケティング施策を整理。",
         },
         {
-            "label": "顧客体験価値向上",
-            "snippet": "【顧客体験価値向上】オンライン接客・AR試用等のデジタル体験と、UGCを促すストーリーテリングや五感訴求の場づくりで来店前後の体験価値を高める。",
-            "description": "デジタルとリアルを繋ぐ体験設計で顧客ロイヤルティを向上。",
+            "label": "顧客価値",
+            "snippet": "【顧客価値向上】機能価値: 品質・品揃え・利便性を高める。情緒価値: ストーリー・体験・共感を演出する。経済価値: コスト削減やお得感を訴求する。社会価値: 地域貢献・サステナビリティを示す。",
+            "description": "多面的な価値提供でロイヤルティを高める視点。",
         },
         {
-            "label": "収益モデル",
-            "snippet": "【収益モデル】主力商品と周辺サービスを組み合わせ、サブスクリプション＋都度課金のハイブリッドやデータ活用による広告費削減で収益基盤を強化する。",
-            "description": "複数の収益源とデジタル活用で安定収益化を図る視点。",
-        },
-        {
-            "label": "コスト削減視点",
-            "snippet": "【コスト削減視点】業務のデジタル化・自動化で省力化し、共同仕入れや在庫圧縮で原価を抑える。デジタル施策で広告費を最適化し、利益率を改善する。",
-            "description": "固定費・変動費を分解し、デジタル活用も含めて効率化を整理。",
-        },
-        {
-            "label": "STP分析・4P/4C戦略",
-            "snippet": "【STP分析・4P/4C戦略】市場をセグメント化し、ターゲットとポジショニングを設定した上で、製品・価格・流通・プロモーションの各戦略（特にオンライン施策）を一貫して立案する。",
-            "description": "STPの流れから4P/4Cまで一貫させたマーケ戦略の骨子を確認。",
-        },
-        {
-            "label": "ブランディング・価格戦略",
-            "snippet": "【ブランディング・価格戦略】小規模企業の『らしさ』を活かしたブランド構築と、値引きに頼らない価格戦略を体系的に整理する。",
-            "description": "ブランド価値と価格決定の連動を意識した施策整理。",
-        },
-        {
-            "label": "地域・コミュニティマーケティング",
-            "snippet": "【地域・コミュニティマーケティング】商店街イベントや観光資源との連携、コミュニティビジネスを活かした集客施策をまとめる。",
-            "description": "地域資源とコミュニティを活かした来店・関係強化の枠組み。",
+            "label": "チャネル戦略",
+            "snippet": "【チャネル戦略】自社ECと店舗・卸の役割を再定義し、OMOで顧客接点を統合する。パートナー連携で新規販路を獲得し、在庫・配送データを共有してサービスレベルを高める。",
+            "description": "複数チャネルの役割分担と連携施策を設計。",
         },
     ],
     "事例III": [
         {
             "label": "QCD",
-            "snippet": "【QCD】品質(Q)の安定化、コスト(C)の低減、納期(D)の短縮・遵守を同時に意識した改善策を提示する。",
-            "description": "生産性向上策を品質・コスト・納期でバランス確認。",
+            "snippet": "【QCD改善】Quality: 不良要因の特定と標準作業・教育で再発防止。Cost: 段取り短縮や歩留まり向上で原価を圧縮。Delivery: 生産計画とリードタイム短縮で納期遵守を実現。→ サイクルを回し現場力を高める。",
+            "description": "品質・コスト・納期の三要素で課題と施策を整理。",
         },
         {
-            "label": "4M",
-            "snippet": "【4M】Man・Machine・Method・Materialの視点で要因を洗い出し、標準化と教育で再発防止を図る。",
-            "description": "工程の課題原因を人・設備・方法・材料で整理。",
+            "label": "4M/5M",
+            "snippet": "【4M分析】Man: 人員・技能・教育体制。Machine: 設備稼働・保全。Material: 資材・在庫・調達。Method: 手順・標準化・段取り。必要に応じてMeasurementを加え計測・管理面も確認する。",
+            "description": "要因を網羅しボトルネックを抽出する工程視点。",
         },
         {
-            "label": "段取り短縮",
-            "snippet": "【段取り短縮】内段取りの外段取り化、前準備の標準化、段取り時間の短縮でリードタイムを圧縮する。",
-            "description": "段取り替えと準備の効率化視点。",
+            "label": "IE/ECRS",
+            "snippet": "【IE/ECRS】Eliminate: ムダ工程の排除。Combine: 工程統合・セル化。Rearrange: 動線・配置の最適化。Simplify: 手順を簡素化。標準時間算出と見える化で改善を定着させる。",
+            "description": "工程分析から改善手順を導く定番フレーム。",
         },
         {
-            "label": "ECRS",
-            "snippet": "【ECRS】排除(Eliminate)→結合(Combine)→交換(Rearrange)→簡素化(Simplify)の順で工程改善案を検討する。",
-            "description": "改善アイデアを体系的に展開。",
+            "label": "5S",
+            "snippet": "【5S】整理: 要不要を判別。整頓: 置き場と表示を整える。清掃: 異常の早期発見。清潔: ルール化・点検。しつけ: 習慣化と教育。→ 安全・品質・生産性を底上げする職場づくり。",
+            "description": "現場の土台を整える基本施策を提示。",
+        },
+        {
+            "label": "ボトルネック分析",
+            "snippet": "【ボトルネック分析】タクトタイムと工程能力を比較し制約工程を特定する。人・機械・材料・方法の制約要因を洗い出し、負荷平準化・外段取り化・多能工化でスループットを高める。",
+            "description": "制約工程に焦点を当てた改善アプローチ。",
         },
     ],
     "事例IV": [
         {
-            "label": "財務→CVP→投資判定",
-            "snippet": "【財務分析→CVP→投資判定】財務指標で現状を把握し、CVP分析で損益分岐を確認し、投資回収・NPV等で施策の妥当性を検証する連鎖を意識する。",
-            "description": "設問間の依存を踏まえて分析から投資判断へ展開。",
-        }
+            "label": "財務比率",
+            "snippet": "【財務比率】安全性: 流動比率・当座比率で短期支払能力を確認。効率性: 売上債権・棚卸資産・固定資産回転率で資産効率を測定。収益性: 売上高利益率・ROA・ROEで収益力を評価。",
+            "description": "主要な財務指標の切り口で課題と改善策を整理。",
+        },
+        {
+            "label": "CVP分析",
+            "snippet": "【CVP】売上 = 単価×数量、変動費と固定費を分解し損益分岐点を算出。限界利益率向上策（価格改定・付加価値化・原価低減）と数量拡大策を提案する。",
+            "description": "損益構造を可視化し利益改善策を導出。",
+        },
+        {
+            "label": "NPV/IRR",
+            "snippet": "【投資評価】初期投資額・キャッシュフローを設定しNPVやIRRで投資採算性を判断する。リスクと資本コストを踏まえ感度分析や回収期間も示す。",
+            "description": "投資意思決定の妥当性を示す評価フレーム。",
+        },
+        {
+            "label": "資金繰り",
+            "snippet": "【資金繰り改善】資金繰り表で入出金のタイミングを可視化。運転資金回転期間の短縮、在庫圧縮、支払条件交渉、短期借入の計画的活用で資金余力を確保する。",
+            "description": "キャッシュフロー安定化に向けた施策整理。",
+        },
+        {
+            "label": "管理会計",
+            "snippet": "【管理会計】部門別採算・製品別利益を把握し、ABCや原価企画でコスト構造を改善。KPI・損益分岐点・予算統制を整備しPDCAを回す。",
+            "description": "意思決定と業績管理を支える仕組み構築を提案。",
+        },
+    ],
+}
+
+
+CASE_CAUSAL_TEMPLATES = {
+    "事例I": [
+        {
+            "label": "組織連鎖",
+            "diagram": "外部環境変化 → 組織・人材課題 → 施策(7S連動) → 効果",
+            "snippet": "【組織連鎖】外部環境変化（例: 市場縮小・デジタル化）→ 組織・人材課題（権限集中・人材定着難）→ 施策（権限移譲と情報共有、評価・報酬再設計、育成強化）→ 効果（意思決定迅速化・モチベーション向上・離職率低下）。",
+        },
+        {
+            "label": "人事サイクル",
+            "diagram": "採用 → 配置 → 育成 → 評価/報酬 → 定着",
+            "snippet": "【人事サイクル】採用で理念共感人材を獲得→ 適所配置で強みを活かす→ OJTと研修で能力開発→ 目標管理・多面評価と納得性ある報酬→ 成果承認とキャリア提示で定着・エンゲージメント向上。",
+        },
+    ],
+    "事例II": [
+        {
+            "label": "顧客-競合-自社",
+            "diagram": "顧客期待 ↔ 自社価値提案 ↔ 競合動向",
+            "snippet": "【顧客-競合-自社】顧客期待（例: 体験価値・即時性）↔ 自社価値提案（差別化機能・ブランドストーリー）↔ 競合動向（低価格・デジタル施策）を対比し、価値訴求とチャネル施策を設計する。",
+        },
+        {
+            "label": "チャネル連携",
+            "diagram": "認知 → 来店/訪問 → 体験 → 購買 → 継続",
+            "snippet": "【チャネル連携】認知（SNS・PR）→ 来店/訪問導線（イベント・広告）→ 体験価値（試用・接客）→ 購買（EC/店舗連携で利便性）→ 継続（会員・CRM・口コミ拡散）を一貫設計する。",
+        },
+    ],
+    "事例III": [
+        {
+            "label": "4M因果",
+            "diagram": "人(Man) ↔ 機械(Machine) ↔ 材料(Material) ↔ 方法(Method)",
+            "snippet": "【4M因果】人(技能不足・教育遅れ)→ 方法(標準作業未整備)→ 機械(段取り長期・保全不足)→ 材料(在庫滞留)→ QCD悪化。多能工化・標準化・保全強化・在庫適正化でスループット向上。",
+        },
+        {
+            "label": "ボトルネック解除",
+            "diagram": "需要変動 → 制約工程負荷増 → 在庫/遅延 → 改善策",
+            "snippet": "【ボトルネック解除】需要変動で制約工程の負荷が上昇→ 仕掛在庫・遅延発生→ 外段取り化・ラインバランス調整・かんばん導入で平準化→ リードタイム短縮と納期遵守。",
+        },
+    ],
+    "事例IV": [
+        {
+            "label": "資金循環",
+            "diagram": "売上計画 → キャッシュフロー → 運転資金 → 投資/返済",
+            "snippet": "【資金循環】売上計画と粗利確保→ キャッシュフロー把握→ 運転資金管理（回収・支払・在庫の回転短縮）→ 投資・返済計画を整備し資金繰りを安定化する。",
+        },
+        {
+            "label": "収益改善",
+            "diagram": "売上拡大策 + 原価低減策 → 利益改善 → 再投資",
+            "snippet": "【収益改善】売上拡大（単価向上・数量増・新チャネル）と原価低減（歩留まり改善・間接費削減）を同時に実施→ 利益改善→ 成長投資・借入返済に再投資するサイクルを描く。",
+        },
     ],
 }
 
@@ -5111,55 +5178,38 @@ def _render_case_frame_shortcuts(
     if not frames:
         return
 
-    with st.expander("頻出フレーム（参考）", expanded=False):
-        st.markdown("<p class=\"intent-card-header\">頻出フレーム</p>", unsafe_allow_html=True)
-        st.caption("一読で狙いを掴み、クリックで定番フレーズを挿入できます。")
+    st.markdown("<div class='case1-frame-library'>", unsafe_allow_html=True)
+    st.markdown("<p class='case1-frame-title'>事例別フレームライブラリ</p>", unsafe_allow_html=True)
+    st.caption("タブを切り替え、定型句をワンクリックで答案へ挿入できます。")
 
-        grid_container = st.container()
-        with grid_container:
-            st.markdown("<div class=\"case-frame-grid\">", unsafe_allow_html=True)
-            for index, frame in enumerate(frames):
-                st.markdown("<div class=\"case-frame-card\">", unsafe_allow_html=True)
-                clicked = st.button(
-                    frame["label"],
-                    key=f"case-frame-{draft_key}-{index}",
-                    width="stretch",
-                    help=frame.get("description"),
+    tab_labels = [frame.get("label") or f"フレーム{index + 1}" for index, frame in enumerate(frames)]
+    tabs = st.tabs(tab_labels)
+    for index, frame in enumerate(frames):
+        with tabs[index]:
+            description = frame.get("description")
+            if description:
+                st.markdown(
+                    f"<p class='case1-frame-desc'>{html.escape(description)}</p>",
+                    unsafe_allow_html=True,
                 )
-                description = frame.get("description")
-                if description:
-                    desc_preview = _format_preview_text(description, 68)
-                    st.markdown(
-                        (
-                            "<p class=\"case-frame-desc\" title=\"{title}\">"
-                            "{content}</p>"
-                        ).format(
-                            title=html.escape(_compact_text(description), quote=True),
-                            content=html.escape(desc_preview),
-                        ),
-                        unsafe_allow_html=True,
-                    )
-                snippet = frame.get("snippet")
-                if snippet:
-                    snippet_preview = _format_preview_text(snippet, 74)
-                    st.markdown(
-                        (
-                            "<p class=\"case-frame-snippet\" title=\"{title}\">"
-                            "{content}</p>"
-                        ).format(
-                            title=html.escape(_compact_text(snippet), quote=True),
-                            content=html.escape(snippet_preview),
-                        ),
-                        unsafe_allow_html=True,
-                    )
-                st.markdown("</div>", unsafe_allow_html=True)
-                if clicked:
-                    _insert_template_snippet(draft_key, textarea_state_key, frame["snippet"])
-                    st.session_state["_case_frame_notice"] = {
-                        "draft_key": draft_key,
-                        "label": frame["label"],
-                    }
-            st.markdown("</div>", unsafe_allow_html=True)
+
+            snippet = frame.get("snippet") or ""
+            st.markdown(
+                f"<div class='case1-frame-snippet'>{html.escape(snippet)}</div>",
+                unsafe_allow_html=True,
+            )
+            st.caption("表現を挿入する場合は下のボタンを押してください。")
+            if st.button(
+                "フレーズを挿入",
+                key=f"case-frame-{draft_key}-{index}",
+                use_container_width=True,
+            ):
+                _insert_template_snippet(draft_key, textarea_state_key, snippet)
+                st.session_state["_case_frame_notice"] = {
+                    "draft_key": draft_key,
+                    "label": frame.get("label"),
+                }
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _format_amount(value: Optional[float]) -> str:
@@ -11637,6 +11687,472 @@ def _case1_selected_question_key(problem_id: Optional[int]) -> str:
     return f"case1_selected_question::{problem_id}"
 
 
+def _case1_step_state_key(draft_key: str) -> str:
+    return f"case1_step_state::{draft_key}"
+
+
+def _case1_support_visit_key(draft_key: str, tab_name: str) -> str:
+    return f"{draft_key}::{tab_name}"
+
+
+def _case1_resolve_draft_key(
+    problem: Mapping[str, Any], question: Mapping[str, Any], question_index: int
+) -> str:
+    problem_id = problem.get("id")
+    try:
+        return _draft_key(int(problem_id), int(question.get("id")))
+    except (TypeError, ValueError, AttributeError):
+        return _draft_key(int(problem_id or 0), int(-(question_index + 1)))
+
+
+def _case1_question_status(
+    problem: Mapping[str, Any], question: Mapping[str, Any], question_index: int
+) -> Tuple[str, str]:
+    draft_key = _case1_resolve_draft_key(problem, question, question_index)
+    text = st.session_state.get("drafts", {}).get(draft_key, "")
+    if not text.strip():
+        return "未回答", "empty"
+
+    fullwidth_length = _compute_fullwidth_length(text)
+    limit_value: Optional[int] = None
+    raw_limit = question.get("character_limit") or question.get("制限字数")
+    try:
+        if raw_limit not in (None, ""):
+            limit_value = int(raw_limit)
+    except (TypeError, ValueError):
+        limit_value = None
+
+    keyword_store: Mapping[str, Mapping[str, bool]] = st.session_state.get(
+        "_case1_keyword_hits", {}
+    )
+    keyword_hits = keyword_store.get(draft_key) if isinstance(keyword_store, Mapping) else {}
+    coverage_ratio = 0.0
+    if keyword_hits:
+        total = len(keyword_hits)
+        if total:
+            matched = sum(1 for value in keyword_hits.values() if value)
+            coverage_ratio = matched / total
+
+    completion_length = (
+        int(limit_value * 0.85)
+        if limit_value is not None
+        else 200
+    )
+    if fullwidth_length >= completion_length and coverage_ratio >= 0.6:
+        return "完了", "done"
+    return "下書き", "draft"
+
+
+def _render_case1_stepper(step_state: Mapping[str, bool]) -> None:
+    steps = [
+        {"label": "①設問確認", "done": bool(step_state.get("question"))},
+        {"label": "②与件文ハイライト", "done": bool(step_state.get("highlight"))},
+        {"label": "③答案作成", "done": bool(step_state.get("answer"))},
+        {"label": "④自己分析", "done": bool(step_state.get("analysis"))},
+        {"label": "⑤模範解答比較", "done": bool(step_state.get("model"))},
+        {"label": "⑥メモ保存", "done": bool(step_state.get("memo"))},
+    ]
+
+    total_steps = len(steps)
+    completed = sum(1 for step in steps if step["done"])
+    progress_percent = int((completed / total_steps) * 100) if total_steps else 0
+    try:
+        next_pending = next(idx for idx, step in enumerate(steps) if not step["done"])
+    except StopIteration:
+        next_pending = total_steps - 1
+
+    segments_html: List[str] = []
+    for idx, step in enumerate(steps):
+        classes = ["case1-step"]
+        if step["done"]:
+            classes.append("is-done")
+        elif idx == next_pending:
+            classes.append("is-current")
+        else:
+            classes.append("is-pending")
+        status = "完了" if step["done"] else ("進行中" if idx == next_pending else "待機")
+        segments_html.append(
+            "<div class='{cls}'><span class='case1-step-label'>{label}</span>"
+            "<span class='case1-step-status'>{status}</span></div>".format(
+                cls=" ".join(classes),
+                label=html.escape(step["label"]),
+                status=html.escape(status),
+            )
+        )
+
+    st.markdown(
+        "<div class='case1-stepper'>"
+        "<div class='case1-stepper-progress'><div class='case1-stepper-progress-bar' style='width:{width}%;'></div></div>"
+        "<div class='case1-stepper-steps'>{segments}</div>"
+        "</div>".format(width=progress_percent, segments="".join(segments_html)),
+        unsafe_allow_html=True,
+    )
+
+
+def _render_case1_question_cards(
+    problem: Mapping[str, Any],
+    question_entries: Sequence[Mapping[str, Any]],
+    *,
+    selected_index: int,
+    selected_key: str,
+) -> None:
+    questions = problem.get("questions", [])
+    if not questions:
+        return
+
+    st.markdown("<div class='case1-card-grid'>", unsafe_allow_html=True)
+    per_row = 3
+    problem_id = problem.get("id")
+    for start in range(0, len(question_entries), per_row):
+        stop = min(start + per_row, len(question_entries))
+        row_entries = list(enumerate(question_entries[start:stop], start=start))
+        columns = st.columns(len(row_entries))
+        for col, (idx, entry) in zip(columns, row_entries):
+            if idx >= len(questions):
+                continue
+            question = questions[idx]
+            draft_key = _case1_resolve_draft_key(problem, question, idx)
+            status_label, status_class = _case1_question_status(problem, question, idx)
+            score = question.get("max_score")
+            score_label = (
+                f"{int(score)}点" if isinstance(score, (int, float)) else (f"{score}点" if score else "配点-")
+            )
+            icon_map = {"done": "✅", "draft": "✍️", "empty": "⬜️"}
+            status_icon = icon_map.get(status_class, "✍️")
+            label_lines = [
+                f"設問{idx + 1}｜{score_label}",
+                entry.get("preview") or "概要未登録",
+                f"{status_icon} {status_label}",
+            ]
+            button_key = f"case1-nav::{problem_id}::{idx}"
+            with col:
+                st.markdown("<div class='case1-question-card'>", unsafe_allow_html=True)
+                clicked = st.button(
+                    "\n".join(label_lines),
+                    key=button_key,
+                    use_container_width=True,
+                    type="primary" if idx == selected_index else "secondary",
+                    help=entry.get("title") or entry.get("preview") or "設問全文を表示",
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+                if clicked:
+                    st.session_state[selected_key] = idx
+                    st.experimental_rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_case1_integrated_monitor(
+    *,
+    length: int,
+    limit_value: Optional[int],
+    coverage_ratio: Optional[float],
+    matched_keywords: Optional[int],
+    total_keywords: Optional[int],
+    noun_count: int,
+    verb_count: int,
+) -> None:
+    if limit_value and limit_value > 0:
+        remaining = limit_value - length
+        char_ratio = min(max(length / limit_value, 0.0), 1.6)
+        if remaining < 0:
+            char_status = "alert"
+            char_detail = f"{abs(remaining)}字オーバー"
+        elif remaining <= max(int(limit_value * 0.1), 10):
+            char_status = "warn"
+            char_detail = f"残り {remaining}字"
+        else:
+            char_status = "ok"
+            char_detail = f"残り {remaining}字"
+    else:
+        baseline = 240
+        remaining = baseline - length
+        char_ratio = min(max(length / baseline, 0.0), 1.6)
+        if remaining < 0:
+            char_status = "warn"
+            char_detail = f"{length}字（目安超）"
+        else:
+            char_status = "neutral"
+            char_detail = f"{length}字"
+
+    if total_keywords:
+        matched = matched_keywords or 0
+        coverage_ratio = coverage_ratio or 0.0
+        coverage_percent = coverage_ratio * 100
+        if coverage_ratio >= 0.8:
+            coverage_status = "ok"
+        elif coverage_ratio >= 0.5:
+            coverage_status = "warn"
+        else:
+            coverage_status = "alert"
+        coverage_detail = f"{matched}/{total_keywords} ({coverage_percent:.0f}%)"
+        coverage_value = min(max(coverage_ratio, 0.0), 1.0)
+    else:
+        coverage_status = "neutral"
+        coverage_detail = "-"
+        coverage_value = 0.2
+
+    if verb_count >= 3:
+        structure_status = "ok"
+    elif verb_count >= 2:
+        structure_status = "warn"
+    else:
+        structure_status = "alert"
+    structure_ratio = min(max(verb_count / 3.0, 0.0), 1.0)
+    structure_detail = f"名詞{noun_count} / 述語{verb_count}"
+
+    segments = [
+        {
+            "label": "残字数",
+            "detail": char_detail,
+            "status": char_status,
+            "ratio": char_ratio,
+        },
+        {
+            "label": "要点",
+            "detail": coverage_detail,
+            "status": coverage_status,
+            "ratio": coverage_value,
+        },
+        {
+            "label": "名詞/述語",
+            "detail": structure_detail,
+            "status": structure_status,
+            "ratio": structure_ratio,
+        },
+    ]
+
+    segment_html = []
+    for segment in segments:
+        flex_value = 1.0 + segment["ratio"] * 1.5
+        segment_html.append(
+            "<div class='case1-monitor-segment {status}' style='flex:{flex};'>"
+            "<span class='case1-monitor-label'>{label}</span>"
+            "<span class='case1-monitor-detail'>{detail}</span>"
+            "</div>".format(
+                status=html.escape(segment["status"]),
+                flex=f"{flex_value:.2f}",
+                label=html.escape(segment["label"]),
+                detail=html.escape(segment["detail"]),
+            )
+        )
+
+    st.markdown(
+        "<div class='case1-monitor'>"
+        "<div class='case1-monitor-bar'>{segments}</div>"
+        "</div>".format(segments="".join(segment_html)),
+        unsafe_allow_html=True,
+    )
+
+
+def _render_case1_support_panel(
+    problem: Mapping[str, Any],
+    question: Mapping[str, Any],
+    *,
+    question_index: int,
+    problem_context: Optional[str],
+    draft_key: str,
+    textarea_key: str,
+    answer_context: Mapping[str, Any],
+) -> Mapping[str, bool]:
+    support_state = {
+        "highlight_done": False,
+        "analysis_done": False,
+        "model_done": False,
+        "memo_saved": False,
+    }
+
+    st.markdown("<div class='case1-support-pane'>", unsafe_allow_html=True)
+
+    problem_identifier = (
+        problem.get("id")
+        or problem.get("slug")
+        or problem.get("title")
+        or "default"
+    )
+
+    if problem_context:
+        with st.expander("与件文ハイライト", expanded=False):
+            search_key = f"case1-search-{problem_identifier}"
+            search_query = st.text_input(
+                "与件文内検索",
+                key=search_key,
+                placeholder="キーワードを入力",
+            )
+            match_count, highlight_snapshot = _render_problem_context_block(
+                problem_context,
+                search_query,
+                snapshot_key=str(problem_identifier),
+                auto_palette=True,
+                auto_save=True,
+                compact_controls=True,
+            )
+            if highlight_snapshot:
+                highlight_store = st.session_state.setdefault("context_highlights", {})
+                highlight_store[str(problem_identifier)] = highlight_snapshot
+            highlight_store = st.session_state.get("context_highlights", {})
+            if highlight_store.get(str(problem_identifier)):
+                support_state["highlight_done"] = True
+            if search_query:
+                if match_count:
+                    st.caption(f"該当箇所: {match_count}件")
+                else:
+                    st.caption("該当箇所は見つかりませんでした。")
+            else:
+                st.caption("ハイライトは自動保存されます。次回アクセス時も復元されます。")
+    else:
+        st.info("与件文が未登録のため、ハイライトツールは利用できません。設定ページで与件文を追加してください。", icon="ℹ")
+
+    _render_case_frame_shortcuts(problem.get("case_label"), draft_key, textarea_key)
+
+    tab_state_key = f"case1-support-tab::{draft_key}"
+    visited_map = st.session_state.setdefault("case1_support_visits", {})
+    previous_selected = st.session_state.get(tab_state_key)
+    if previous_selected:
+        visited_map[_case1_support_visit_key(draft_key, previous_selected)] = True
+
+    support_tabs = ["模範解答", "採点ガイドライン", "キーワード評価", "構造解析", "復習メモ"]
+
+    def _tab_label(name: str) -> str:
+        visited = visited_map.get(_case1_support_visit_key(draft_key, name))
+        icon = "✅" if visited else "⬜️"
+        return f"{icon} {name}"
+
+    selected_tab = st.radio(
+        "補助タブ",
+        options=support_tabs,
+        key=tab_state_key,
+        format_func=_tab_label,
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+    visited_map[_case1_support_visit_key(draft_key, selected_tab)] = True
+
+    support_state["analysis_done"] = visited_map.get(
+        _case1_support_visit_key(draft_key, "構造解析"),
+        False,
+    )
+    support_state["model_done"] = visited_map.get(
+        _case1_support_visit_key(draft_key, "模範解答"),
+        False,
+    )
+
+    st.caption("タブを切り替えて模範解答や構造分析を確認しましょう。閲覧済みのタブにはチェックが付きます。")
+
+    keyword_hits: Mapping[str, bool] = answer_context.get("keyword_hits") or {}
+    model_answer_text = _normalize_text_block(question.get("model_answer"))
+
+    if selected_tab == "模範解答":
+        if model_answer_text:
+            st.markdown("**模範解答（抜粋）**")
+            points = _extract_case1_model_points(model_answer_text)
+            if points:
+                items = "".join(f"<li>{html.escape(point)}</li>" for point in points)
+                st.markdown(f"<ul class='case1-model-points'>{items}</ul>", unsafe_allow_html=True)
+            with st.expander("模範解答全文", expanded=False):
+                st.write(model_answer_text)
+        else:
+            st.info("模範解答が未登録です。設定ページで追加すると比較しやすくなります。", icon="ℹ")
+
+    elif selected_tab == "採点ガイドライン":
+        aim_text = _normalize_text_block(
+            question.get("question_aim")
+            or question.get("uploaded_question_aim")
+            or question.get("設問の狙い")
+            or question.get("狙い")
+        )
+        if aim_text:
+            st.markdown("**設問の狙い**")
+            st.write(aim_text)
+        explanation_text = _normalize_text_block(
+            question.get("explanation")
+            or question.get("detailed_explanation")
+            or question.get("解説")
+        )
+        if explanation_text:
+            st.markdown("**解説ポイント**")
+            st.write(explanation_text)
+        if model_answer_text and not answer_context.get("model_points_rendered"):
+            points = _extract_case1_model_points(model_answer_text)
+            if points:
+                st.markdown("**評価観点の要約**")
+                items = "".join(f"<li>{html.escape(point)}</li>" for point in points)
+                st.markdown(f"<ul class='case1-model-points'>{items}</ul>", unsafe_allow_html=True)
+
+    elif selected_tab == "キーワード評価":
+        keywords = _resolve_question_keywords(question)
+        if keywords:
+            matched = [kw for kw in keywords if keyword_hits.get(kw)]
+            missing = [kw for kw in keywords if not keyword_hits.get(kw)]
+            st.markdown("**評価キーワード**")
+            if matched:
+                st.success("含まれたキーワード: " + "、".join(matched), icon="✅")
+            if missing:
+                st.warning("不足キーワード: " + "、".join(missing), icon="🔍")
+        else:
+            st.info("評価キーワードが未登録です。設定ページで登録すると自動チェックが可能です。", icon="ℹ")
+
+    elif selected_tab == "構造解析":
+        text = answer_context.get("text", "")
+        analysis = answer_context.get("analysis")
+        analysis = analysis or (_analyze_mece_causal(text) if text.strip() else None)
+        _render_mece_status_labels(text)
+        _render_mece_causal_scanner(text, analysis=analysis)
+
+        templates = CASE_CAUSAL_TEMPLATES.get(problem.get("case_label"), [])
+        if templates:
+            template_key = f"case1-causal-template::{draft_key}"
+            default_index = st.session_state.get(template_key, 0)
+            indices = list(range(len(templates)))
+            selected_index = st.selectbox(
+                "因果テンプレートを選択",
+                indices,
+                index=min(default_index, len(templates) - 1),
+                format_func=lambda idx: templates[idx]["label"],
+                key=template_key,
+            )
+            template = templates[selected_index]
+            st.markdown(
+                f"<div class='case1-structure-diagram'>{html.escape(template['diagram'])}</div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f"<div class='case1-structure-snippet'>{html.escape(template['snippet'])}</div>",
+                unsafe_allow_html=True,
+            )
+            if st.button(
+                "因果テンプレを挿入",
+                key=f"case1-causal-insert::{draft_key}::{selected_index}",
+                use_container_width=True,
+            ):
+                _insert_template_snippet(draft_key, textarea_key, template["snippet"])
+        else:
+            st.caption("この事例のテンプレートは未登録です。必要に応じてメモ欄に独自テンプレートを残しましょう。")
+
+    else:  # 復習メモ
+        memo_store = st.session_state.setdefault("case1_memos", {})
+        memo_key = f"case1-memo::{draft_key}"
+        memo_text = memo_store.get(draft_key, "")
+        new_text = st.text_area(
+            "復習メモを残す",
+            value=memo_text,
+            height=120,
+            placeholder="気づきや次回への改善ポイントを記録しましょう。",
+            key=memo_key,
+        )
+        if st.button(
+            "メモを保存",
+            key=f"case1-memo-save::{draft_key}",
+            use_container_width=True,
+        ):
+            memo_store[draft_key] = new_text
+            st.success("メモを保存しました。", icon="💾")
+
+    memo_store = st.session_state.get("case1_memos", {})
+    support_state["memo_saved"] = bool(memo_store.get(draft_key))
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    return support_state
 def _ensure_case1_styles() -> None:
     if st.session_state.get("_case1_styles_injected"):
         return
@@ -11754,6 +12270,202 @@ def _ensure_case1_styles() -> None:
             .case1-model-points li {
                 margin-bottom: 0.25rem;
                 line-height: 1.65;
+            }
+            .case1-stepper {
+                margin: 1rem 0 1.2rem;
+                padding: 0.85rem 1rem;
+                background: rgba(248, 250, 252, 0.95);
+                border: 1px solid rgba(148, 163, 184, 0.3);
+                border-radius: 18px;
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+            }
+            .case1-stepper-progress {
+                position: relative;
+                height: 6px;
+                border-radius: 999px;
+                background: rgba(203, 213, 225, 0.6);
+                overflow: hidden;
+                margin-bottom: 0.75rem;
+            }
+            .case1-stepper-progress-bar {
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                background: linear-gradient(90deg, #3b82f6, #22c55e);
+                border-radius: inherit;
+                transition: width 0.4s ease;
+            }
+            .case1-stepper-steps {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 0.6rem;
+            }
+            .case1-step {
+                border-radius: 14px;
+                padding: 0.55rem 0.75rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.2rem;
+                background: rgba(226, 232, 240, 0.55);
+                color: #334155;
+                border: 1px solid transparent;
+            }
+            .case1-step-label {
+                font-size: 0.88rem;
+                font-weight: 600;
+            }
+            .case1-step-status {
+                font-size: 0.78rem;
+                font-weight: 500;
+            }
+            .case1-step.is-done {
+                background: rgba(134, 239, 172, 0.35);
+                color: #14532d;
+                border-color: rgba(34, 197, 94, 0.45);
+            }
+            .case1-step.is-current {
+                background: rgba(191, 219, 254, 0.55);
+                color: #1d4ed8;
+                border-color: rgba(59, 130, 246, 0.55);
+            }
+            .case1-step.is-pending {
+                background: rgba(226, 232, 240, 0.55);
+                color: #475569;
+                border-color: rgba(148, 163, 184, 0.35);
+            }
+            .case1-card-grid {
+                margin: 1rem 0 1.4rem;
+            }
+            .case1-question-card {
+                padding: 0.25rem 0.15rem;
+            }
+            .case1-question-card button[kind="secondary"],
+            .case1-question-card button[kind="primary"] {
+                text-align: left;
+                white-space: pre-wrap;
+                height: 100%;
+                border-radius: 16px;
+                padding: 0.75rem 0.9rem;
+                line-height: 1.45;
+                font-size: 0.9rem;
+            }
+            .case1-question-card button[kind="secondary"] {
+                border: 1px solid rgba(148, 163, 184, 0.45);
+                background: rgba(248, 250, 252, 0.75);
+            }
+            .case1-question-card button[kind="primary"] {
+                background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(79, 70, 229, 0.85));
+                border: 1px solid rgba(59, 130, 246, 0.6);
+            }
+            .case1-monitor {
+                margin: 0.9rem 0 0.6rem;
+            }
+            .case1-monitor-bar {
+                display: flex;
+                gap: 0.7rem;
+                align-items: stretch;
+            }
+            .case1-monitor-segment {
+                padding: 0.6rem 0.7rem;
+                border-radius: 14px;
+                background: rgba(226, 232, 240, 0.55);
+                display: flex;
+                flex-direction: column;
+                gap: 0.2rem;
+                min-width: 160px;
+            }
+            .case1-monitor-segment.ok {
+                background: rgba(134, 239, 172, 0.35);
+                color: #14532d;
+            }
+            .case1-monitor-segment.warn {
+                background: rgba(253, 230, 138, 0.45);
+                color: #92400e;
+            }
+            .case1-monitor-segment.alert {
+                background: rgba(248, 113, 113, 0.45);
+                color: #991b1b;
+            }
+            .case1-monitor-segment.neutral {
+                background: rgba(226, 232, 240, 0.55);
+                color: #334155;
+            }
+            .case1-monitor-label {
+                font-size: 0.82rem;
+                font-weight: 600;
+            }
+            .case1-monitor-detail {
+                font-size: 0.76rem;
+                font-weight: 500;
+            }
+            .case1-support-pane {
+                padding: 0.9rem 1rem;
+                background: rgba(248, 250, 252, 0.95);
+                border-radius: 18px;
+                border: 1px solid rgba(148, 163, 184, 0.25);
+                box-shadow: 0 18px 30px rgba(15, 23, 42, 0.08);
+                display: flex;
+                flex-direction: column;
+                gap: 1.1rem;
+            }
+            .case1-frame-library {
+                padding: 0.75rem 0.9rem 0.9rem;
+                background: rgba(241, 245, 249, 0.75);
+                border-radius: 16px;
+                border: 1px solid rgba(148, 163, 184, 0.25);
+            }
+            .case1-frame-title {
+                font-size: 1rem;
+                font-weight: 700;
+                margin-bottom: 0.35rem;
+            }
+            .case1-frame-desc {
+                font-size: 0.9rem;
+                color: #1f2937;
+                margin-bottom: 0.5rem;
+            }
+            .case1-frame-snippet {
+                background: rgba(59, 130, 246, 0.08);
+                border: 1px solid rgba(59, 130, 246, 0.18);
+                border-radius: 14px;
+                padding: 0.6rem 0.7rem;
+                font-size: 0.88rem;
+                line-height: 1.6;
+                white-space: pre-wrap;
+            }
+            .case1-structure-diagram {
+                font-weight: 600;
+                font-size: 0.9rem;
+                margin: 0.6rem 0 0.2rem;
+            }
+            .case1-structure-snippet {
+                background: rgba(45, 212, 191, 0.12);
+                border-radius: 12px;
+                padding: 0.6rem 0.7rem;
+                border: 1px solid rgba(13, 148, 136, 0.25);
+                line-height: 1.6;
+                font-size: 0.86rem;
+                white-space: pre-wrap;
+                margin-bottom: 0.4rem;
+            }
+            div[data-baseweb="tab-list"] > div {
+                font-size: 0.92rem;
+                font-weight: 600;
+            }
+            .case1-support-pane .stRadio [role="radiogroup"] > div {
+                gap: 0.6rem;
+                flex-wrap: wrap;
+            }
+            .case1-support-pane .stRadio [role="radio"] > div {
+                border-radius: 999px;
+                border: 1px solid rgba(148, 163, 184, 0.45);
+                padding: 0.45rem 0.85rem;
+                background: rgba(255, 255, 255, 0.85);
+            }
+            .case1-support-pane .stRadio [role="radio"][aria-checked="true"] > div {
+                background: rgba(59, 130, 246, 0.15);
+                border-color: rgba(59, 130, 246, 0.45);
             }
             .case1-flashcard-progress {
                 margin: 0.6rem 0;
@@ -11910,14 +12622,17 @@ def _render_case1_answer_panel(
     question: Mapping[str, Any],
     *,
     question_index: int,
-) -> Mapping[str, bool]:
-    st.markdown(f"**STEP 2: 設問{question_index + 1} に回答**")
-
+    draft_key: str,
+    textarea_key: str,
+) -> Dict[str, Any]:
     prompt_text = _normalize_text_block(
         question.get("prompt") or question.get("設問見出し") or question.get("title")
     )
     if prompt_text:
-        st.markdown(f"<p class='case1-question-prompt'>{html.escape(prompt_text)}</p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p class='case1-question-prompt'>{html.escape(prompt_text)}</p>",
+            unsafe_allow_html=True,
+        )
 
     body_text = _normalize_text_block(
         _select_first(question, ["設問文", "問題文", "question_text", "body"])
@@ -11925,22 +12640,14 @@ def _render_case1_answer_panel(
     if body_text:
         st.caption(body_text)
 
-    problem_id = problem.get("id")
-    question_id = question.get("id")
-    try:
-        draft_key = _draft_key(int(problem_id), int(question_id))
-    except (TypeError, ValueError):
-        draft_key = _draft_key(int(problem_id or 0), int(-(question_index + 1)))
-
     saved_payload = _get_saved_answer_payload(draft_key)
     if hasattr(st.session_state, "drafts"):
         st.session_state.drafts.setdefault(draft_key, saved_payload.get("autosave", ""))
     else:
         st.session_state.drafts = {draft_key: saved_payload.get("autosave", "")}
 
-    textarea_key = f"case1::{draft_key}"
-    placeholder = "ここに解答を入力してください。キーワードを散りばめ、因果でつなぎましょう。"
     limit_hint = question.get("character_limit")
+    placeholder = "ここに解答を入力してください。キーワードを散りばめ、因果でつなぎましょう。"
     if limit_hint not in (None, ""):
         try:
             limit_hint_int = int(limit_hint)
@@ -11949,12 +12656,15 @@ def _render_case1_answer_panel(
         else:
             placeholder = f"ここに解答を入力してください（目安: {limit_hint_int}字）。重要語を明示し、因果で結びましょう。"
 
-    st.markdown("<p class='practice-autosave-caption'>入力内容は自動保存されます。</p>", unsafe_allow_html=True)
+    st.markdown(
+        "<p class='practice-autosave-caption'>入力内容は自動保存されます。</p>",
+        unsafe_allow_html=True,
+    )
     text = st.text_area(
         "回答入力",
         key=textarea_key,
         value=st.session_state.drafts.get(draft_key, ""),
-        height=220,
+        height=240,
         label_visibility="collapsed",
         placeholder=placeholder,
     )
@@ -11969,54 +12679,56 @@ def _render_case1_answer_panel(
     except (TypeError, ValueError):
         limit_value = None
 
-    if limit_value:
-        remaining = limit_value - fullwidth_length
-        ratio = max(0.0, min(fullwidth_length / limit_value, 1.0))
-        st.progress(ratio, text=f"文字数 {_format_fullwidth_length(fullwidth_length)} / {limit_value}字")
-        st.caption(
-            f"残り {_format_fullwidth_length(remaining)}字" if remaining >= 0 else f"{_format_fullwidth_length(abs(remaining))}字オーバー"
-        )
-    else:
-        ratio = max(0.0, min(fullwidth_length / 240.0, 1.0))
-        st.progress(ratio, text=f"全角換算 {_format_fullwidth_length(fullwidth_length)}字")
-
     keywords = _resolve_question_keywords(question)
     keyword_hits: Mapping[str, bool] = {}
+    matched = 0
+    total = 0
+    coverage_ratio = None
     if keywords:
         cleaned_keywords = [keyword for keyword in keywords if keyword]
         if cleaned_keywords:
             keyword_hits = scoring.keyword_match_score(text, cleaned_keywords)
-            matched = sum(1 for value in keyword_hits.values() if value)
             total = len(keyword_hits)
+            matched = sum(1 for value in keyword_hits.values() if value)
             coverage_ratio = matched / total if total else 0.0
-            st.progress(coverage_ratio, text=f"要点被覆率 {coverage_ratio * 100:.0f}% ({matched} / {total})")
             missing = [kw for kw, hit in keyword_hits.items() if not hit]
             if missing:
                 st.caption("不足キーワード: " + "、".join(missing))
         else:
             st.caption("キーワードは未登録です。与件文から重要語を抽出しましょう。")
     else:
-        st.caption("キーワードは未登録です。設定ページで登録すると進捗バーが活用できます。")
+        st.caption("キーワードは未登録です。設定ページで登録すると進捗メーターが活用できます。")
 
     keyword_store = st.session_state.setdefault("_case1_keyword_hits", {})
     keyword_store[draft_key] = keyword_hits
 
-    _render_causal_connector_indicator(text)
-    analysis = _render_mece_status_labels(text)
-    with st.expander("MECE/因果スキャナ", expanded=bool(text.strip())):
-        _render_mece_causal_scanner(text, analysis=analysis)
+    noun_count, verb_count = _count_case3_pos(text)
+    _render_case1_integrated_monitor(
+        length=fullwidth_length,
+        limit_value=limit_value,
+        coverage_ratio=coverage_ratio,
+        matched_keywords=matched,
+        total_keywords=total,
+        noun_count=noun_count,
+        verb_count=verb_count,
+    )
 
-    model_points = _extract_case1_model_points(question.get("model_answer"))
-    if model_points:
-        items = "".join(f"<li>{html.escape(point)}</li>" for point in model_points)
-        st.markdown("**模範解答のポイント（要約）**")
-        st.markdown(f"<ul class='case1-model-points'>{items}</ul>", unsafe_allow_html=True)
+    analysis = _analyze_mece_causal(text) if text.strip() else None
 
-    st.divider()
     _render_intent_cards(question, draft_key, textarea_key)
-    _render_case_frame_shortcuts(problem.get("case_label"), draft_key, textarea_key)
 
-    return keyword_hits
+    return {
+        "text": text,
+        "keyword_hits": keyword_hits,
+        "limit_value": limit_value,
+        "fullwidth_length": fullwidth_length,
+        "coverage_ratio": coverage_ratio,
+        "matched_keywords": matched,
+        "total_keywords": total,
+        "noun_count": noun_count,
+        "verb_count": verb_count,
+        "analysis": analysis,
+    }
 
 
 def _render_case1_guideline_panel(
@@ -12346,68 +13058,38 @@ def _render_case1_workspace(
         if st.button("設定", key=f"case1-settings-{problem.get('id')}"):
             _request_navigation("設定")
 
-    context_col, main_col = st.columns([0.46, 0.54], gap="large")
+    stepper_placeholder = st.empty()
 
-    with context_col:
-        st.markdown("<div class='case1-context-pane'>", unsafe_allow_html=True)
-        if problem_context:
-            st.markdown("<p class='case1-context__intro'>与件文とハイライトツール</p>", unsafe_allow_html=True)
-            problem_identifier = problem.get("id") or problem.get("title") or "default"
-            search_key = f"case1-search-{problem_identifier}"
-            search_query = st.text_input(
-                "与件文内検索",
-                key=search_key,
-                placeholder="キーワードを入力",
-                help="キーワードを入力すると該当箇所がハイライトされます。",
-            )
-            match_count, highlight_snapshot = _render_problem_context_block(
-                problem_context,
-                search_query,
-                snapshot_key=str(problem_identifier),
-                auto_palette=True,
-                auto_save=True,
-                compact_controls=True,
-            )
-            if highlight_snapshot:
-                highlight_store = st.session_state.setdefault("context_highlights", {})
-                highlight_store[str(problem_identifier)] = highlight_snapshot
-            normalized_query = (search_query or "").strip()
-            if normalized_query:
-                if match_count:
-                    st.caption(f"該当箇所: {match_count}件")
-                else:
-                    st.caption("該当箇所は見つかりませんでした。")
-            else:
-                st.caption("ハイライトは選択と同時に自動保存されます。")
-        else:
-            st.info("与件文が未登録のため、ハイライトツールを利用できません。設定ページで与件文を追加してください。", icon="ℹ")
-        st.markdown("</div>", unsafe_allow_html=True)
+    selected_index = st.session_state[selected_key]
+    _render_case1_question_cards(
+        problem,
+        question_entries,
+        selected_index=selected_index,
+        selected_key=selected_key,
+    )
 
-    with main_col:
+    selected_index = st.session_state[selected_key]
+    questions = problem.get("questions", [])
+    if not questions:
+        st.warning("設問データが見つかりません。設定ページを確認してください。", icon="⚠️")
+        return
+    question = questions[selected_index]
+
+    draft_key = _case1_resolve_draft_key(problem, question, selected_index)
+    textarea_key = f"case1::{draft_key}"
+
+    answer_col, support_col = st.columns([0.62, 0.38], gap="large")
+
+    with answer_col:
         st.markdown("<div class='case1-main-pane'>", unsafe_allow_html=True)
-        selected_index = st.session_state[selected_key]
-        tabs = st.tabs(["設問リスト", "回答", "採点ガイド"])
-        with tabs[0]:
-            new_index = _render_case1_nav_tab(
-                problem,
-                question_entries,
-                selected_index=selected_index,
-                selected_key=selected_key,
-            )
-        if new_index != selected_index:
-            st.session_state[selected_key] = new_index
-        selected_index = st.session_state[selected_key]
-        question = problem.get("questions", [])[selected_index]
-        with tabs[1]:
-            keyword_hits = _render_case1_answer_panel(
-                problem,
-                question,
-                question_index=selected_index,
-            )
-        with tabs[2]:
-            _render_case1_guideline_panel(question, keyword_hits)
+        answer_context = _render_case1_answer_panel(
+            problem,
+            question,
+            question_index=selected_index,
+            draft_key=draft_key,
+            textarea_key=textarea_key,
+        )
 
-        st.divider()
         if missing_numbers:
             formatted_numbers = "、".join(f"設問{num}" for num in missing_numbers)
             st.warning(
@@ -12424,6 +13106,30 @@ def _render_case1_workspace(
         if submit:
             _handle_case1_submission(problem, user, question_specs, missing_numbers)
         st.markdown("</div>", unsafe_allow_html=True)
+
+    with support_col:
+        support_state = _render_case1_support_panel(
+            problem,
+            question,
+            question_index=selected_index,
+            problem_context=problem_context,
+            draft_key=draft_key,
+            textarea_key=textarea_key,
+            answer_context=answer_context,
+        )
+
+    step_state_key = _case1_step_state_key(draft_key)
+    step_state = st.session_state.setdefault(step_state_key, {})
+    step_state["question"] = True
+    step_state["highlight"] = bool(support_state.get("highlight_done"))
+    step_state["answer"] = bool((answer_context.get("text") or "").strip())
+    step_state["analysis"] = bool(support_state.get("analysis_done"))
+    step_state["model"] = bool(support_state.get("model_done"))
+    step_state["memo"] = bool(support_state.get("memo_saved"))
+    st.session_state[step_state_key] = step_state
+
+    with stepper_placeholder.container():
+        _render_case1_stepper(step_state)
 
     st.markdown("<div class='case1-bottom-section'>", unsafe_allow_html=True)
     _render_case1_retrieval_flashcards(problem)
