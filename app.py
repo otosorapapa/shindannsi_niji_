@@ -1083,7 +1083,9 @@ def _year_sort_key(year_label: str) -> int:
     return 0
 
 
-def _render_practice_timer(problem_id: Optional[int], *, default_minutes: int = 80) -> Dict[str, Any]:
+def _render_practice_timer(
+    problem_id: Optional[int], *, default_minutes: int = 80, confirm_on_start: bool = False
+) -> Dict[str, Any]:
     """Render a countdown timer for記述式演習 with start/pause controls."""
 
     if problem_id is None:
@@ -1123,7 +1125,15 @@ def _render_practice_timer(problem_id: Optional[int], *, default_minutes: int = 
         state["expired"] = False
 
     control_cols = st.columns([0.34, 0.33, 0.33])
-    if control_cols[0].button("タイマー開始", key=f"{state_key}::start"):
+    confirm_state_key = f"{state_key}::confirm"
+    pending_start = False
+    if confirm_on_start:
+        if control_cols[0].button("タイマー開始", key=f"{state_key}::start"):
+            st.session_state[confirm_state_key] = True
+    else:
+        if control_cols[0].button("タイマー開始", key=f"{state_key}::start"):
+            pending_start = True
+    if pending_start:
         state["start_timestamp"] = datetime.now(timezone.utc).timestamp()
         state["running"] = True
         state["expired"] = False
@@ -1141,6 +1151,57 @@ def _render_practice_timer(problem_id: Optional[int], *, default_minutes: int = 
         state["start_timestamp"] = None
         state["accumulated_seconds"] = 0.0
         state["expired"] = False
+
+    confirm_payload = None
+    if confirm_on_start and st.session_state.get(confirm_state_key):
+        confirm_html = dedent(
+            """
+            <script>
+            (function() {
+                if (window.case1TimerConfirm) {
+                    return;
+                }
+                window.case1TimerConfirm = true;
+                const confirmed = window.confirm('タイマーを開始しますか？\n開始後はカウントダウンがスタートします。');
+                if (!window.Streamlit) {
+                    window.Streamlit = { setComponentValue: () => {}, setComponentReady: () => {}, setFrameHeight: () => {} };
+                }
+                if (window.Streamlit.setComponentReady) {
+                    window.Streamlit.setComponentReady();
+                }
+                if (window.Streamlit.setFrameHeight) {
+                    window.Streamlit.setFrameHeight(0);
+                }
+                if (window.Streamlit.setComponentValue) {
+                    window.Streamlit.setComponentValue(JSON.stringify({
+                        type: 'timer-confirm',
+                        confirmed: confirmed
+                    }));
+                }
+                window.case1TimerConfirm = false;
+            })();
+            </script>
+            """
+        ).strip()
+        confirm_component = components.html(confirm_html, height=0)
+        confirm_payload = _extract_component_value(
+            confirm_component, key=f"{confirm_state_key}::payload"
+        )
+
+    if confirm_payload:
+        st.session_state.pop(confirm_state_key, None)
+        try:
+            parsed = json.loads(confirm_payload)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict) and parsed.get("type") == "timer-confirm":
+            if parsed.get("confirmed"):
+                state["start_timestamp"] = datetime.now(timezone.utc).timestamp()
+                state["running"] = True
+                state["expired"] = False
+            else:
+                state["running"] = False
+                state["start_timestamp"] = None
 
     elapsed = state["accumulated_seconds"]
     if state["running"] and state.get("start_timestamp") is not None:
@@ -2931,7 +2992,7 @@ def _inject_context_panel_behavior() -> None:
                 const updateScrollbarCompensation = () => {
                     if (!panel || !scrollArea) {
                         return;
-                    }
+                    }}
                     const scrollbarWidth = Math.max(
                         0,
                         scrollArea.offsetWidth - scrollArea.clientWidth
@@ -2945,7 +3006,7 @@ def _inject_context_panel_behavior() -> None:
                 const syncColumnMinHeight = (mq) => {
                     if (!column) {
                         return;
-                    }
+                    }}
                     column.style.removeProperty('--context-column-min-height');
                     const media = mq || win.matchMedia('(max-width: 900px)');
                     if (media.matches) {
@@ -4103,6 +4164,9 @@ def _render_problem_context_block(
     search_query: Optional[str] = None,
     *,
     snapshot_key: Optional[str] = None,
+    auto_palette: bool = False,
+    auto_save: bool = False,
+    compact_controls: bool = False,
 ) -> Tuple[int, Optional[Dict[str, Any]]]:
     normalized = _normalize_text_block(context_text)
     if not normalized:
@@ -4147,6 +4211,33 @@ def _render_problem_context_block(
     total_lines = sum(block.count("<br/>") + 1 for block in blocks)
     estimated_height = max(620, min(1200, 260 + total_lines * 30))
 
+    palette_classes = ["marker-palette"]
+    if auto_palette:
+        palette_classes.append("is-collapsed")
+    palette_class_attr = " ".join(palette_classes)
+
+    if compact_controls:
+        clear_button_html = (
+            f"<button type=\"button\" class=\"toolbar-button clear icon-only\" "
+            f"data-action=\"clear-all\" data-target=\"{element_id}\" "
+            "aria-label=\"マーカーを全て解除\"><span class=\"icon\">🗑️</span></button>"
+        )
+    else:
+        clear_button_html = (
+            f"<button type=\"button\" class=\"toolbar-button clear\" data-action=\"clear-all\" "
+            f"data-target=\"{element_id}\">マーカーを全て解除</button>"
+        )
+
+    if auto_save:
+        capture_button_html = ""
+        hint_text = "テキストを選択し色をクリックすると、ハイライトが即時に適用・保存されます。"
+    else:
+        capture_button_html = (
+            f"<button type=\"button\" class=\"toolbar-button save\" data-action=\"capture\" "
+            f"data-target=\"{element_id}\">ハイライトを保存</button>"
+        )
+        hint_text = "テキストをドラッグして蛍光マーカーを適用できます。"
+
     highlight_html = dedent(
         f"""
         <div class="problem-context-root">
@@ -4155,7 +4246,7 @@ def _render_problem_context_block(
                     <button type="button" class="toolbar-button toggle" data-action="highlight" data-target="{element_id}" aria-pressed="false" data-default-color="gold">
                         選択範囲にマーカー
                     </button>
-                    <div class="marker-palette" role="group" aria-label="マーカー色">
+                    <div class="{palette_class_attr}" role="group" aria-label="マーカー色">
                         <button type="button" class="marker-color selected" data-action="set-color" data-color="gold" aria-label="ゴールドマーカー"></button>
                         <button type="button" class="marker-color" data-action="set-color" data-color="violet" aria-label="バイオレットマーカー"></button>
                         <button type="button" class="marker-color" data-action="set-color" data-color="cerulean" aria-label="セルリアンマーカー"></button>
@@ -4173,14 +4264,10 @@ def _render_problem_context_block(
                     <button type="button" class="toolbar-button undo" data-action="undo" aria-disabled="true" disabled>
                         直前の操作を取り消す
                     </button>
-                    <button type="button" class="toolbar-button clear" data-action="clear-all" data-target="{element_id}">
-                        マーカーを全て解除
-                    </button>
-                    <button type="button" class="toolbar-button save" data-action="capture" data-target="{element_id}">
-                        ハイライトを保存
-                    </button>
+                    {clear_button_html}
+                    {capture_button_html}
                 </div>
-                <span class="toolbar-hint">テキストをドラッグして蛍光マーカーを適用できます。</span>
+                <span class="toolbar-hint">{html.escape(hint_text)}</span>
             </div>
             <div class="problem-context-block" id="{element_id}" tabindex="0">
                 {''.join(blocks)}
@@ -4282,6 +4369,18 @@ def _render_problem_context_block(
             .toolbar-button.clear:hover {{
                 box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.35), 0 6px 14px rgba(15, 23, 42, 0.18);
             }}
+            .toolbar-button.icon-only {{
+                width: 2.3rem;
+                height: 2.3rem;
+                padding: 0;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }}
+            .toolbar-button.icon-only .icon {{
+                font-size: 1rem;
+                line-height: 1;
+            }}
             .marker-palette {{
                 display: inline-flex;
                 align-items: center;
@@ -4290,6 +4389,12 @@ def _render_problem_context_block(
                 border-radius: 999px;
                 background: rgba(15, 23, 42, 0.06);
                 box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
+            }}
+            .marker-palette.is-collapsed {{
+                display: none;
+            }}
+            .marker-palette.is-active {{
+                display: inline-flex;
             }}
             .search-navigation {{
                 display: inline-flex;
@@ -4461,6 +4566,9 @@ def _render_problem_context_block(
                 const searchPrevButton = toolbar.querySelector('[data-action="search-prev"]');
                 const searchNextButton = toolbar.querySelector('[data-action="search-next"]');
                 const searchStatus = toolbar.querySelector('.search-navigation__status');
+                const palette = toolbar.querySelector('.marker-palette');
+                const autoPalette = {json.dumps(auto_palette)};
+                const autoSave = {json.dumps(auto_save)};
 
                 let highlightMode = false;
                 let activeColor = (highlightButton && highlightButton.dataset.defaultColor) || (colorButtons[0] && colorButtons[0].dataset.color) || "gold";
@@ -4468,6 +4576,14 @@ def _render_problem_context_block(
                 const maxHistory = 30;
                 const collectSearchMarks = () => Array.from(container.querySelectorAll('mark.context-search-hit'));
                 let activeSearchIndex = -1;
+
+                const showPalette = () => {{
+                    if (!palette) {{
+                        return;
+                    }}
+                    palette.classList.add('is-active');
+                    palette.classList.remove('is-collapsed');
+                }};
 
                 const setSearchControlsDisabled = (disabled) => {{
                     [searchPrevButton, searchNextButton].forEach((button) => {{
@@ -4544,9 +4660,12 @@ def _render_problem_context_block(
                         highlightButton.classList.toggle("active", highlightMode);
                         highlightButton.setAttribute("aria-pressed", highlightMode ? "true" : "false");
                     }}
+                    if (highlightMode && autoPalette) {{
+                        showPalette();
+                    }}
                 }};
 
-                const applyHighlight = () => {{
+                const highlightSelection = (color) => {{
                     const selection = window.getSelection();
                     if (!selection || selection.rangeCount === 0) {{
                         return false;
@@ -4561,14 +4680,20 @@ def _render_problem_context_block(
 
                     const snapshot = container.innerHTML;
                     const mark = document.createElement("mark");
-                    mark.className = "fluorescent-marker color-" + activeColor;
+                    const appliedColor = color || activeColor || 'gold';
+                    mark.className = "fluorescent-marker color-" + appliedColor;
                     mark.appendChild(range.extractContents());
                     range.insertNode(mark);
                     container.normalize();
                     selection.removeAllRanges();
                     pushHistory(snapshot);
+                    if (autoSave) {{
+                        emitSnapshot();
+                    }}
                     return true;
                 }};
+
+                const applyHighlight = () => highlightSelection(activeColor);
 
                 const clearAll = () => {{
                     const marks = Array.from(container.querySelectorAll("mark.fluorescent-marker"));
@@ -4588,6 +4713,9 @@ def _render_problem_context_block(
                         parent.normalize();
                     }});
                     pushHistory(snapshot);
+                    if (autoSave) {{
+                        emitSnapshot();
+                    }}
                     return true;
                 }};
 
@@ -4622,7 +4750,11 @@ def _render_problem_context_block(
                         return;
                     }}
                     requestAnimationFrame(() => {{
-                        applyHighlight();
+                        if (applyHighlight()) {{
+                            if (autoPalette) {{
+                                showPalette();
+                            }}
+                        }}
                     }});
                 }};
 
@@ -4688,10 +4820,14 @@ def _render_problem_context_block(
                             colorButtons.forEach((candidate) => {{
                                 candidate.classList.toggle("selected", candidate === button);
                             }});
-                            if (highlightMode) {{
+                            const highlighted = highlightSelection(nextColor);
+                            if (!highlighted && highlightMode) {{
                                 requestAnimationFrame(() => {{
                                     applyHighlight();
                                 }});
+                            }}
+                            if (autoPalette) {{
+                                showPalette();
                             }}
                         }});
                     }});
@@ -4742,6 +4878,23 @@ def _render_problem_context_block(
                         scheduleAutoHighlight();
                     }});
                 }});
+
+                if (autoPalette) {{
+                    document.addEventListener('selectionchange', () => {{
+                        const selection = document.getSelection();
+                        if (!selection || selection.rangeCount === 0) {{
+                            return;
+                        }}
+                        const range = selection.getRangeAt(0);
+                        if (range.collapsed) {{
+                            return;
+                        }}
+                        if (!container.contains(range.commonAncestorContainer)) {{
+                            return;
+                        }}
+                        showPalette();
+                    }});
+                }}
 
                 const handleScroll = () => {{
                     if (!toolbar) {{
@@ -11416,6 +11569,781 @@ def _format_question_summary_label(
     if preview:
         return f"{head}: {preview}"
     return head
+
+
+def _case1_selected_question_key(problem_id: Optional[int]) -> str:
+    if problem_id is None:
+        return "case1_selected_question::default"
+    return f"case1_selected_question::{problem_id}"
+
+
+def _ensure_case1_styles() -> None:
+    if st.session_state.get("_case1_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .case1-header {
+                padding: 0.6rem 0 0.4rem;
+            }
+            .case1-header__title {
+                font-size: 1.45rem;
+                font-weight: 700;
+                color: #0f172a;
+                margin-bottom: 0.2rem;
+            }
+            .case1-header__subtitle {
+                font-size: 0.95rem;
+                color: #475569;
+                margin: 0;
+            }
+            .case1-toolbar__status {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0.45rem 0.75rem;
+                border-radius: 999px;
+                background: rgba(34, 197, 94, 0.12);
+                color: #166534;
+                font-weight: 600;
+                margin-top: 0.35rem;
+            }
+            .case1-context-pane,
+            .case1-main-pane {
+                padding: 0.95rem 1.1rem;
+                background: rgba(248, 250, 252, 0.95);
+                border: 1px solid rgba(148, 163, 184, 0.25);
+                border-radius: 18px;
+                box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
+            }
+            .case1-context-pane {
+                min-height: 620px;
+                display: flex;
+                flex-direction: column;
+                gap: 0.6rem;
+            }
+            .case1-context__intro {
+                font-weight: 600;
+                color: #1f2937;
+                margin: 0;
+            }
+            .case1-main-pane {
+                display: flex;
+                flex-direction: column;
+                gap: 0.8rem;
+            }
+            .case1-question-prompt {
+                font-size: 1.05rem;
+                font-weight: 600;
+                color: #0f172a;
+                margin: 0.2rem 0 0.4rem;
+            }
+            .case1-nav-table {
+                margin-top: 0.6rem;
+            }
+            .case1-nav-table .stDataFrame div[data-testid="stDataFrame"] {
+                border-radius: 12px;
+                border: 1px solid rgba(148, 163, 184, 0.25);
+            }
+            .case1-bottom-section {
+                margin-top: 1.6rem;
+                padding: 1.1rem 1.2rem;
+                border-radius: 18px;
+                background: rgba(15, 23, 42, 0.04);
+                border: 1px solid rgba(148, 163, 184, 0.25);
+            }
+            @media (max-width: 1024px) {
+                .case1-context-pane,
+                .case1-main-pane {
+                    padding: 0.85rem 0.9rem;
+                }
+            }
+            @media (max-width: 860px) {
+                .case1-toolbar__status {
+                    width: 100%;
+                    margin-top: 0.75rem;
+                }
+            }
+            .case1-answer-toolbar {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 0.75rem;
+                margin: 0.5rem 0 0.25rem;
+            }
+            .case1-metrics-badge {
+                background: rgba(59, 130, 246, 0.1);
+                border: 1px solid rgba(59, 130, 246, 0.35);
+                border-radius: 12px;
+                padding: 0.45rem 0.75rem;
+                font-size: 0.86rem;
+                color: #1f2937;
+                font-weight: 600;
+            }
+            .case1-progress-caption {
+                font-size: 0.85rem;
+                color: #475569;
+                margin-top: 0.2rem;
+            }
+            .case1-model-points {
+                margin: 0.35rem 0 0;
+                padding-left: 1.1rem;
+                color: #1f2937;
+            }
+            .case1-model-points li {
+                margin-bottom: 0.25rem;
+                line-height: 1.65;
+            }
+            .case1-flashcard-progress {
+                margin: 0.6rem 0;
+            }
+            .case1-flashcard-steps p {
+                margin: 0.25rem 0;
+                color: #334155;
+            }
+            .case1-flashcard-modal {
+                font-family: "Noto Sans JP", "Yu Gothic", sans-serif;
+                background: rgba(15, 23, 42, 0.85);
+                color: #f8fafc;
+                padding: 1.2rem;
+                border-radius: 20px;
+            }
+            .case1-flashcard-modal h3 {
+                margin-top: 0;
+            }
+            .case1-flashcard-modal ul {
+                margin: 0.8rem 0 1rem;
+                padding-left: 1.2rem;
+            }
+            .case1-flashcard-modal button {
+                padding: 0.45rem 1.1rem;
+                border-radius: 999px;
+                border: none;
+                background: rgba(59, 130, 246, 0.9);
+                color: #fff;
+                font-weight: 600;
+                cursor: pointer;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_case1_styles_injected"] = True
+
+
+def _extract_case1_model_points(
+    model_answer: Optional[str], *, limit: int = 3
+) -> List[str]:
+    text = _normalize_text_block(model_answer)
+    if not text:
+        return []
+
+    sentences: List[str] = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        fragments = re.split(r"[。！？?!]\s*", line)
+        for fragment in fragments:
+            cleaned = fragment.strip("・-‐— 　")
+            if not cleaned:
+                continue
+            sentences.append(cleaned)
+            if len(sentences) >= limit:
+                break
+        if len(sentences) >= limit:
+            break
+
+    if not sentences:
+        sentences.append(text[:80].strip())
+
+    return sentences[:limit]
+
+
+def _render_case1_nav_tab(
+    problem: Mapping[str, Any],
+    question_entries: Sequence[Mapping[str, Any]],
+    *,
+    selected_index: int,
+    selected_key: str,
+) -> int:
+    st.markdown("**STEP 1: 設問を選択**")
+    if not question_entries:
+        st.info("設問が登録されていません。設定ページで問題データを更新してください。", icon="ℹ")
+        return 0
+
+    options = list(range(len(question_entries)))
+    labels = [entry.get("stepper") or entry.get("label") or f"設問{idx + 1}" for idx, entry in enumerate(question_entries)]
+    choice = st.radio(
+        "回答する設問を選択",
+        options=options,
+        index=min(max(selected_index, 0), len(options) - 1),
+        format_func=lambda idx: labels[idx] if 0 <= idx < len(labels) else "設問",
+        key=f"{selected_key}::nav",
+    )
+
+    rows: List[Dict[str, object]] = []
+    keyword_store: Mapping[str, Mapping[str, bool]] = st.session_state.get("_case1_keyword_hits", {})
+    problem_id = problem.get("id")
+    for idx, entry in enumerate(question_entries):
+        question = problem.get("questions", [])[idx]
+        try:
+            draft_key = _draft_key(int(problem_id), int(question.get("id")))
+        except (TypeError, ValueError, AttributeError):
+            fallback_id = -(idx + 1)
+            draft_key = _draft_key(int(problem_id or 0), int(fallback_id))
+        text = st.session_state.drafts.get(draft_key, "") if hasattr(st.session_state, "drafts") else ""
+        length_value = _compute_fullwidth_length(text)
+        limit_value = None
+        raw_limit = question.get("character_limit") if isinstance(question, Mapping) else None
+        try:
+            if raw_limit not in (None, ""):
+                limit_value = int(raw_limit)
+        except (TypeError, ValueError):
+            limit_value = None
+        hits = keyword_store.get(draft_key) if isinstance(keyword_store, Mapping) else None
+        matched_count = None
+        total_keywords = None
+        if hits:
+            total_keywords = len(hits)
+            matched_count = sum(1 for value in hits.values() if value)
+        rows.append(
+            {
+                "設問": entry.get("label") or f"設問{idx + 1}",
+                "文字数": _format_fullwidth_length(length_value),
+                "目安": limit_value if limit_value is not None else "-",
+                "要点被覆": f"{matched_count}/{total_keywords}" if matched_count is not None and total_keywords else "-",
+            }
+        )
+
+    if rows:
+        nav_df = pd.DataFrame(rows)
+        st.dataframe(nav_df, hide_index=True, width="stretch")
+
+    return int(choice)
+
+
+def _render_case1_answer_panel(
+    problem: Mapping[str, Any],
+    question: Mapping[str, Any],
+    *,
+    question_index: int,
+) -> Mapping[str, bool]:
+    st.markdown(f"**STEP 2: 設問{question_index + 1} に回答**")
+
+    prompt_text = _normalize_text_block(
+        question.get("prompt") or question.get("設問見出し") or question.get("title")
+    )
+    if prompt_text:
+        st.markdown(f"<p class='case1-question-prompt'>{html.escape(prompt_text)}</p>", unsafe_allow_html=True)
+
+    body_text = _normalize_text_block(
+        _select_first(question, ["設問文", "問題文", "question_text", "body"])
+    )
+    if body_text:
+        st.caption(body_text)
+
+    problem_id = problem.get("id")
+    question_id = question.get("id")
+    try:
+        draft_key = _draft_key(int(problem_id), int(question_id))
+    except (TypeError, ValueError):
+        draft_key = _draft_key(int(problem_id or 0), int(-(question_index + 1)))
+
+    saved_payload = _get_saved_answer_payload(draft_key)
+    if hasattr(st.session_state, "drafts"):
+        st.session_state.drafts.setdefault(draft_key, saved_payload.get("autosave", ""))
+    else:
+        st.session_state.drafts = {draft_key: saved_payload.get("autosave", "")}
+
+    textarea_key = f"case1::{draft_key}"
+    placeholder = "ここに解答を入力してください。キーワードを散りばめ、因果でつなぎましょう。"
+    limit_hint = question.get("character_limit")
+    if limit_hint not in (None, ""):
+        try:
+            limit_hint_int = int(limit_hint)
+        except (TypeError, ValueError):
+            limit_hint_int = None
+        else:
+            placeholder = f"ここに解答を入力してください（目安: {limit_hint_int}字）。重要語を明示し、因果で結びましょう。"
+
+    st.markdown("<p class='practice-autosave-caption'>入力内容は自動保存されます。</p>", unsafe_allow_html=True)
+    text = st.text_area(
+        "回答入力",
+        key=textarea_key,
+        value=st.session_state.drafts.get(draft_key, ""),
+        height=220,
+        label_visibility="collapsed",
+        placeholder=placeholder,
+    )
+    st.session_state.drafts[draft_key] = text
+    _track_question_activity(draft_key, text)
+
+    fullwidth_length = _compute_fullwidth_length(text)
+    limit_value = None
+    try:
+        if limit_hint not in (None, ""):
+            limit_value = int(limit_hint)
+    except (TypeError, ValueError):
+        limit_value = None
+
+    if limit_value:
+        remaining = limit_value - fullwidth_length
+        ratio = max(0.0, min(fullwidth_length / limit_value, 1.0))
+        st.progress(ratio, text=f"文字数 {_format_fullwidth_length(fullwidth_length)} / {limit_value}字")
+        st.caption(
+            f"残り {_format_fullwidth_length(remaining)}字" if remaining >= 0 else f"{_format_fullwidth_length(abs(remaining))}字オーバー"
+        )
+    else:
+        ratio = max(0.0, min(fullwidth_length / 240.0, 1.0))
+        st.progress(ratio, text=f"全角換算 {_format_fullwidth_length(fullwidth_length)}字")
+
+    keywords = _resolve_question_keywords(question)
+    keyword_hits: Mapping[str, bool] = {}
+    if keywords:
+        cleaned_keywords = [keyword for keyword in keywords if keyword]
+        if cleaned_keywords:
+            keyword_hits = scoring.keyword_match_score(text, cleaned_keywords)
+            matched = sum(1 for value in keyword_hits.values() if value)
+            total = len(keyword_hits)
+            coverage_ratio = matched / total if total else 0.0
+            st.progress(coverage_ratio, text=f"要点被覆率 {coverage_ratio * 100:.0f}% ({matched} / {total})")
+            missing = [kw for kw, hit in keyword_hits.items() if not hit]
+            if missing:
+                st.caption("不足キーワード: " + "、".join(missing))
+        else:
+            st.caption("キーワードは未登録です。与件文から重要語を抽出しましょう。")
+    else:
+        st.caption("キーワードは未登録です。設定ページで登録すると進捗バーが活用できます。")
+
+    keyword_store = st.session_state.setdefault("_case1_keyword_hits", {})
+    keyword_store[draft_key] = keyword_hits
+
+    _render_causal_connector_indicator(text)
+    analysis = _render_mece_status_labels(text)
+    with st.expander("MECE/因果スキャナ", expanded=bool(text.strip())):
+        _render_mece_causal_scanner(text, analysis=analysis)
+
+    model_points = _extract_case1_model_points(question.get("model_answer"))
+    if model_points:
+        items = "".join(f"<li>{html.escape(point)}</li>" for point in model_points)
+        st.markdown("**模範解答のポイント（要約）**")
+        st.markdown(f"<ul class='case1-model-points'>{items}</ul>", unsafe_allow_html=True)
+
+    st.divider()
+    _render_intent_cards(question, draft_key, textarea_key)
+    _render_case_frame_shortcuts(problem.get("case_label"), draft_key, textarea_key)
+
+    return keyword_hits
+
+
+def _render_case1_guideline_panel(
+    question: Mapping[str, Any], keyword_hits: Mapping[str, bool]
+) -> None:
+    st.markdown("**STEP 3: 採点ガイドを確認**")
+
+    keywords = _resolve_question_keywords(question)
+    if keywords:
+        st.markdown("**評価キーワード**")
+        matched = [kw for kw in keywords if keyword_hits.get(kw)] if keyword_hits else []
+        missing = [kw for kw in keywords if not keyword_hits.get(kw)] if keyword_hits else keywords
+        if matched:
+            st.success("含まれたキーワード: " + "、".join(matched), icon="✅")
+        if missing:
+            st.warning("不足キーワード: " + "、".join(missing), icon="🔍")
+    else:
+        st.info("評価キーワードが未登録です。", icon="ℹ")
+
+    aim_text = _normalize_text_block(
+        question.get("question_aim")
+        or question.get("設問の狙い")
+        or question.get("狙い")
+    )
+    if aim_text:
+        st.markdown("**設問の狙い**")
+        st.write(aim_text)
+
+    explanation_text = _normalize_text_block(question.get("explanation") or question.get("解説"))
+    if explanation_text:
+        st.markdown("**解説ポイント**")
+        st.write(explanation_text)
+
+    model_answer_text = _normalize_text_block(question.get("model_answer"))
+    if model_answer_text:
+        points = _extract_case1_model_points(model_answer_text)
+        st.markdown("**模範解答の要点**")
+        if points:
+            items = "".join(f"<li>{html.escape(point)}</li>" for point in points)
+            st.markdown(f"<ul class='case1-model-points'>{items}</ul>", unsafe_allow_html=True)
+        with st.expander("模範解答全文を表示", expanded=False):
+            st.write(model_answer_text)
+
+
+def _render_case1_flashcard_modal(
+    problem_id: int, flashcards: Sequence[Mapping[str, Any]], modal_key: str
+) -> None:
+    modal_state = st.session_state.get(modal_key)
+    if not modal_state:
+        return
+
+    card_index = int(modal_state.get("card_index", 0))
+    if card_index < 0 or card_index >= len(flashcards):
+        st.session_state.pop(modal_key, None)
+        return
+
+    card = flashcards[card_index]
+    keywords = card.get("keywords", [])
+    keyword_items = "".join(f"<li>{html.escape(str(keyword))}</li>" for keyword in keywords)
+    prompt_text = html.escape(_normalize_text_block(card.get("prompt")) or "")
+    title_text = html.escape(card.get("title") or "キーワード")
+
+    modal_html = dedent(
+        f"""
+        <div class="case1-flashcard-modal">
+            <h3>{title_text}</h3>
+            <p>{prompt_text}</p>
+            <h4>重要キーワード</h4>
+            <ul>{keyword_items}</ul>
+            <button type="button" id="case1-flashcard-close">閉じる</button>
+        </div>
+        <script>
+        (function() {{
+            const closeButton = document.getElementById('case1-flashcard-close');
+            if (!window.Streamlit) {{
+                window.Streamlit = {{ setComponentValue: () => {{}}, setFrameHeight: () => {{}}, setComponentReady: () => {{}} }};
+            }}
+            if (window.Streamlit.setComponentReady) {{
+                window.Streamlit.setComponentReady();
+            }}
+            if (window.Streamlit.setFrameHeight) {{
+                window.Streamlit.setFrameHeight(document.body.scrollHeight);
+            }}
+            if (closeButton) {{
+                closeButton.addEventListener('click', () => {{
+                    if (window.Streamlit.setComponentValue) {{
+                        window.Streamlit.setComponentValue(JSON.stringify({{
+                            type: 'case1FlashcardModal',
+                            action: 'close'
+                        }}));
+                    }}
+                }});
+            }}
+        }})();
+        </script>
+        """
+    )
+
+    component_value = components.html(modal_html, height=340)
+    payload_raw = _extract_component_value(component_value)
+    if payload_raw:
+        try:
+            payload = json.loads(payload_raw)
+        except json.JSONDecodeError:
+            payload = None
+        if isinstance(payload, dict) and payload.get("type") == "case1FlashcardModal":
+            st.session_state.pop(modal_key, None)
+
+
+def _render_case1_retrieval_flashcards(problem: Mapping[str, Any]) -> None:
+    flashcards: List[Dict[str, Any]] = []
+    for index, question in enumerate(problem.get("questions", [])):
+        keywords = [kw for kw in question.get("keywords", []) if kw]
+        if not keywords:
+            continue
+        flashcards.append(
+            {
+                "title": f"設問{index + 1}: キーワード想起", 
+                "prompt": question.get("prompt", ""),
+                "keywords": keywords,
+            }
+        )
+
+    if not flashcards:
+        st.info("この問題ではキーワードが登録されていないため、リトリーバル・プラクティスを実施できません。", icon="ℹ")
+        return
+
+    st.markdown("### リトリーバル・プラクティス")
+    st.markdown(
+        "<div class='case1-flashcard-steps'>"
+        "<p>① カードを開き、設問の狙いとキーワードを確認します。</p>"
+        "<p>② 閉じた状態で思い出した語句を書き出し、想起力を可視化します。</p>"
+        "<p>③ 次のカードへ進み、進捗バーで定着度を追跡します。</p>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    problem_id = int(problem.get("id") or 0)
+    state = _get_flashcard_state(problem_id, len(flashcards))
+    modal_key = f"case1_flashcard_modal::{problem_id}"
+
+    revealed = bool(state.get("revealed"))
+    progress_ratio = (state.get("index", 0) + (1 if revealed else 0)) / max(len(flashcards), 1)
+    st.progress(progress_ratio, text=f"カード {state.get('index', 0) + 1} / {len(flashcards)}")
+
+    control_cols = st.columns([1, 1, 1])
+    show_clicked = control_cols[0].button("カードを表示", key=f"case1_flashcard_show_{problem_id}")
+    next_clicked = control_cols[1].button("次のカードへ", key=f"case1_flashcard_next_{problem_id}")
+    shuffle_clicked = control_cols[2].button("シャッフル", key=f"case1_flashcard_shuffle_{problem_id}")
+
+    if shuffle_clicked:
+        state = _reset_flashcard_state(problem_id, len(flashcards))
+    else:
+        if show_clicked:
+            state["revealed"] = True
+            current_index = state.get("index", 0)
+            order = state.get("order", list(range(len(flashcards))))
+            target = order[current_index] if order else 0
+            st.session_state[modal_key] = {"card_index": target}
+        if next_clicked:
+            state["index"] = (state.get("index", 0) + 1) % max(len(state.get("order", [])), 1)
+            state["revealed"] = False
+
+    st.session_state.flashcard_states[str(problem_id)] = state
+
+    order = state.get("order", list(range(len(flashcards))))
+    current_position = state.get("index", 0)
+    card_index = order[current_position] if order else 0
+    card = flashcards[card_index]
+
+    guess_key = f"case1_flashcard_guess::{problem_id}::{card_index}"
+    guess_text = st.text_area(
+        "思い出したキーワード", key=guess_key, height=140, placeholder="例: 組織文化\n権限移譲\n評価制度" 
+    )
+
+    evaluation_key = f"case1_flashcard_eval::{problem_id}::{card_index}"
+    evaluation = st.session_state.get(evaluation_key)
+    if state.get("revealed") and guess_text.strip():
+        evaluation = _evaluate_flashcard_guess(problem_id, card_index, card["keywords"], guess_text)
+        st.session_state[evaluation_key] = evaluation
+
+    if evaluation:
+        accuracy = evaluation.get("accuracy", 0.0)
+        st.progress(accuracy, text=f"想起率 {accuracy * 100:.0f}% ({evaluation.get('matched_count', 0)} / {evaluation.get('total_keywords', 0)})")
+        if evaluation.get("matched"):
+            st.success("想起できた語句: " + "、".join(evaluation["matched"]), icon="🧠")
+        if evaluation.get("missed"):
+            st.warning("思い出せなかった語句: " + "、".join(evaluation["missed"]), icon="🔁")
+        if evaluation.get("extras"):
+            st.caption("リストにない入力: " + "、".join(evaluation["extras"]))
+
+    if st.session_state.get(modal_key):
+        _render_case1_flashcard_modal(problem_id, flashcards, modal_key)
+
+
+def _handle_case1_submission(
+    problem: Mapping[str, Any],
+    user: Mapping[str, Any],
+    question_specs: Sequence[QuestionSpec],
+    missing_numbers: Sequence[int],
+) -> None:
+    if missing_numbers:
+        formatted = "、".join(f"設問{num}" for num in missing_numbers)
+        st.error(
+            f"{formatted} のIDが未登録のため、採点結果を保存できません。設定ページからデータを更新して再度お試しください。",
+            icon="⚠️",
+        )
+        return
+
+    submitted_at = datetime.now(timezone.utc)
+    activity_summary = _summarise_question_activity(problem, submitted_at)
+    answers: List[RecordedAnswer] = []
+    problem_id = problem.get("id")
+    for idx, (question, spec) in enumerate(zip(problem.get("questions", []), question_specs)):
+        try:
+            draft_key = _draft_key(int(problem_id), int(question.get("id")))
+        except (TypeError, ValueError, AttributeError):
+            draft_key = _draft_key(int(problem_id or 0), int(-(idx + 1)))
+        text = st.session_state.drafts.get(draft_key, "")
+        result = scoring.score_answer(text, spec)
+        answers.append(
+            RecordedAnswer(
+                question_id=question.get("id"),
+                answer_text=text,
+                score=result.score,
+                feedback=result.feedback,
+                keyword_hits=result.keyword_hits,
+                axis_breakdown=result.axis_breakdown,
+                activity=activity_summary.get(question.get("id")),
+            )
+        )
+
+    started_at = st.session_state.practice_started or submitted_at
+    duration = int((submitted_at - started_at).total_seconds())
+    total_score = sum(answer.score for answer in answers)
+    total_max = sum(question.get("max_score") for question in problem.get("questions", []))
+    score_ratio = (total_score / total_max) if total_max else 0.0
+
+    attempt_id = database.record_attempt(
+        user_id=user.get("id"),
+        problem_id=problem_id,
+        mode="practice",
+        answers=answers,
+        started_at=started_at,
+        submitted_at=submitted_at,
+        duration_seconds=duration,
+    )
+    database.update_spaced_review(
+        user_id=user.get("id"),
+        problem_id=problem_id,
+        score_ratio=score_ratio,
+        reviewed_at=submitted_at,
+    )
+    st.session_state.practice_started = None
+    st.session_state.question_activity = {}
+
+    st.success("採点が完了しました。結果を確認してください。")
+    render_attempt_results(attempt_id)
+
+
+def _render_case1_workspace(
+    problem: Mapping[str, Any],
+    user: Mapping[str, Any],
+    *,
+    problem_context: Optional[str],
+) -> None:
+    _ensure_case1_styles()
+
+    question_entries: List[Dict[str, Any]] = []
+    for idx, q in enumerate(problem.get("questions", []), start=1):
+        raw_prompt = _normalize_text_block(q.get("prompt") or q.get("設問見出し") or "")
+        preview_text = _format_preview_text(raw_prompt, 28) if raw_prompt else "概要未登録"
+        question_entries.append(
+            {
+                "label": f"設問{idx}",
+                "title": raw_prompt or f"設問{idx}",
+                "preview": preview_text,
+                "stepper": f"設問{idx}：{preview_text}" if preview_text else f"設問{idx}",
+            }
+        )
+
+    if not question_entries:
+        st.warning("設問が登録されていません。設定ページで問題データを更新してください。", icon="⚠️")
+        return
+
+    question_specs: List[QuestionSpec] = [
+        QuestionSpec(
+            id=q.get("id"),
+            prompt=q.get("prompt"),
+            max_score=q.get("max_score"),
+            model_answer=q.get("model_answer"),
+            keywords=q.get("keywords"),
+        )
+        for q in problem.get("questions", [])
+    ]
+
+    missing_numbers = [
+        idx
+        for idx, q in enumerate(problem.get("questions", []), start=1)
+        if q.get("id") is None
+    ]
+
+    selected_key = _case1_selected_question_key(problem.get("id"))
+    if selected_key not in st.session_state or st.session_state[selected_key] >= len(question_entries):
+        st.session_state[selected_key] = 0
+
+    if not st.session_state.practice_started:
+        st.session_state.practice_started = datetime.now(timezone.utc)
+
+    title = problem.get("title") or problem.get("name") or "過去問演習"
+    st.markdown(
+        f"<div class='case1-header'><div class='case1-header__title'>{html.escape(str(title))}</div>"
+        "<p class='case1-header__subtitle'>与件文・回答・採点ガイドを1画面で操作できます。</p></div>",
+        unsafe_allow_html=True,
+    )
+
+    toolbar_cols = st.columns([0.6, 0.2, 0.2])
+    with toolbar_cols[0]:
+        _render_practice_timer(problem.get("id"), confirm_on_start=True)
+    with toolbar_cols[1]:
+        st.markdown("<div class='case1-toolbar__status'>保存: 自動保存中</div>", unsafe_allow_html=True)
+    with toolbar_cols[2]:
+        if st.button("設定", key=f"case1-settings-{problem.get('id')}"):
+            _request_navigation("設定")
+
+    context_col, main_col = st.columns([0.46, 0.54], gap="large")
+
+    with context_col:
+        st.markdown("<div class='case1-context-pane'>", unsafe_allow_html=True)
+        if problem_context:
+            st.markdown("<p class='case1-context__intro'>与件文とハイライトツール</p>", unsafe_allow_html=True)
+            problem_identifier = problem.get("id") or problem.get("title") or "default"
+            search_key = f"case1-search-{problem_identifier}"
+            search_query = st.text_input(
+                "与件文内検索",
+                key=search_key,
+                placeholder="キーワードを入力",
+                help="キーワードを入力すると該当箇所がハイライトされます。",
+            )
+            match_count, highlight_snapshot = _render_problem_context_block(
+                problem_context,
+                search_query,
+                snapshot_key=str(problem_identifier),
+                auto_palette=True,
+                auto_save=True,
+                compact_controls=True,
+            )
+            if highlight_snapshot:
+                highlight_store = st.session_state.setdefault("context_highlights", {})
+                highlight_store[str(problem_identifier)] = highlight_snapshot
+            normalized_query = (search_query or "").strip()
+            if normalized_query:
+                if match_count:
+                    st.caption(f"該当箇所: {match_count}件")
+                else:
+                    st.caption("該当箇所は見つかりませんでした。")
+            else:
+                st.caption("ハイライトは選択と同時に自動保存されます。")
+        else:
+            st.info("与件文が未登録のため、ハイライトツールを利用できません。設定ページで与件文を追加してください。", icon="ℹ")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with main_col:
+        st.markdown("<div class='case1-main-pane'>", unsafe_allow_html=True)
+        selected_index = st.session_state[selected_key]
+        tabs = st.tabs(["設問リスト", "回答", "採点ガイド"])
+        with tabs[0]:
+            new_index = _render_case1_nav_tab(
+                problem,
+                question_entries,
+                selected_index=selected_index,
+                selected_key=selected_key,
+            )
+        if new_index != selected_index:
+            st.session_state[selected_key] = new_index
+        selected_index = st.session_state[selected_key]
+        question = problem.get("questions", [])[selected_index]
+        with tabs[1]:
+            keyword_hits = _render_case1_answer_panel(
+                problem,
+                question,
+                question_index=selected_index,
+            )
+        with tabs[2]:
+            _render_case1_guideline_panel(question, keyword_hits)
+
+        st.divider()
+        if missing_numbers:
+            formatted_numbers = "、".join(f"設問{num}" for num in missing_numbers)
+            st.warning(
+                f"{formatted_numbers} のIDが未登録のため、採点結果を保存できません。設定ページでデータを更新してください。",
+                icon="⚠️",
+            )
+
+        submit = st.button(
+            "AI採点に送信",
+            type="primary",
+            key=f"case1-submit-{problem.get('id')}",
+            use_container_width=True,
+        )
+        if submit:
+            _handle_case1_submission(problem, user, question_specs, missing_numbers)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("<div class='case1-bottom-section'>", unsafe_allow_html=True)
+    _render_case1_retrieval_flashcards(problem)
+    st.markdown("</div>", unsafe_allow_html=True)
 def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。与件ハイライトと詳細解説で復習効果を高めましょう。")
@@ -11983,8 +12911,12 @@ def practice_page(user: Dict) -> None:
         st.subheader(problem["title"])
     st.write(problem["overview"])
 
-    layout_container = st.container()
     problem_context = _collect_problem_context_text(problem)
+    if problem.get("case_label") == "事例I":
+        _render_case1_workspace(problem, user, problem_context=problem_context)
+        return
+
+    layout_container = st.container()
     if problem_context:
         _inject_context_column_styles()
         st.markdown(
