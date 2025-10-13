@@ -227,109 +227,82 @@ CASE_FRAME_SHORTCUTS = {
     "事例I": [
         {
             "label": "7S",
-            "snippet": "【7S視点】戦略: 市場・競争環境に適応した方向性を明示する。組織: 階層・権限と部門間連携を再設計する。制度: 評価・報酬とガバナンスを整える。人材: 採用・配置・育成で人材力を底上げする。スキル: 技術・暗黙知を体系化し共有する。スタイル: 風土・リーダーシップを協働型へ変革する。共有価値: 経営理念と強みを浸透させ一体感を醸成する。",
-            "description": "ハード・ソフト両面から組織変革の要素を網羅して整理。",
+            "snippet": "【7S視点】戦略: 市場・競争環境に適応した方向性を示す。組織: 権限配置と部門連携を再設計する。制度: 評価・報酬・ガバナンスを整える。人材: 採用・配置・育成で人材力を底上げする。スキル: 技術・暗黙知を体系化し共有する。スタイル: 風土とリーダーシップを協働型へ転換する。共有価値: 理念と強みを浸透させ一体感を醸成する。",
+            "description": "ハード・ソフト両面から組織変革を網羅する基本枠組み。",
         },
         {
             "label": "VRIO",
-            "snippet": "【VRIO分析】Value: 顧客価値を高める資源か。Rarity: 他社が保有しない希少性があるか。Imitability: 模倣困難な仕組み・知見か。Organization: 活かす仕組み・人材配置が整っているか。→ 強みを活用し弱点を補完する戦略を提示する。",
-            "description": "自社資源の競争優位性と活用方策を整理する枠組み。",
+            "snippet": "【VRIO分析】Value: 顧客価値を高める資源か。Rarity: 他社にない希少性があるか。Imitability: 模倣困難な仕組み・知見か。Organization: 活かす仕組みと人材配置が整っているか。→ 強みの活用と弱点補完の施策を導く。",
+            "description": "自社資源の競争優位性と活用方針を整理する。",
         },
         {
-            "label": "人事制度4機能",
-            "snippet": "【人事制度4機能】採用: 求める人材像とチャネルを明確化する。育成: OJT・研修・キャリアパスで能力向上を支援する。評価: 目標管理と多面評価で納得性を高める。報酬: 賃金・処遇・インセンティブで定着と挑戦を促す。",
-            "description": "採用・育成・評価・報酬の連携で人材マネジメントを構築。",
+            "label": "人事4機能",
+            "snippet": "【人事4機能】採用: 求める人材像とチャネルを明確化。配置: 適所適材で強みを活かす。育成: OJT・研修・キャリアで能力向上を支援。評価・報酬: 目標管理と承認で納得性を高め定着を促す。",
+            "description": "採用・配置・育成・評価報酬を連動させる視点。",
         },
         {
             "label": "モチベーション理論",
-            "snippet": "【モチベーション理論】衛生要因を整備し不満を除去する上で、動機づけ要因（成長機会・承認・やりがい）を強化する。期待理論では目標の明確化・達成手段の提示・成果と報酬の連動を設計する。",
-            "description": "職務充実と評価・報酬の連動でやる気を引き出す観点。",
+            "snippet": "【モチベーション理論】衛生要因を整備し不満を除去した上で、動機づけ要因（成長機会・承認・裁量）を強化する。期待理論では目標明確化・達成手段の提示・成果と報酬連動を設計する。",
+            "description": "職務充実と評価・報酬の連動で意欲を高める。",
         },
     ],
     "事例II": [
         {
-            "label": "3C",
-            "snippet": "【3C分析】Customer: ターゲット顧客のニーズ・購買行動を把握する。Competitor: 競合の強み・弱みを把握し差別化要因を特定する。Company: 自社の資源・強みを活かし価値提案を磨き上げる。→ 提供価値と打ち手を整合させる。",
-            "description": "顧客・競合・自社の観点からマーケ課題を整理。",
-        },
-        {
-            "label": "STP",
-            "snippet": "【STP】Segmentation: 市場をニーズ・行動で細分化。Targeting: 重点ターゲット層を明確化。Positioning: 競合比較で優位な価値訴求を設計。→ 一貫したメッセージとチャネル施策を構築する。",
-            "description": "セグメント戦略と提供価値の設計に活用。",
-        },
-        {
-            "label": "4P/4C",
-            "snippet": "【4P/4C】Product/Customer Value: 顧客価値を高める商品・サービスを設計。Price/Cost: 価値に見合う価格と負担感を調整。Place/Convenience: チャネルと購買導線を最適化。Promotion/Communication: デジタル・リアルで一貫した情報発信を行う。",
-            "description": "企業視点と顧客視点の両面でマーケティング施策を整理。",
+            "label": "3C/4P/4C",
+            "snippet": "【3C/4P/4C】Customer/Customer Value: ターゲットのニーズ・価値期待を把握する。Competitor/Competition: 競合の強み・チャネル・価格を比較し差別化要素を決める。Company/Product: 自社資源を活かした提供価値・品揃えを整える。Price/Cost: 価値に見合う価格と負担感を設計。Place/Convenience: チャネル導線と利便性を最適化。Promotion/Communication: デジタルとリアルを統合し想起を高める。",
+            "description": "顧客・競合・自社の分析から4P/4C施策へ落とし込む。",
         },
         {
             "label": "顧客価値",
-            "snippet": "【顧客価値向上】機能価値: 品質・品揃え・利便性を高める。情緒価値: ストーリー・体験・共感を演出する。経済価値: コスト削減やお得感を訴求する。社会価値: 地域貢献・サステナビリティを示す。",
+            "snippet": "【顧客価値向上】機能価値: 品質・利便性を高める。情緒価値: 体験・ブランドストーリーで共感を喚起。経済価値: コスト削減やお得感を訴求。社会価値: 地域貢献・サステナビリティで信頼を獲得。",
             "description": "多面的な価値提供でロイヤルティを高める視点。",
         },
         {
-            "label": "チャネル戦略",
-            "snippet": "【チャネル戦略】自社ECと店舗・卸の役割を再定義し、OMOで顧客接点を統合する。パートナー連携で新規販路を獲得し、在庫・配送データを共有してサービスレベルを高める。",
-            "description": "複数チャネルの役割分担と連携施策を設計。",
+            "label": "AIDMA/SIPS",
+            "snippet": "【AIDMA/SIPS】AIDMA: Attention→Interest→Desire→Memory→Actionで購買導線を設計。SIPS: Sympathize→Identify→Participate→Shareで共感と共有を促す。オンラインとオフラインを組み合わせ顧客体験を設計する。",
+            "description": "購買プロセスと共感拡散の両面から施策を構築。",
         },
     ],
     "事例III": [
         {
             "label": "QCD",
-            "snippet": "【QCD改善】Quality: 不良要因の特定と標準作業・教育で再発防止。Cost: 段取り短縮や歩留まり向上で原価を圧縮。Delivery: 生産計画とリードタイム短縮で納期遵守を実現。→ サイクルを回し現場力を高める。",
+            "snippet": "【QCD改善】Quality: 不良要因の特定と標準化・教育で再発防止。Cost: 段取り短縮や歩留まり向上で原価圧縮。Delivery: 生産計画とリードタイム短縮で納期遵守。→ 改善サイクルを回し現場力を底上げする。",
             "description": "品質・コスト・納期の三要素で課題と施策を整理。",
         },
         {
             "label": "4M/5M",
-            "snippet": "【4M分析】Man: 人員・技能・教育体制。Machine: 設備稼働・保全。Material: 資材・在庫・調達。Method: 手順・標準化・段取り。必要に応じてMeasurementを加え計測・管理面も確認する。",
-            "description": "要因を網羅しボトルネックを抽出する工程視点。",
+            "snippet": "【4M/5M】Man: 人員・技能・教育体制。Machine: 設備稼働・保全。Material: 資材・在庫・調達。Method: 手順・標準化・段取り。必要に応じMeasurementを加えて管理指標を確認。",
+            "description": "工程要因を網羅しボトルネックを抽出する。",
         },
         {
             "label": "IE/ECRS",
-            "snippet": "【IE/ECRS】Eliminate: ムダ工程の排除。Combine: 工程統合・セル化。Rearrange: 動線・配置の最適化。Simplify: 手順を簡素化。標準時間算出と見える化で改善を定着させる。",
-            "description": "工程分析から改善手順を導く定番フレーム。",
+            "snippet": "【IE/ECRS】Eliminate: ムダ工程を排除。Combine: 工程統合・セル化。Rearrange: 動線・配置を最適化。Simplify: 手順を簡素化。データ計測と見える化で改善を定着させる。",
+            "description": "工程分析から改善施策を導く定番フレーム。",
         },
         {
             "label": "5S",
-            "snippet": "【5S】整理: 要不要を判別。整頓: 置き場と表示を整える。清掃: 異常の早期発見。清潔: ルール化・点検。しつけ: 習慣化と教育。→ 安全・品質・生産性を底上げする職場づくり。",
-            "description": "現場の土台を整える基本施策を提示。",
-        },
-        {
-            "label": "ボトルネック分析",
-            "snippet": "【ボトルネック分析】タクトタイムと工程能力を比較し制約工程を特定する。人・機械・材料・方法の制約要因を洗い出し、負荷平準化・外段取り化・多能工化でスループットを高める。",
-            "description": "制約工程に焦点を当てた改善アプローチ。",
+            "snippet": "【5S】整理: 要不要を判別。整頓: 置き場と表示を整える。清掃: 異常を早期発見。清潔: ルール化・点検で維持。しつけ: 習慣化と教育で定着。→ 安全・品質・生産性を高める職場づくり。",
+            "description": "現場改善の土台となる基本施策。",
         },
     ],
     "事例IV": [
         {
             "label": "財務比率",
-            "snippet": "【財務比率】安全性: 流動比率・当座比率で短期支払能力を確認。効率性: 売上債権・棚卸資産・固定資産回転率で資産効率を測定。収益性: 売上高利益率・ROA・ROEで収益力を評価。",
-            "description": "主要な財務指標の切り口で課題と改善策を整理。",
+            "snippet": "【財務比率】安全性: 流動比率・当座比率で短期支払能力を確認。効率性: 売上債権・棚卸資産・固定資産回転率で資産効率を測定。収益性: 売上高利益率・ROA・ROEで収益力を評価し改善策へつなげる。",
+            "description": "主要指標の診断から改善提案まで整理できる。",
         },
         {
-            "label": "CVP分析",
-            "snippet": "【CVP】売上 = 単価×数量、変動費と固定費を分解し損益分岐点を算出。限界利益率向上策（価格改定・付加価値化・原価低減）と数量拡大策を提案する。",
-            "description": "損益構造を可視化し利益改善策を導出。",
+            "label": "CVP/NPV",
+            "snippet": "【CVP/NPV】限界利益率と固定費で損益分岐点・安全余裕率を算出し、価格・数量・原価の打ち手を示す。投資案はキャッシュフローを見積もりNPVで採算性を評価、前提と感度を併せて提示する。",
+            "description": "損益構造と投資採算を同時に整理する枠組み。",
         },
         {
-            "label": "NPV/IRR",
-            "snippet": "【投資評価】初期投資額・キャッシュフローを設定しNPVやIRRで投資採算性を判断する。リスクと資本コストを踏まえ感度分析や回収期間も示す。",
-            "description": "投資意思決定の妥当性を示す評価フレーム。",
-        },
-        {
-            "label": "資金繰り",
-            "snippet": "【資金繰り改善】資金繰り表で入出金のタイミングを可視化。運転資金回転期間の短縮、在庫圧縮、支払条件交渉、短期借入の計画的活用で資金余力を確保する。",
-            "description": "キャッシュフロー安定化に向けた施策整理。",
-        },
-        {
-            "label": "管理会計",
-            "snippet": "【管理会計】部門別採算・製品別利益を把握し、ABCや原価企画でコスト構造を改善。KPI・損益分岐点・予算統制を整備しPDCAを回す。",
-            "description": "意思決定と業績管理を支える仕組み構築を提案。",
+            "label": "IRR・投資評価",
+            "snippet": "【IRR・投資評価】内部収益率(IRR)を資本コストと比較し投資の妥当性を判断。回収期間や感度分析でリスクを補足し、キャッシュフロー改善策と合わせて提案する。",
+            "description": "投資意思決定を数値根拠付きで説明する。",
         },
     ],
 }
-
-
 CASE_CAUSAL_TEMPLATES = {
     "事例I": [
         {
@@ -5198,57 +5171,62 @@ def _render_intent_cards(
 def _render_case_frame_shortcuts(
     case_label: Optional[str], draft_key: str, textarea_state_key: str
 ) -> None:
-    if not case_label:
+    available_cases = [label for label in ("事例I", "事例II", "事例III", "事例IV") if CASE_FRAME_SHORTCUTS.get(label)]
+    if not available_cases:
         return
 
-    frames = CASE_FRAME_SHORTCUTS.get(case_label)
-    if not frames:
-        return
+    if case_label and case_label in available_cases:
+        ordered_cases = [case_label] + [label for label in available_cases if label != case_label]
+    else:
+        ordered_cases = available_cases
 
-    st.markdown("<div class='case1-frame-library'>", unsafe_allow_html=True)
-    icon = CASE_ICON_MAP.get(case_label, "")
-    title = f"{icon} {case_label}".strip() if icon else case_label
     st.markdown(
-        f"<p class='case1-frame-title'>{html.escape(title)} フレームテンプレート</p>",
+        "<div class='mock-right-panel-spacer'></div>",
         unsafe_allow_html=True,
     )
-    st.caption("ドロップダウンからフレームを選択し、定型句をワンクリックで答案に挿入できます。")
 
-    select_key = f"case-frame-select::{draft_key}"
-    option_indices = list(range(len(frames)))
-    default_index = st.session_state.get(select_key, 0)
-    selected_index = st.selectbox(
-        "フレームテンプレートを選択",
-        option_indices,
-        index=min(default_index, len(option_indices) - 1),
-        format_func=lambda idx: frames[idx].get("label") or f"フレーム{idx + 1}",
-        key=select_key,
-    )
+    tabs = st.tabs(ordered_cases)
+    for tab, label in zip(tabs, ordered_cases):
+        frames = CASE_FRAME_SHORTCUTS.get(label, [])
+        icon = CASE_ICON_MAP.get(label, "")
+        heading = f"{icon} {label}".strip()
+        with tab:
+            st.markdown(f"#### {heading} 頻出フレーム", unsafe_allow_html=False)
+            if not frames:
+                st.info("登録されているフレームがありません。")
+                continue
+            if label == case_label:
+                st.caption("事例別に定番の切り口をカード形式でまとめました。クリックで挿入できます。")
+            else:
+                st.caption(f"{label} の代表的なフレーム集です。参考として活用してください。")
 
-    frame = frames[selected_index]
-    description = frame.get("description")
-    if description:
-        st.markdown(
-            f"<p class='case1-frame-desc'>{html.escape(description)}</p>",
-            unsafe_allow_html=True,
-        )
-
-    snippet = frame.get("snippet") or ""
-    st.markdown(
-        f"<div class='case1-frame-snippet'>{html.escape(snippet)}</div>",
-        unsafe_allow_html=True,
-    )
-    if st.button(
-        "このテンプレートを挿入",
-        key=f"case-frame-insert::{draft_key}::{selected_index}",
-        use_container_width=True,
-    ):
-        _insert_template_snippet(draft_key, textarea_state_key, snippet)
-        st.session_state["_case_frame_notice"] = {
-            "draft_key": draft_key,
-            "label": frame.get("label"),
-        }
-    st.markdown("</div>", unsafe_allow_html=True)
+            for index, frame in enumerate(frames):
+                snippet = frame.get("snippet") or ""
+                description = frame.get("description") or ""
+                card_html = dedent(
+                    """
+                    <div class='mock-frame-card'>
+                        <h5>{title}</h5>
+                        <p>{description}</p>
+                        <pre>{snippet}</pre>
+                    </div>
+                    """
+                ).format(
+                    title=html.escape(frame.get("label") or f"フレーム{index + 1}"),
+                    description=html.escape(description),
+                    snippet=html.escape(snippet),
+                )
+                st.markdown(card_html, unsafe_allow_html=True)
+                if st.button(
+                    "このテンプレートを挿入",
+                    key=f"case-frame-insert::{draft_key}::{label}::{index}",
+                    use_container_width=True,
+                ):
+                    _insert_template_snippet(draft_key, textarea_state_key, snippet)
+                    st.session_state["_case_frame_notice"] = {
+                        "draft_key": draft_key,
+                        "label": frame.get("label"),
+                    }
 
 
 def _format_amount(value: Optional[float]) -> str:
@@ -8692,20 +8670,195 @@ def _render_character_meter(current: float, limit: Optional[int]) -> None:
     meter_html.append("</div></div>")
     st.markdown("".join(meter_html), unsafe_allow_html=True)
 
-    formatted_current = _format_fullwidth_length(current)
-    if limit:
-        caption_left = f"全角換算 {formatted_current}字"
-        remaining = limit - current
-        if remaining >= 0:
-            caption_right = f"残り {_format_fullwidth_length(remaining)}字"
-        else:
-            caption_right = f"{_format_fullwidth_length(abs(remaining))}字オーバー"
-    else:
-        caption_left = f"全角換算 {formatted_current}字"
-        caption_right = "100字=2〜3文が目安"
+
+def _ensure_answer_quality_meter_styles() -> None:
+    if st.session_state.get("_answer_quality_meter_styles"):
+        return
     st.markdown(
-        f'<div class="char-meter-caption"><span>{caption_left}</span><span title="100字は2〜3文が目安です。">{caption_right}</span></div>',
+        dedent(
+            """
+            <style>
+            .answer-quality-meter {
+                position: relative;
+                width: 100%;
+                height: 1rem;
+                border-radius: 999px;
+                background: rgba(226, 232, 240, 0.9);
+                overflow: hidden;
+                margin: 0.35rem 0 0.25rem;
+                box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
+            }
+            .answer-quality-meter__char {
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                background: linear-gradient(90deg, #38bdf8 0%, #2563eb 100%);
+                border-radius: inherit;
+                transition: width 0.3s ease;
+            }
+            .answer-quality-meter__keyword {
+                position: absolute;
+                left: 0;
+                height: 40%;
+                top: 30%;
+                border-radius: 999px;
+                background: rgba(14, 165, 233, 0.85);
+                transition: width 0.3s ease;
+            }
+            .answer-quality-meter[data-coverage="warn"] .answer-quality-meter__keyword {
+                background: rgba(250, 204, 21, 0.9);
+            }
+            .answer-quality-meter[data-coverage="empty"] .answer-quality-meter__keyword {
+                display: none;
+            }
+            .answer-quality-meter[data-state="over"] .answer-quality-meter__char {
+                background: linear-gradient(90deg, #ef4444 0%, #f97316 100%);
+            }
+            .answer-quality-meter[data-state="warn"] .answer-quality-meter__char {
+                background: linear-gradient(90deg, #f59e0b 0%, #f97316 100%);
+            }
+            .answer-quality-meter__labels {
+                display: flex;
+                justify-content: space-between;
+                font-size: 0.78rem;
+                color: #334155;
+                margin-bottom: 0.2rem;
+            }
+            .answer-quality-meter__labels span {
+                font-weight: 600;
+            }
+            </style>
+            """
+        ),
         unsafe_allow_html=True,
+    )
+    st.session_state["_answer_quality_meter_styles"] = True
+
+
+def _render_answer_quality_meter(
+    text: str,
+    limit: Optional[int],
+    keyword_hits: Mapping[str, bool],
+    *,
+    keywords_registered: int,
+) -> None:
+    _ensure_answer_quality_meter_styles()
+    fullwidth_length = _compute_fullwidth_length(text)
+    char_ratio = 0.0
+    remaining_text = f"現在 {_format_fullwidth_length(fullwidth_length)}字"
+    remaining_state = "ok"
+
+    if limit and limit > 0:
+        char_ratio = min(fullwidth_length / limit, 1.0)
+        remaining = limit - fullwidth_length
+        if remaining < 0:
+            remaining_state = "over"
+            remaining_text = f"{_format_fullwidth_length(abs(remaining))}字オーバー"
+        elif remaining <= 20:
+            remaining_state = "warn"
+            remaining_text = f"残り {_format_fullwidth_length(max(remaining, 0))}字"
+        else:
+            remaining_text = f"残り {_format_fullwidth_length(remaining)}字"
+    else:
+        baseline = max(fullwidth_length, 160)
+        char_ratio = min(fullwidth_length / baseline, 1.0)
+        remaining_state = "ok"
+
+    total_keywords = keywords_registered or len(keyword_hits)
+    matched_keywords = sum(1 for hit in keyword_hits.values() if hit)
+    coverage_ratio = (
+        matched_keywords / total_keywords if total_keywords else 0.0
+    )
+    coverage_width = min(max(coverage_ratio, 0.0), 1.0) * 100
+    coverage_state = "empty"
+    coverage_label = "要点カバー率 -"
+    if total_keywords:
+        coverage_label = (
+            f"要点カバー率 {coverage_ratio * 100:.0f}% ({matched_keywords}/{total_keywords})"
+        )
+        if coverage_ratio >= 0.7:
+            coverage_state = "ok"
+        elif coverage_ratio > 0.0:
+            coverage_state = "warn"
+        else:
+            coverage_state = "empty"
+
+    meter_html = dedent(
+        """
+        <div class='answer-quality-meter' data-state='{state}' data-coverage='{coverage_state}'>
+            <div class='answer-quality-meter__char' style='width: {char_width:.1f}%;'></div>
+            <div class='answer-quality-meter__keyword' style='width: {keyword_width:.1f}%;'></div>
+        </div>
+        <div class='answer-quality-meter__labels'>
+            <span>{char_label}</span>
+            <span>{coverage_label}</span>
+        </div>
+        """
+    ).format(
+        state=remaining_state,
+        coverage_state=coverage_state,
+        char_width=min(char_ratio * 100, 100),
+        keyword_width=coverage_width,
+        char_label=html.escape(remaining_text),
+        coverage_label=html.escape(coverage_label),
+    )
+    st.markdown(meter_html, unsafe_allow_html=True)
+
+    if limit and limit > 0:
+        st.caption(
+            f"現在の文字数: {_format_fullwidth_length(fullwidth_length)} / {limit}字"
+        )
+        if fullwidth_length > limit:
+            st.error("文字数が上限を超えています。要点を絞って調整しましょう。")
+        elif fullwidth_length >= 120 and limit > 120:
+            st.warning("120字を超えると冗長になりやすいので、主語と因果を整理しましょう。")
+    else:
+        st.caption(
+            f"現在の文字数: {_format_fullwidth_length(fullwidth_length)}字"
+        )
+
+
+def _render_keyword_analysis_panel(keyword_hits: Mapping[str, bool]) -> None:
+    if not keyword_hits:
+        st.caption("まだ要点カバー率を算出できません。キーワードを入力してみましょう。")
+        return
+
+    matched = sum(1 for hit in keyword_hits.values() if hit)
+    total = len(keyword_hits)
+    missed_keywords = [kw for kw, hit in keyword_hits.items() if not hit]
+
+    summary = _summarize_keyword_categories(keyword_hits)
+    categories = [
+        (label, summary.get(label, {"hit": 0, "miss": 0}))
+        for label in ("名詞", "述語", "その他")
+    ]
+    available_categories = [
+        (label, counts)
+        for label, counts in categories
+        if (counts.get("hit", 0) + counts.get("miss", 0)) > 0
+    ]
+    if available_categories:
+        cols = st.columns(len(available_categories))
+        for column, (label, counts) in zip(cols, available_categories):
+            total_count = counts["hit"] + counts["miss"]
+            coverage_pct = (
+                counts["hit"] / total_count * 100 if total_count else 0.0
+            )
+            column.metric(
+                label,
+                f"{counts['hit']}/{total_count}",
+                delta=f"{coverage_pct:.0f}%",
+            )
+
+    if missed_keywords:
+        st.markdown("**未カバーキーワード**")
+        st.write("、".join(missed_keywords))
+    else:
+        st.success("登録済みのキーワードをすべて押さえています。", icon="✅")
+
+    st.caption(
+        f"要点カバー率: {matched}/{total} キーワード"
     )
 
 
@@ -9304,7 +9457,6 @@ def _render_keyword_coverage_meter(text: str, keywords: Iterable[str]) -> Mappin
     if not cleaned:
         return {}
     hits = scoring.keyword_match_score(text, cleaned)
-    _render_keyword_coverage_from_hits(hits)
     return hits
 
 
@@ -9781,6 +9933,25 @@ def _summarise_question_activity(problem: Mapping[str, Any], submitted_at: datet
     return summary
 
 
+def _question_anchor_id(
+    question: Mapping[str, Any], *, question_index: Optional[int] = None
+) -> Optional[str]:
+    anchor_source = (
+        question_index
+        if question_index is not None
+        else question.get("order")
+        or question.get("設問番号")
+        or question.get("prompt")
+        or question.get("id")
+    )
+    if anchor_source is None:
+        return None
+    anchor_slug = re.sub(r"[^0-9a-zA-Z]+", "-", str(anchor_source)).strip("-")
+    if not anchor_slug:
+        anchor_slug = str(question.get("id") or "question")
+    return f"question-q{anchor_slug}"
+
+
 def _question_input(
     problem_id: int,
     question: Dict,
@@ -9807,19 +9978,7 @@ def _question_input(
             st.session_state.pop("_pending_textarea_updates", None)
 
     if not anchor_id:
-        anchor_source = (
-            question_index
-            if question_index is not None
-            else question.get("order")
-            or question.get("設問番号")
-            or question.get("prompt")
-            or question.get("id")
-        )
-        if anchor_source is not None:
-            anchor_slug = re.sub(r"[^0-9a-zA-Z]+", "-", str(anchor_source)).strip("-")
-            if not anchor_slug:
-                anchor_slug = str(question.get("id"))
-            anchor_id = f"question-q{anchor_slug}"
+        anchor_id = _question_anchor_id(question, question_index=question_index)
     if anchor_id:
         st.markdown(
             f"<div id=\"{html.escape(anchor_id)}\" class=\"practice-question-anchor\" aria-hidden=\"true\"></div>",
@@ -9900,15 +10059,45 @@ def _question_input(
         placeholder=placeholder_hint,
         disabled=disabled,
     )
-    _render_character_counter(text, question.get("character_limit"))
     st.markdown("</div>", unsafe_allow_html=True)
     _track_question_activity(key, text)
-    keywords = _resolve_question_keywords(question)
+    limit_value: Optional[int] = None
+    raw_limit = question.get("character_limit")
+    if raw_limit:
+        try:
+            limit_value = int(raw_limit)
+        except (TypeError, ValueError):
+            limit_value = None
+
+    keywords = [kw for kw in _resolve_question_keywords(question) if str(kw).strip()]
     keyword_hits: Mapping[str, bool] = {}
     if keywords:
         keyword_hits = _render_keyword_coverage_meter(text, keywords)
-    else:
+
+    _render_answer_quality_meter(
+        text,
+        limit_value,
+        keyword_hits,
+        keywords_registered=len(keywords),
+    )
+
+    analysis_toggle_key = f"mock_keyword_analysis::{key}"
+    analysis_visible = st.session_state.get(analysis_toggle_key, False)
+    toggle_label = "語句分析を閉じる" if analysis_visible else "語句分析を開く"
+    if st.button(toggle_label, key=f"{analysis_toggle_key}::button"):
+        st.session_state[analysis_toggle_key] = not analysis_visible
+        analysis_visible = not analysis_visible
+
+    if analysis_visible:
+        if keyword_hits:
+            _render_keyword_analysis_panel(keyword_hits)
+        elif keywords:
+            st.caption("入力するとキーワードのヒット状況が表示されます。")
+        else:
+            st.caption("キーワードが未登録の設問です。必要な要点を自分で整理しましょう。")
+    elif not keywords:
         st.caption("キーワードはまだ登録されていません。与件から重要語を抜き出しましょう。")
+
     connector_stats = _render_causal_connector_indicator(text)
     analysis = _render_mece_status_labels(text)
     with st.expander("MECE/因果スキャナ", expanded=bool(text.strip())):
@@ -16806,6 +16995,456 @@ def _render_case_bundle_feedback(evaluation: scoring.BundleEvaluation) -> None:
             st.markdown(f"- {recommendation}")
 
 
+def _ensure_mock_exam_layout_styles() -> None:
+    if st.session_state.get("_mock_exam_layout_styles"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .mock-header-anchor + div[data-testid="stHorizontalBlock"] {
+                background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+                border: 1px solid #e2e8f0;
+                border-radius: 18px;
+                padding: 0.85rem 1.2rem;
+                box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+                position: sticky;
+                top: 0.5rem;
+                z-index: 40;
+            }
+            .mock-header-anchor + div[data-testid="stHorizontalBlock"] div[data-testid="column"] {
+                padding: 0.25rem 0.65rem;
+            }
+            .mock-header-title {
+                font-size: 1.15rem;
+                font-weight: 700;
+                color: #1e293b;
+                margin-bottom: 0.35rem;
+            }
+            .mock-progress-root {
+                width: 100%;
+                height: 0.75rem;
+                border-radius: 999px;
+                background: rgba(148, 163, 184, 0.28);
+                overflow: hidden;
+                position: relative;
+            }
+            .mock-progress-fill {
+                height: 100%;
+                background: linear-gradient(90deg, #2563eb 0%, #38bdf8 100%);
+                border-radius: 999px;
+                transition: width 0.3s ease;
+            }
+            .mock-progress-caption {
+                font-size: 0.82rem;
+                color: #334155;
+                margin-top: 0.35rem;
+                margin-bottom: 0;
+                font-weight: 600;
+            }
+            .mock-timer-value {
+                font-family: "Fira Mono", "SFMono-Regular", monospace;
+                font-size: 1.4rem;
+                font-weight: 700;
+                text-align: right;
+                margin-bottom: 0.35rem;
+                color: #0f172a;
+            }
+            .mock-timer-value[data-state="warn"] {
+                color: #b45309;
+            }
+            .mock-timer-value[data-state="critical"] {
+                color: #dc2626;
+            }
+            .mock-timer-value[data-state="paused"] {
+                color: #2563eb;
+            }
+            .mock-question-panel-spacer + div[data-testid="stVerticalBlock"] {
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 16px;
+                padding: 0.85rem 0.75rem 1.25rem;
+                box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.25);
+            }
+            .mock-question-panel-spacer + div[data-testid="stVerticalBlock"] .mock-question-case-label {
+                font-weight: 700;
+                color: #1f2937;
+                margin: 0.35rem 0 0.5rem;
+            }
+            .mock-question-panel-spacer + div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button {
+                width: 100%;
+                border-radius: 12px;
+                border: 1px solid transparent;
+                background: rgba(59, 130, 246, 0.08);
+                color: #1d4ed8;
+                font-weight: 600;
+                text-align: left;
+                padding: 0.55rem 0.75rem;
+            }
+            .mock-question-panel-spacer + div[data-testid="stVerticalBlock"] div[data-testid="stButton"] > button:hover {
+                border-color: rgba(59, 130, 246, 0.35);
+                background: rgba(59, 130, 246, 0.12);
+            }
+            .mock-question-panel-spacer + div[data-testid="stVerticalBlock"] div[data-testid="stButton"]:focus-within {
+                outline: 2px solid rgba(59, 130, 246, 0.35);
+                outline-offset: 2px;
+                border-radius: 14px;
+            }
+            .mock-question-divider {
+                height: 1px;
+                background: rgba(148, 163, 184, 0.35);
+                margin: 0.6rem 0;
+            }
+            .mock-question-status-line {
+                font-size: 0.78rem;
+                color: #475569;
+                margin-top: -0.35rem;
+                margin-bottom: 0.35rem;
+            }
+            .mock-question-memo-preview {
+                font-size: 0.78rem;
+                background: rgba(226, 232, 240, 0.6);
+                padding: 0.3rem 0.45rem;
+                border-radius: 8px;
+                color: #0f172a;
+                margin-bottom: 0.4rem;
+            }
+            .mock-question-summary {
+                margin-top: 0.8rem;
+                font-size: 0.8rem;
+                font-weight: 600;
+                color: #1f2937;
+            }
+            .mock-info-panel-expander > summary {
+                font-weight: 600;
+                color: #1d4ed8;
+            }
+            .mock-info-panel-expander {
+                border-radius: 12px !important;
+                border: 1px solid rgba(59, 130, 246, 0.25) !important;
+                background: rgba(191, 219, 254, 0.25) !important;
+            }
+            .mock-right-panel-spacer + div[data-testid="stVerticalBlock"] {
+                background: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 16px;
+                padding: 0.85rem 0.85rem 1.2rem;
+                box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+            }
+            .mock-right-panel-spacer + div[data-testid="stVerticalBlock"] .stTabs [data-baseweb="tab-list"] {
+                gap: 0.35rem;
+            }
+            .mock-right-panel-spacer + div[data-testid="stVerticalBlock"] .stTabs [data-baseweb="tab"] {
+                padding: 0.4rem 0.85rem;
+                border-radius: 999px;
+                background: rgba(226, 232, 240, 0.7);
+                color: #1e293b;
+            }
+            .mock-right-panel-spacer + div[data-testid="stVerticalBlock"] .stTabs [data-baseweb="tab"][aria-selected="true"] {
+                background: rgba(59, 130, 246, 0.18);
+                color: #1d4ed8;
+            }
+            .mock-frame-card {
+                border: 1px solid rgba(148, 163, 184, 0.45);
+                border-radius: 14px;
+                padding: 0.65rem 0.75rem;
+                margin-bottom: 0.65rem;
+                background: #f8fafc;
+            }
+            .mock-frame-card h5 {
+                font-size: 0.9rem;
+                margin-bottom: 0.35rem;
+                color: #1e293b;
+            }
+            .mock-frame-card p {
+                font-size: 0.8rem;
+                color: #475569;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_mock_exam_layout_styles"] = True
+
+
+MOCK_QUESTION_STATUS_ICONS = {
+    "pending": "⬜️",
+    "answered": "✅",
+    "flagged": "🚩",
+}
+
+MOCK_QUESTION_STATUS_LABELS = {
+    "pending": "未回答",
+    "answered": "回答済",
+    "flagged": "要確認",
+}
+
+
+def _format_mmss(total_seconds: int) -> str:
+    seconds = max(int(total_seconds), 0)
+    minutes, sec = divmod(seconds, 60)
+    return f"{minutes:02d}:{sec:02d}"
+
+
+def _mock_timer_stats(session: Mapping[str, Any]) -> Tuple[int, int, int]:
+    duration_minutes = int(session.get("duration_minutes") or 80)
+    total_seconds = max(duration_minutes, 1) * 60
+    start_time = session.get("start")
+    if not isinstance(start_time, datetime):
+        return 0, total_seconds, total_seconds
+
+    paused = bool(session.get("paused"))
+    paused_at = session.get("paused_at")
+    pause_accum = float(session.get("pause_accum", 0.0) or 0.0)
+    reference_time = (
+        paused_at
+        if paused and isinstance(paused_at, datetime)
+        else datetime.now(timezone.utc)
+    )
+    elapsed = (reference_time - start_time).total_seconds() - pause_accum
+    elapsed = max(int(elapsed), 0)
+    remaining = max(int(total_seconds - elapsed), 0)
+    return elapsed, remaining, int(total_seconds)
+
+
+def _toggle_mock_timer(session: Dict[str, Any]) -> None:
+    now = datetime.now(timezone.utc)
+    if session.get("paused"):
+        paused_at = session.get("paused_at")
+        if isinstance(paused_at, datetime):
+            session["pause_accum"] = float(session.get("pause_accum", 0.0) or 0.0) + max(
+                (now - paused_at).total_seconds(), 0.0
+            )
+        session["paused"] = False
+        session["paused_at"] = None
+    else:
+        session["paused"] = True
+        session["paused_at"] = now
+
+
+def _collect_mock_question_registry(
+    exam: mock_exam.MockExam, signature: str
+) -> Tuple[List[Dict[str, Any]], Dict[int, Dict[str, Any]], Dict[Tuple[int, Any], str]]:
+    registry: List[Dict[str, Any]] = []
+    problem_cache: Dict[int, Dict[str, Any]] = {}
+    anchor_map: Dict[Tuple[int, Any], str] = {}
+
+    for problem_index, problem_id in enumerate(exam.problem_ids, start=1):
+        problem = _apply_uploaded_text_overrides(
+            _load_problem_detail(problem_id, signature)
+        )
+        if not problem:
+            continue
+        problem_cache[problem_id] = problem
+        case_label = problem.get("case_label") or problem.get("case") or "事例"
+        for question_index, question in enumerate(problem.get("questions", []), start=1):
+            question_id = question.get("id")
+            anchor_id = _question_anchor_id(
+                question,
+                question_index=question_index,
+            )
+            if anchor_id and question_id is not None:
+                anchor_map[(problem_id, question_id)] = anchor_id
+            registry.append(
+                {
+                    "problem_id": problem_id,
+                    "question_id": question_id,
+                    "case_label": case_label,
+                    "index": question_index,
+                    "prompt": question.get("prompt") or f"設問{question_index}",
+                    "max_score": question.get("max_score"),
+                    "anchor_id": anchor_id,
+                    "draft_key": _draft_key(problem_id, question_id),
+                }
+            )
+
+    return registry, problem_cache, anchor_map
+
+
+def _render_mock_exam_header(
+    exam: mock_exam.MockExam,
+    session: Dict[str, Any],
+    *,
+    total_questions: int,
+    answered_questions: int,
+) -> None:
+    _ensure_mock_exam_layout_styles()
+    elapsed, remaining, total_seconds = _mock_timer_stats(session)
+    progress_ratio = answered_questions / max(total_questions, 1)
+    progress_pct = int(progress_ratio * 100)
+    timer_state = "paused" if session.get("paused") else "ok"
+    if not session.get("paused"):
+        if remaining <= 300:
+            timer_state = "critical"
+        elif remaining <= 900:
+            timer_state = "warn"
+
+    with st.container():
+        st.markdown("<div class='mock-header-anchor'></div>", unsafe_allow_html=True)
+        left_col, center_col, right_col = st.columns([2.8, 3.2, 1.8])
+        with left_col:
+            st.markdown(
+                f"<p class='mock-header-title'>{html.escape(exam.title)}</p>",
+                unsafe_allow_html=True,
+            )
+            st.caption(
+                f"全{total_questions}設問中 {answered_questions} 設問に入力済み"
+            )
+        with center_col:
+            width = max(min(progress_pct, 100), 0)
+            progress_html = dedent(
+                """
+                <div class='mock-progress-root' role='progressbar' aria-valuemin='0' aria-valuemax='100' aria-valuenow='{value}'>
+                    <div class='mock-progress-fill' style='width: {width:.1f}%;'></div>
+                </div>
+                <p class='mock-progress-caption'>全体進捗 {value}%</p>
+                """
+            ).format(value=progress_pct, width=width)
+            st.markdown(progress_html, unsafe_allow_html=True)
+        with right_col:
+            st.markdown(
+                f"<div class='mock-timer-value' data-state='{timer_state}'>{_format_mmss(remaining)}</div>",
+                unsafe_allow_html=True,
+            )
+            st.caption(
+                f"経過 {_format_mmss(elapsed)} / 合計 {_format_mmss(total_seconds)}"
+            )
+            button_label = "▶️ 再開" if session.get("paused") else "⏸️ 一時停止"
+            if st.button(button_label, key="mock_timer_toggle", use_container_width=True):
+                _toggle_mock_timer(session)
+                st.session_state.mock_session = session
+                st.rerun()
+            st.caption("タイマーが動かない場合はページを再読み込みしてください。")
+
+
+def _render_mock_question_panel(
+    question_registry: Sequence[Dict[str, Any]],
+    exam: mock_exam.MockExam,
+    *,
+    progress_ratio: float,
+    remaining_seconds: int,
+) -> None:
+    _ensure_mock_exam_layout_styles()
+    flags: Dict[str, bool] = st.session_state.setdefault("mock_flags", {})
+    memos: Dict[str, str] = st.session_state.setdefault("mock_memos", {})
+    active_question = st.session_state.get("mock_active_question")
+
+    grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for entry in question_registry:
+        grouped[entry.get("case_label") or "事例"].append(entry)
+
+    with st.container():
+        st.markdown("<div class='mock-question-panel-spacer'></div>", unsafe_allow_html=True)
+        for case_label, entries in grouped.items():
+            st.markdown(
+                f"<p class='mock-question-case-label'>{html.escape(case_label)}</p>",
+                unsafe_allow_html=True,
+            )
+            for entry in entries:
+                question_id = entry.get("question_id")
+                draft_key = entry.get("draft_key")
+                draft_text = ""
+                if draft_key and hasattr(st.session_state, "drafts"):
+                    draft_text = st.session_state.drafts.get(draft_key, "")
+                answered = bool(str(draft_text).strip())
+                flag_key = str(question_id)
+                status = "flagged" if flags.get(flag_key) else ("answered" if answered else "pending")
+                status_icon = MOCK_QUESTION_STATUS_ICONS.get(status, "⬜️")
+                status_label = MOCK_QUESTION_STATUS_LABELS.get(status, "未回答")
+                label = f"{status_icon} 設問{entry['index']}"
+                max_score = entry.get("max_score")
+                if max_score:
+                    label += f"（{max_score}点）"
+                if question_id == active_question:
+                    label = "👉 " + label
+                button_key = f"mock-nav-{entry['problem_id']}-{question_id}"
+                if st.button(label, key=button_key, use_container_width=True):
+                    st.session_state["mock_active_question"] = question_id
+                    anchor_id = entry.get("anchor_id")
+                    if anchor_id:
+                        st.session_state["_mock_scroll_target"] = anchor_id
+                st.markdown(
+                    f"<p class='mock-question-status-line'>{status_label} / 設問{entry['index']}を確認中</p>",
+                    unsafe_allow_html=True,
+                )
+                memo_preview = memos.get(flag_key)
+                if memo_preview:
+                    preview_text = _format_preview_text(memo_preview, 40)
+                    st.markdown(
+                        f"<div class='mock-question-memo-preview'>📝 {html.escape(preview_text)}</div>",
+                        unsafe_allow_html=True,
+                    )
+                action_cols = st.columns(2)
+                with action_cols[0]:
+                    flag_label = "🚩 フラグ解除" if flags.get(flag_key) else "🚩 フラグを付ける"
+                    if st.button(
+                        flag_label,
+                        key=f"mock-flag-{entry['problem_id']}-{question_id}",
+                        use_container_width=True,
+                    ):
+                        if flags.get(flag_key):
+                            flags.pop(flag_key, None)
+                        else:
+                            flags[flag_key] = True
+                        st.session_state.mock_flags = flags
+                with action_cols[1]:
+                    if st.button(
+                        "📝 メモを追加",
+                        key=f"mock-memo-{entry['problem_id']}-{question_id}",
+                        use_container_width=True,
+                    ):
+                        st.session_state["mock_memo_target"] = question_id
+                st.markdown("<div class='mock-question-divider'></div>", unsafe_allow_html=True)
+
+        progress_pct = int(progress_ratio * 100)
+        st.markdown(
+            f"<p class='mock-question-summary'>全体進捗 {progress_pct}% ／ 残り時間 {_format_mmss(remaining_seconds)}</p>",
+            unsafe_allow_html=True,
+        )
+
+        memo_target = st.session_state.get("mock_memo_target")
+        if memo_target is not None:
+            memo_key = str(memo_target)
+            memo_widget_key = f"mock-memo-input::{memo_key}"
+            default_value = memos.get(memo_key, "")
+            memo_text = st.text_area(
+                "選択中の設問メモ",
+                value=default_value,
+                key=memo_widget_key,
+                height=100,
+                placeholder="気づきや後で見直すポイントをメモできます。",
+            )
+            memos[memo_key] = memo_text
+            st.session_state.mock_memos = memos
+
+        if exam.notices:
+            with st.expander(
+                "試験注意事項", expanded=False
+            ) as exp:
+                exp.markdown("\n".join(f"- {note}" for note in exam.notices))
+
+
+def _apply_mock_scroll_target() -> None:
+    target = st.session_state.pop("_mock_scroll_target", None)
+    if not target:
+        return
+    components.html(
+        f"""
+        <script>
+        const targetId = {json.dumps(target)};
+        const parentDoc = window.parent.document;
+        const el = parentDoc.getElementById(targetId);
+        if (el) {{
+            el.scrollIntoView({{behavior: 'smooth', block: 'start'}});
+        }}
+        </script>
+        """,
+        height=0,
+    )
+
+
 def _render_mock_exam_overview(
     exam: mock_exam.MockExam, *, container: Optional[Any] = None
 ) -> None:
@@ -16983,25 +17622,16 @@ def mock_exam_page(user: Dict) -> None:
     if not session:
         _remove_mock_notice_overlay()
         st.subheader("模試セットを選択")
-        st.caption("説明を確認し、解きたい模試セットを選んでください。開始ボタンは右側に配置しています。")
+        st.caption("試験概要を確認し、解きたい模試セットを選んでください。準備チェックが完了すると開始できます。")
 
         exams = mock_exam.available_mock_exams()
         exam_options = {exam.title: exam for exam in exams}
         exam_options["ランダム演習セット"] = mock_exam.random_mock_exam()
 
-        select_col, start_col = st.columns([3, 1])
-        with select_col:
-            selected_title = st.selectbox("模試セット", list(exam_options.keys()))
-
+        selected_title = st.selectbox("模試セット", list(exam_options.keys()))
         selected_exam = exam_options[selected_title]
 
-        with start_col:
-            st.write("")
-            start_clicked = st.button(
-                "模試を開始", type="primary", width="stretch"
-            )
-
-        case_summaries = []
+        case_summaries: List[str] = []
         for problem_id in selected_exam.problem_ids:
             problem = _apply_uploaded_text_overrides(
                 _load_problem_detail(problem_id, signature)
@@ -17015,184 +17645,310 @@ def mock_exam_page(user: Dict) -> None:
             st.markdown("**セット内容の概要**")
             st.markdown("\n".join(case_summaries))
 
-        _render_mock_exam_overview(selected_exam)
+        st.markdown("### 試験開始前の準備")
+        step1_checked = st.checkbox("STEP1 説明を確認しました", key="mock_step_desc")
+        with st.expander("模試モードの進め方", expanded=step1_checked):
+            st.write("- 80分のカウントダウンで事例I～IVをまとめて解きます。")
+            st.write("- 左パネルで設問を一覧し、フラグやメモで見直し対象を管理できます。")
+            st.write("- 回答欄下部のメーターで残字数と要点カバー率を同時に確認できます。")
 
-        if start_clicked:
+        step2_checked = st.checkbox(
+            "STEP2 注意事項を確認しました",
+            key="mock_step_notice",
+            disabled=not step1_checked,
+        )
+        with st.expander("試験注意事項", expanded=bool(step2_checked)):
+            notices = selected_exam.notices or MOCK_NOTICE_ITEMS
+            st.markdown("\n".join(f"- {note}" for note in notices))
+            _render_mock_exam_overview(selected_exam, container=st)
+
+        ready_to_start = step1_checked and step2_checked
+        if ready_to_start:
+            st.success("準備が整いました。下のボタンから試験を開始できます。")
+
+        if st.button("試験を開始", type="primary", disabled=not ready_to_start):
             st.session_state.mock_session = {
                 "exam": selected_exam,
                 "start": datetime.now(timezone.utc),
                 "answers": {},
+                "duration_minutes": 80,
+                "pause_accum": 0.0,
+                "paused": False,
+                "paused_at": None,
             }
-            st.session_state["mock_notice_toggle"] = True
+            st.session_state.pop("mock_flags", None)
+            st.session_state.pop("mock_memos", None)
+            st.session_state.pop("mock_memo_target", None)
+            st.session_state.pop("mock_active_question", None)
+            st.session_state.pop("mock_step_desc", None)
+            st.session_state.pop("mock_step_notice", None)
             st.rerun()
         return
 
     exam = session["exam"]
     start_time = session["start"]
-    elapsed = datetime.now(timezone.utc) - start_time
-    elapsed_total_seconds = max(int(elapsed.total_seconds()), 0)
-    elapsed_minutes = elapsed_total_seconds // 60
-    elapsed_seconds = elapsed_total_seconds % 60
-    st.info(
-        f"模試開始からの経過時間: {elapsed_minutes:02d}分{elapsed_seconds:02d}秒"
+    session.setdefault("duration_minutes", 80)
+    session.setdefault("pause_accum", 0.0)
+    session.setdefault("paused", False)
+    session.setdefault("paused_at", None)
+
+    registry, problem_cache, anchor_map = _collect_mock_question_registry(
+        exam, signature
+    )
+    valid_entries = [entry for entry in registry if entry.get("question_id") is not None]
+    total_questions = len(valid_entries) if valid_entries else len(registry)
+    answered_questions = 0
+    for entry in valid_entries:
+        draft_key = entry.get("draft_key")
+        if draft_key and hasattr(st.session_state, "drafts"):
+            draft_value = st.session_state.drafts.get(draft_key, "")
+            if str(draft_value).strip():
+                answered_questions += 1
+    progress_ratio = answered_questions / max(total_questions, 1)
+    _, remaining_seconds, _ = _mock_timer_stats(session)
+
+    st.session_state.setdefault("mock_flags", {})
+    st.session_state.setdefault("mock_memos", {})
+    st.session_state.setdefault("mock_memo_target", None)
+
+    if valid_entries and st.session_state.get("mock_active_question") is None:
+        st.session_state["mock_active_question"] = valid_entries[0]["question_id"]
+
+    _render_mock_exam_header(
+        exam,
+        session,
+        total_questions=max(total_questions, 1),
+        answered_questions=answered_questions,
     )
 
-    if "mock_notice_toggle" not in st.session_state:
-        st.session_state["mock_notice_toggle"] = True
+    left_col, center_col, right_col = st.columns([1.15, 2.6, 1.6])
 
-    show_notice = st.checkbox(
-        "本番モードの注意書きを表示する",
-        key="mock_notice_toggle",
-    )
-    if show_notice:
-        _render_mock_notice_overlay(start_time=start_time)
-    else:
-        _remove_mock_notice_overlay()
-
-    _render_mock_exam_sidebar(exam)
-    if exam.notices or exam.timetable or exam.case_guides:
-        with st.expander("本番セット（R6）の注意事項・体裁を確認する", expanded=False) as exp:
-            _render_mock_exam_overview(exam, container=exp)
-
-    tab_labels: List[str] = []
-    for idx, problem_id in enumerate(exam.problem_ids):
-        problem = _apply_uploaded_text_overrides(
-            _load_problem_detail(problem_id, signature)
+    with left_col:
+        _render_mock_question_panel(
+            registry,
+            exam,
+            progress_ratio=progress_ratio,
+            remaining_seconds=remaining_seconds,
         )
-        case_label = problem["case_label"] if problem else "不明"
-        tab_labels.append(f"{idx+1}. {case_label}")
 
-    tabs = st.tabs(tab_labels)
-    for tab, problem_id in zip(tabs, exam.problem_ids):
-        with tab:
-            problem = _apply_uploaded_text_overrides(
-                _load_problem_detail(problem_id, signature)
-            )
+    with center_col:
+        tab_labels: List[str] = []
+        for idx, problem_id in enumerate(exam.problem_ids):
+            problem = problem_cache.get(problem_id)
             if not problem:
-                st.error("問題の読み込みに失敗しました。")
-                continue
-            st.subheader(problem["title"])
-            st.write(problem["overview"])
-            question_total = len(problem["questions"])
-            for idx, question in enumerate(problem["questions"], start=1):
-                tone = _practice_tone_for_index(idx)
-                st.markdown(
-                    f'<section class="practice-question-block" data-tone="{tone}">',
-                    unsafe_allow_html=True,
+                problem = _apply_uploaded_text_overrides(
+                    _load_problem_detail(problem_id, signature)
                 )
-                _question_input(
-                    problem_id,
-                    question,
-                    widget_prefix="mock_textarea_",
-                    case_label=problem.get("case_label") or problem.get("case"),
-                    question_index=idx,
-                )
-                st.markdown("</section>", unsafe_allow_html=True)
-                if idx < question_total:
+            case_label = problem.get("case_label") if problem else "不明"
+            tab_labels.append(f"{idx + 1}. {case_label}")
+
+        tabs = st.tabs(tab_labels)
+        for tab, problem_id in zip(tabs, exam.problem_ids):
+            with tab:
+                problem = problem_cache.get(problem_id)
+                if not problem:
+                    problem = _apply_uploaded_text_overrides(
+                        _load_problem_detail(problem_id, signature)
+                    )
+                if not problem:
+                    st.error("問題の読み込みに失敗しました。")
+                    continue
+                st.subheader(problem["title"])
+                st.write(problem["overview"])
+                question_total = len(problem.get("questions", []))
+                for idx, question in enumerate(problem.get("questions", []), start=1):
+                    tone = _practice_tone_for_index(idx)
                     st.markdown(
-                        '<div class="practice-question-divider" aria-hidden="true"></div>',
+                        f'<section class="practice-question-block" data-tone="{tone}">',
                         unsafe_allow_html=True,
                     )
-
-    if st.button("模試を提出", type="primary"):
-        overall_results = []
-        for problem_id in exam.problem_ids:
-            problem = _apply_uploaded_text_overrides(
-                _load_problem_detail(problem_id, signature)
-            )
-            if not problem:
-                st.warning("一部の問題データが取得できなかったため採点をスキップしました。")
-                continue
-            answers: List[RecordedAnswer] = []
-            case_question_results: List[Dict[str, Any]] = []
-            missing_question_numbers = [
-                idx
-                for idx, question in enumerate(problem["questions"], start=1)
-                if question.get("id") is None
-            ]
-            if missing_question_numbers:
-                formatted_numbers = "、".join(
-                    f"設問{num}" for num in missing_question_numbers
-                )
-                problem_year = _normalize_text_block(problem.get("year")) or ""
-                problem_case = _normalize_text_block(
-                    problem.get("case_label") or problem.get("case")
-                )
-                logger.error(
-                    "Skipping mock attempt for problem %s (year=%s, case=%s) due to missing question IDs: %s",
-                    problem_id,
-                    problem_year,
-                    problem_case,
-                    formatted_numbers,
-                )
-                st.error(
-                    f"{problem_year} {problem_case} の {formatted_numbers} に設問IDが登録されていないため採点結果を保存できません。",
-                    icon="⚠️",
-                )
-                continue
-            for question in problem["questions"]:
-                text = st.session_state.drafts.get(_draft_key(problem_id, question["id"]), "")
-                result = scoring.score_answer(
-                    text,
-                    QuestionSpec(
-                        id=question["id"],
-                        prompt=question["prompt"],
-                        max_score=question["max_score"],
-                        model_answer=question["model_answer"],
-                        keywords=question["keywords"],
-                    ),
-                )
-                answers.append(
-                    RecordedAnswer(
-                        question_id=question["id"],
-                        answer_text=text,
-                        score=result.score,
-                        feedback=result.feedback,
-                        keyword_hits=result.keyword_hits,
-                        axis_breakdown=result.axis_breakdown,
+                    anchor_id = anchor_map.get((problem_id, question.get("id")))
+                    _question_input(
+                        problem_id,
+                        question,
+                        widget_prefix="mock_textarea_",
+                        case_label=problem.get("case_label") or problem.get("case"),
+                        question_index=idx,
+                        anchor_id=anchor_id,
                     )
+                    st.markdown("</section>", unsafe_allow_html=True)
+                    if idx < question_total:
+                        st.markdown(
+                            '<div class="practice-question-divider" aria-hidden="true"></div>',
+                            unsafe_allow_html=True,
+                        )
+
+        if st.button("模試を提出", type="primary"):
+            overall_results = []
+            for problem_id in exam.problem_ids:
+                problem = _apply_uploaded_text_overrides(
+                    _load_problem_detail(problem_id, signature)
                 )
-                case_question_results.append({"question": question, "answer": text, "result": result})
-            submitted_at = datetime.now(timezone.utc)
-            activity_summary = _summarise_question_activity(problem, submitted_at)
-            for answer in answers:
-                if answer.question_id in activity_summary:
-                    answer.activity = activity_summary[answer.question_id]
-            attempt_id = database.record_attempt(
-                user_id=user["id"],
-                problem_id=problem_id,
-                mode="mock",
-                answers=answers,
-                started_at=start_time,
-                submitted_at=submitted_at,
-                duration_seconds=int((submitted_at - start_time).total_seconds()),
-            )
-            total_score = sum(answer.score for answer in answers)
-            total_max = sum(question["max_score"] for question in problem["questions"])
-            score_ratio = (total_score / total_max) if total_max else 0.0
-            database.update_spaced_review(
-                user_id=user["id"],
-                problem_id=problem_id,
-                score_ratio=score_ratio,
-                reviewed_at=submitted_at,
-            )
-            weakness_tags = _infer_case_weakness_tags(problem, case_question_results)
-            overall_results.append((problem, attempt_id, weakness_tags))
+                if not problem:
+                    st.warning("一部の問題データが取得できなかったため採点をスキップしました。")
+                    continue
+                answers: List[RecordedAnswer] = []
+                case_question_results: List[Dict[str, Any]] = []
+                missing_question_numbers = [
+                    idx
+                    for idx, question in enumerate(problem["questions"], start=1)
+                    if question.get("id") is None
+                ]
+                if missing_question_numbers:
+                    formatted_numbers = "、".join(
+                        f"設問{num}" for num in missing_question_numbers
+                    )
+                    problem_year = _normalize_text_block(problem.get("year")) or ""
+                    problem_case = _normalize_text_block(
+                        problem.get("case_label") or problem.get("case")
+                    )
+                    logger.error(
+                        "Skipping mock attempt for problem %s (year=%s, case=%s) due to missing question IDs: %s",
+                        problem_id,
+                        problem_year,
+                        problem_case,
+                        formatted_numbers,
+                    )
+                    st.error(
+                        f"{problem_year} {problem_case} の {formatted_numbers} に設問ID登録されていないため採点結果を保存できません。",
+                        icon="⚠️",
+                    )
+                    continue
+                for question in problem["questions"]:
+                    text = st.session_state.drafts.get(
+                        _draft_key(problem_id, question["id"]), ""
+                    )
+                    result = scoring.score_answer(
+                        text,
+                        QuestionSpec(
+                            id=question["id"],
+                            prompt=question["prompt"],
+                            max_score=question["max_score"],
+                            model_answer=question["model_answer"],
+                            keywords=question["keywords"],
+                        ),
+                    )
+                    answers.append(
+                        RecordedAnswer(
+                            question_id=question["id"],
+                            answer_text=text,
+                            score=result.score,
+                            feedback=result.feedback,
+                            keyword_hits=result.keyword_hits,
+                            axis_breakdown=result.axis_breakdown,
+                        )
+                    )
+                    case_question_results.append(
+                        {"question": question, "answer": text, "result": result}
+                    )
+                submitted_at = datetime.now(timezone.utc)
+                activity_summary = _summarise_question_activity(problem, submitted_at)
+                for answer in answers:
+                    if answer.question_id in activity_summary:
+                        answer.activity = activity_summary[answer.question_id]
+                attempt_id = database.record_attempt(
+                    user_id=user["id"],
+                    problem_id=problem_id,
+                    mode="mock",
+                    answers=answers,
+                    started_at=start_time,
+                    submitted_at=submitted_at,
+                    duration_seconds=int((submitted_at - start_time).total_seconds()),
+                )
+                total_score = sum(answer.score for answer in answers)
+                total_max = sum(question["max_score"] for question in problem["questions"])
+                score_ratio = (total_score / total_max) if total_max else 0.0
+                database.update_spaced_review(
+                    user_id=user["id"],
+                    problem_id=problem_id,
+                    score_ratio=score_ratio,
+                    reviewed_at=submitted_at,
+                )
+                weakness_tags = _infer_case_weakness_tags(problem, case_question_results)
+                overall_results.append((problem, attempt_id, weakness_tags))
 
-        st.session_state.mock_session = None
-        st.session_state.question_activity = {}
-        st.session_state.pop("mock_notice_toggle", None)
-        _remove_mock_notice_overlay()
-        st.success("模擬試験の採点が完了しました。結果を確認してください。")
-        for problem, attempt_id, weakness_tags in overall_results:
-            st.markdown(f"### {problem['year']} {problem['case_label']} {problem['title']}")
-            render_attempt_results(attempt_id)
-            st.markdown("**弱点タグ**")
-            if weakness_tags:
-                _render_tag_pills(weakness_tags, tone="warn")
+            st.session_state.mock_session = None
+            st.session_state.question_activity = {}
+            _remove_mock_notice_overlay()
+            st.success("模擬試験の採点が完了しました。結果を確認してください。")
+            for problem, attempt_id, weakness_tags in overall_results:
+                st.markdown(f"### {problem['year']} {problem['case_label']} {problem['title']}")
+                render_attempt_results(attempt_id)
+                st.markdown("**弱点タグ**")
+                if weakness_tags:
+                    _render_tag_pills(weakness_tags, tone="warn")
+                else:
+                    st.caption("特筆すべき弱点は検出されませんでした。")
+
+    with right_col:
+        st.markdown("<div class='mock-right-panel-spacer'></div>", unsafe_allow_html=True)
+        sidebar_tabs = st.tabs(["メモ・フラグ", "注意事項", "参考資料"])
+        flags = st.session_state.get("mock_flags", {})
+        memos = st.session_state.get("mock_memos", {})
+
+        with sidebar_tabs[0]:
+            flagged_entries = [
+                entry
+                for entry in registry
+                if flags.get(str(entry.get("question_id")))
+            ]
+            memo_entries = [
+                (entry, memos.get(str(entry.get("question_id"))))
+                for entry in registry
+                if memos.get(str(entry.get("question_id")))
+            ]
+
+            if flagged_entries:
+                st.markdown("**フラグ付き設問**")
+                for entry in flagged_entries:
+                    question_id = entry.get("question_id")
+                    label = f"設問{entry['index']}（{entry.get('case_label')}）"
+                    if st.button(
+                        f"移動: {label}",
+                        key=f"mock-flag-jump::{question_id}",
+                    ):
+                        st.session_state["mock_active_question"] = question_id
+                        anchor_id = entry.get("anchor_id")
+                        if anchor_id:
+                            st.session_state["_mock_scroll_target"] = anchor_id
             else:
-                st.caption("特筆すべき弱点は検出されませんでした。")
+                st.caption("フラグはまだ設定されていません。")
 
+            if memo_entries:
+                st.markdown("**メモ一覧**")
+                for entry, memo_text in memo_entries:
+                    preview = _format_preview_text(memo_text, 70)
+                    st.markdown(
+                        f"- 設問{entry['index']}（{entry.get('case_label')}）: {preview}"
+                    )
+            else:
+                st.caption("メモはまだ登録されていません。")
+
+        with sidebar_tabs[1]:
+            if exam.timetable:
+                st.markdown("**本番時間割**")
+                for slot in exam.timetable:
+                    detail = slot.get("detail")
+                    detail_text = f"（{detail}）" if detail else ""
+                    st.markdown(
+                        f"- **{slot.get('slot', '')}**: {slot.get('time', '')}{detail_text}"
+                    )
+            notices = exam.notices or MOCK_NOTICE_ITEMS
+            st.markdown("**注意事項**")
+            st.markdown("\n".join(f"- {note}" for note in notices))
+
+        with sidebar_tabs[2]:
+            st.markdown("**参考リンク**")
+            for resource in DEFAULT_KEYWORD_RESOURCES:
+                st.markdown(
+                    f"- [{resource['label']}]({resource['url']})",
+                    unsafe_allow_html=False,
+                )
+            st.caption("参考資料は別タブで開きます。")
+
+    _apply_mock_scroll_target()
+
+    return
 
 def history_page(user: Dict) -> None:
     """Render the revamped learning history experience."""
