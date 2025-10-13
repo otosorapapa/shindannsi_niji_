@@ -189,6 +189,12 @@ KEYWORD_RESOURCE_MAP = {
 
 
 CASE_ORDER = ["事例I", "事例II", "事例III", "事例IV"]
+CASE_ICON_MAP = {
+    "事例I": "Ⅰ",
+    "事例II": "Ⅱ",
+    "事例III": "Ⅲ",
+    "事例IV": "Ⅳ",
+}
 
 
 GLOBAL_STYLESHEET_PATH = Path(__file__).parent / "assets" / "app.css"
@@ -5187,36 +5193,48 @@ def _render_case_frame_shortcuts(
         return
 
     st.markdown("<div class='case1-frame-library'>", unsafe_allow_html=True)
-    st.markdown("<p class='case1-frame-title'>事例別フレームライブラリ</p>", unsafe_allow_html=True)
-    st.caption("タブを切り替え、定型句をワンクリックで答案へ挿入できます。")
+    icon = CASE_ICON_MAP.get(case_label, "")
+    title = f"{icon} {case_label}".strip() if icon else case_label
+    st.markdown(
+        f"<p class='case1-frame-title'>{html.escape(title)} フレームテンプレート</p>",
+        unsafe_allow_html=True,
+    )
+    st.caption("ドロップダウンからフレームを選択し、定型句をワンクリックで答案に挿入できます。")
 
-    tab_labels = [frame.get("label") or f"フレーム{index + 1}" for index, frame in enumerate(frames)]
-    tabs = st.tabs(tab_labels)
-    for index, frame in enumerate(frames):
-        with tabs[index]:
-            description = frame.get("description")
-            if description:
-                st.markdown(
-                    f"<p class='case1-frame-desc'>{html.escape(description)}</p>",
-                    unsafe_allow_html=True,
-                )
+    select_key = f"case-frame-select::{draft_key}"
+    option_indices = list(range(len(frames)))
+    default_index = st.session_state.get(select_key, 0)
+    selected_index = st.selectbox(
+        "フレームテンプレートを選択",
+        option_indices,
+        index=min(default_index, len(option_indices) - 1),
+        format_func=lambda idx: frames[idx].get("label") or f"フレーム{idx + 1}",
+        key=select_key,
+    )
 
-            snippet = frame.get("snippet") or ""
-            st.markdown(
-                f"<div class='case1-frame-snippet'>{html.escape(snippet)}</div>",
-                unsafe_allow_html=True,
-            )
-            st.caption("表現を挿入する場合は下のボタンを押してください。")
-            if st.button(
-                "フレーズを挿入",
-                key=f"case-frame-{draft_key}-{index}",
-                use_container_width=True,
-            ):
-                _insert_template_snippet(draft_key, textarea_state_key, snippet)
-                st.session_state["_case_frame_notice"] = {
-                    "draft_key": draft_key,
-                    "label": frame.get("label"),
-                }
+    frame = frames[selected_index]
+    description = frame.get("description")
+    if description:
+        st.markdown(
+            f"<p class='case1-frame-desc'>{html.escape(description)}</p>",
+            unsafe_allow_html=True,
+        )
+
+    snippet = frame.get("snippet") or ""
+    st.markdown(
+        f"<div class='case1-frame-snippet'>{html.escape(snippet)}</div>",
+        unsafe_allow_html=True,
+    )
+    if st.button(
+        "このテンプレートを挿入",
+        key=f"case-frame-insert::{draft_key}::{selected_index}",
+        use_container_width=True,
+    ):
+        _insert_template_snippet(draft_key, textarea_state_key, snippet)
+        st.session_state["_case_frame_notice"] = {
+            "draft_key": draft_key,
+            "label": frame.get("label"),
+        }
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -11703,6 +11721,34 @@ def _case1_selected_question_key(problem_id: Optional[int]) -> str:
     return f"case1_selected_question::{problem_id}"
 
 
+def _case1_problem_identifier(problem: Mapping[str, Any]) -> str:
+    return str(
+        problem.get("id")
+        or problem.get("slug")
+        or problem.get("title")
+        or "default"
+    )
+
+
+def _case1_question_identifier(
+    question: Mapping[str, Any], question_index: int
+) -> str:
+    question_id = question.get("id")
+    if question_id is None:
+        return f"index-{question_index}"
+    return str(question_id)
+
+
+def _case1_highlight_state_key(
+    problem_identifier: str, question_identifier: str
+) -> str:
+    return f"case1-highlight::{problem_identifier}::{question_identifier}"
+
+
+def _case1_guidance_store() -> Dict[str, Dict[str, str]]:
+    return st.session_state.setdefault("case1_step_guidance", {})
+
+
 def _case1_step_state_key(draft_key: str) -> str:
     return f"case1_step_state::{draft_key}"
 
@@ -11759,7 +11805,49 @@ def _case1_question_status(
     return "下書き", "draft"
 
 
-def _render_case1_stepper(step_state: Mapping[str, bool]) -> None:
+def _guide_case1_to_step(
+    draft_key: str,
+    step_label: str,
+    *,
+    tab_state_key: Optional[str],
+    highlight_state_key: Optional[str],
+) -> None:
+    message = ""
+    if "設問確認" in step_label:
+        message = "設問一覧カードから対象設問を選び、配点と要求を確認しましょう。"
+    elif "与件文" in step_label:
+        if highlight_state_key:
+            st.session_state[highlight_state_key] = True
+        message = "与件文ハイライトを開き、重要箇所にマーカーを付けましょう。"
+    elif "答案作成" in step_label:
+        message = "答案作成ステップです。回答欄に骨子と結論を入力しましょう。"
+    elif "自己分析" in step_label:
+        if tab_state_key:
+            st.session_state[tab_state_key] = "構造解析"
+        message = "構造解析タブでMECE/因果を確認し、抜け漏れをチェックしましょう。"
+    elif "模範解答" in step_label:
+        if tab_state_key:
+            st.session_state[tab_state_key] = "模範解答"
+        message = "模範解答タブを開き、自分の答案と比較して改善点を洗い出しましょう。"
+    elif "メモ" in step_label:
+        if tab_state_key:
+            st.session_state[tab_state_key] = "復習メモ"
+        message = "復習メモタブで気づきを記録し、次回の改善に活かしましょう。"
+
+    guidance_store = _case1_guidance_store()
+    if message:
+        guidance_store[draft_key] = {"label": step_label, "message": message}
+    else:
+        guidance_store.pop(draft_key, None)
+
+
+def _render_case1_stepper(
+    step_state: Mapping[str, bool],
+    *,
+    draft_key: str,
+    tab_state_key: Optional[str],
+    highlight_state_key: Optional[str],
+) -> None:
     steps = [
         {"label": "①設問確認", "done": bool(step_state.get("question"))},
         {"label": "②与件文ハイライト", "done": bool(step_state.get("highlight"))},
@@ -11796,13 +11884,39 @@ def _render_case1_stepper(step_state: Mapping[str, bool]) -> None:
             )
         )
 
-    st.markdown(
+    stepper_html = (
         "<div class='case1-stepper'>"
         "<div class='case1-stepper-progress'><div class='case1-stepper-progress-bar' style='width:{width}%;'></div></div>"
         "<div class='case1-stepper-steps'>{segments}</div>"
-        "</div>".format(width=progress_percent, segments="".join(segments_html)),
-        unsafe_allow_html=True,
-    )
+        "</div>"
+    ).format(width=progress_percent, segments="".join(segments_html))
+    st.markdown(stepper_html, unsafe_allow_html=True)
+
+    guidance_store = _case1_guidance_store()
+    guidance = guidance_store.get(draft_key)
+    if guidance:
+        for step in steps:
+            if step["label"] == guidance.get("label") and step["done"]:
+                guidance_store.pop(draft_key, None)
+                guidance = None
+                break
+    if guidance:
+        st.info(guidance.get("message", "次のステップに進みましょう。"), icon="➡️")
+
+    if completed < total_steps:
+        next_step = steps[next_pending]
+        if st.button(
+            f"次のステップへ進む（{next_step['label']}）",
+            key=f"case1-stepper-next::{draft_key}",
+            use_container_width=True,
+        ):
+            _guide_case1_to_step(
+                draft_key,
+                next_step["label"],
+                tab_state_key=tab_state_key,
+                highlight_state_key=highlight_state_key,
+            )
+            st.experimental_rerun()
 
 
 def _render_case1_question_cards(
@@ -11979,16 +12093,18 @@ def _render_case1_support_panel(
 
     st.markdown("<div class='case1-support-pane'>", unsafe_allow_html=True)
 
-    problem_identifier = (
-        problem.get("id")
-        or problem.get("slug")
-        or problem.get("title")
-        or "default"
+    problem_identifier = _case1_problem_identifier(problem)
+    question_identifier = _case1_question_identifier(question, question_index)
+    highlight_state_key = _case1_highlight_state_key(
+        problem_identifier, question_identifier
     )
 
     if problem_context:
-        with st.expander("与件文ハイライト", expanded=False):
-            search_key = f"case1-search-{problem_identifier}"
+        expanded_default = st.session_state.get(highlight_state_key, False)
+        if highlight_state_key not in st.session_state:
+            st.session_state[highlight_state_key] = expanded_default
+        with st.expander("与件文ハイライト", expanded=expanded_default):
+            search_key = f"case1-search-{problem_identifier}::{question_identifier}"
             search_query = st.text_input(
                 "与件文内検索",
                 key=search_key,
@@ -12008,11 +12124,13 @@ def _render_case1_support_panel(
             highlight_store = st.session_state.get("context_highlights", {})
             if highlight_store.get(str(problem_identifier)):
                 support_state["highlight_done"] = True
+                st.session_state[highlight_state_key] = True
             if search_query:
                 if match_count:
                     st.caption(f"該当箇所: {match_count}件")
                 else:
                     st.caption("該当箇所は見つかりませんでした。")
+                st.session_state[highlight_state_key] = True
             else:
                 st.caption("ハイライトは自動保存されます。次回アクセス時も復元されます。")
     else:
@@ -12042,6 +12160,11 @@ def _render_case1_support_panel(
         label_visibility="collapsed",
     )
     visited_map[_case1_support_visit_key(draft_key, selected_tab)] = True
+
+    support_state["tab_state_key"] = tab_state_key
+    support_state["highlight_state_key"] = highlight_state_key
+    support_state["problem_identifier"] = problem_identifier
+    support_state["question_identifier"] = question_identifier
 
     support_state["analysis_done"] = visited_map.get(
         _case1_support_visit_key(draft_key, "構造解析"),
@@ -13144,8 +13267,16 @@ def _render_case1_workspace(
     step_state["memo"] = bool(support_state.get("memo_saved"))
     st.session_state[step_state_key] = step_state
 
+    tab_state_key = support_state.get("tab_state_key")
+    highlight_state_key = support_state.get("highlight_state_key")
+
     with stepper_placeholder.container():
-        _render_case1_stepper(step_state)
+        _render_case1_stepper(
+            step_state,
+            draft_key=draft_key,
+            tab_state_key=tab_state_key,
+            highlight_state_key=highlight_state_key,
+        )
 
     st.markdown("<div class='case1-bottom-section'>", unsafe_allow_html=True)
     _render_case1_retrieval_flashcards(problem)
@@ -13243,6 +13374,7 @@ def _render_case3_workspace(
                 key=button_key,
                 use_container_width=True,
                 type="primary" if active else "secondary",
+                help=entry.get("title") or entry.get("preview") or "",
             ):
                 st.session_state[selected_key] = idx
                 st.experimental_rerun()
@@ -13446,21 +13578,37 @@ def _render_case3_progress_cluster(
     )
 
     st.markdown("<div class='case3-progress-cluster'>", unsafe_allow_html=True)
+    if coverage_ratio >= 0.6:
+        coverage_color = "#1971c2"
+    elif coverage_ratio >= 0.3:
+        coverage_color = "#f59f00"
+    else:
+        coverage_color = "#e03131"
+
+    if verb_count and noun_count:
+        structure_color = "#5f3dc4"
+    elif verb_count >= 2:
+        structure_color = "#f59f00"
+    else:
+        structure_color = "#e03131"
+
+    char_color = "#2f9e44" if used_ratio < 0.9 else "#d9480f"
+
     segments = [
         {
             "label": f"残字 {remaining}字",
             "ratio": used_ratio,
-            "color": "#2f9e44" if used_ratio < 0.9 else "#d9480f",
+            "color": char_color,
         },
         {
             "label": f"要点 {int(coverage_ratio * 100)}% ({matched}/{total_keywords or '-'})",
             "ratio": coverage_ratio,
-            "color": "#1971c2" if coverage_ratio >= 0.6 else "#adb5bd",
+            "color": coverage_color,
         },
         {
             "label": f"構造 名詞{noun_count}/述語{verb_count}",
             "ratio": structure_ratio,
-            "color": "#5f3dc4" if verb_count and noun_count else "#868e96",
+            "color": structure_color,
         },
     ]
 
