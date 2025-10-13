@@ -18,6 +18,42 @@ from reportlab.lib.utils import simpleSplit
 _PDF_FONT_REGISTERED = False
 
 
+def _coerce_mapping(record: Optional[Any]) -> Dict[str, Any]:
+    """Return a standard dict for a mapping-like record.
+
+    Streamlit's database helpers frequently return ``sqlite3.Row`` objects,
+    which implement the mapping protocol but do not expose ``dict``-style
+    ``get`` accessors.  This helper normalizes those values (and any other
+    mapping-like containers) into plain dictionaries so the rest of the module
+    can rely on ``dict.get`` safely.
+    """
+
+    if record is None:
+        return {}
+
+    if isinstance(record, dict):
+        return dict(record)
+
+    if isinstance(record, Mapping):
+        return dict(record.items())
+
+    if hasattr(record, "_asdict"):
+        try:
+            return dict(record._asdict())
+        except Exception:  # pragma: no cover - defensive fallback
+            pass
+
+    try:
+        return dict(record)
+    except Exception:  # pragma: no cover - defensive fallback
+        if hasattr(record, "__dict__"):
+            try:
+                return dict(record.__dict__)
+            except Exception:
+                return {}
+        return {}
+
+
 def _ensure_pdf_font() -> str:
     global _PDF_FONT_REGISTERED
     font_name = "HeiseiMin-W3"
@@ -46,15 +82,18 @@ def _format_keyword_hits(keyword_hits: Mapping[str, bool]) -> Dict[str, List[str
 
 
 def build_attempt_export_payload(
-    attempt: Mapping[str, Any],
-    answers: Sequence[Mapping[str, Any]],
-    problem: Optional[Mapping[str, Any]] = None,
+    attempt: Mapping[str, Any] | Any,
+    answers: Sequence[Mapping[str, Any] | Any],
+    problem: Optional[Mapping[str, Any] | Any] = None,
     *,
     highlight_snapshot: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
-    problem = problem or {}
+    attempt_dict = _coerce_mapping(attempt)
+    problem_dict = _coerce_mapping(problem)
+    answers_dicts = [_coerce_mapping(entry) for entry in answers]
+    snapshot_dict = _coerce_mapping(highlight_snapshot)
     sorted_answers = sorted(
-        answers,
+        answers_dicts,
         key=lambda entry: entry.get("question_order") or 0,
     )
 
@@ -84,9 +123,9 @@ def build_attempt_export_payload(
         )
 
     context_text = (
-        problem.get("context_text")
-        or problem.get("context")
-        or problem.get("overview")
+        problem_dict.get("context_text")
+        or problem_dict.get("context")
+        or problem_dict.get("overview")
         or ""
     )
     if context_text and len(str(context_text)) > 1600:
@@ -94,25 +133,25 @@ def build_attempt_export_payload(
 
     payload = {
         "attempt": {
-            "id": attempt.get("id"),
-            "user_id": attempt.get("user_id"),
-            "mode": attempt.get("mode"),
-            "started_at": attempt.get("started_at"),
-            "submitted_at": attempt.get("submitted_at"),
-            "duration_seconds": attempt.get("duration_seconds"),
-            "total_score": attempt.get("total_score"),
-            "total_max_score": attempt.get("total_max_score"),
+            "id": attempt_dict.get("id"),
+            "user_id": attempt_dict.get("user_id"),
+            "mode": attempt_dict.get("mode"),
+            "started_at": attempt_dict.get("started_at"),
+            "submitted_at": attempt_dict.get("submitted_at"),
+            "duration_seconds": attempt_dict.get("duration_seconds"),
+            "total_score": attempt_dict.get("total_score"),
+            "total_max_score": attempt_dict.get("total_max_score"),
         },
         "problem": {
-            "id": attempt.get("problem_id"),
-            "year": problem.get("year"),
-            "case_label": problem.get("case_label"),
-            "title": problem.get("title"),
-            "overview": problem.get("overview"),
+            "id": attempt_dict.get("problem_id"),
+            "year": problem_dict.get("year"),
+            "case_label": problem_dict.get("case_label"),
+            "title": problem_dict.get("title"),
+            "overview": problem_dict.get("overview"),
             "context": context_text,
         },
         "answers": prepared_answers,
-        "context_highlight": highlight_snapshot,
+        "context_highlight": snapshot_dict or None,
     }
     return payload
 
