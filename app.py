@@ -3646,8 +3646,17 @@ def _inject_practice_navigation_script() -> None:
             """
             <script>
             (() => {
-                const win = window.parent || window;
-                const doc = win.document;
+                let win = window;
+                let doc = window.document;
+                try {
+                    if (window.parent && window.parent !== window && window.parent.document) {
+                        win = window.parent;
+                        doc = win.document;
+                    }
+                } catch (error) {
+                    win = window;
+                    doc = window.document;
+                }
                 if (!doc) {
                     return;
                 }
