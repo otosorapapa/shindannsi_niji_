@@ -2550,6 +2550,23 @@ def _insert_template_snippet(
     _queue_textarea_update(textarea_state_key, new_text)
 
 
+def _normalize_intent_card_list(raw_cards: Any) -> List[Dict[str, str]]:
+    normalized: List[Dict[str, str]] = []
+
+    def _walk(value: Any) -> None:
+        if isinstance(value, dict):
+            label = value.get("label")
+            example = value.get("example")
+            if label and example:
+                normalized.append({"label": str(label), "example": str(example)})
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                _walk(item)
+
+    _walk(raw_cards)
+    return normalized
+
+
 def _resolve_question_card_theme() -> str:
     theme = st.session_state.get("ui_theme", "システム設定に合わせる")
     if theme == "ダークモード":
@@ -5137,11 +5154,7 @@ def _render_question_overview_card(
 def _render_intent_cards(
     question: Dict[str, Any], draft_key: str, textarea_state_key: str
 ) -> None:
-    cards: List[Dict[str, str]] = [
-        card
-        for card in question.get("intent_cards", [])
-        if card and card.get("label") and card.get("example")
-    ]
+    cards = _normalize_intent_card_list(question.get("intent_cards"))
     if not cards:
         return
 
@@ -7509,7 +7522,7 @@ def _render_study_goal_panel(
         )
         database.replace_study_sessions(goal_id, sessions)
         st.success(f"{label}目標を保存しました。外部カレンダーへの同期も更新されています。")
-        st.experimental_rerun()
+        st.rerun()
 
     goal = database.get_current_study_goal(
         user_id=user["id"], period_type=period_type, reference_date=reference_date
@@ -8420,10 +8433,10 @@ def dashboard_page(user: Dict) -> None:
                             "year": year,
                             "question_id": question_id,
                         }
-                        st.experimental_rerun()
+                        st.rerun()
                 elif action in {"open-history", "open-recommendation-settings"}:
                     _request_navigation("学習履歴")
-                    st.experimental_rerun()
+                    st.rerun()
 
     return
 def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
@@ -11916,7 +11929,7 @@ def _render_case1_stepper(
                 tab_state_key=tab_state_key,
                 highlight_state_key=highlight_state_key,
             )
-            st.experimental_rerun()
+            st.rerun()
 
 
 def _render_case1_question_cards(
@@ -11967,7 +11980,7 @@ def _render_case1_question_cards(
                 st.markdown("</div>", unsafe_allow_html=True)
                 if clicked:
                     st.session_state[selected_key] = idx
-                    st.experimental_rerun()
+                    st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -13377,7 +13390,7 @@ def _render_case3_workspace(
                 help=entry.get("title") or entry.get("preview") or "",
             ):
                 st.session_state[selected_key] = idx
-                st.experimental_rerun()
+                st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
     current_index = st.session_state[selected_key]
@@ -13537,7 +13550,7 @@ def _render_case3_answer_area(
         use_container_width=True,
     ):
         st.session_state[tab_key] = "模範解答・採点基準"
-        st.experimental_rerun()
+        st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -13855,8 +13868,8 @@ def _insert_case3_template(
     current_text = st.session_state.get("drafts", {}).get(draft_key, "")
     appended = (current_text + "\n" + template).strip()
     st.session_state.setdefault("drafts", {})[draft_key] = appended
-    st.session_state[textarea_key] = appended
-    st.experimental_rerun()
+    _queue_textarea_update(textarea_key, appended)
+    st.rerun()
 
 
 def _count_case3_pos(text: str) -> Tuple[int, int]:
@@ -14727,10 +14740,13 @@ def practice_page(user: Dict) -> None:
                     "設問": idx + 1,
                     "配点": q["max_score"],
                     "キーワード": "、".join(q["keywords"]) if q["keywords"] else "-",
-                    "評価したい力": "・".join(
-                        card.get("label", "") for card in q.get("intent_cards", []) if card.get("label")
-                    )
-                    or "-",
+                    "評価したい力": (
+                        "・".join(
+                            card["label"]
+                            for card in _normalize_intent_card_list(q.get("intent_cards"))
+                        )
+                        or "-"
+                    ),
                 }
                 for idx, q in enumerate(problem["questions"])
             ]
@@ -17342,7 +17358,7 @@ def history_page(user: Dict) -> None:
             new_end = min(period_max, current_end + shift)
             new_start = min(new_end, current_start + shift)
         st.session_state["history_period_range"] = (new_start, new_end)
-        st.experimental_rerun()
+        st.rerun()
 
     active_badges = []
     if selected_years:
