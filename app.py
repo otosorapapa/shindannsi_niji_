@@ -10748,29 +10748,49 @@ def _generate_pdca_insights(
         )
 
     if not weekly_summary.empty:
-        weekly_sorted = weekly_summary.sort_values(["モジュール", "期間開始"])
-        weekly_sorted["前回得点率"] = (
-            weekly_sorted.groupby("モジュール")["平均得点率"].shift(1)
-        )
-        weekly_sorted["差分"] = weekly_sorted["平均得点率"] - weekly_sorted["前回得点率"]
-        latest_rows = weekly_sorted.groupby("モジュール").tail(1)
-        improvement = latest_rows.dropna(subset=["差分"])
-        if not improvement.empty:
-            best = improvement.sort_values("差分", ascending=False).iloc[0]
-            if best["差分"] > 0:
-                insights["check"] = (
-                    f"『{best['モジュール']}』は直近週で得点率が{best['差分']:.1f}pt向上しています。"
-                )
+        weekly_processed = weekly_summary.copy()
+        if "モジュール" not in weekly_processed.columns:
+            if "事例" in weekly_processed.columns:
+                weekly_processed = weekly_processed.rename(columns={"事例": "モジュール"})
             else:
-                insights["check"] = (
-                    "各モジュールの得点率に大きな変化はありませんでした。"
+                weekly_processed = pd.DataFrame()
+        if not weekly_processed.empty and "期間開始" not in weekly_processed.columns:
+            if "週" in weekly_processed.columns:
+                weekly_processed["期間開始"] = pd.to_datetime(
+                    weekly_processed["週"], errors="coerce"
                 )
+            elif "期間" in weekly_processed.columns:
+                weekly_processed["期間開始"] = pd.to_datetime(
+                    weekly_processed["期間"], errors="coerce"
+                )
+        weekly_sorted = pd.DataFrame()
+        if not weekly_processed.empty and {"モジュール", "期間開始"}.issubset(
+            weekly_processed.columns
+        ):
+            weekly_sorted = weekly_processed.sort_values(["モジュール", "期間開始"])
+        if not weekly_sorted.empty:
+            weekly_sorted["前回得点率"] = (
+                weekly_sorted.groupby("モジュール")["平均得点率"].shift(1)
+            )
+            weekly_sorted["差分"] = weekly_sorted["平均得点率"] - weekly_sorted["前回得点率"]
+            latest_rows = weekly_sorted.groupby("モジュール").tail(1)
+            improvement = latest_rows.dropna(subset=["差分"])
+            if not improvement.empty:
+                best = improvement.sort_values("差分", ascending=False).iloc[0]
+                if best["差分"] > 0:
+                    insights["check"] = (
+                        f"『{best['モジュール']}』は直近週で得点率が{best['差分']:.1f}pt向上しています。"
+                    )
+                else:
+                    insights["check"] = (
+                        "各モジュールの得点率に大きな変化はありませんでした。"
+                    )
 
-            worst = improvement.sort_values("差分").iloc[0]
-            if worst["差分"] < 0:
-                insights["act"] = (
-                    f"『{worst['モジュール']}』は得点率が{abs(worst['差分']):.1f}pt低下。復習方針を見直しましょう。"
-                )
+                worst = improvement.sort_values("差分").iloc[0]
+                if worst["差分"] < 0:
+                    insights["act"] = (
+                        f"『{worst['モジュール']}』は得点率が{abs(worst['差分']):.1f}pt低下。復習方針を見直しましょう。"
+                    )
         if not insights["check"]:
             insights["check"] = "週次データが1件のみのため推移分析はできません。"
         if not insights["act"]:
