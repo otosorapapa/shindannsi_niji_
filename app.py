@@ -5707,6 +5707,13 @@ def main_view() -> None:
         "学習履歴": history_page,
         "設定": settings_page,
     }
+    navigation_icons = {
+        "ホーム": "🏠",
+        "過去問演習": "📝",
+        "模擬試験": "🎯",
+        "学習履歴": "📊",
+        "設定": "⚙️",
+    }
 
     navigation_key = "navigation_selection"
     redirect_target = st.session_state.pop(NAVIGATION_REDIRECT_KEY, None)
@@ -5720,31 +5727,33 @@ def main_view() -> None:
             """
             <style>
             section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] {
-                margin-bottom: 0.3rem;
+                margin-bottom: 0.45rem;
             }
             section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:first-child {
                 display: none;
             }
             section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
                 width: 100%;
-                padding: 0.5rem 0.75rem;
-                border-radius: 0.6rem;
+                padding: 0.65rem 0.85rem;
+                border-radius: 0.9rem;
                 border: 1px solid transparent;
-                transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+                background: rgba(15, 23, 42, 0.03);
+                transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
             }
             section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > div:last-child:hover {
-                border-color: rgba(49, 51, 63, 0.2);
-                background-color: rgba(49, 51, 63, 0.05);
+                border-color: rgba(37, 99, 235, 0.3);
+                background-color: rgba(37, 99, 235, 0.12);
+                transform: translateX(2px);
             }
             section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > input:checked + div {
-                background-color: rgba(49, 51, 63, 0.06);
-                border-color: var(--primary-color);
-                color: var(--primary-color);
-                box-shadow: 0 0 0 1px var(--primary-color) inset;
-                font-weight: 600;
+                background-color: rgba(37, 99, 235, 0.2);
+                border-color: rgba(37, 99, 235, 0.45);
+                color: #1d4ed8;
+                box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+                font-weight: 700;
             }
-            .mobile-top-nav {
-                display: none;
+            section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"] > input:checked + div p {
+                color: #1d4ed8;
             }
             @media (max-width: 960px) {
                 section[data-testid="stSidebar"] {
@@ -5754,81 +5763,8 @@ def main_view() -> None:
                     padding-left: 0 !important;
                 }
                 .block-container {
-                    padding: calc(3.8rem + env(safe-area-inset-top, 0px)) 1rem 2.75rem;
+                    padding: calc(3.6rem + env(safe-area-inset-top, 0px)) 1rem 2.75rem;
                     max-width: 100%;
-                }
-                .dashboard-grid {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 1.25rem;
-                }
-                .dashboard-toc {
-                    flex-wrap: wrap;
-                    gap: 0.65rem;
-                }
-                .dashboard-toc__link {
-                    flex: 1 1 calc(50% - 0.65rem);
-                    text-align: center;
-                }
-                .dashboard-card {
-                    padding: 1rem 1.05rem 1.1rem;
-                }
-                .summary-card-grid {
-                    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-                }
-                .summary-cta-card__item {
-                    padding: 0.95rem 1rem 0.9rem;
-                }
-                .kpi-tiles,
-                .metric-grid {
-                    grid-template-columns: 1fr;
-                }
-                .mobile-top-nav {
-                    display: block;
-                    position: sticky;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    z-index: 1300;
-                    padding: calc(env(safe-area-inset-top, 0px) + 0.65rem) 1rem 0.65rem;
-                    background: linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.88));
-                    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
-                    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
-                    backdrop-filter: blur(12px);
-                }
-                .mobile-top-nav [role="radiogroup"] {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: stretch;
-                    gap: 0.25rem;
-                }
-                .mobile-top-nav label[data-baseweb="radio"] {
-                    flex: 1 1 0;
-                }
-                .mobile-top-nav label[data-baseweb="radio"] > div:first-child {
-                    display: none;
-                }
-                .mobile-top-nav label[data-baseweb="radio"] > div:last-child {
-                    border-radius: 14px;
-                    border: 1px solid transparent;
-                    padding: 0.45rem 0.35rem 0.4rem;
-                    font-size: 0.78rem;
-                    font-weight: 600;
-                    text-align: center;
-                    color: var(--text-muted);
-                    background: rgba(248, 250, 252, 0.9);
-                    transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
-                }
-                .mobile-top-nav label[data-baseweb="radio"] > input:checked + div {
-                    border-color: rgba(37, 99, 235, 0.45);
-                    color: var(--brand-strong);
-                    background: rgba(219, 234, 254, 0.9);
-                    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.18);
-                }
-            }
-            @media (min-width: 961px) {
-                .mobile-top-nav {
-                    display: none !important;
                 }
             }
             </style>
@@ -5852,6 +5788,7 @@ def main_view() -> None:
         "ページを選択",
         nav_labels,
         key=navigation_key,
+        format_func=lambda label: f"{navigation_icons.get(label, '•')} {label}",
     )
 
     st.session_state.page = selected_page
@@ -5861,33 +5798,13 @@ def main_view() -> None:
     st.sidebar.caption(
         "必要な情報にすぐアクセスできるよう、ページ別にコンテンツを整理しています。"
     )
-
-    mobile_nav_key = "mobile_navigation"
-
-    def _sync_mobile_nav_to_sidebar() -> None:
-        selection = st.session_state.get(mobile_nav_key)
-        if selection in navigation_items:
-            st.session_state[navigation_key] = selection
-            st.session_state.page = selection
-
-    current_selection = st.session_state[navigation_key]
-    if st.session_state.get(mobile_nav_key) != current_selection:
-        st.session_state[mobile_nav_key] = current_selection
-
-    with st.container():
+    st.sidebar.markdown("---")
+    with st.sidebar.expander("ヘルプとお問い合わせ", expanded=False):
         st.markdown(
-            "<div class=\"mobile-top-nav\" role=\"navigation\" aria-label=\"主要メニュー\">",
-            unsafe_allow_html=True,
+            "- 📘 [クイックスタートガイド](#)\n"
+            "- 💬 サポート: support@example.com\n"
+            "- ❓ よくある質問はホームのヘルプから確認できます。"
         )
-        st.radio(
-            "主要メニュー",  # ラベルはスクリーンリーダー向けに保持
-            nav_labels,
-            key=mobile_nav_key,
-            horizontal=True,
-            label_visibility="collapsed",
-            on_change=_sync_mobile_nav_to_sidebar,
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
 
     page = st.session_state.get(navigation_key)
     if page not in navigation_items:
@@ -7979,48 +7896,74 @@ def dashboard_page(user: Dict) -> None:
             worst_case_ratio = ratio
             worst_case_label = case_label
 
-    summary_cards = [
-        {
-            "icon": "bx bx-calendar-check",
-            "title": "総解答数",
-            "value": f"{total_attempts} 回",
-            "delta_icon": "bx bx-time-five",
-            "delta": f"直近30日 {recent_attempt_count} 回" if total_attempts else "最初の演習を始めましょう",
-            "delta_class": "",
-        },
-        {
-            "icon": "bx bx-medal",
-            "title": "平均得点",
-            "value": f"{average_score:.1f} 点" if total_attempts else "データなし",
-            "delta_icon": "bx bx-trophy",
-            "delta": (
-                f"最高 {best_case_ratio:.0f}% ({best_case_label})"
-                if best_case_label and best_case_ratio is not None
-                else "得意事例は分析中"
-            ),
-            "delta_class": "",
-        },
-        {
-            "icon": "bx bx-target-lock",
-            "title": "達成率",
-            "value": f"{completion_rate:.0f}%" if total_max else "0%",
-            "delta_icon": "bx bx-pulse",
-            "delta": (
-                f"累計学習 {_format_duration_minutes(total_learning_minutes)}"
-                if total_learning_minutes
-                else "学習時間を記録しましょう"
-            ),
-            "delta_class": "negative" if completion_rate and completion_rate < 60 else "",
-        },
-        {
-            "icon": "bx bx-time-five",
-            "title": "最新学習日",
-            "value": _format_short_date(latest_attempt_dt) if latest_attempt_dt else "未実施",
-            "delta_icon": "bx bx-bolt-circle",
-            "delta": f"連続学習 {streak_days} 日" if streak_days > 1 else "連続学習データなし",
-            "delta_class": "",
-        },
-    ]
+    has_attempts = total_attempts > 0
+
+    keyword_miss_counter: Counter[str] = Counter()
+    for record in keyword_records:
+        keyword_hits = record.get("keyword_hits") or {}
+        for keyword, hit in keyword_hits.items():
+            if keyword and not hit:
+                keyword_miss_counter[keyword] += 1
+
+    top_missed_keywords = [keyword for keyword, _count in keyword_miss_counter.most_common(5)]
+
+    summary_cards: List[Dict[str, Any]]
+    if has_attempts:
+        summary_cards = [
+            {
+                "icon": "bx bx-calendar-check",
+                "title": "総学習回数",
+                "value": f"{total_attempts} 回",
+                "meta": f"直近30日 {recent_attempt_count} 回学習" if recent_attempt_count else "直近30日の学習記録を作成しましょう",
+                "state": "",
+            },
+            {
+                "icon": "bx bx-medal",
+                "title": "平均得点",
+                "value": f"{average_score:.1f} 点" if total_attempts else "-",
+                "meta": (
+                    f"ベスト: {best_case_ratio:.0f}% ({best_case_label})"
+                    if best_case_label and best_case_ratio is not None
+                    else "得点データを蓄積すると傾向が表示されます"
+                ),
+                "state": "" if total_attempts else "empty",
+            },
+            {
+                "icon": "bx bx-target-lock",
+                "title": "達成率",
+                "value": f"{completion_rate:.0f}%" if total_max else "0%",
+                "meta": (
+                    f"累計学習時間 {_format_duration_minutes(total_learning_minutes)}"
+                    if total_learning_minutes
+                    else "演習後に所要時間を記録すると進捗率が分かります"
+                ),
+                "state": "warning" if completion_rate and completion_rate < 60 else "",
+            },
+        ]
+    else:
+        summary_cards = [
+            {
+                "icon": "bx bx-rocket",
+                "title": "STEP 1",
+                "value": "過去問演習を始める",
+                "meta": "左の『過去問演習』ページで初回チャレンジを登録しましょう。",
+                "state": "empty",
+            },
+            {
+                "icon": "bx bx-target-lock",
+                "title": "STEP 2",
+                "value": "解答を提出して自己分析",
+                "meta": "回答を登録すると得点率とキーワード分析が自動表示されます。",
+                "state": "empty",
+            },
+            {
+                "icon": "bx bx-lightbulb",
+                "title": "STEP 3",
+                "value": "弱点キーワードを復習",
+                "meta": "間違えたキーワードからおすすめ学習パスが提示されます。",
+                "state": "empty",
+            },
+        ]
 
     monthly_metrics: Dict[Tuple[int, int], Dict[str, float]] = defaultdict(
         lambda: {
@@ -8147,7 +8090,7 @@ def dashboard_page(user: Dict) -> None:
                 "yAxisID": "y",
             },
         },
-        "emptyMessage": "まだ十分なデータがありません。",
+        "emptyMessage": "演習を記録すると進捗グラフが表示されます。まずは『過去問演習を始める』から学習を登録しましょう。",
     }
 
     if has_score_data:
@@ -8236,35 +8179,163 @@ def dashboard_page(user: Dict) -> None:
     def _build_summary_cards_html() -> str:
         parts: List[str] = []
         for card in summary_cards:
-            delta_class = f" {card['delta_class']}" if card.get("delta_class") else ""
-            delta_html = (
-                f"<span class='delta{delta_class}'><i class='{card['delta_icon']}'></i>{html.escape(card['delta'])}</span>"
-                if card.get("delta")
+            state_class = f" summary-card--{card['state']}" if card.get("state") else ""
+            meta_text = card.get("meta")
+            meta_html = (
+                f"<p class='summary-card__meta'>{html.escape(meta_text)}</p>"
+                if meta_text
                 else ""
             )
             parts.append(
                 dedent(
                     f"""
-                    <article class="summary-card">
+                    <article class="summary-card{state_class}">
                       <div class="icon-wrapper"><i class="{card['icon']}"></i></div>
                       <h3>{html.escape(card['title'])}</h3>
                       <strong>{html.escape(card['value'])}</strong>
-                      {delta_html}
+                      {meta_html}
                     </article>
                     """
                 ).strip()
             )
         if parts:
             return "\n".join(parts)
-        return "<div class='empty-state'>学習記録がまだありません。最初の演習を登録するとダッシュボードが表示されます。</div>"
+        return "<div class='empty-state'>初回演習を登録すると学習サマリーが表示されます。まずは『過去問演習』ページからチャレンジしてください。</div>"
 
     summary_cards_html = _build_summary_cards_html()
+
+    def _build_keyword_alerts_html() -> str:
+        if top_missed_keywords:
+            chips = []
+            for keyword in top_missed_keywords:
+                keyword_label = html.escape(keyword)
+                chips.append(f"<span class='keyword-chip'>{keyword_label}</span>")
+            return "".join(chips)
+        return (
+            "<span class='keyword-chip keyword-chip--empty'>演習で間違えたキーワードが表示されます。まずは1問解いてみましょう。</span>"
+        )
+
+    keyword_alerts_html = _build_keyword_alerts_html()
+
+    problem_recs = personalized_bundle.get("problem_recommendations") or []
+    resource_recs = personalized_bundle.get("resource_recommendations") or []
+
+    learning_path_steps: List[Tuple[str, str]] = []
+    for entry in problem_recs[:3]:
+        label_parts = [
+            str(entry.get("year") or ""),
+            str(entry.get("case_label") or ""),
+            str(entry.get("title") or ""),
+        ]
+        label = " ".join(part for part in label_parts if part and part != "None").strip()
+        if not label:
+            label = "重点演習"
+        reason = entry.get("reason") or "復習から着手しましょう"
+        learning_path_steps.append((label, reason))
+
+    if len(learning_path_steps) < 3:
+        for entry in question_recs:
+            label_parts = [
+                str(entry.get("year") or ""),
+                str(entry.get("case_label") or ""),
+            ]
+            prompt = entry.get("prompt")
+            label = " ".join(part for part in label_parts if part and part != "None").strip()
+            if prompt:
+                label = f"{label} {prompt}".strip()
+            reason = entry.get("reason") or "キーワード復習を優先しましょう"
+            learning_path_steps.append((label or "優先問題", reason))
+            if len(learning_path_steps) >= 3:
+                break
+
+    if len(learning_path_steps) < 3:
+        for entry in resource_recs:
+            label = entry.get("label") or entry.get("keyword") or "学習リソース"
+            reason = entry.get("reason") or "関連資料を確認しましょう"
+            learning_path_steps.append((label, reason))
+            if len(learning_path_steps) >= 3:
+                break
+
+    def _build_learning_path_html() -> str:
+        if learning_path_steps:
+            items: List[str] = []
+            for index, (label, reason) in enumerate(learning_path_steps, start=1):
+                items.append(
+                    dedent(
+                        f"""
+                        <li>
+                          <span class="step-index">{index}</span>
+                          <div>
+                            <strong>{html.escape(label)}</strong>
+                            <p>{html.escape(reason)}</p>
+                          </div>
+                        </li>
+                        """
+                    ).strip()
+                )
+            return f"<ol class='learning-path'>{''.join(items)}</ol>"
+        return (
+            "<div class='empty-state empty-state--inline'>演習履歴を登録するとおすすめ学習パスが表示されます。直近で解いた問題を振り返ってみましょう。</div>"
+        )
+
+    learning_path_html = _build_learning_path_html()
+
+    def _build_weakness_report_html() -> str:
+        if top_missed_keywords:
+            rows: List[str] = []
+            for keyword in top_missed_keywords[:3]:
+                resources = KEYWORD_RESOURCE_MAP.get(keyword) or DEFAULT_KEYWORD_RESOURCES
+                resource_links = []
+                for resource in resources[:2]:
+                    label = html.escape(resource.get("label") or "外部資料")
+                    url = html.escape(resource.get("url") or "#")
+                    resource_links.append(f"<a href='{url}' target='_blank' rel='noopener'>{label}</a>")
+                resources_html = "".join(resource_links)
+                rows.append(
+                    dedent(
+                        f"""
+                        <div class="weakness-item">
+                          <div class="weakness-item__keyword">{html.escape(keyword)}</div>
+                          <div class="weakness-item__actions">{resources_html or '復習ノートを作成しましょう'}</div>
+                        </div>
+                        """
+                    ).strip()
+                )
+            return "".join(rows)
+        return (
+            "<div class='empty-state empty-state--inline'>演習後に間違えたキーワードがこちらに並び、復習リンクが表示されます。</div>"
+        )
+
+    weakness_report_html = _build_weakness_report_html()
+
+    progress_highlights: List[str] = []
+    progress_highlights.append(
+        f"最新の演習日: {_format_short_date(latest_attempt_dt) if latest_attempt_dt else '未実施'}"
+    )
+    if streak_days:
+        progress_highlights.append(f"連続学習 {streak_days} 日継続中")
+    else:
+        progress_highlights.append("学習習慣づくりを今日から始めましょう")
+    if total_learning_minutes:
+        progress_highlights.append(f"累計学習時間 {_format_duration_minutes(total_learning_minutes)}")
+    else:
+        progress_highlights.append("演習後に所要時間を入力すると進捗が追跡できます")
+
+    progress_highlights_html = "".join(
+        f"<li><i class='bx bx-check-circle'></i>{html.escape(text)}</li>" for text in progress_highlights
+    )
 
     chart_facts_html = "\n".join(
         f"<span><i class=\"{icon}\"></i> {html.escape(text)}</span>" for icon, text in chart_facts
     )
     if not chart_facts_html:
-        chart_facts_html = "<span>データがまだありません。</span>"
+        chart_facts_html = "<span>演習データを追加すると要点が表示されます。まずは1問解いてみましょう。</span>"
+
+    has_export_data = has_attempts or bool(question_progress.get("recent_questions"))
+    if has_export_data:
+        export_button_html = "<a href='#' class='cta' data-action='export-dashboard'><i class='bx bx-export'></i>CSV エクスポート</a>"
+    else:
+        export_button_html = "<span class='cta disabled' aria-disabled='true'><i class='bx bx-export'></i>CSV エクスポート</span>"
 
     recent_items: List[str] = []
     for item in recent_questions:
@@ -8367,7 +8438,9 @@ def dashboard_page(user: Dict) -> None:
     if recent_items:
         recent_items_html = "\n".join(recent_items)
     else:
-        recent_items_html = "<div class='empty-state'>最近の記録がまだありません。演習を開始すると表示されます。</div>"
+        recent_items_html = (
+            "<div class='empty-state'>最近の記録がまだありません。「過去問演習を始める」ボタンから初回の解答を登録しましょう。</div>"
+        )
 
     recommended_items: List[str] = []
     for entry in question_recs:
@@ -8451,7 +8524,9 @@ def dashboard_page(user: Dict) -> None:
     if recommended_items:
         recommended_items_html = "\n".join(recommended_items)
     else:
-        recommended_items_html = "<div class='empty-state'>おすすめ問題は現在ありません。演習を続けると弱点に応じて提示されます。</div>"
+        recommended_items_html = (
+            "<div class='empty-state'>おすすめ問題は現在ありません。演習を数件解くと弱点に基づいた提案がここに表示されます。</div>"
+        )
 
     template = HOME_DASHBOARD_HTML_PATH.read_text(encoding="utf-8")
     replacements = {
@@ -8459,6 +8534,11 @@ def dashboard_page(user: Dict) -> None:
         "{{CHART_FACTS}}": chart_facts_html,
         "{{RECENT_ITEMS}}": recent_items_html,
         "{{RECOMMENDED_ITEMS}}": recommended_items_html,
+        "{{KEYWORD_ALERTS}}": keyword_alerts_html,
+        "{{LEARNING_PATH}}": learning_path_html,
+        "{{WEAKNESS_REPORT}}": weakness_report_html,
+        "{{PROGRESS_HIGHLIGHTS}}": progress_highlights_html,
+        "{{EXPORT_BUTTON}}": export_button_html,
         "{{CHART_CONFIG}}": json.dumps(chart_config, ensure_ascii=False),
     }
     for placeholder, value in replacements.items():
@@ -8492,6 +8572,9 @@ def dashboard_page(user: Dict) -> None:
                             "question_id": question_id,
                         }
                         st.rerun()
+                elif action == "start-practice":
+                    _request_navigation("過去問演習")
+                    st.rerun()
                 elif action in {"open-history", "open-recommendation-settings"}:
                     _request_navigation("学習履歴")
                     st.rerun()
