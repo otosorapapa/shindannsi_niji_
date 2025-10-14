@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="ja" data-app="dashboard">
   <head>
     <meta charset="UTF-8" />
@@ -23,15 +22,16 @@
         --color-border: rgba(30, 45, 75, 0.12);
         --color-border-strong: rgba(30, 45, 75, 0.2);
         --color-primary: #3057d5;
+        --color-primary-strong: #1d4ed8;
         --color-primary-soft: rgba(48, 87, 213, 0.14);
         --color-accent: #f59f48;
         --color-text: #1e2d4b;
-        --color-text-muted: rgba(30, 45, 75, 0.6);
-        --radius-card: 18px;
+        --color-text-muted: rgba(30, 45, 75, 0.65);
+        --radius-card: 20px;
         --radius-chip: 999px;
         --shadow-soft: 0 18px 38px rgba(30, 45, 75, 0.08);
         --shadow-hover: 0 22px 44px rgba(30, 45, 75, 0.12);
-        --transition: 180ms ease;
+        --transition: 200ms ease;
         color-scheme: light;
       }
 
@@ -55,6 +55,10 @@
         min-height: 100vh;
       }
 
+      a {
+        color: inherit;
+      }
+
       .page {
         max-width: 1200px;
         margin: 0 auto;
@@ -64,48 +68,205 @@
         gap: 32px;
       }
 
-      header.page-header {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
-        justify-content: space-between;
-        align-items: center;
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+        gap: clamp(24px, 3vw, 40px);
+        padding: clamp(28px, 4vw, 40px);
+        border-radius: 28px;
+        background: linear-gradient(135deg, rgba(48, 87, 213, 0.14), rgba(255, 255, 255, 0.88));
+        border: 1px solid rgba(48, 87, 213, 0.12);
+        box-shadow: var(--shadow-soft);
+        position: relative;
+        overflow: hidden;
       }
 
-      .page-title {
-        font-family: "M PLUS Rounded 1c", sans-serif;
-        font-size: clamp(28px, 3vw, 40px);
+      .hero::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          circle at top left,
+          rgba(255, 255, 255, 0.28),
+          transparent 60%
+        );
+        pointer-events: none;
+      }
+
+      .hero__content {
         display: flex;
+        flex-direction: column;
+        gap: 18px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .hero__eyebrow {
+        margin: 0;
+        font-size: 13px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--color-primary-strong);
+        font-weight: 700;
+      }
+
+      .hero__title {
+        font-family: "M PLUS Rounded 1c", sans-serif;
+        font-size: clamp(30px, 3.6vw, 42px);
+        margin: 0;
+        line-height: 1.15;
+      }
+
+      .hero__description {
+        margin: 0;
+        font-size: 16px;
+        color: var(--color-text-muted);
+        line-height: 1.7;
+      }
+
+      .hero__actions {
+        display: inline-flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 12px;
       }
 
-      .page-title i {
-        color: var(--color-primary);
-        font-size: 32px;
-        background: var(--color-primary-soft);
-        padding: 10px;
-        border-radius: 14px;
+      .hero__cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        border-radius: 999px;
+        padding: 14px 26px;
+        background: linear-gradient(120deg, #3057d5, #436ef2);
+        color: #fff;
+        font-weight: 700;
+        text-decoration: none;
+        font-size: 16px;
+        box-shadow: 0 16px 32px rgba(48, 87, 213, 0.35);
+        transition: transform var(--transition), box-shadow var(--transition);
       }
 
-      .page-header .cta {
+      .hero__cta:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 24px 42px rgba(48, 87, 213, 0.4);
+      }
+
+      .cta.disabled,
+      .hero__actions .cta.disabled {
         display: inline-flex;
         align-items: center;
         gap: 8px;
         border-radius: 999px;
-        border: 1px solid rgba(48, 87, 213, 0.2);
-        background: var(--color-surface);
-        padding: 10px 18px;
-        color: var(--color-primary);
+        padding: 12px 20px;
+        background: rgba(148, 163, 184, 0.2);
+        color: rgba(30, 45, 75, 0.5);
+        border: 1px dashed rgba(148, 163, 184, 0.55);
         font-weight: 600;
-        text-decoration: none;
-        box-shadow: var(--shadow-soft);
-        transition: transform var(--transition), box-shadow var(--transition);
+        cursor: not-allowed;
       }
 
-      .page-header .cta:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-hover);
+      .progress-highlights {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      }
+
+      .progress-highlights li {
+        background: rgba(255, 255, 255, 0.82);
+        border-radius: 14px;
+        padding: 10px 14px;
+        font-size: 13px;
+        color: var(--color-text-muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgba(48, 87, 213, 0.12);
+      }
+
+      .progress-highlights i {
+        color: var(--color-primary);
+        font-size: 18px;
+      }
+
+      .hero__keywords {
+        position: relative;
+        z-index: 1;
+        background: var(--color-surface);
+        border-radius: 22px;
+        padding: 22px;
+        box-shadow: 0 14px 34px rgba(30, 45, 75, 0.12);
+        border: 1px solid rgba(48, 87, 213, 0.12);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .hero__keywords h2 {
+        margin: 0;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .hero__note {
+        margin: 0;
+        font-size: 12px;
+        color: var(--color-text-muted);
+      }
+
+      .keyword-alerts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .keyword-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: var(--radius-chip);
+        background: rgba(48, 87, 213, 0.12);
+        color: var(--color-primary-strong);
+        font-weight: 600;
+        font-size: 13px;
+      }
+
+      .keyword-chip--empty {
+        background: rgba(148, 163, 184, 0.16);
+        color: rgba(30, 45, 75, 0.6);
+        font-weight: 500;
+      }
+
+      .summary-section {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .section-heading {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .section-heading h2 {
+        margin: 0;
+        font-size: 22px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .section-heading p {
+        margin: 0;
+        font-size: 14px;
+        color: var(--color-text-muted);
       }
 
       .summary-cards {
@@ -117,7 +278,7 @@
       .summary-card {
         background: var(--color-surface);
         border-radius: var(--radius-card);
-        padding: 20px 24px;
+        padding: 22px 24px;
         position: relative;
         overflow: hidden;
         box-shadow: var(--shadow-soft);
@@ -141,23 +302,37 @@
         box-shadow: var(--shadow-hover);
       }
 
+      .summary-card--empty,
+      .summary-card--warning {
+        background: rgba(255, 255, 255, 0.88);
+      }
+
+      .summary-card--empty::after {
+        background: linear-gradient(135deg, rgba(148, 163, 184, 0.16), transparent 60%);
+      }
+
+      .summary-card--warning::after {
+        background: linear-gradient(135deg, rgba(245, 159, 72, 0.16), transparent 60%);
+      }
+
       .summary-card .icon-wrapper {
-        width: 44px;
-        height: 44px;
+        width: 48px;
+        height: 48px;
         display: grid;
         place-items: center;
-        border-radius: 14px;
+        border-radius: 16px;
         background: var(--color-primary-soft);
         color: var(--color-primary);
-        margin-bottom: 18px;
+        margin-bottom: 16px;
         font-size: 24px;
       }
 
       .summary-card h3 {
         margin: 0 0 6px;
-        font-size: 16px;
-        letter-spacing: 0.02em;
+        font-size: 15px;
+        letter-spacing: 0.04em;
         color: var(--color-text-muted);
+        text-transform: uppercase;
       }
 
       .summary-card strong {
@@ -166,41 +341,59 @@
         line-height: 1.1;
       }
 
-      .summary-card span.delta {
-        margin-top: 12px;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
+      .summary-card__meta {
+        margin: 12px 0 0;
         font-size: 13px;
-        color: #17834d;
-        font-weight: 600;
+        color: var(--color-text-muted);
+        line-height: 1.6;
       }
 
-      .summary-card span.delta.negative {
-        color: #c9343a;
+      .accordion {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
       }
 
-      .main-area {
-        display: grid;
-        grid-template-columns: 280px minmax(0, 1fr);
-        gap: 24px;
-        align-items: start;
-      }
-
-      .panel {
+      .accordion__item {
+        border-radius: 22px;
         background: var(--color-surface);
-        border-radius: var(--radius-card);
-        padding: 20px 22px 24px;
+        border: 1px solid var(--color-border);
         box-shadow: var(--shadow-soft);
+        padding: 0;
+        overflow: hidden;
+      }
+
+      .accordion__item > summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 18px 24px;
+        font-size: 16px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: linear-gradient(120deg, rgba(48, 87, 213, 0.05), transparent 60%);
+        outline: none;
+      }
+
+      .accordion__item > summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .accordion__item[open] > summary {
+        border-bottom: 1px solid rgba(30, 45, 75, 0.08);
+      }
+
+      .accordion__content {
+        padding: 22px 24px 26px;
         display: flex;
         flex-direction: column;
         gap: 18px;
       }
 
-      .panel h2 {
-        margin: 0;
-        font-size: 18px;
-        font-weight: 700;
+      .filter-panel {
+        display: grid;
+        gap: 18px;
       }
 
       .filter-group {
@@ -283,6 +476,33 @@
         color: var(--color-text-muted);
       }
 
+      .analysis-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+        gap: 20px;
+        align-items: start;
+      }
+
+      .panel {
+        background: var(--color-surface);
+        border-radius: var(--radius-card);
+        padding: 20px 22px 24px;
+        box-shadow: var(--shadow-soft);
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .panel h2,
+      .panel h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
       .chart-panel {
         gap: 24px;
       }
@@ -293,6 +513,23 @@
         align-items: center;
         justify-content: space-between;
         gap: 16px;
+      }
+
+      .chart-header p {
+        margin: 6px 0 0;
+        color: var(--color-text-muted);
+        font-size: 13px;
+      }
+
+      .chart-body {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .chart-body canvas {
+        width: 100%;
+        min-height: 260px;
       }
 
       .chart-switcher {
@@ -320,58 +557,142 @@
       .chart-switcher button.active {
         background: var(--color-surface);
         color: var(--color-primary);
-        box-shadow: 0 10px 20px rgba(48, 87, 213, 0.16);
+        box-shadow: 0 6px 16px rgba(48, 87, 213, 0.18);
       }
 
       .chart-switcher button:disabled {
-        opacity: 0.45;
+        opacity: 0.4;
         cursor: not-allowed;
-        box-shadow: none;
-      }
-
-      .chart-body {
-        display: grid;
-        gap: 22px;
-      }
-
-      .chart-body canvas {
-        width: 100% !important;
-        max-height: 280px;
       }
 
       .chart-legend {
         display: flex;
         flex-wrap: wrap;
-        gap: 18px;
-        font-size: 13px;
+        gap: 12px;
+        font-size: 12px;
         color: var(--color-text-muted);
       }
 
       .legend-dot {
         width: 12px;
         height: 12px;
-        border-radius: 50%;
+        border-radius: 999px;
+        display: inline-block;
+        margin-right: 6px;
       }
 
       .table-like {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        display: flex;
+        flex-wrap: wrap;
         gap: 12px;
-        font-size: 13px;
-        padding: 10px 14px;
-        background: rgba(48, 87, 213, 0.06);
-        border-radius: 12px;
+        font-size: 12px;
+        color: var(--color-text-muted);
       }
 
       .table-like span {
-        display: flex;
+        display: inline-flex;
         align-items: center;
         gap: 6px;
+        padding: 8px 12px;
+        border-radius: var(--radius-chip);
+        background: rgba(48, 87, 213, 0.08);
       }
 
-      .list-section {
+      .insight-panel {
+        gap: 20px;
+      }
+
+      .learning-path,
+      .weakness-report {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .learning-path {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        counter-reset: learning-step;
+      }
+
+      .learning-path li {
         display: grid;
-        gap: 18px;
+        grid-template-columns: 32px minmax(0, 1fr);
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(48, 87, 213, 0.08);
+        border: 1px solid rgba(48, 87, 213, 0.16);
+      }
+
+      .step-index {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--color-primary);
+        color: #fff;
+        font-weight: 700;
+      }
+
+      .learning-path strong {
+        display: block;
+        font-size: 14px;
+        margin-bottom: 4px;
+      }
+
+      .learning-path p {
+        margin: 0;
+        font-size: 12px;
+        color: var(--color-text-muted);
+      }
+
+      .weakness-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(48, 87, 213, 0.12);
+      }
+
+      .weakness-item__keyword {
+        font-weight: 700;
+        color: var(--color-primary-strong);
+      }
+
+      .weakness-item__actions {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 12px;
+      }
+
+      .weakness-item__actions a {
+        color: var(--color-primary-strong);
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      .empty-state {
+        background: var(--color-surface);
+        border-radius: var(--radius-card);
+        padding: 24px;
+        font-size: 14px;
+        color: var(--color-text-muted);
+        text-align: center;
+        box-shadow: var(--shadow-soft);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+      }
+
+      .empty-state--inline {
+        box-shadow: none;
+        text-align: left;
+        padding: 18px;
       }
 
       .list-grid {
@@ -380,20 +701,17 @@
         gap: 18px;
       }
 
-      .list-grid .empty-state {
-        grid-column: 1 / -1;
-      }
-
       .card-item {
-        background: var(--color-surface);
-        border-radius: var(--radius-card);
-        padding: 18px 20px;
-        display: grid;
-        gap: 10px;
-        box-shadow: var(--shadow-soft);
         position: relative;
-        overflow: hidden;
+        display: grid;
+        gap: 12px;
+        padding: 18px 20px;
+        border-radius: 18px;
+        background: var(--color-surface);
+        border: 1px solid rgba(30, 45, 75, 0.12);
+        box-shadow: var(--shadow-soft);
         transition: transform var(--transition), box-shadow var(--transition);
+        overflow: hidden;
       }
 
       .card-item::after {
@@ -475,23 +793,20 @@
         flex-wrap: wrap;
       }
 
-      .card-actions a {
+      .card-actions a,
+      .list-actions a {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
         color: var(--color-primary);
         text-decoration: none;
         font-weight: 600;
       }
 
-      .empty-state {
-        background: var(--color-surface);
-        border-radius: var(--radius-card);
-        padding: 24px;
-        font-size: 14px;
-        color: var(--color-text-muted);
-        text-align: center;
-        box-shadow: var(--shadow-soft);
+      .list-actions {
+        display: flex;
+        justify-content: flex-end;
+        font-size: 13px;
       }
 
       footer.page-footer {
@@ -502,8 +817,14 @@
       }
 
       @media (max-width: 1080px) {
-        .main-area {
-          grid-template-columns: 100%;
+        .hero {
+          grid-template-columns: 1fr;
+        }
+        .hero__keywords {
+          order: -1;
+        }
+        .analysis-layout {
+          grid-template-columns: 1fr;
         }
       }
 
@@ -515,125 +836,168 @@
         .card-item {
           grid-template-columns: 1fr;
         }
+
+        .accordion__item > summary {
+          font-size: 15px;
+        }
       }
     </style>
   </head>
   <body>
     <div class="page">
-      <header class="page-header">
-        <div class="page-title">
-          <i class="bx bx-line-chart"></i>
-          <span>学習ダッシュボード</span>
+      <header class="hero">
+        <div class="hero__content">
+          <p class="hero__eyebrow">ようこそ</p>
+          <h1 class="hero__title">中小企業診断士二次試験 演習アプリ</h1>
+          <p class="hero__description">
+            学習の記録から弱点キーワードまで一目で把握し、次にやるべき演習へスムーズに移動できます。
+            初めての方は下のボタンから演習を開始してください。
+          </p>
+          <div class="hero__actions">
+            <a href="#" class="hero__cta" data-action="start-practice">
+              <i class="bx bx-play-circle"></i>
+              過去問演習を始める
+            </a>
+            {{EXPORT_BUTTON}}
+          </div>
+          <ul class="progress-highlights">
+            {{PROGRESS_HIGHLIGHTS}}
+          </ul>
         </div>
-        <a href="#" class="cta"><i class="bx bx-export"></i>CSV エクスポート</a>
+        <div class="hero__keywords">
+          <h2><i class="bx bx-bulb"></i> 要強化キーワード</h2>
+          <div class="keyword-alerts">
+            {{KEYWORD_ALERTS}}
+          </div>
+          <p class="hero__note">直近の演習で取りこぼしたキーワードを優先的に復習しましょう。</p>
+        </div>
       </header>
 
-      <section class="summary-cards" aria-label="学習サマリー">
-        {{SUMMARY_CARDS}}
-      </section>
-
-      <section class="main-area" aria-label="分析エリア">
-        <aside class="panel">
-          <h2><i class="bx bx-filter-alt"></i> フィルタ</h2>
-          <div class="filter-group">
-            <span class="filter-label">年度</span>
-            <div class="chip-list" role="listbox" aria-label="年度フィルタ">
-              <button class="chip active" type="button"><i class="bx bx-time"></i>全期間</button>
-              <button class="chip" type="button" disabled>2023</button>
-              <button class="chip" type="button" disabled>2022</button>
-              <button class="chip" type="button" disabled>2021</button>
-            </div>
-          </div>
-          <div class="filter-group">
-            <span class="filter-label">事例</span>
-            <div class="chip-list" role="listbox" aria-label="事例フィルタ">
-              <button class="chip active" type="button">全事例</button>
-              <button class="chip" type="button" disabled>事例 I</button>
-              <button class="chip" type="button" disabled>事例 II</button>
-              <button class="chip" type="button" disabled>事例 III</button>
-              <button class="chip" type="button" disabled>事例 IV</button>
-            </div>
-          </div>
-          <div class="filter-group">
-            <span class="filter-label">学習モード</span>
-            <div class="chip-list" role="listbox" aria-label="モードフィルタ">
-              <button class="chip active" type="button">通常演習</button>
-              <button class="chip" type="button" disabled>模試</button>
-              <button class="chip" type="button" disabled>復習</button>
-            </div>
-          </div>
-          <div class="filter-group">
-            <span class="filter-label">キーワード検索</span>
-            <label class="search-box">
-              <input type="search" placeholder="設問・キーワードで検索" disabled />
-              <i class="bx bx-search"></i>
-            </label>
-          </div>
-          <div class="filter-group">
-            <span class="filter-label">タグ</span>
-            <div class="chip-list">
-              <button class="chip" type="button" disabled><i class="bx bx-bookmark"></i>要復習</button>
-              <button class="chip" type="button" disabled><i class="bx bx-bulb"></i>強み</button>
-              <button class="chip" type="button" disabled><i class="bx bx-trending-up"></i>伸びしろ</button>
-            </div>
-          </div>
-        </aside>
-
-        <section class="panel chart-panel">
-          <div class="chart-header">
-            <div>
-              <h2><i class="bx bx-analyse"></i> 学習分析</h2>
-              <p style="margin: 6px 0 0; color: var(--color-text-muted); font-size: 13px;">
-                年月・事例タイプでドリルダウンし、得点傾向やキーワード網羅率を確認できます。
-              </p>
-            </div>
-            <div class="chart-switcher" role="tablist">
-              <button class="active" data-chart="score" role="tab">得点推移</button>
-              <button data-chart="keyword" role="tab">キーワード網羅率</button>
-              <button data-chart="time" role="tab">解答時間</button>
-            </div>
-          </div>
-          <div class="chart-body">
-            <canvas id="primaryChart" aria-label="ダッシュボードグラフ" role="img"></canvas>
-            <div id="chartFallback" class="empty-state" hidden>まだ十分なデータがありません。</div>
-            <div class="chart-legend" id="chartLegend"></div>
-            <div class="table-like">
-              {{CHART_FACTS}}
-            </div>
-          </div>
-        </section>
-      </section>
-
-      <section class="list-section" aria-label="演習リスト">
-        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <h2 style="margin: 0; font-size: 20px; display: flex; align-items: center; gap: 10px;">
-            <i class="bx bx-history"></i> 最近解答した問題
-          </h2>
-          <a href="#" style="font-size: 13px; color: var(--color-primary); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" data-action="open-history">
-            すべて見る <i class="bx bx-chevron-right"></i>
-          </a>
+      <section class="summary-section" aria-label="学習サマリー">
+        <div class="section-heading">
+          <h2><i class="bx bx-dashboard"></i> 学習サマリー</h2>
+          <p>進捗のハイライトと次の行動のヒントを表示します。</p>
         </div>
-        <div class="list-grid">
-          {{RECENT_ITEMS}}
+        <div class="summary-cards">
+          {{SUMMARY_CARDS}}
         </div>
       </section>
 
-      <section class="list-section" aria-label="おすすめ問題">
-        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <h2 style="margin: 0; font-size: 20px; display: flex; align-items: center; gap: 10px;">
-            <i class="bx bx-star"></i> おすすめ問題
-          </h2>
-          <a href="#" style="font-size: 13px; color: var(--color-primary); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" data-action="open-recommendation-settings">
-            推薦条件を調整 <i class="bx bx-slider"></i>
-          </a>
-        </div>
-        <div class="list-grid">
-          {{RECOMMENDED_ITEMS}}
-        </div>
+      <section class="accordion" aria-label="ダッシュボード詳細">
+        <details class="accordion__item" open>
+          <summary><i class="bx bx-filter-alt"></i> 学習フィルタ</summary>
+          <div class="accordion__content">
+            <div class="filter-panel">
+              <div class="filter-group">
+                <span class="filter-label">年度</span>
+                <div class="chip-list" role="listbox" aria-label="年度フィルタ">
+                  <button class="chip active" type="button"><i class="bx bx-time"></i>全期間</button>
+                  <button class="chip" type="button" disabled>2023</button>
+                  <button class="chip" type="button" disabled>2022</button>
+                  <button class="chip" type="button" disabled>2021</button>
+                </div>
+              </div>
+              <div class="filter-group">
+                <span class="filter-label">事例</span>
+                <div class="chip-list" role="listbox" aria-label="事例フィルタ">
+                  <button class="chip active" type="button">全事例</button>
+                  <button class="chip" type="button" disabled>事例 I</button>
+                  <button class="chip" type="button" disabled>事例 II</button>
+                  <button class="chip" type="button" disabled>事例 III</button>
+                  <button class="chip" type="button" disabled>事例 IV</button>
+                </div>
+              </div>
+              <div class="filter-group">
+                <span class="filter-label">学習モード</span>
+                <div class="chip-list" role="listbox" aria-label="モードフィルタ">
+                  <button class="chip active" type="button">通常演習</button>
+                  <button class="chip" type="button" disabled>模試</button>
+                  <button class="chip" type="button" disabled>復習</button>
+                </div>
+              </div>
+              <div class="filter-group">
+                <span class="filter-label">キーワード検索</span>
+                <label class="search-box">
+                  <input type="search" placeholder="設問・キーワードで検索" disabled />
+                  <i class="bx bx-search"></i>
+                </label>
+              </div>
+              <div class="filter-group">
+                <span class="filter-label">タグ</span>
+                <div class="chip-list">
+                  <button class="chip" type="button" disabled><i class="bx bx-bookmark"></i>要復習</button>
+                  <button class="chip" type="button" disabled><i class="bx bx-bulb"></i>強み</button>
+                  <button class="chip" type="button" disabled><i class="bx bx-trending-up"></i>伸びしろ</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details class="accordion__item" open>
+          <summary><i class="bx bx-analyse"></i> 学習分析とアドバイス</summary>
+          <div class="accordion__content">
+            <div class="analysis-layout">
+              <section class="panel chart-panel">
+                <div class="chart-header">
+                  <div>
+                    <h2><i class="bx bx-line-chart"></i> 直近の進捗グラフ</h2>
+                    <p>年月と指標を切り替えながら得点推移・キーワード網羅率・回答時間を比較できます。</p>
+                  </div>
+                  <div class="chart-switcher" role="tablist">
+                    <button class="active" data-chart="score" role="tab">得点推移</button>
+                    <button data-chart="keyword" role="tab">キーワード網羅率</button>
+                    <button data-chart="time" role="tab">解答時間</button>
+                  </div>
+                </div>
+                <div class="chart-body">
+                  <canvas id="primaryChart" aria-label="ダッシュボードグラフ" role="img"></canvas>
+                  <div id="chartFallback" class="empty-state" hidden></div>
+                  <div class="chart-legend" id="chartLegend"></div>
+                  <div class="table-like">
+                    {{CHART_FACTS}}
+                  </div>
+                </div>
+              </section>
+              <aside class="panel insight-panel">
+                <h3><i class="bx bx-map-alt"></i> おすすめ学習パス</h3>
+                {{LEARNING_PATH}}
+                <h3><i class="bx bx-bulb"></i> 弱点診断レポート</h3>
+                <div class="weakness-report">
+                  {{WEAKNESS_REPORT}}
+                </div>
+              </aside>
+            </div>
+          </div>
+        </details>
+
+        <details class="accordion__item">
+          <summary><i class="bx bx-history"></i> 最近解答した問題</summary>
+          <div class="accordion__content">
+            <div class="list-grid">
+              {{RECENT_ITEMS}}
+            </div>
+            <div class="list-actions">
+              <a href="#" data-action="open-history">学習履歴をすべて確認<i class="bx bx-chevron-right"></i></a>
+            </div>
+          </div>
+        </details>
+
+        <details class="accordion__item">
+          <summary><i class="bx bx-star"></i> おすすめ問題</summary>
+          <div class="accordion__content">
+            <div class="list-grid">
+              {{RECOMMENDED_ITEMS}}
+            </div>
+            <div class="list-actions">
+              <a href="#" data-action="open-recommendation-settings">推薦条件を調整する<i class="bx bx-slider"></i></a>
+            </div>
+          </div>
+        </details>
       </section>
 
       <footer class="page-footer">
-        &copy; 2024 Shindanshi Learning Hub. 進捗に合わせてダッシュボードをカスタマイズしましょう。
+        &copy; 2024 Shindanshi Learning Hub. 学習の進捗に合わせてダッシュボードを活用しましょう。
       </footer>
     </div>
 
@@ -675,8 +1039,8 @@
         streamlitApi.setComponentReady();
       }
 
-      window.addEventListener("load", () => setTimeout(updateHeight, 50));
-      window.addEventListener("resize", () => setTimeout(updateHeight, 90));
+      window.addEventListener("load", () => setTimeout(updateHeight, 60));
+      window.addEventListener("resize", () => setTimeout(updateHeight, 120));
 
       const setFallbackVisible = (visible) => {
         if (!fallbackEl) return;
@@ -708,7 +1072,7 @@
         if (!legendContainer) return;
         const dataset = datasets[key];
         if (!dataset) {
-          legendContainer.innerHTML = "<span>データがありません。</span>";
+          legendContainer.innerHTML = "<span>演習データを追加すると要点が表示されます。</span>";
           return;
         }
         legendContainer.innerHTML = `
@@ -829,7 +1193,7 @@
         });
       });
 
-      setTimeout(updateHeight, 120);
+      setTimeout(updateHeight, 140);
     </script>
   </body>
 </html>
