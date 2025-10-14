@@ -2256,6 +2256,45 @@ def _inject_practice_question_styles() -> None:
                 transform: translateY(-1px);
                 box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
             }
+            .practice-answer-section {
+                scroll-margin-top: 110px;
+            }
+            .answer-panel-label,
+            .support-panel-label {
+                font-size: 0.82rem;
+                letter-spacing: 0.08em;
+                font-weight: 700;
+                text-transform: uppercase;
+                color: var(--practice-text-muted);
+                margin: 0;
+            }
+            .autosave-indicator {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+                padding: 0.35rem 0.75rem;
+                border-radius: 999px;
+                border: 1px solid rgba(148, 163, 184, 0.45);
+                background: rgba(248, 250, 252, 0.92);
+                font-size: 0.78rem;
+                color: var(--practice-text-muted);
+                justify-content: flex-end;
+            }
+            .autosave-indicator__toggle {
+                font-weight: 700;
+                color: var(--practice-text-strong);
+                letter-spacing: 0.04em;
+            }
+            .autosave-indicator__status {
+                display: inline-flex;
+                align-items: baseline;
+                gap: 0.2rem;
+            }
+            .autosave-indicator__time {
+                font-variant-numeric: tabular-nums;
+                font-weight: 600;
+                color: var(--practice-text-strong);
+            }
             .practice-question-divider {
                 height: 1px;
                 margin: 1.8rem auto 0;
@@ -10115,6 +10154,43 @@ def _question_anchor_id(
     return f"question-q{anchor_slug}"
 
 
+def _emit_scroll_script(target_id: str, *, focus_selector: Optional[str] = None) -> None:
+    """Inject a small script that scrolls the page to the given element."""
+
+    if not target_id:
+        return
+
+    focus_selector_json = json.dumps(focus_selector) if focus_selector else "null"
+    script = dedent(
+        f"""
+        <script>
+        const targetId = {json.dumps(target_id)};
+        const focusSelector = {focus_selector_json};
+        const scrollIntoView = () => {{
+            const root = window.parent?.document ?? document;
+            let anchor = root.getElementById(targetId);
+            if (!anchor) {{
+                anchor = root.querySelector(`[data-anchor-id="${{targetId}}"]`);
+            }}
+            if (anchor) {{
+                anchor.scrollIntoView({{ behavior: "smooth", block: "start" }});
+                if (focusSelector) {{
+                    const focusTarget = anchor.querySelector(focusSelector) || root.querySelector(focusSelector);
+                    if (focusTarget) {{
+                        focusTarget.focus({{ preventScroll: true }});
+                    }}
+                }}
+            }} else {{
+                setTimeout(scrollIntoView, 200);
+            }}
+        }};
+        setTimeout(scrollIntoView, 120);
+        </script>
+        """
+    ).strip()
+    components.html(script, height=0)
+
+
 def _question_input(
     problem_id: int,
     question: Dict,
@@ -10196,90 +10272,136 @@ def _question_input(
         st.success(f"「{frame_notice['label']}」フレームを挿入しました。", icon="🧩")
         st.session_state.pop("_case_frame_notice", None)
 
+    autosave_state = st.session_state.setdefault("_autosave_status", {})
     value = st.session_state.drafts.get(key, "")
     help_text = f"文字数目安: {question['character_limit']}字" if question["character_limit"] else ""
-    st.markdown(
-        "<p class=\"practice-autosave-caption\">入力内容は自動保存されます。</p>",
-        unsafe_allow_html=True,
-    )
     placeholder_hint = "ここに解答を入力してください。重要語を箇条書きにしてから文章化すると構成が整います。"
-    if question.get("character_limit"):
-        try:
-            limit_value = int(question["character_limit"])
-            placeholder_hint = (
-                f"ここに解答を入力してください（目安: {limit_value}字）。"
-                " 重要語を箇条書きにしてから文章化すると構成が整います。"
-            )
-        except (TypeError, ValueError):
-            pass
-    st.markdown("<div class='answer-editor' role='group' aria-label='解答入力欄'>", unsafe_allow_html=True)
-    text = st.text_area(
-        label=question["prompt"],
-        key=textarea_state_key,
-        value=value,
-        height=200,
-        help=help_text,
-        placeholder=placeholder_hint,
-        disabled=disabled,
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
-    _track_question_activity(key, text)
     limit_value: Optional[int] = None
     raw_limit = question.get("character_limit")
     if raw_limit:
         try:
             limit_value = int(raw_limit)
+            placeholder_hint = (
+                f"ここに解答を入力してください（目安: {limit_value}字）。"
+                " 重要語を箇条書きにしてから文章化すると構成が整います。"
+            )
         except (TypeError, ValueError):
             limit_value = None
 
-    keywords = [kw for kw in _resolve_question_keywords(question) if str(kw).strip()]
-    keyword_hits: Mapping[str, bool] = {}
-    if keywords:
-        keyword_hits = _render_keyword_coverage_meter(text, keywords)
-
-    _render_answer_quality_meter(
-        text,
-        limit_value,
-        keyword_hits,
-        keywords_registered=len(keywords),
+    container_id = f"answer-section-{key}"
+    st.markdown(
+        f"<div id=\"{container_id}\" class=\"practice-answer-section\">",
+        unsafe_allow_html=True,
     )
 
-    analysis_toggle_key = f"mock_keyword_analysis::{key}"
-    analysis_visible = st.session_state.get(analysis_toggle_key, False)
-    toggle_label = "語句分析を閉じる" if analysis_visible else "語句分析を開く"
-    if st.button(toggle_label, key=f"{analysis_toggle_key}::button"):
-        st.session_state[analysis_toggle_key] = not analysis_visible
-        analysis_visible = not analysis_visible
+    keywords = [kw for kw in _resolve_question_keywords(question) if str(kw).strip()]
+    keyword_hits: Mapping[str, bool] = {}
+    connector_stats: Dict[str, Any] = {}
+    analysis: Dict[str, Any] = {}
 
-    if analysis_visible:
-        if keyword_hits:
-            _render_keyword_analysis_panel(keyword_hits)
-        elif keywords:
-            st.caption("入力するとキーワードのヒット状況が表示されます。")
-        else:
-            st.caption("キーワードが未登録の設問です。必要な要点を自分で整理しましょう。")
-    elif not keywords:
-        st.caption("キーワードはまだ登録されていません。与件から重要語を抜き出しましょう。")
+    with st.expander("📝 解答入力パネル", expanded=True):
+        st.markdown(
+            "<p class=\"practice-autosave-caption\">入力内容は自動保存され、ページ移動後も復元できます。</p>",
+            unsafe_allow_html=True,
+        )
+        answer_col, support_col = st.columns([0.64, 0.36], gap="large")
 
-    connector_stats = _render_causal_connector_indicator(text)
-    analysis = _render_mece_status_labels(text)
-    with st.expander("MECE/因果スキャナ", expanded=bool(text.strip())):
-        _render_mece_causal_scanner(text, analysis=analysis)
-    st.session_state.drafts[key] = text
-    _update_autosaved_answer(key, text)
-    status_placeholder = st.empty()
-    saved_text = saved_payload.get("autosave", "")
-    restore_disabled = not saved_text
-    if restore_disabled:
-        status_placeholder.caption("復元できる下書きはまだありません。")
-    if st.button(
-        "下書きを復元",
-        key=f"restore_{key}",
-        disabled=restore_disabled,
-    ):
-        st.session_state.drafts[key] = saved_text
-        _queue_textarea_update(textarea_state_key, saved_text)
-        status_placeholder.info("保存済みの下書きを復元しました。")
+        with answer_col:
+            header_cols = st.columns([0.68, 0.32], gap="small")
+            header_cols[0].markdown(
+                "<p class=\"answer-panel-label\">解答入力</p>",
+                unsafe_allow_html=True,
+            )
+            autosave_placeholder = header_cols[1].empty()
+
+            st.markdown(
+                "<div class='answer-editor' role='group' aria-label='解答入力欄'>",
+                unsafe_allow_html=True,
+            )
+            text = st.text_area(
+                label=question["prompt"],
+                key=textarea_state_key,
+                value=value,
+                height=220,
+                help=help_text,
+                placeholder=placeholder_hint,
+                disabled=disabled,
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+            _track_question_activity(key, text)
+
+            if keywords:
+                keyword_hits = _render_keyword_coverage_meter(text, keywords)
+            _render_answer_quality_meter(
+                text,
+                limit_value,
+                keyword_hits,
+                keywords_registered=len(keywords),
+            )
+
+            analysis_toggle_key = f"mock_keyword_analysis::{key}"
+            analysis_visible = st.session_state.get(analysis_toggle_key, False)
+            toggle_label = "語句分析を閉じる" if analysis_visible else "語句分析を開く"
+            if st.button(toggle_label, key=f"{analysis_toggle_key}::button"):
+                st.session_state[analysis_toggle_key] = not analysis_visible
+                analysis_visible = not analysis_visible
+
+            if analysis_visible:
+                if keyword_hits:
+                    _render_keyword_analysis_panel(keyword_hits)
+                elif keywords:
+                    st.caption("入力するとキーワードのヒット状況が表示されます。")
+                else:
+                    st.caption("キーワードが未登録の設問です。必要な要点を自分で整理しましょう。")
+            elif not keywords:
+                st.caption("キーワードはまだ登録されていません。与件から重要語を抜き出しましょう。")
+
+            connector_stats = _render_causal_connector_indicator(text)
+            analysis = _render_mece_status_labels(text)
+            with st.expander("MECE/因果スキャナ", expanded=bool(text.strip())):
+                _render_mece_causal_scanner(text, analysis=analysis)
+
+            st.session_state.drafts[key] = text
+            _update_autosaved_answer(key, text)
+            now_display = datetime.now().strftime("%H:%M:%S")
+            autosave_state[key] = {"saved_at": now_display, "hash": hashlib.sha1(text.encode("utf-8")).hexdigest()}
+            autosave_placeholder.markdown(
+                dedent(
+                    f"""
+                    <div class="autosave-indicator autosave-indicator--saved" aria-live="polite">
+                        <span class="autosave-indicator__toggle">自動保存</span>
+                        <span class="autosave-indicator__status">保存済み <span class="autosave-indicator__time">{now_display}</span></span>
+                    </div>
+                    """
+                ).strip(),
+                unsafe_allow_html=True,
+            )
+
+            status_placeholder = st.empty()
+            saved_text = saved_payload.get("autosave", "")
+            restore_disabled = not saved_text
+            if restore_disabled:
+                status_placeholder.caption("復元できる下書きはまだありません。")
+            if st.button(
+                "下書きを復元",
+                key=f"restore_{key}",
+                disabled=restore_disabled,
+            ):
+                st.session_state.drafts[key] = saved_text
+                _queue_textarea_update(textarea_state_key, saved_text)
+                status_placeholder.info("保存済みの下書きを復元しました。")
+
+        with support_col:
+            st.markdown("<p class=\"support-panel-label\">ヒント・テンプレート</p>", unsafe_allow_html=True)
+            _render_intent_cards(question, key, textarea_state_key)
+            _render_case_frame_shortcuts(case_label, key, textarea_state_key)
+
+    pending_focus_id = st.session_state.get("_pending_focus_question")
+    if st.session_state.get("_practice_scroll_requested") and pending_focus_id == question.get("id"):
+        _emit_scroll_script(container_id, focus_selector=f"#{container_id} textarea")
+        st.session_state["_practice_scroll_requested"] = False
+        st.session_state.pop("_pending_focus_question", None)
+
 
     with st.expander("保存済みの案と模範解答比較", expanded=False):
         snapshot_label_key = f"snapshot_label::{key}"
@@ -10411,9 +10533,7 @@ def _question_input(
         else:
             st.caption("保存済みの案はまだありません。案として保存すると比較・復元が行えます。")
 
-    st.divider()
-    _render_intent_cards(question, key, textarea_state_key)
-    _render_case_frame_shortcuts(case_label, key, textarea_state_key)
+    st.markdown("</div>", unsafe_allow_html=True)
     return text
 
 
@@ -14325,11 +14445,28 @@ def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。与件ハイライトと詳細解説で復習効果を高めましょう。")
 
+    loading_placeholder = st.empty()
+    progress_bar = None
+    show_loading = not st.session_state.get("_practice_loading_ready", False)
+    if show_loading:
+        with loading_placeholder.container():
+            st.markdown("#### 画面を準備中…")
+            st.caption("ネットワーク状況により数秒かかる場合があります。読み込み完了までお待ちください。")
+            progress_bar = st.progress(5)
+
+    def _complete_loading() -> None:
+        if progress_bar:
+            progress_bar.progress(100)
+        loading_placeholder.empty()
+        st.session_state["_practice_loading_ready"] = True
+
     _inject_practice_navigation_styles()
 
     past_data_df = st.session_state.get("past_data")
     signature = _problem_data_signature()
     index = _load_problem_index(signature)
+    if progress_bar:
+        progress_bar.progress(30)
 
     has_uploaded_data = past_data_df is not None and hasattr(past_data_df, "empty") and not past_data_df.empty
     has_database_data = bool(index)
@@ -14348,6 +14485,7 @@ def practice_page(user: Dict) -> None:
         st.warning(
             "問題データが登録されていません。seed_problems.jsonを確認するか、設定ページから過去問データをアップロードしてください。"
         )
+        _complete_loading()
         return
 
     data_source_key = "practice_data_source"
@@ -14373,6 +14511,7 @@ def practice_page(user: Dict) -> None:
 
     if data_source == "uploaded":
         _practice_with_uploaded_data(past_data_df)
+        _complete_loading()
         return
 
     try:
@@ -14380,9 +14519,12 @@ def practice_page(user: Dict) -> None:
     except Exception:
         logger.exception("Failed to load attempts for practice view")
         attempts = []
+    if progress_bar:
+        progress_bar.progress(45)
 
     if not has_database_data:
         st.warning("問題データが登録されていません。seed_problems.jsonを確認してください。")
+        _complete_loading()
         return
 
     case_map: Dict[str, Dict[str, int]] = defaultdict(dict)
@@ -14419,12 +14561,16 @@ def practice_page(user: Dict) -> None:
         except Exception:
             logger.exception("Failed to fetch question practice stats for user %s", user.get("id"))
             question_stats = {}
+    if progress_bar:
+        progress_bar.progress(65)
 
     try:
         master_stats = database.fetch_question_master_stats()
     except Exception:
         logger.exception("Failed to load global question metrics")
         master_stats = {}
+    if progress_bar:
+        progress_bar.progress(80)
 
     case_options = sorted(
         case_map.keys(),
@@ -14436,6 +14582,7 @@ def practice_page(user: Dict) -> None:
 
     if not case_options:
         st.warning("事例が登録されていません。データを追加してください。")
+        _complete_loading()
         return
 
     st.markdown(
@@ -14760,6 +14907,12 @@ def practice_page(user: Dict) -> None:
                 )
                 st.markdown("</div>", unsafe_allow_html=True)
                 selected_question = question_lookup.get(selected_question_id)
+                previous_selection = st.session_state.get("_practice_last_selection")
+                current_selection = (selected_case, selected_year, selected_question_id)
+                if previous_selection != current_selection:
+                    st.session_state["_practice_last_selection"] = current_selection
+                    st.session_state["_practice_scroll_requested"] = True
+                    st.session_state["_pending_focus_question"] = selected_question_id
         elif selected_year:
             st.info("この事例の設問データが見つかりません。設定ページから追加してください。", icon="ℹ️")
 
@@ -14878,6 +15031,7 @@ def practice_page(user: Dict) -> None:
 
     if not problem:
         st.error("問題を取得できませんでした。")
+        _complete_loading()
         return
 
     st.markdown('<div id="practice-top"></div>', unsafe_allow_html=True)
@@ -14892,6 +15046,7 @@ def practice_page(user: Dict) -> None:
     problem_tables = _normalize_problem_tables(problem.get("tables_raw"))
     if problem.get("case_label") == "事例I":
         _render_case1_workspace(problem, user, problem_context=problem_context)
+        _complete_loading()
         return
 
     layout_container = st.container()
@@ -15322,6 +15477,7 @@ def practice_page(user: Dict) -> None:
                 "設問IDが登録されていないため採点結果を保存できません。設定ページでデータを再登録し、再度お試しください。",
                 icon="⚠️",
             )
+            _complete_loading()
             return
 
         submitted_at = datetime.now(timezone.utc)
@@ -15368,6 +15524,8 @@ def practice_page(user: Dict) -> None:
 
         st.success("採点が完了しました。結果を確認してください。")
         render_attempt_results(attempt_id)
+
+    _complete_loading()
 
 
 def _practice_with_uploaded_data(df: pd.DataFrame) -> None:
