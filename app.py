@@ -2243,6 +2243,29 @@ def _inject_practice_question_styles() -> None:
             .practice-question-block .stTextArea textarea::placeholder {
                 color: rgba(100, 116, 139, 0.7);
             }
+            .practice-answer-section--notebook .stTextArea textarea {
+                background-image:
+                    linear-gradient(
+                        to bottom,
+                        rgba(148, 163, 184, 0.18) 1px,
+                        transparent 1px
+                    ),
+                    linear-gradient(
+                        to right,
+                        rgba(148, 163, 184, 0.12) 1px,
+                        transparent 1px
+                    );
+                background-size: 100% 1.85rem, 2.5rem 100%;
+                background-position: 0 0, 0 0;
+                padding: 1.15rem 1.2rem;
+                min-height: 360px;
+                line-height: 1.8;
+                font-family: "BIZ UDPGothic", "Noto Sans JP", sans-serif;
+                font-size: 1rem;
+            }
+            .practice-answer-section--notebook .stTextArea textarea:focus-visible {
+                background-color: rgba(255, 255, 255, 0.98);
+            }
             .practice-question-block .stButton > button {
                 border-radius: 14px;
                 padding: 0.55rem 1.3rem;
@@ -2258,6 +2281,55 @@ def _inject_practice_question_styles() -> None:
             }
             .practice-answer-section {
                 scroll-margin-top: 110px;
+            }
+            .question-nav {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 0.8rem;
+                margin: 0.4rem 0 0.8rem;
+            }
+            .question-nav__link {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+                padding: 0.45rem 0.9rem;
+                border-radius: 999px;
+                border: 1px solid rgba(148, 163, 184, 0.45);
+                text-decoration: none;
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: #1e293b;
+                background: rgba(248, 250, 252, 0.92);
+                transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+            }
+            .question-nav__link:hover {
+                transform: translateY(-1px);
+                border-color: rgba(37, 99, 235, 0.45);
+                box-shadow: 0 12px 22px rgba(15, 23, 42, 0.12);
+            }
+            .question-nav__link span:first-child[aria-hidden="true"] {
+                font-weight: 700;
+                font-size: 0.95rem;
+            }
+            .question-nav__link--next {
+                margin-left: auto;
+            }
+            .practice-prompt-viewer {
+                margin-top: 0.75rem;
+                padding: 1rem 1.1rem 1.2rem;
+                border-radius: 20px;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: linear-gradient(180deg, rgba(248, 250, 252, 0.88), rgba(255, 255, 255, 0.98));
+                box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+            }
+            .practice-prompt-viewer__label {
+                margin: 0 0 0.6rem;
+                font-size: 0.82rem;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--practice-text-muted);
+                font-weight: 700;
             }
             .answer-panel-label,
             .support-panel-label {
@@ -10201,6 +10273,8 @@ def _question_input(
     question_index: Optional[int] = None,
     anchor_id: Optional[str] = None,
     header_id: Optional[str] = None,
+    prev_anchor: Optional[str] = None,
+    next_anchor: Optional[str] = None,
 ) -> str:
     _inject_practice_question_styles()
     key = _draft_key(problem_id, question["id"])
@@ -10227,13 +10301,8 @@ def _question_input(
     question_overview = dict(question)
     question_overview.setdefault("order", question.get("order"))
     question_overview.setdefault("case_label", case_label)
-    _render_question_overview_card(
-        question_overview,
-        case_label=case_label,
-        anchor_id=anchor_id,
-        header_id=header_id,
-    )
 
+    context_text: Optional[str] = None
     context_candidates = [
         question.get("context"),
         question.get("context_text"),
@@ -10246,7 +10315,7 @@ def _question_input(
     for candidate in context_candidates:
         normalized_context = _normalize_text_block(candidate)
         if normalized_context:
-            _render_question_context_block(normalized_context)
+            context_text = normalized_context
             break
 
     question_body = _normalize_text_block(
@@ -10255,22 +10324,44 @@ def _question_input(
             ["設問文", "問題文", "question_text", "body"],
         )
     )
-    if question_body:
-        st.markdown("**設問文**")
-        st.write(question_body)
 
-    if case_label == "事例IV":
-        _render_case_iv_bridge(key)
+    nav_links: List[str] = []
+    if prev_anchor:
+        nav_links.append(
+            f"<a class='question-nav__link question-nav__link--prev' href='#{html.escape(prev_anchor)}' aria-label='前の設問へ'>"
+            "<span aria-hidden='true'>◀</span><span>前の設問</span></a>"
+        )
+    if next_anchor:
+        nav_links.append(
+            f"<a class='question-nav__link question-nav__link--next' href='#{html.escape(next_anchor)}' aria-label='次の設問へ'>"
+            "<span>次の設問</span><span aria-hidden='true'>▶</span></a>"
+        )
+    nav_html = "".join(nav_links)
 
-    notice = st.session_state.get("_intent_card_notice")
-    if notice and notice.get("draft_key") == key:
-        st.success(f"「{notice['label']}」の例示表現を挿入しました。", icon="✍️")
-        st.session_state.pop("_intent_card_notice", None)
+    prompt_col, editor_col = st.columns([0.55, 0.45], gap="large")
 
-    frame_notice = st.session_state.get("_case_frame_notice")
-    if frame_notice and frame_notice.get("draft_key") == key:
-        st.success(f"「{frame_notice['label']}」フレームを挿入しました。", icon="🧩")
-        st.session_state.pop("_case_frame_notice", None)
+    with prompt_col:
+        _render_question_overview_card(
+            question_overview,
+            case_label=case_label,
+            anchor_id=anchor_id,
+            header_id=header_id,
+        )
+        if nav_html:
+            st.markdown(
+                f"<div class='question-nav' role='navigation' aria-label='設問切り替え'>{nav_html}</div>",
+                unsafe_allow_html=True,
+            )
+        if context_text:
+            _render_question_context_block(context_text)
+        if question_body:
+            st.markdown("<div class='practice-prompt-viewer'>", unsafe_allow_html=True)
+            st.markdown(
+                "<p class='practice-prompt-viewer__label'>問題文</p>",
+                unsafe_allow_html=True,
+            )
+            st.write(question_body)
+            st.markdown("</div>", unsafe_allow_html=True)
 
     autosave_state = st.session_state.setdefault("_autosave_status", {})
     value = st.session_state.drafts.get(key, "")
@@ -10288,11 +10379,25 @@ def _question_input(
         except (TypeError, ValueError):
             limit_value = None
 
-    container_id = f"answer-section-{key}"
-    st.markdown(
-        f"<div id=\"{container_id}\" class=\"practice-answer-section\">",
-        unsafe_allow_html=True,
-    )
+    with editor_col:
+        if case_label == "事例IV":
+            _render_case_iv_bridge(key)
+
+        notice = st.session_state.get("_intent_card_notice")
+        if notice and notice.get("draft_key") == key:
+            st.success(f"「{notice['label']}」の例示表現を挿入しました。", icon="✍️")
+            st.session_state.pop("_intent_card_notice", None)
+
+        frame_notice = st.session_state.get("_case_frame_notice")
+        if frame_notice and frame_notice.get("draft_key") == key:
+            st.success(f"「{frame_notice['label']}」フレームを挿入しました。", icon="🧩")
+            st.session_state.pop("_case_frame_notice", None)
+
+        container_id = f"answer-section-{key}"
+        st.markdown(
+            f"<div id=\"{container_id}\" class=\"practice-answer-section practice-answer-section--notebook\">",
+            unsafe_allow_html=True,
+        )
 
     keywords = [kw for kw in _resolve_question_keywords(question) if str(kw).strip()]
     keyword_hits: Mapping[str, bool] = {}
@@ -14441,9 +14546,120 @@ def _ensure_case3_styles() -> None:
     st.session_state["_case3_style_loaded"] = True
 
 
+def _render_practice_onboarding_modal() -> None:
+    state_key = "_practice_show_onboarding"
+    if state_key not in st.session_state:
+        st.session_state[state_key] = True
+
+    if not st.session_state.get(state_key):
+        return
+
+    style_key = "_practice_onboarding_styles_injected"
+    if not st.session_state.get(style_key):
+        st.markdown(
+            dedent(
+                """
+                <style>
+                .practice-onboarding-backdrop {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(15, 23, 42, 0.55);
+                    backdrop-filter: blur(6px);
+                    z-index: 999;
+                    display: grid;
+                    place-items: center;
+                }
+                .practice-onboarding-modal {
+                    width: min(720px, 92vw);
+                    background: rgba(248, 250, 252, 0.98);
+                    border-radius: 24px;
+                    padding: 2.2rem 2.4rem 2rem;
+                    box-shadow: 0 32px 60px rgba(15, 23, 42, 0.25);
+                    border: 1px solid rgba(148, 163, 184, 0.35);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1.1rem;
+                    color: #0f172a;
+                }
+                .practice-onboarding-modal h3 {
+                    margin: 0;
+                    font-size: 1.45rem;
+                    font-weight: 700;
+                    letter-spacing: -0.01em;
+                }
+                .practice-onboarding-list {
+                    margin: 0.5rem 0 0;
+                    padding-left: 1.1rem;
+                    color: #334155;
+                    line-height: 1.65;
+                }
+                .practice-onboarding-actions {
+                    display: flex;
+                    justify-content: center;
+                    margin-top: 0.4rem;
+                }
+                .practice-onboarding-actions button {
+                    border-radius: 999px !important;
+                    padding: 0.55rem 1.8rem !important;
+                    font-size: 0.95rem !important;
+                    font-weight: 600 !important;
+                }
+                @media (max-width: 720px) {
+                    .practice-onboarding-modal {
+                        padding: 1.8rem 1.6rem 1.5rem;
+                        border-radius: 20px;
+                    }
+                }
+                </style>
+                """
+            ),
+            unsafe_allow_html=True,
+        )
+        st.session_state[style_key] = True
+
+    placeholder = st.empty()
+    with placeholder.container():
+        st.markdown(
+            "<div class='practice-onboarding-backdrop'>",
+            unsafe_allow_html=True,
+        )
+        st.markdown("<div class='practice-onboarding-modal'>", unsafe_allow_html=True)
+        st.markdown("<h3>演習の進め方</h3>", unsafe_allow_html=True)
+        st.markdown(
+            "<p>① 年度・事例・テーマを選択 → ② 問題と解答欄の分割画面で演習 → ③ 下部の模範解答で振り返り。</p>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<ul class='practice-onboarding-list'>"
+            "<li>分割画面で問題を見ながらA3答案フォームに直接入力できます。</li>"
+            "<li>80分タイマーと途中保存で本番さながらの演習が可能です。</li>"
+            "<li>提出後は模範解答と比較して改善ポイントを整理しましょう。</li>"
+            "</ul>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<p style='color:#475569;margin:0;'>いつでもサイドバーからこのガイドを開き直せます。</p>",
+            unsafe_allow_html=True,
+        )
+        action_col = st.container()
+        with action_col:
+            actions = st.columns([0.35, 0.3, 0.35])
+            with actions[1]:
+                if st.button("ガイドを閉じる", key="close_practice_onboarding"):
+                    st.session_state[state_key] = False
+                    placeholder.empty()
+                    return
+        st.markdown("</div></div>", unsafe_allow_html=True)
+
+
 def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。与件ハイライトと詳細解説で復習効果を高めましょう。")
+
+    if st.sidebar.button("演習ガイドを開く", key="open_practice_onboarding_sidebar"):
+        st.session_state["_practice_show_onboarding"] = True
+
+    _render_practice_onboarding_modal()
 
     loading_placeholder = st.empty()
     progress_bar = None
@@ -14530,6 +14746,171 @@ def practice_page(user: Dict) -> None:
     case_map: Dict[str, Dict[str, int]] = defaultdict(dict)
     for entry in index:
         case_map[entry["case_label"]][entry["year"]] = entry["id"]
+
+    if case_map:
+        year_options = sorted(
+            {str(entry.get("year")) for entry in index if entry.get("year")},
+            key=_year_sort_key,
+            reverse=True,
+        )
+        case_options_quick = sorted(
+            case_map.keys(),
+            key=lambda label: (
+                CASE_ORDER.index(label) if label in CASE_ORDER else len(CASE_ORDER),
+                label,
+            ),
+        )
+        theme_candidates: Set[str] = set()
+        entry_lookup: Dict[Tuple[str, str], Dict[str, Any]] = {}
+        for item in index:
+            case_label = item.get("case_label") or item.get("case")
+            year_value = item.get("year")
+            if not case_label or year_value is None:
+                continue
+            entry_lookup[(str(case_label), str(year_value))] = item
+            for raw_theme in item.get("themes") or []:
+                theme_text = _normalize_text_block(raw_theme)
+                if theme_text:
+                    theme_candidates.add(theme_text)
+        theme_options = sorted(theme_candidates)
+        theme_choices = ["指定なし"] + theme_options
+
+        style_key = "_practice_dashboard_styles_injected"
+        if not st.session_state.get(style_key):
+            st.markdown(
+                dedent(
+                    """
+                    <style>
+                    .practice-quick-dashboard {
+                        margin: 0.5rem 0 1.75rem;
+                        padding: 1.5rem 1.75rem;
+                        border-radius: 24px;
+                        border: 1px solid rgba(148, 163, 184, 0.28);
+                        background: linear-gradient(180deg, rgba(226, 232, 240, 0.35), rgba(255, 255, 255, 0.95));
+                        box-shadow: 0 22px 38px rgba(15, 23, 42, 0.08);
+                    }
+                    .practice-quick-dashboard h4 {
+                        margin: 0 0 0.75rem;
+                        font-size: 1.2rem;
+                        font-weight: 700;
+                        color: #0f172a;
+                    }
+                    .practice-quick-dashboard__hint {
+                        margin: 0 0 1rem;
+                        color: #475569;
+                        font-size: 0.9rem;
+                    }
+                    .practice-quick-dashboard .stSelectbox > label {
+                        font-weight: 600;
+                    }
+                    .practice-quick-dashboard button[kind="secondary"] {
+                        border-radius: 14px;
+                        padding: 0.65rem 1.1rem;
+                        font-weight: 600;
+                    }
+                    </style>
+                    """
+                ),
+                unsafe_allow_html=True,
+            )
+            st.session_state[style_key] = True
+
+        with st.container():
+            st.markdown("<div class='practice-quick-dashboard'>", unsafe_allow_html=True)
+            st.markdown("<h4>クイックスタートダッシュボード</h4>", unsafe_allow_html=True)
+            st.markdown(
+                "<p class='practice-quick-dashboard__hint'>年度・事例・テーマを選択すると同じ画面内で演習を開始できます。</p>",
+                unsafe_allow_html=True,
+            )
+            dashboard_cols = st.columns([0.27, 0.27, 0.26, 0.2], gap="medium")
+            with dashboard_cols[0]:
+                selected_year_quick = st.selectbox(
+                    "年度",
+                    year_options,
+                    key="practice_quick_year",
+                    format_func=_format_reiwa_label,
+                )
+            with dashboard_cols[1]:
+                selected_case_quick = st.selectbox(
+                    "事例番号",
+                    case_options_quick,
+                    key="practice_quick_case",
+                )
+            with dashboard_cols[2]:
+                selected_theme_quick = st.selectbox(
+                    "テーマ",
+                    theme_choices,
+                    key="practice_quick_theme",
+                )
+            with dashboard_cols[3]:
+                start_clicked = st.button(
+                    "演習スタート",
+                    key="practice_quick_start",
+                    use_container_width=True,
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        if start_clicked:
+            selected_year_key = selected_year_quick
+            selected_case_key = selected_case_quick
+            lookup_key = (str(selected_case_key), str(selected_year_key))
+            chosen_entry = entry_lookup.get(lookup_key)
+            theme_filtered_entry = None
+            if selected_theme_quick != "指定なし":
+                if chosen_entry and selected_theme_quick in (
+                    _normalize_text_block(theme) for theme in chosen_entry.get("themes", [])
+                ):
+                    theme_filtered_entry = chosen_entry
+                else:
+                    for item in index:
+                        if (
+                            (item.get("case_label") or item.get("case")) == selected_case_key
+                            and str(item.get("year")) == selected_year_key
+                            and selected_theme_quick in (
+                                _normalize_text_block(theme)
+                                for theme in item.get("themes", [])
+                            )
+                        ):
+                            theme_filtered_entry = item
+                            break
+            if selected_theme_quick != "指定なし" and not theme_filtered_entry:
+                st.info(
+                    "選択したテーマの過去問が見つからなかったため、同じ年度・事例の最初の問題を表示します。",
+                    icon="ℹ️",
+                )
+            target_entry = theme_filtered_entry or chosen_entry
+            if not target_entry:
+                st.warning("演習に必要な問題データが不足しています。設定ページでデータを追加してください。", icon="⚠️")
+            else:
+                target_year_value = target_entry.get("year")
+                target_case_value = target_entry.get("case_label") or target_entry.get("case")
+                problem_id = target_entry.get("id")
+                if target_case_value:
+                    st.session_state["practice_tree_case"] = target_case_value
+                if target_year_value is not None and target_case_value:
+                    year_state_key = f"practice_tree_year_{target_case_value}"
+                    st.session_state[year_state_key] = target_year_value
+                if problem_id:
+                    detail = _load_problem_detail(problem_id, signature)
+                else:
+                    detail = None
+                first_question_id = None
+                if detail and detail.get("questions"):
+                    first_question_id = detail["questions"][0].get("id")
+                if first_question_id:
+                    question_key = f"practice_tree_question_{problem_id}"
+                    st.session_state[question_key] = first_question_id
+                    st.session_state["practice_focus"] = {
+                        "case_label": target_case_value,
+                        "year": str(target_year_value),
+                        "question_id": first_question_id,
+                    }
+                    st.session_state["_practice_scroll_requested"] = True
+                    st.session_state["_pending_focus_question"] = first_question_id
+                st.success(
+                    f"{_format_reiwa_label(str(target_year_value))} {target_case_value} の演習を開始します。",
+                    icon="🚀",
+                )
 
     focus_state = st.session_state.pop("practice_focus", None)
     if isinstance(focus_state, dict):
@@ -15292,6 +15673,12 @@ def practice_page(user: Dict) -> None:
             anchor_value = entry["anchor"] if entry else f"question-q{idx}"
             header_value = entry["header_id"] if entry else f"question-q{idx}-header"
             label_value = entry["stepper"] if entry else f"設問{idx}"
+            prev_anchor = (
+                question_entries[idx - 2]["anchor"] if idx - 2 >= 0 and idx - 2 < len(question_entries) else None
+            )
+            next_anchor = (
+                question_entries[idx]["anchor"] if idx < len(question_entries) else None
+            )
             st.markdown(
                 (
                     f'<section class="practice-question-block" data-tone="{tone}" '
@@ -15309,6 +15696,8 @@ def practice_page(user: Dict) -> None:
                 question_index=idx,
                 anchor_id=anchor_value,
                 header_id=header_value,
+                prev_anchor=prev_anchor,
+                next_anchor=next_anchor,
             )
             question_specs.append(
                 QuestionSpec(
