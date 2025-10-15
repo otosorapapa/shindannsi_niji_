@@ -64,6 +64,7 @@ def _extract_component_value(
 
 
 NAVIGATION_REDIRECT_KEY = "_navigation_redirect"
+HOME_WIZARD_SESSION_KEY = "_home_start_wizard_state"
 
 
 def _request_navigation(target: str) -> None:
@@ -195,6 +196,21 @@ CASE_ICON_MAP = {
     "事例III": "Ⅲ",
     "事例IV": "Ⅳ",
 }
+
+CASE_DESCRIPTION_MAP = {
+    "事例I": "組織・人事の方針と強みを整理します",
+    "事例II": "マーケティングと顧客戦略の検討に集中します",
+    "事例III": "オペレーション改善と生産性向上を図ります",
+    "事例IV": "財務分析と定量計画で課題を特定します",
+}
+
+HOME_NAV_ITEMS = [
+    {"label": "ホーム", "icon": "bx bx-home", "target": "ホーム"},
+    {"label": "演習開始", "icon": "bx bx-edit", "target": "過去問演習"},
+    {"label": "模擬試験", "icon": "bx bx-bullseye", "target": "模擬試験"},
+    {"label": "結果一覧", "icon": "bx bx-poll", "target": "学習履歴"},
+    {"label": "設定", "icon": "bx bx-cog", "target": "設定"},
+]
 
 
 PROBLEM_TABLE_KEY_LABELS = {
@@ -6245,6 +6261,142 @@ def _inject_dashboard_styles() -> None:
                 font-size: 0.88rem;
                 color: var(--text-faint);
             }
+            .summary-stack {
+                display: flex;
+                flex-direction: column;
+                gap: 1.6rem;
+            }
+            .summary-stack__section {
+                background: rgba(255, 255, 255, 0.88);
+                border-radius: 20px;
+                border: 1px solid rgba(148, 163, 184, 0.32);
+                box-shadow: 0 18px 32px rgba(15, 23, 42, 0.08);
+                padding: 1.5rem 1.6rem 1.55rem;
+                display: flex;
+                flex-direction: column;
+                gap: 1.2rem;
+            }
+            .summary-stack__section header {
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+            }
+            .summary-stack__section header h3 {
+                font-size: clamp(1.2rem, 2.1vw, 1.45rem);
+                margin: 0;
+                letter-spacing: -0.01em;
+                color: var(--text-body);
+            }
+            .summary-stack__section header p {
+                margin: 0;
+                font-size: 0.9rem;
+                color: var(--text-muted);
+            }
+            .summary-stack__grid {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr);
+                gap: 0.95rem;
+            }
+            .summary-stack__grid .summary-card {
+                box-shadow: none;
+            }
+            .summary-stack__grid--actions .summary-card {
+                background: rgba(244, 247, 255, 0.82);
+                border-style: dashed;
+            }
+            .home-overview {
+                background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(255, 255, 255, 0.96));
+                border-radius: 24px;
+                padding: 1.8rem 1.8rem 1.7rem;
+                border: 1px solid rgba(37, 99, 235, 0.18);
+                box-shadow: 0 22px 42px rgba(15, 23, 42, 0.12);
+                display: flex;
+                flex-direction: column;
+                gap: 1.4rem;
+            }
+            .home-overview__header h2 {
+                margin: 0;
+                font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+                color: var(--brand-strong);
+            }
+            .home-overview__header p {
+                margin: 0.35rem 0 0;
+                font-size: 0.95rem;
+                color: var(--text-muted);
+                line-height: 1.6;
+            }
+            .home-overview__metrics {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                gap: 0.75rem;
+            }
+            .home-overview__metric {
+                background: rgba(255, 255, 255, 0.9);
+                border-radius: 18px;
+                padding: 0.85rem 1rem;
+                border: 1px solid rgba(148, 163, 184, 0.24);
+                display: flex;
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+            .home-overview__metric span {
+                font-size: 0.75rem;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: rgba(30, 64, 175, 0.76);
+                font-weight: 700;
+            }
+            .home-overview__metric strong {
+                font-size: 1.2rem;
+                color: var(--text-body);
+            }
+            .home-overview__actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.65rem;
+            }
+            .home-overview__cta {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.55rem;
+                padding: 0.65rem 1.2rem;
+                border-radius: 999px;
+                border: none;
+                background: linear-gradient(120deg, rgba(29, 78, 216, 0.95), rgba(14, 165, 233, 0.92));
+                color: #fff;
+                font-weight: 700;
+                font-size: 0.95rem;
+                cursor: pointer;
+                box-shadow: 0 16px 30px rgba(29, 78, 216, 0.25);
+                transition: transform 0.18s ease, box-shadow 0.18s ease;
+            }
+            .home-overview__cta:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 20px 36px rgba(29, 78, 216, 0.32);
+            }
+            .home-overview__highlights {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 0.75rem;
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }
+            .home-overview__highlights li {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.55rem;
+                background: rgba(255, 255, 255, 0.85);
+                border-radius: 14px;
+                padding: 0.65rem 0.85rem;
+                border: 1px solid rgba(148, 163, 184, 0.3);
+                font-size: 0.88rem;
+                color: var(--text-muted);
+            }
+            .home-overview__highlights i {
+                color: var(--brand-strong);
+                font-size: 1.1rem;
+            }
             .summary-cta-card {
                 display: flex;
                 flex-direction: column;
@@ -7199,7 +7351,767 @@ def _render_help_label(
     st.markdown(markup, unsafe_allow_html=True)
 
 
+def _reset_home_wizard_state() -> Dict[str, Any]:
+    return {
+        "open": False,
+        "step": 1,
+        "selected_case": None,
+        "selected_problem_id": None,
+        "selected_duration": 80,
+        "note": "",
+    }
 
+
+def _initialize_home_wizard_state(
+    preferred_case: Optional[str],
+    case_problem_map: Mapping[str, Sequence[Mapping[str, Any]]],
+    *,
+    default_duration: int = 80,
+    preferred_problem_id: Optional[str] = None,
+    previous_state: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    state = _reset_home_wizard_state()
+    state["open"] = True
+    if previous_state:
+        prev_duration = previous_state.get("selected_duration")
+        try:
+            state["selected_duration"] = int(prev_duration)
+        except (TypeError, ValueError):
+            state["selected_duration"] = default_duration
+    else:
+        state["selected_duration"] = default_duration
+
+    def _resolve_case(candidate: Optional[str]) -> Optional[str]:
+        if candidate and case_problem_map.get(candidate):
+            return candidate
+        for case_label in CASE_ORDER:
+            if case_problem_map.get(case_label):
+                return case_label
+        for case_label in case_problem_map.keys():
+            if case_problem_map.get(case_label):
+                return case_label
+        return candidate
+
+    resolved_case = _resolve_case(preferred_case)
+    state["selected_case"] = resolved_case
+
+    resolved_problem: Optional[str] = None
+    if preferred_problem_id:
+        preferred_problem_id = str(preferred_problem_id)
+        for problems in case_problem_map.values():
+            for entry in problems:
+                if str(entry.get("id")) == preferred_problem_id:
+                    resolved_problem = preferred_problem_id
+                    resolved_case = entry.get("case_label") or resolved_case
+                    state["selected_case"] = resolved_case
+                    break
+            if resolved_problem:
+                break
+    if not resolved_problem and resolved_case:
+        problems = case_problem_map.get(resolved_case) or []
+        if problems:
+            resolved_problem = str(problems[0].get("id"))
+
+    state["selected_problem_id"] = resolved_problem
+    return state
+
+
+def _inject_home_navigation_styles() -> None:
+    if st.session_state.get("_home_nav_styles_injected"):
+        return
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .home-side-nav {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: clamp(180px, 15vw, 228px);
+                background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+                color: #e2e8f0;
+                padding: 1.85rem 1.1rem 2.1rem;
+                display: flex;
+                flex-direction: column;
+                gap: 1.4rem;
+                box-shadow: 0 22px 48px rgba(15, 23, 42, 0.45);
+                z-index: 1250;
+            }
+            .home-side-nav__brand {
+                font-size: 1.05rem;
+                font-weight: 700;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                color: #bfdbfe;
+            }
+            .home-side-nav__list {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 0.45rem;
+            }
+            .home-side-nav__link {
+                display: flex;
+                align-items: center;
+                gap: 0.65rem;
+                padding: 0.6rem 0.75rem;
+                border-radius: 12px;
+                color: rgba(226, 232, 240, 0.85);
+                text-decoration: none;
+                font-weight: 600;
+                transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+            }
+            .home-side-nav__link i {
+                font-size: 1.2rem;
+            }
+            .home-side-nav__link:hover {
+                background: rgba(59, 130, 246, 0.22);
+                color: #fff;
+                transform: translateX(4px);
+            }
+            .home-side-nav__link.is-active {
+                background: rgba(59, 130, 246, 0.35);
+                color: #fff;
+                box-shadow: inset 0 0 0 1px rgba(191, 219, 254, 0.35);
+            }
+            body:has(.home-side-nav) .block-container {
+                margin-left: clamp(180px, 15vw, 228px);
+                transition: margin-left 0.25s ease;
+            }
+            @media (max-width: 900px) {
+                .home-side-nav {
+                    flex-direction: row;
+                    align-items: center;
+                    width: 100%;
+                    height: auto;
+                    bottom: 0;
+                    top: auto;
+                    padding: 0.75rem 1.1rem;
+                    border-radius: 18px 18px 0 0;
+                    backdrop-filter: blur(10px);
+                    background: rgba(15, 23, 42, 0.9);
+                }
+                .home-side-nav__brand {
+                    font-size: 0.9rem;
+                }
+                .home-side-nav__list {
+                    flex-direction: row;
+                    gap: 0.35rem;
+                }
+                .home-side-nav__link {
+                    padding: 0.45rem 0.6rem;
+                    border-radius: 999px;
+                    font-size: 0.82rem;
+                }
+                body:has(.home-side-nav) .block-container {
+                    margin-left: 0;
+                    padding-bottom: 5.4rem;
+                }
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_home_nav_styles_injected"] = True
+
+
+def _render_home_navigation(selected_page: str) -> Optional[Dict[str, Any]]:
+    _inject_home_navigation_styles()
+    nav_items: List[str] = []
+    for item in HOME_NAV_ITEMS:
+        target = str(item.get("target") or "")
+        label = str(item.get("label") or target)
+        icon = str(item.get("icon") or "bx bx-circle")
+        is_active = target == selected_page
+        active_class = " is-active" if is_active else ""
+        aria_current = " aria-current=\"page\"" if is_active else ""
+        nav_items.append(
+            dedent(
+                f"""
+                <li>
+                  <a href="#" class="home-side-nav__link{active_class}" data-target="{html.escape(target)}"{aria_current}>
+                    <i class="{html.escape(icon)}"></i>
+                    <span>{html.escape(label)}</span>
+                  </a>
+                </li>
+                """
+            ).strip()
+        )
+
+    markup = dedent(
+        """
+        <nav class="home-side-nav" aria-label="主要メニュー">
+          <div class="home-side-nav__brand">診断士ナビ</div>
+          <ul class="home-side-nav__list">
+            {items}
+          </ul>
+        </nav>
+        <script>
+        (function() {{
+          const api = window.parent?.Streamlit;
+          if (api?.setComponentReady) {{
+            api.setComponentReady();
+            api.setFrameHeight(0);
+          }}
+          const links = Array.from(document.querySelectorAll('.home-side-nav__link[data-target]'));
+          links.forEach((link) => {{
+            link.addEventListener('click', (event) => {{
+              event.preventDefault();
+              const target = link.dataset.target;
+              if (!target || !api?.setComponentValue) {{
+                return;
+              }}
+              api.setComponentValue(JSON.stringify({{ action: 'home-nav-go', payload: {{ target }}, timestamp: Date.now() }}));
+            }});
+          }});
+        })();
+        </script>
+        """
+    ).format(items="".join(nav_items))
+
+    component_value = components.html(markup, height=0, key="home_navigation", scrolling=False)
+    event_raw = _extract_component_value(component_value)
+    if event_raw:
+        try:
+            return json.loads(event_raw)
+        except json.JSONDecodeError:
+            return None
+    return None
+
+
+def _inject_home_wizard_styles() -> None:
+    if st.session_state.get("_home_wizard_styles_injected"):
+        return
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .start-wizard-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(15, 23, 42, 0.55);
+                backdrop-filter: blur(6px);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: clamp(1rem, 4vw, 3rem);
+                z-index: 1600;
+            }
+            .start-wizard {
+                width: min(640px, 95vw);
+                background: #ffffff;
+                border-radius: 24px;
+                box-shadow: 0 28px 52px rgba(15, 23, 42, 0.32);
+                padding: 1.8rem 1.9rem 1.55rem;
+                display: flex;
+                flex-direction: column;
+                gap: 1.2rem;
+                position: relative;
+            }
+            .start-wizard__header h2 {
+                margin: 0;
+                font-size: clamp(1.35rem, 2.4vw, 1.75rem);
+                letter-spacing: -0.01em;
+            }
+            .start-wizard__header p {
+                margin: 0.25rem 0 0;
+                color: #475569;
+                font-size: 0.95rem;
+                line-height: 1.6;
+            }
+            .start-wizard__step-eyebrow {
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                letter-spacing: 0.18em;
+                color: rgba(37, 99, 235, 0.85);
+                font-weight: 700;
+            }
+            .start-wizard__progress-track {
+                width: 100%;
+                height: 8px;
+                border-radius: 999px;
+                background: rgba(226, 232, 240, 0.8);
+                overflow: hidden;
+            }
+            .start-wizard__progress-fill {
+                display: block;
+                height: 100%;
+                background: linear-gradient(90deg, #2563eb 0%, #38bdf8 100%);
+                transition: width 0.25s ease;
+            }
+            .start-wizard__progress {
+                display: grid;
+                gap: 0.35rem;
+            }
+            .start-wizard__progress-text {
+                font-size: 0.85rem;
+                color: #475569;
+            }
+            .wizard-option-grid {
+                display: grid;
+                gap: 0.75rem;
+            }
+            .wizard-option {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr);
+                padding: 0.9rem 1rem;
+                border-radius: 16px;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: rgba(248, 250, 252, 0.95);
+                gap: 0.45rem;
+                position: relative;
+            }
+            .wizard-option input[type="radio"] {
+                position: absolute;
+                inset: 0;
+                opacity: 0;
+                cursor: pointer;
+            }
+            .wizard-option__title {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                font-weight: 700;
+                color: #1e293b;
+            }
+            .wizard-option__icon {
+                width: 32px;
+                height: 32px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 10px;
+                background: rgba(37, 99, 235, 0.12);
+                color: #1d4ed8;
+                font-weight: 700;
+            }
+            .wizard-option__desc {
+                font-size: 0.9rem;
+                color: #475569;
+                line-height: 1.55;
+            }
+            .wizard-option__meta {
+                font-size: 0.8rem;
+                color: rgba(30, 64, 175, 0.8);
+                font-weight: 600;
+                letter-spacing: 0.05em;
+            }
+            .wizard-option--disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                border-style: dashed;
+            }
+            .wizard-option input[type="radio"]:checked + * {
+                border-color: rgba(37, 99, 235, 0.4);
+            }
+            .start-wizard__actions {
+                display: flex;
+                justify-content: space-between;
+                gap: 0.6rem;
+                flex-wrap: wrap;
+            }
+            .start-wizard__actions button {
+                border-radius: 999px;
+                border: none;
+                font-weight: 600;
+                padding: 0.6rem 1.35rem;
+                cursor: pointer;
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
+            }
+            .start-wizard__button--ghost {
+                background: rgba(148, 163, 184, 0.16);
+                color: #1f2937;
+            }
+            .start-wizard__button--primary {
+                background: linear-gradient(120deg, #2563eb, #4f46e5);
+                color: #fff;
+                box-shadow: 0 16px 32px rgba(37, 99, 235, 0.35);
+            }
+            .start-wizard__button--primary:disabled {
+                opacity: 0.4;
+                cursor: not-allowed;
+                box-shadow: none;
+            }
+            .start-wizard__feedback {
+                min-height: 1.1rem;
+                font-size: 0.85rem;
+                color: #dc2626;
+            }
+            .wizard-summary {
+                background: rgba(240, 249, 255, 0.85);
+                border: 1px solid rgba(191, 219, 254, 0.7);
+                border-radius: 14px;
+                padding: 0.85rem 1rem;
+            }
+            .wizard-summary ul {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                display: grid;
+                gap: 0.35rem;
+            }
+            .wizard-summary li {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.5rem;
+                color: #1f2937;
+                font-size: 0.88rem;
+            }
+            .wizard-control {
+                display: grid;
+                gap: 0.4rem;
+            }
+            .wizard-control label {
+                font-weight: 600;
+                color: #1e293b;
+            }
+            .wizard-control input[type="range"] {
+                accent-color: #2563eb;
+            }
+            .wizard-note textarea {
+                width: 100%;
+                min-height: 90px;
+                border-radius: 12px;
+                border: 1px solid rgba(148, 163, 184, 0.4);
+                padding: 0.65rem;
+                font-size: 0.9rem;
+            }
+            .wizard-empty {
+                padding: 0.65rem 0;
+                color: #dc2626;
+                font-size: 0.88rem;
+            }
+            @media (max-width: 640px) {
+                .start-wizard {
+                    padding: 1.4rem 1.35rem 1.2rem;
+                }
+                .start-wizard__actions {
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_home_wizard_styles_injected"] = True
+
+
+def _render_home_start_wizard(
+    state: Mapping[str, Any],
+    *,
+    case_options: Sequence[Mapping[str, Any]],
+    problem_options: Sequence[Mapping[str, Any]],
+    problem_lookup: Mapping[str, Mapping[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    if not state.get("open"):
+        return None
+
+    _inject_home_wizard_styles()
+    total_steps = 3
+    try:
+        step = int(state.get("step") or 1)
+    except (TypeError, ValueError):
+        step = 1
+    step = max(1, min(step, total_steps))
+    selected_case = str(state.get("selected_case") or "")
+    selected_problem_id = str(state.get("selected_problem_id") or "")
+    try:
+        selected_duration = int(state.get("selected_duration") or 80)
+    except (TypeError, ValueError):
+        selected_duration = 80
+    note_text = str(state.get("note") or "")
+    progress_pct = int(((step - 1) / (total_steps - 1) * 100) if total_steps > 1 else 100)
+    step_titles = {
+        1: "事例を選択",
+        2: "年度と問題を選ぶ",
+        3: "タイマーを設定",
+    }
+    step_descriptions = {
+        1: "得意・苦手を踏まえて取り組む事例を選びます。",
+        2: "年度と問題を選択し、狙いを確認しましょう。",
+        3: "制限時間と事前メモを整え、集中モードに切り替えます。",
+    }
+    wizard_dom_id = f"homeStartWizard-{uuid.uuid4().hex}"
+
+    def _build_case_options_html() -> str:
+        rows: List[str] = []
+        for option in case_options:
+            value = str(option.get("id") or "")
+            available = bool(option.get("available"))
+            icon = html.escape(str(option.get("icon") or ""))
+            label = html.escape(str(option.get("label") or value))
+            desc = html.escape(str(option.get("description") or ""))
+            count = option.get("count")
+            meta = f"{count} 問題" if count not in {None, ""} else "問題データ未登録"
+            checked = " checked" if value == selected_case else ""
+            disabled = "" if available else " disabled"
+            option_class = "wizard-option wizard-option--case"
+            if not available:
+                option_class += " wizard-option--disabled"
+            rows.append(
+                dedent(
+                    f"""
+                    <label class="{option_class}">
+                      <input type="radio" name="wizardCase" value="{html.escape(value)}"{checked}{disabled} />
+                      <span class="wizard-option__title"><span class="wizard-option__icon">{icon}</span>{label}</span>
+                      <span class="wizard-option__desc">{desc}</span>
+                      <span class="wizard-option__meta">{html.escape(meta)}</span>
+                    </label>
+                    """
+                ).strip()
+            )
+        return "".join(rows)
+
+    def _build_problem_options_html() -> str:
+        if not problem_options:
+            return (
+                "<p class='wizard-empty'>選択した事例の問題データが見つかりません。設定ページでデータを追加してください。</p>"
+            )
+        rows: List[str] = []
+        for entry in problem_options:
+            value = str(entry.get("id") or "")
+            title = html.escape(str(entry.get("title") or "演習セット"))
+            year = html.escape(str(entry.get("year") or "―"))
+            case_label = html.escape(str(entry.get("case_label") or selected_case or "事例"))
+            question_count = entry.get("question_count")
+            meta_parts = [f"{year}年度 {case_label}"]
+            if question_count not in {None, ""}:
+                meta_parts.append(f"設問数 {question_count}")
+            difficulty = entry.get("difficulty")
+            if difficulty:
+                meta_parts.append(f"難易度 {html.escape(str(difficulty))}")
+            checked = " checked" if value == selected_problem_id else ""
+            rows.append(
+                dedent(
+                    f"""
+                    <label class="wizard-option wizard-option--problem">
+                      <input type="radio" name="wizardProblem" value="{html.escape(value)}"{checked} />
+                      <span class="wizard-option__title">{meta_parts[0]}</span>
+                      <span class="wizard-option__desc">{title}</span>
+                      <span class="wizard-option__meta">{html.escape(' / '.join(meta_parts[1:]) or '標準80分')}</span>
+                    </label>
+                    """
+                ).strip()
+            )
+        return "".join(rows)
+
+    def _build_summary_html() -> str:
+        problem_meta = problem_lookup.get(selected_problem_id) or {}
+        summary_items = []
+        case_label = html.escape(str(problem_meta.get("case_label") or selected_case or "未選択"))
+        year_label = html.escape(str(problem_meta.get("year") or "―"))
+        title = html.escape(str(problem_meta.get("title") or "問題タイトル未登録"))
+        summary_items.append(f"<li><i class='bx bx-book'></i>{year_label}年度 {case_label}</li>")
+        summary_items.append(f"<li><i class='bx bx-notepad'></i>{title}</li>")
+        summary_items.append(f"<li><i class='bx bx-time-five'></i>制限時間 {selected_duration} 分</li>")
+        return "<div class='wizard-summary'><ul>" + "".join(summary_items) + "</ul></div>"
+
+    if step == 1:
+        body_html = (
+            "<p>演習したい事例を選ぶと、最適な問題と資料が提案されます。</p>"
+            + f"<div class='wizard-option-grid'>{_build_case_options_html()}</div>"
+        )
+    elif step == 2:
+        body_html = (
+            "<p>年度と問題を選択すると、過去の記録やキーワード分析が連携されます。</p>"
+            + f"<div class='wizard-option-grid'>{_build_problem_options_html()}</div>"
+        )
+    else:
+        body_html = (
+            _build_summary_html()
+            + "<div class='wizard-control'><label for='wizardDuration'>制限時間 (分)</label>"
+            + f"<input id='wizardDuration' type='range' min='40' max='120' step='5' value='{selected_duration}' />"
+            + "<div class='wizard-duration-label' data-role='duration-label'></div></div>"
+            + "<div class='wizard-note'><label for='wizardNote'>事前メモ</label>"
+            + f"<textarea id='wizardNote' name='prepNote' placeholder='例: 与件で確認したいポイントや意識するキーワードをメモ'>{html.escape(note_text)}</textarea></div>"
+        )
+
+    if step == 3 and not selected_problem_id:
+        body_html = "<p class='wizard-empty'>問題を選択してからタイマーを設定できます。</p>" + body_html
+
+    primary_label = "次へ" if step < total_steps else "演習を開始"
+    primary_action = "next" if step < total_steps else "start"
+    requires_attr = " data-requires-selection='case'" if step == 1 else ""
+    if step == 2:
+        requires_attr = " data-requires-selection='problem'"
+    back_disabled = " disabled" if step == 1 else ""
+
+    progress_html = dedent(
+        f"""
+        <div class="start-wizard__progress">
+          <div class="start-wizard__progress-track">
+            <span class="start-wizard__progress-fill" style="width: {progress_pct}%;"></span>
+          </div>
+          <span class="start-wizard__progress-text">STEP {step}/{total_steps}</span>
+        </div>
+        """
+    ).strip()
+
+    markup = dedent(
+        """
+        <div class="start-wizard-overlay" id="{wizard_id}">
+          <div class="start-wizard" data-step="{step}">
+            <div class="start-wizard__header">
+              <span class="start-wizard__step-eyebrow">STEP {step}/{total_steps}</span>
+              <h2>{step_title}</h2>
+              <p>{step_desc}</p>
+            </div>
+            {progress_html}
+            <div class="start-wizard__body">
+              {body_html}
+            </div>
+            <div class="start-wizard__feedback" data-role="feedback" aria-live="polite"></div>
+            <div class="start-wizard__actions">
+              <button type="button" class="start-wizard__button--ghost" data-wizard-action="close">閉じる</button>
+              <div style="display:flex; gap:0.5rem;">
+                <button type="button" class="start-wizard__button--ghost" data-wizard-action="back" {back_disabled}>戻る</button>
+                <button type="button" class="start-wizard__button--primary" data-wizard-action="{primary_action}"{requires_attr}>{primary_label}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <script>
+        (function() {{
+          const api = window.parent?.Streamlit;
+          if (api?.setComponentReady) {{
+            api.setComponentReady();
+            api.setFrameHeight(0);
+          }}
+          const root = document.getElementById('{wizard_id}');
+          if (!root) {{
+            return;
+          }}
+          const shell = root.querySelector('.start-wizard');
+          const feedback = root.querySelector('[data-role="feedback"]');
+          const requiresCase = shell?.dataset.step === '1';
+          const requiresProblem = shell?.dataset.step === '2';
+          const caseInputs = Array.from(root.querySelectorAll('input[name="wizardCase"]'));
+          const problemInputs = Array.from(root.querySelectorAll('input[name="wizardProblem"]'));
+          const durationInput = root.querySelector('#wizardDuration');
+          const durationLabel = root.querySelector('[data-role="duration-label"]');
+          const noteField = root.querySelector('#wizardNote');
+
+          const updateDuration = () => {{
+            if (!durationInput || !durationLabel) return;
+            durationLabel.textContent = `${{durationInput.value}} 分`;
+          }};
+          if (durationInput) {{
+            durationInput.addEventListener('input', updateDuration);
+            updateDuration();
+          }}
+
+          const refreshButtons = () => {{
+            const primary = root.querySelector('[data-wizard-action="{primary_action}"]');
+            if (!primary) return;
+            if (requiresCase) {{
+              const selected = caseInputs.some((input) => input.checked);
+              primary.disabled = !selected;
+            }} else if (requiresProblem) {{
+              const selected = problemInputs.some((input) => input.checked);
+              primary.disabled = !selected;
+            }} else {{
+              primary.disabled = false;
+            }}
+          }};
+          refreshButtons();
+          [...caseInputs, ...problemInputs].forEach((input) => {{
+            input.addEventListener('change', () => {{
+              if (feedback) feedback.textContent = '';
+              refreshButtons();
+            }});
+          }});
+
+          const sendEvent = (action, payload) => {{
+            if (!api?.setComponentValue) {{
+              return;
+            }}
+            api.setComponentValue(JSON.stringify({{ action, payload, timestamp: Date.now() }}));
+          }};
+
+          const requireSelection = () => {{
+            if (requiresCase) {{
+              return caseInputs.find((input) => input.checked)?.value || null;
+            }}
+            if (requiresProblem) {{
+              return problemInputs.find((input) => input.checked)?.value || null;
+            }}
+            return null;
+          }};
+
+          const buttons = Array.from(root.querySelectorAll('[data-wizard-action]'));
+          buttons.forEach((button) => {{
+            button.addEventListener('click', () => {{
+              const action = button.dataset.wizardAction;
+              if (!action) return;
+              if (action === 'close') {{
+                sendEvent('wizard-close', {{ step: {step} }});
+                return;
+              }}
+              if (action === 'back') {{
+                sendEvent('wizard-back', {{ step: {step} }});
+                return;
+              }}
+              if (action === 'next') {{
+                const selection = requireSelection();
+                if (!selection) {{
+                  if (feedback) feedback.textContent = '選択肢を選んでから進んでください。';
+                  return;
+                }}
+                const payload = {{ step: {step} }};
+                if ({step} === 1) payload.case_label = selection;
+                if ({step} === 2) payload.problem_id = selection;
+                sendEvent('wizard-next', payload);
+                return;
+              }}
+              if (action === 'start') {{
+                const payload = {{ step: {step} }};
+                if (durationInput) {{
+                  payload.duration_minutes = Number(durationInput.value) || {selected_duration};
+                }}
+                if (noteField) {{
+                  payload.note = noteField.value || '';
+                }}
+                sendEvent('wizard-start', payload);
+              }}
+            }});
+          }});
+
+          document.addEventListener('keydown', (event) => {{
+            if (event.key === 'Escape') {{
+              sendEvent('wizard-close', {{ step: {step} }});
+            }}
+          }}, {{ once: true }});
+        })();
+        </script>
+        """
+    ).format(
+        wizard_id=wizard_dom_id,
+        step=step,
+        total_steps=total_steps,
+        step_title=html.escape(step_titles.get(step, "演習ウィザード")),
+        step_desc=html.escape(step_descriptions.get(step, "")),
+        progress_html=progress_html,
+        body_html=body_html,
+        primary_action=primary_action,
+        primary_label=primary_label,
+        requires_attr=requires_attr,
+        back_disabled=back_disabled,
+    )
+
+    component_value = components.html(markup, height=0, key="home_start_wizard", scrolling=False)
+    event_raw = _extract_component_value(component_value)
+    if event_raw:
+        try:
+            return json.loads(event_raw)
+        except json.JSONDecodeError:
+            return None
+    return None
 
 def _format_datetime_label(value: datetime | str | None) -> str:
     if isinstance(value, datetime):
@@ -7900,6 +8812,23 @@ def _build_case_performance_df(attempts: Sequence[Mapping[str, Any]]) -> pd.Data
 def dashboard_page(user: Dict) -> None:
     _inject_dashboard_styles()
 
+    current_page = str(st.session_state.get("page") or "ホーム")
+    nav_event = _render_home_navigation(current_page)
+    if nav_event:
+        action = nav_event.get("action")
+        payload = nav_event.get("payload") or {}
+        if action == "home-nav-go":
+            target = str(payload.get("target") or "")
+            if target:
+                st.session_state[HOME_WIZARD_SESSION_KEY] = _reset_home_wizard_state()
+                if target != current_page:
+                    _request_navigation(target)
+                    st.rerun()
+
+    wizard_state_seed = st.session_state.get(HOME_WIZARD_SESSION_KEY)
+    if not isinstance(wizard_state_seed, Mapping):
+        st.session_state[HOME_WIZARD_SESSION_KEY] = _reset_home_wizard_state()
+
     try:
         attempts = database.list_attempts(user_id=user["id"])
     except Exception:
@@ -7930,10 +8859,16 @@ def dashboard_page(user: Dict) -> None:
         }
 
     try:
+        problem_catalog = database.list_problems()
+    except Exception:
+        logger.exception("Failed to load problem catalog for dashboard")
+        problem_catalog = []
+
+    try:
         personalized_bundle = personalized_recommendation.generate_personalised_learning_plan(
             user_id=user["id"],
             attempts=attempts,
-            problem_catalog=database.list_problems(),
+            problem_catalog=problem_catalog,
             keyword_resource_map=KEYWORD_RESOURCE_MAP,
             default_resources=DEFAULT_KEYWORD_RESOURCES,
         )
@@ -8341,14 +9276,227 @@ def dashboard_page(user: Dict) -> None:
         metadata["last_practiced_at"] = _ensure_utc(entry.get("last_practiced_at"))
         metadata["due_at"] = _ensure_utc(entry.get("due_at"))
 
-    def _build_summary_cards_html() -> str:
-        parts: List[str] = []
-        all_empty = summary_cards and all(
-            card.get("state") == "empty" for card in summary_cards
+    case_problem_map: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    problem_lookup: Dict[str, Dict[str, Any]] = {}
+
+    def _problem_sort_key(entry: Mapping[str, Any]) -> Tuple[int, str]:
+        year_value = entry.get("year")
+        try:
+            year_int = int(str(year_value).split(".")[0])
+        except (TypeError, ValueError, AttributeError):
+            year_int = -1
+        return (year_int, str(entry.get("title") or ""))
+
+    for problem in problem_catalog:
+        if not isinstance(problem, Mapping):
+            continue
+        problem_id = problem.get("id")
+        case_label_value = problem.get("case_label") or problem.get("case")
+        if problem_id is None or not case_label_value:
+            continue
+        case_label = str(case_label_value)
+        year_value = problem.get("year")
+        year_label = str(year_value) if year_value is not None else "―"
+        entry = {
+            "id": str(problem_id),
+            "case_label": case_label,
+            "year": year_label,
+            "title": problem.get("title") or "演習セット",
+            "question_count": len(problem.get("questions") or []),
+            "difficulty": problem.get("difficulty"),
+            "themes": problem.get("themes") or [],
+        }
+        case_problem_map[case_label].append(entry)
+        problem_lookup[str(problem_id)] = entry
+
+    for entries in case_problem_map.values():
+        entries.sort(key=_problem_sort_key, reverse=True)
+
+    wizard_case_options: List[Dict[str, Any]] = []
+    seen_cases: Set[str] = set()
+    for case_label in CASE_ORDER:
+        problems = case_problem_map.get(case_label, [])
+        wizard_case_options.append(
+            {
+                "id": case_label,
+                "label": case_label,
+                "icon": CASE_ICON_MAP.get(case_label) or case_label[:1],
+                "description": CASE_DESCRIPTION_MAP.get(case_label, "重点領域を確認しましょう"),
+                "count": len(problems),
+                "available": bool(problems),
+            }
         )
-        if all_empty:
-            parts.append(
+        seen_cases.add(case_label)
+
+    for case_label, problems in sorted(case_problem_map.items()):
+        if case_label in seen_cases:
+            continue
+        wizard_case_options.append(
+            {
+                "id": case_label,
+                "label": case_label,
+                "icon": CASE_ICON_MAP.get(case_label) or case_label[:1],
+                "description": CASE_DESCRIPTION_MAP.get(case_label, "学習データを確認しましょう"),
+                "count": len(problems),
+                "available": bool(problems),
+            }
+        )
+
+    def _build_overview_card_html() -> str:
+        metrics = [
+            ("総演習", f"{total_attempts} 回"),
+            ("平均得点", f"{average_score:.1f} 点" if total_attempts else "―"),
+            (
+                "達成率",
+                f"{completion_rate:.0f}%" if completion_rate else "0%",
+            ),
+        ]
+        highlight_items: List[Tuple[str, str]] = []
+        if total_learning_minutes:
+            highlight_items.append(
+                ("bx bx-time-five", f"累計 {_format_duration_minutes(total_learning_minutes)}")
+            )
+        else:
+            highlight_items.append(("bx bx-time-five", "累計時間を記録しましょう"))
+        if streak_days:
+            highlight_items.append(("bx bx-flame", f"連続 {streak_days} 日"))
+        else:
+            highlight_items.append(("bx bx-flame", "連続学習をスタート"))
+        last_attempt_label = _format_short_datetime(latest_attempt_dt)
+        if latest_attempt_dt:
+            highlight_items.append(("bx bx-calendar-check", f"最終演習 {last_attempt_label}"))
+        else:
+            highlight_items.append(("bx bx-calendar-check", "最初の演習に挑戦しましょう"))
+        metric_html = []
+        for label, value in metrics:
+            metric_html.append(
                 dedent(
+                    f"""
+                    <div class="home-overview__metric">
+                      <span>{html.escape(label)}</span>
+                      <strong>{html.escape(value)}</strong>
+                    </div>
+                    """
+                ).strip()
+            )
+        highlight_html = []
+        for icon, text in highlight_items[:4]:
+            highlight_html.append(
+                f"<li><i class='{icon}'></i><span>{html.escape(text)}</span></li>"
+            )
+        return (
+            dedent(
+                """
+                <section class="home-overview" aria-labelledby="home-overview-heading" data-tour="dashboard-overview">
+                  <div class="home-overview__header">
+                    <h2 id="home-overview-heading">学習ダッシュボード</h2>
+                    <p>現在の進捗と蓄積データを俯瞰し、演習ウィザードで次の一歩を迷わず設定できます。</p>
+                  </div>
+                  <div class="home-overview__metrics">
+                    {metrics}
+                  </div>
+                  <div class="home-overview__actions">
+                    <button type="button" class="home-overview__cta" data-action="start-practice">
+                      <i class="bx bx-play-circle"></i> 演習ウィザードを開く
+                    </button>
+                  </div>
+                  <ul class="home-overview__highlights">
+                    {highlights}
+                  </ul>
+                </section>
+                """
+            )
+            .format(metrics="".join(metric_html), highlights="".join(highlight_html))
+            .strip()
+        )
+
+    def _render_summary_card(card: Mapping[str, Any]) -> str:
+        state_class = f" summary-card--{card['state']}" if card.get("state") else ""
+        meta_text = card.get("meta")
+        meta_html = (
+            f"<p class='summary-card__meta'>{html.escape(meta_text)}</p>"
+            if meta_text
+            else ""
+        )
+        tooltip = card.get("tooltip")
+        tooltip_attr = (
+            f" data-tooltip=\"{html.escape(tooltip)}\""
+            if tooltip
+            else ""
+        )
+        tour_attr = (
+            f" data-tour=\"{html.escape(card['tour'])}\""
+            if card.get("tour")
+            else ""
+        )
+        action_label = card.get("action_label")
+        action_name = card.get("action")
+        payload = card.get("action_payload")
+        payload_attr = ""
+        if payload:
+            payload_attr = html.escape(json.dumps(payload, ensure_ascii=False), quote=True)
+            payload_attr = f" data-payload=\"{payload_attr}\""
+        action_html = ""
+        if action_label and action_name:
+            action_html = (
+                f"<a href='#' class='summary-card__link' data-action='{html.escape(action_name)}'"
+                f"{payload_attr}>{html.escape(action_label)}<i class='bx bx-chevron-right'></i></a>"
+            )
+        return (
+            dedent(
+                f"""
+                <article class="summary-card{state_class}"{tooltip_attr}{tour_attr}>
+                  <div class="icon-wrapper"><i class="{card['icon']}"></i></div>
+                  <h3>{html.escape(card['title'])}</h3>
+                  <strong>{html.escape(card['value'])}</strong>
+                  {meta_html}
+                  {action_html}
+                </article>
+                """
+            )
+            .strip()
+        )
+
+    def _build_summary_cards_html() -> str:
+        if not summary_cards:
+            return (
+                "<div class='summary-stack'><section class='summary-stack__section'>"
+                "<div class='empty-state'>初回演習を登録すると学習サマリーが表示されます。まずは『過去問演習』ページからチャレンジしてください。</div>"
+                "</section></div>"
+            )
+
+        all_empty = all(card.get("state") == "empty" for card in summary_cards)
+        progress_cards: List[str] = []
+        action_cards: List[str] = []
+        for card in summary_cards:
+            card_html = _render_summary_card(card)
+            if card.get("action"):
+                action_cards.append(card_html)
+            else:
+                progress_cards.append(card_html)
+
+        sections: List[str] = []
+        if progress_cards:
+            sections.append(
+                dedent(
+                    """
+                    <section class="summary-stack__section" aria-label="学習状況">
+                      <header>
+                        <h3><i class="bx bx-line-chart"></i> 学習状況</h3>
+                        <p>得点や学習時間の推移を一目で把握できます。</p>
+                      </header>
+                      <div class="summary-stack__grid">
+                        {cards}
+                      </div>
+                    </section>
+                    """
+                ).format(cards="".join(progress_cards)).strip()
+            )
+
+        if action_cards or all_empty:
+            onboarding_html = ""
+            if all_empty:
+                onboarding_html = dedent(
                     """
                     <div class="summary-empty" data-tour="onboarding-summary">
                       <div class="summary-empty__illustration" aria-hidden="true">
@@ -8370,57 +9518,35 @@ def dashboard_page(user: Dict) -> None:
                     </div>
                     """
                 ).strip()
-            )
-        for card in summary_cards:
-            state_class = f" summary-card--{card['state']}" if card.get("state") else ""
-            meta_text = card.get("meta")
-            meta_html = (
-                f"<p class='summary-card__meta'>{html.escape(meta_text)}</p>"
-                if meta_text
-                else ""
-            )
-            tooltip = card.get("tooltip")
-            tooltip_attr = (
-                f" data-tooltip=\"{html.escape(tooltip)}\""
-                if tooltip
-                else ""
-            )
-            tour_attr = (
-                f" data-tour=\"{html.escape(card['tour'])}\""
-                if card.get("tour")
-                else ""
-            )
-            action_label = card.get("action_label")
-            action_name = card.get("action")
-            payload = card.get("action_payload")
-            payload_attr = ""
-            if payload:
-                payload_attr = html.escape(json.dumps(payload, ensure_ascii=False), quote=True)
-                payload_attr = f" data-payload=\"{payload_attr}\""
-            action_html = ""
-            if action_label and action_name:
-                action_html = (
-                    f"<a href='#' class='summary-card__link' data-action='{html.escape(action_name)}'"
-                    f"{payload_attr}>{html.escape(action_label)}<i class='bx bx-chevron-right'></i></a>"
-                )
-            parts.append(
+            action_grid = "".join(action_cards)
+            sections.append(
                 dedent(
-                    f"""
-                    <article class="summary-card{state_class}"{tooltip_attr}{tour_attr}>
-                      <div class="icon-wrapper"><i class="{card['icon']}"></i></div>
-                      <h3>{html.escape(card['title'])}</h3>
-                      <strong>{html.escape(card['value'])}</strong>
-                      {meta_html}
-                      {action_html}
-                    </article>
                     """
-                ).strip()
+                    <section class="summary-stack__section" aria-label="次のアクション">
+                      <header>
+                        <h3><i class="bx bx-navigation"></i> 次のアクション</h3>
+                        <p>ガイド付きの導線から学習サイクルを素早く回せます。</p>
+                      </header>
+                      {onboarding}
+                      <div class="summary-stack__grid summary-stack__grid--actions">
+                        {cards}
+                      </div>
+                    </section>
+                    """
+                ).format(onboarding=onboarding_html, cards=action_grid).strip()
             )
-        if parts:
-            return "\n".join(parts)
-        return "<div class='empty-state'>初回演習を登録すると学習サマリーが表示されます。まずは『過去問演習』ページからチャレンジしてください。</div>"
 
-    summary_cards_html = _build_summary_cards_html()
+        if not sections:
+            return (
+                "<div class='summary-stack'><section class='summary-stack__section'>"
+                "<div class='empty-state'>初回演習を登録すると学習サマリーが表示されます。まずは『過去問演習』ページからチャレンジしてください。</div>"
+                "</section></div>"
+            )
+
+        return f"<div class='summary-stack'>{''.join(sections)}</div>"
+
+    overview_card_html = _build_overview_card_html()
+    summary_cards_html = overview_card_html + _build_summary_cards_html()
 
     def _build_keyword_alerts_html() -> str:
         if top_missed_keywords:
@@ -8805,7 +9931,26 @@ def dashboard_page(user: Dict) -> None:
                         }
                         st.rerun()
                 elif action == "start-practice":
-                    _request_navigation("過去問演習")
+                    previous_state = st.session_state.get(HOME_WIZARD_SESSION_KEY)
+                    preferred_case = None
+                    preferred_problem = None
+                    default_duration = 80
+                    if isinstance(previous_state, Mapping):
+                        preferred_case = previous_state.get("selected_case")
+                        preferred_problem = previous_state.get("selected_problem_id")
+                        try:
+                            default_duration = int(previous_state.get("selected_duration") or default_duration)
+                        except (TypeError, ValueError):
+                            default_duration = 80
+                    wizard_state = _initialize_home_wizard_state(
+                        preferred_case,
+                        case_problem_map,
+                        default_duration=default_duration,
+                        preferred_problem_id=preferred_problem,
+                        previous_state=previous_state if isinstance(previous_state, Mapping) else None,
+                    )
+                    wizard_state["step"] = 1
+                    st.session_state[HOME_WIZARD_SESSION_KEY] = wizard_state
                     st.rerun()
                 elif action == "focus-dashboard-tab":
                     tab_key = payload.get("tab") if isinstance(payload, dict) else None
@@ -8816,6 +9961,128 @@ def dashboard_page(user: Dict) -> None:
                 elif action in {"open-history", "open-recommendation-settings"}:
                     _request_navigation("学習履歴")
                     st.rerun()
+
+    wizard_state = st.session_state.get(HOME_WIZARD_SESSION_KEY)
+    if not isinstance(wizard_state, Mapping):
+        wizard_state = _reset_home_wizard_state()
+        st.session_state[HOME_WIZARD_SESSION_KEY] = wizard_state
+
+    if wizard_state.get("open"):
+        selected_case = str(wizard_state.get("selected_case") or "")
+        wizard_problem_options = case_problem_map.get(selected_case) or []
+        wizard_event = _render_home_start_wizard(
+            wizard_state,
+            case_options=wizard_case_options,
+            problem_options=wizard_problem_options,
+            problem_lookup=problem_lookup,
+        )
+        if wizard_event:
+            action = wizard_event.get("action")
+            payload = wizard_event.get("payload") or {}
+            current_state = dict(wizard_state)
+            try:
+                current_step = int(current_state.get("step") or 1)
+            except (TypeError, ValueError):
+                current_step = 1
+            if action == "wizard-close":
+                current_state["open"] = False
+                current_state["step"] = 1
+                st.session_state[HOME_WIZARD_SESSION_KEY] = current_state
+                st.rerun()
+            elif action == "wizard-back":
+                current_state["step"] = max(current_step - 1, 1)
+                current_state["open"] = True
+                st.session_state[HOME_WIZARD_SESSION_KEY] = current_state
+                st.rerun()
+            elif action == "wizard-next":
+                if current_step == 1:
+                    case_label = payload.get("case_label")
+                    if case_label:
+                        case_value = str(case_label)
+                        current_state["selected_case"] = case_value
+                        problems = case_problem_map.get(case_value) or []
+                        current_state["selected_problem_id"] = (
+                            str(problems[0].get("id")) if problems else None
+                        )
+                elif current_step == 2:
+                    problem_id = payload.get("problem_id")
+                    if problem_id:
+                        current_state["selected_problem_id"] = str(problem_id)
+                current_state["step"] = min(current_step + 1, 3)
+                current_state["open"] = True
+                st.session_state[HOME_WIZARD_SESSION_KEY] = current_state
+                st.rerun()
+            elif action == "wizard-start":
+                duration = payload.get("duration_minutes")
+                note_text = payload.get("note") or ""
+                try:
+                    duration_int = int(duration)
+                except (TypeError, ValueError):
+                    duration_int = int(current_state.get("selected_duration") or 80)
+                duration_int = max(40, min(duration_int, 120))
+                current_state["selected_duration"] = duration_int
+                current_state["note"] = note_text
+                selected_problem_id = current_state.get("selected_problem_id")
+                selected_problem_key = str(selected_problem_id) if selected_problem_id else ""
+                problem_meta = problem_lookup.get(selected_problem_key) or {}
+                case_label = problem_meta.get("case_label") or current_state.get("selected_case") or ""
+                year_label = problem_meta.get("year")
+                focus_payload = {
+                    "case_label": case_label,
+                    "year": str(year_label) if year_label not in {None, ""} else None,
+                    "question_id": None,
+                }
+                problem_id_int = None
+                try:
+                    problem_id_int = int(selected_problem_key) if selected_problem_key else None
+                except (TypeError, ValueError):
+                    problem_id_int = None
+                first_question_id = None
+                if problem_id_int is not None:
+                    try:
+                        detail = database.fetch_problem(problem_id_int)
+                    except Exception:
+                        detail = None
+                    if detail and isinstance(detail.get("questions"), list):
+                        for entry in detail["questions"]:
+                            qid = entry.get("id")
+                            if qid:
+                                first_question_id = qid
+                                break
+                if first_question_id:
+                    focus_payload["question_id"] = first_question_id
+                    st.session_state["_pending_focus_question"] = first_question_id
+                    st.session_state["_practice_scroll_requested"] = True
+                    if problem_id_int is not None:
+                        question_key = f"practice_tree_question_{problem_id_int}"
+                        st.session_state[question_key] = first_question_id
+                st.session_state["practice_focus"] = focus_payload
+                if case_label:
+                    st.session_state["practice_tree_case"] = case_label
+                    if year_label not in {None, ""}:
+                        year_state_key = f"practice_tree_year_{case_label}"
+                        st.session_state[year_state_key] = year_label
+                if problem_id_int is not None:
+                    timer_state_key = f"practice_timer::{problem_id_int}"
+                    st.session_state[timer_state_key] = {
+                        "duration_seconds": int(duration_int) * 60,
+                        "running": False,
+                        "start_timestamp": None,
+                        "accumulated_seconds": 0.0,
+                        "expired": False,
+                    }
+                if note_text:
+                    st.session_state["practice_launch_note"] = note_text
+                else:
+                    st.session_state.pop("practice_launch_note", None)
+                closed_state = _reset_home_wizard_state()
+                closed_state["selected_case"] = case_label or current_state.get("selected_case")
+                closed_state["selected_problem_id"] = selected_problem_key or None
+                closed_state["selected_duration"] = duration_int
+                closed_state["note"] = note_text
+                st.session_state[HOME_WIZARD_SESSION_KEY] = closed_state
+                _request_navigation("過去問演習")
+                st.rerun()
 
     return
 def _calculate_gamification(attempts: List[Dict]) -> Dict[str, object]:
