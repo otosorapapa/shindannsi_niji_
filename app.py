@@ -39,7 +39,7 @@ from xml.sax.saxutils import escape
 st.set_page_config(
     page_title="中小企業診断士二次試験ナビゲーション",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 
@@ -795,6 +795,26 @@ def _ensure_text(value: Any) -> str:
     return str(value).strip()
 
 
+def _repair_mojibake(text: str) -> str:
+    """Attempt to repair common mojibake patterns caused by encoding mismatches."""
+
+    if not text:
+        return text
+
+    suspicious_markers = {"縺", "繧", "蜿", "邨", "髢", "菴", "豕", "蟷", "遉", "�"}
+    if not any(marker in text for marker in suspicious_markers):
+        return text
+
+    try:
+        restored = text.encode("cp932", errors="ignore").decode("utf-8", errors="ignore").strip()
+    except Exception:
+        return text
+
+    if restored and restored.count("�") <= text.count("�"):
+        return restored
+    return text
+
+
 def _normalize_text_block(value: Any) -> Optional[str]:
     if value is None:
         return None
@@ -803,7 +823,18 @@ def _normalize_text_block(value: Any) -> Optional[str]:
             return None
         text = str(value).strip()
         return text or None
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, bytes):
+        decoded: Optional[str] = None
+        for encoding in ("utf-8-sig", "utf-8", "cp932", "shift_jis"):
+            try:
+                decoded = value.decode(encoding).strip()
+                break
+            except UnicodeDecodeError:
+                continue
+        if decoded is None:
+            decoded = value.decode("utf-8", errors="ignore").strip()
+        text = decoded
+    elif isinstance(value, (list, tuple, set)):
         text = _ensure_text(value)
     else:
         text = str(value).strip()
@@ -812,7 +843,9 @@ def _normalize_text_block(value: Any) -> Optional[str]:
     lowered = text.lower()
     if lowered in {"nan", "none"}:
         return None
-    return text
+    normalized = unicodedata.normalize("NFC", text)
+    repaired = _repair_mojibake(normalized)
+    return repaired
 
 
 def _iter_question_context_candidates(question: Dict[str, Any]) -> Iterable[Any]:
@@ -1928,6 +1961,106 @@ def _inject_global_styles() -> None:
     st.session_state[digest_key] = css_digest
 
 
+def _inject_sidebar_toggle_styles() -> None:
+    if st.session_state.get("_sidebar_toggle_styles_injected"):
+        return
+
+    st.markdown(
+        dedent(
+            """
+            <style>
+            :root {
+                --sidebar-toggle-menu-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%230f172a' d='M3 6.25C3 5.56 3.56 5 4.25 5h15.5c.69 0 1.25.56 1.25 1.25S20.44 7.5 19.75 7.5H4.25C3.56 7.5 3 6.94 3 6.25Zm0 5.75c0-.69.56-1.25 1.25-1.25h15.5c.69 0 1.25.56 1.25 1.25S20.44 12.5 19.75 12.5H4.25C3.56 12.5 3 11.94 3 11.25Zm0 5.75c0-.69.56-1.25 1.25-1.25h15.5c.69 0 1.25.56 1.25 1.25S20.44 18.5 19.75 18.5H4.25C3.56 18.5 3 17.94 3 17.25Z'/%3E%3C/svg%3E");
+                --sidebar-toggle-close-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%230f172a' d='M15.46 5.46a1.25 1.25 0 0 1 0 1.77L10.69 12l4.77 4.77a1.25 1.25 0 0 1-1.77 1.77l-5.65-5.65a1.25 1.25 0 0 1 0-1.77l5.65-5.65a1.25 1.25 0 0 1 1.77 0Z'/%3E%3C/svg%3E");
+            }
+            [data-testid="collapsedControl"] button,
+            button[title="サイドバーを表示"],
+            button[title="サイドバーを折りたたむ"],
+            button[title="Show sidebar"],
+            button[title="Hide sidebar"] {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                transition: transform 0.2s ease, background-color 0.2s ease;
+                background: rgba(15, 23, 42, 0.04);
+                color: #0f172a;
+                border: 1px solid rgba(15, 23, 42, 0.12);
+                width: 2.3rem;
+                height: 2.3rem;
+            }
+            [data-testid="collapsedControl"] button:hover,
+            button[title="サイドバーを表示"]:hover,
+            button[title="サイドバーを折りたたむ"]:hover,
+            button[title="Show sidebar"]:hover,
+            button[title="Hide sidebar"]:hover {
+                background: rgba(37, 99, 235, 0.12);
+                color: #1d4ed8;
+            }
+            [data-testid="collapsedControl"] button .material-icons,
+            [data-testid="collapsedControl"] button svg,
+            button[title="サイドバーを表示"] .material-icons,
+            button[title="サイドバーを折りたたむ"] .material-icons,
+            button[title="Show sidebar"] .material-icons,
+            button[title="Hide sidebar"] .material-icons {
+                display: none;
+            }
+            [data-testid="collapsedControl"] button::before,
+            button[title="サイドバーを表示"]::before,
+            button[title="Show sidebar"]::before,
+            button[title="サイドバーを折りたたむ"]::before,
+            button[title="Hide sidebar"]::before {
+                content: "";
+                display: inline-block;
+                width: 1.35rem;
+                height: 1.35rem;
+                background-color: currentColor;
+                mask: var(--sidebar-toggle-menu-icon) no-repeat center / contain;
+                -webkit-mask: var(--sidebar-toggle-menu-icon) no-repeat center / contain;
+            }
+            [data-testid="collapsedControl"] button[aria-expanded="true"]::before,
+            [data-testid="collapsedControl"][aria-expanded="true"] button::before,
+            button[title="サイドバーを折りたたむ"]::before,
+            button[title="Hide sidebar"]::before {
+                mask: var(--sidebar-toggle-close-icon) no-repeat center / contain;
+                -webkit-mask: var(--sidebar-toggle-close-icon) no-repeat center / contain;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_sidebar_toggle_styles_injected"] = True
+
+
+def _ensure_sidebar_expanded() -> None:
+    if st.session_state.get("_sidebar_expanded_once"):
+        return
+
+    st.session_state["_sidebar_expanded_once"] = True
+    st.markdown(
+        """
+        <script>
+        (function() {
+            const expandSidebar = () => {
+                const doc = window.parent?.document || document;
+                const toggle = doc.querySelector('[data-testid="collapsedControl"] button');
+                if (toggle && toggle.getAttribute('aria-expanded') === 'false') {
+                    toggle.click();
+                }
+            };
+            if (document.readyState === 'complete') {
+                expandSidebar();
+            } else {
+                window.addEventListener('load', expandSidebar, { once: true });
+            }
+        })();
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def _inject_guideline_styles() -> None:
     if st.session_state.get("_guideline_styles_injected"):
         return
@@ -2241,6 +2374,44 @@ def _inject_practice_question_styles() -> None:
                 letter-spacing: 0.02em;
                 color: var(--practice-text-muted);
                 margin: 0.45rem 0 0.85rem;
+            }
+            .practice-answer-panel {
+                margin-top: 0.35rem;
+                padding: 1.1rem 1.25rem 1.3rem;
+                border-radius: 20px;
+                border: 1px solid rgba(148, 163, 184, 0.32);
+                background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.92));
+                box-shadow: 0 24px 42px rgba(15, 23, 42, 0.08);
+            }
+            .practice-answer-panel > .practice-autosave-caption {
+                margin-top: 0;
+                margin-bottom: 1rem;
+            }
+            .practice-support-panel {
+                position: sticky;
+                top: 5.5rem;
+                border-radius: 18px;
+                border: 1px solid rgba(148, 163, 184, 0.28);
+                background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255, 255, 255, 0.88));
+                padding: 0.85rem 0.9rem 1.1rem;
+                box-shadow: 0 18px 32px rgba(15, 23, 42, 0.08);
+                gap: 0.75rem;
+            }
+            .practice-support-panel .stTabs {
+                margin-top: 0.35rem;
+            }
+            .practice-support-panel .stTabs [data-baseweb="tab-list"] {
+                gap: 0.35rem;
+            }
+            .practice-support-panel .stTabs [data-baseweb="tab"] {
+                border-radius: 999px;
+                padding: 0.45rem 0.95rem;
+            }
+            @media (max-width: 960px) {
+                .practice-support-panel {
+                    position: static;
+                    top: auto;
+                }
             }
             .practice-question-block .stTextArea textarea {
                 border-radius: 16px;
@@ -3159,6 +3330,42 @@ def _inject_context_column_styles() -> None:
                 border-radius: 0.75rem;
                 border: 1px solid #e5e7eb;
                 background: rgba(248, 250, 252, 0.9);
+            }
+            .context-summary-card {
+                margin: 0.75rem 0 0.5rem;
+                padding: 0.95rem 1rem 1.05rem;
+                border-radius: 1rem;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: rgba(241, 245, 249, 0.95);
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+            }
+            .context-summary-card__eyebrow {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+                padding: 0.15rem 0.55rem;
+                border-radius: 999px;
+                background: rgba(37, 99, 235, 0.12);
+                color: #1d4ed8;
+                font-size: 0.75rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                margin-bottom: 0.55rem;
+            }
+            .context-summary-card__body {
+                margin: 0;
+                color: #1f2937;
+                line-height: 1.7;
+                font-size: 0.92rem;
+            }
+            .context-section-paragraph {
+                margin: 0 0 0.75rem;
+                line-height: 1.7;
+                color: #1f2937;
+            }
+            .context-section-paragraph:last-child {
+                margin-bottom: 0.25rem;
             }
             .context-search-control [data-testid="stTextInput"] {
                 margin-bottom: 0.35rem;
@@ -4460,6 +4667,98 @@ def _split_long_japanese_paragraph(paragraph: str, max_chars: int = 120) -> List
     return chunks
 
 
+def _split_context_into_paragraphs(context_text: str) -> List[str]:
+    normalized = _normalize_text_block(context_text)
+    if not normalized:
+        return []
+
+    paragraphs: List[str] = []
+    for raw_block in normalized.replace("\r\n", "\n").replace("\r", "\n").split("\n\n"):
+        paragraph = raw_block.strip()
+        if paragraph:
+            paragraphs.append(paragraph)
+
+    if not paragraphs:
+        return []
+
+    if len(paragraphs) == 1:
+        return _split_long_japanese_paragraph(paragraphs[0])
+
+    return paragraphs
+
+
+def _group_context_sections(paragraphs: Sequence[str], max_sections: int = 3) -> List[List[str]]:
+    if not paragraphs:
+        return []
+
+    total = len(paragraphs)
+    if total <= 2:
+        return [list(paragraphs)]
+
+    if total <= 4:
+        section_count = 2
+    else:
+        section_count = min(max_sections, 3)
+
+    chunk_size = max(1, math.ceil(total / section_count))
+    sections: List[List[str]] = []
+    for start in range(0, total, chunk_size):
+        sections.append(list(paragraphs[start : start + chunk_size]))
+    return sections
+
+
+def _build_context_summary_text(
+    paragraphs: Sequence[str], *, max_chars: int = 320, max_paragraphs: int = 3
+) -> str:
+    summary_parts: List[str] = []
+    total = 0
+    for paragraph in paragraphs:
+        summary_parts.append(paragraph)
+        total += len(paragraph)
+        if len(summary_parts) >= max_paragraphs or total >= max_chars:
+            break
+    return "\n\n".join(summary_parts)
+
+
+def _render_context_summary_view(
+    paragraphs: Sequence[str], *, mode: str = "要約表示"
+) -> None:
+    if not paragraphs:
+        st.info("与件文が登録されていません。", icon="ℹ️")
+        return
+
+    if mode == "要約表示":
+        summary_text = _build_context_summary_text(paragraphs)
+        escaped = html.escape(summary_text).replace("\n", "<br/>")
+        st.markdown(
+            dedent(
+                f"""
+                <div class="context-summary-card" role="status">
+                    <span class="context-summary-card__eyebrow">要約</span>
+                    <p class="context-summary-card__body">{escaped}</p>
+                </div>
+                """
+            ).strip(),
+            unsafe_allow_html=True,
+        )
+        return
+
+    if mode == "セクション表示":
+        sections = _group_context_sections(paragraphs)
+        for index, section in enumerate(sections):
+            expanded = index == 0
+            label = f"セクション{index + 1}"
+            with st.expander(label, expanded=expanded):
+                for paragraph in section:
+                    st.markdown(
+                        f"<p class='context-section-paragraph'>{html.escape(paragraph)}</p>",
+                        unsafe_allow_html=True,
+                    )
+        return
+
+    st.write("\n\n".join(paragraphs))
+
+
 def _compile_context_search_pattern(query: Optional[str]) -> Optional[Pattern[str]]:
     if query is None:
         return None
@@ -4516,21 +4815,9 @@ def _render_problem_context_block(
     auto_save: bool = False,
     compact_controls: bool = False,
 ) -> Tuple[int, Optional[Dict[str, Any]]]:
-    normalized = _normalize_text_block(context_text)
-    if not normalized:
-        return 0, None
-
-    paragraphs: List[str] = []
-    for raw_block in normalized.replace("\r\n", "\n").replace("\r", "\n").split("\n\n"):
-        paragraph = raw_block.strip()
-        if paragraph:
-            paragraphs.append(paragraph)
-
+    paragraphs = _split_context_into_paragraphs(context_text)
     if not paragraphs:
         return 0, None
-
-    if len(paragraphs) == 1:
-        paragraphs = _split_long_japanese_paragraph(paragraphs[0])
 
     blocks: List[str] = []
     search_pattern = _compile_context_search_pattern(search_query)
@@ -5865,6 +6152,8 @@ def main_view() -> None:
     user = st.session_state.user
 
     _inject_global_styles()
+    _inject_sidebar_toggle_styles()
+    _ensure_sidebar_expanded()
     _inject_tag_styles()
 
     navigation_items = {
@@ -9391,14 +9680,14 @@ def dashboard_page(user: Dict) -> None:
                 <section class="home-overview" aria-labelledby="home-overview-heading" data-tour="dashboard-overview">
                   <div class="home-overview__header">
                     <h2 id="home-overview-heading">学習ダッシュボード</h2>
-                    <p>現在の進捗と蓄積データを俯瞰し、演習ウィザードで次の一歩を迷わず設定できます。</p>
+                    <p>現在の進捗と蓄積データを俯瞰し、ワンクリックで過去問演習ページへ移動できます。</p>
                   </div>
                   <div class="home-overview__metrics">
                     {metrics}
                   </div>
                   <div class="home-overview__actions">
-                    <button type="button" class="home-overview__cta" data-action="start-practice">
-                      <i class="bx bx-play-circle"></i> 演習ウィザードを開く
+                    <button type="button" class="home-overview__cta" data-action="start-practice" data-url="過去問演習">
+                      <i class="bx bx-play-circle"></i> 過去問演習ページへ移動
                     </button>
                   </div>
                   <ul class="home-overview__highlights">
@@ -9512,7 +9801,7 @@ def dashboard_page(user: Dict) -> None:
                       <div class="summary-empty__body">
                         <h3>まだ学習データがありません</h3>
                         <p>演習を登録すると得点の推移や弱点キーワードがこのセクションに表示されます。</p>
-                        <a href="#" class="summary-empty__cta" data-action="start-practice">
+                        <a href="#" class="summary-empty__cta" data-action="start-practice" data-url="過去問演習">
                           今すぐ演習を始める<i class="bx bx-chevron-right"></i>
                         </a>
                       </div>
@@ -9882,6 +10171,19 @@ def dashboard_page(user: Dict) -> None:
         )
 
     template = HOME_DASHBOARD_HTML_PATH.read_text(encoding="utf-8")
+    template = template.replace(
+        'class="hero__cta" data-action="start-practice"',
+        'class="hero__cta" data-action="start-practice" data-url="過去問演習"',
+    )
+    template = template.replace(
+        "const payloadRaw = element.dataset.payload;",
+        "const payloadRaw = element.dataset.payload;\n          const directTarget = element.dataset.url;",
+    )
+    template = template.replace(
+        "          if (streamlitApi?.setComponentValue) {",
+        "          if (directTarget && !payload.target) {\n            payload.target = directTarget;\n          }\n          if (streamlitApi?.setComponentValue) {",
+        1,
+    )
     dashboard_focus_tab = st.session_state.pop("dashboard_focus_tab", None)
     allowed_tabs = {"summary", "analysis", "path"}
     if dashboard_focus_tab not in allowed_tabs:
@@ -9932,26 +10234,11 @@ def dashboard_page(user: Dict) -> None:
                         }
                         st.rerun()
                 elif action == "start-practice":
-                    previous_state = st.session_state.get(HOME_WIZARD_SESSION_KEY)
-                    preferred_case = None
-                    preferred_problem = None
-                    default_duration = 80
-                    if isinstance(previous_state, Mapping):
-                        preferred_case = previous_state.get("selected_case")
-                        preferred_problem = previous_state.get("selected_problem_id")
-                        try:
-                            default_duration = int(previous_state.get("selected_duration") or default_duration)
-                        except (TypeError, ValueError):
-                            default_duration = 80
-                    wizard_state = _initialize_home_wizard_state(
-                        preferred_case,
-                        case_problem_map,
-                        default_duration=default_duration,
-                        preferred_problem_id=preferred_problem,
-                        previous_state=previous_state if isinstance(previous_state, Mapping) else None,
-                    )
-                    wizard_state["step"] = 1
-                    st.session_state[HOME_WIZARD_SESSION_KEY] = wizard_state
+                    target_page = payload.get("target") if isinstance(payload, dict) else None
+                    if not target_page:
+                        target_page = "過去問演習"
+                    _request_navigation(str(target_page))
+                    st.session_state.pop(HOME_WIZARD_SESSION_KEY, None)
                     st.rerun()
                 elif action == "focus-dashboard-tab":
                     tab_key = payload.get("tab") if isinstance(payload, dict) else None
@@ -10347,55 +10634,91 @@ def _ensure_answer_quality_meter_styles() -> None:
         dedent(
             """
             <style>
-            .answer-quality-meter {
+            .answer-progress {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                gap: 0.95rem;
+                margin: 1rem 0 0.75rem;
+            }
+            .answer-progress__metric {
+                display: flex;
+                flex-direction: column;
+                gap: 0.55rem;
+                padding: 1rem 1.25rem 1.1rem;
+                border-radius: 1rem;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: rgba(255, 255, 255, 0.95);
+                box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+                min-height: 168px;
+            }
+            .answer-progress__metric.is-ok {
+                border-color: rgba(34, 197, 94, 0.45);
+                background: rgba(220, 252, 231, 0.78);
+            }
+            .answer-progress__metric.is-warn {
+                border-color: rgba(245, 158, 11, 0.55);
+                background: rgba(254, 243, 199, 0.78);
+            }
+            .answer-progress__metric.is-over,
+            .answer-progress__metric.is-alert {
+                border-color: rgba(239, 68, 68, 0.55);
+                background: rgba(254, 226, 226, 0.78);
+            }
+            .answer-progress__metric.is-empty {
+                border-color: rgba(148, 163, 184, 0.35);
+                background: rgba(248, 250, 252, 0.92);
+            }
+            .answer-progress__header {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                gap: 0.5rem;
+            }
+            .answer-progress__label {
+                font-size: 0.92rem;
+                font-weight: 600;
+                color: #475569;
+                letter-spacing: 0.02em;
+                text-transform: uppercase;
+            }
+            .answer-progress__value {
+                font-size: 2rem;
+                font-weight: 700;
+                color: #0f172a;
+            }
+            .answer-progress__bar {
                 position: relative;
-                width: 100%;
-                height: 1rem;
+                height: 8px;
                 border-radius: 999px;
                 background: rgba(226, 232, 240, 0.9);
                 overflow: hidden;
-                margin: 0.35rem 0 0.25rem;
                 box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
             }
-            .answer-quality-meter__char {
+            .answer-progress__fill {
                 position: absolute;
-                top: 0;
-                left: 0;
-                bottom: 0;
-                background: linear-gradient(90deg, #38bdf8 0%, #2563eb 100%);
+                inset: 0;
                 border-radius: inherit;
+                background: linear-gradient(90deg, #38bdf8 0%, #2563eb 100%);
                 transition: width 0.3s ease;
             }
-            .answer-quality-meter__keyword {
-                position: absolute;
-                left: 0;
-                height: 40%;
-                top: 30%;
-                border-radius: 999px;
-                background: rgba(14, 165, 233, 0.85);
-                transition: width 0.3s ease;
+            .answer-progress__metric.is-ok .answer-progress__fill {
+                background: linear-gradient(90deg, #34d399 0%, #059669 100%);
             }
-            .answer-quality-meter[data-coverage="warn"] .answer-quality-meter__keyword {
-                background: rgba(250, 204, 21, 0.9);
+            .answer-progress__metric.is-warn .answer-progress__fill {
+                background: linear-gradient(90deg, #fbbf24 0%, #f97316 100%);
             }
-            .answer-quality-meter[data-coverage="empty"] .answer-quality-meter__keyword {
-                display: none;
+            .answer-progress__metric.is-over .answer-progress__fill,
+            .answer-progress__metric.is-alert .answer-progress__fill {
+                background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
             }
-            .answer-quality-meter[data-state="over"] .answer-quality-meter__char {
-                background: linear-gradient(90deg, #ef4444 0%, #f97316 100%);
+            .answer-progress__metric.is-empty .answer-progress__fill {
+                background: rgba(148, 163, 184, 0.45);
             }
-            .answer-quality-meter[data-state="warn"] .answer-quality-meter__char {
-                background: linear-gradient(90deg, #f59e0b 0%, #f97316 100%);
-            }
-            .answer-quality-meter__labels {
-                display: flex;
-                justify-content: space-between;
-                font-size: 0.78rem;
-                color: #334155;
-                margin-bottom: 0.2rem;
-            }
-            .answer-quality-meter__labels span {
-                font-weight: 600;
+            .answer-progress__meta {
+                margin: 0;
+                font-size: 0.9rem;
+                color: #475569;
+                line-height: 1.6;
             }
             </style>
             """
@@ -10414,63 +10737,87 @@ def _render_answer_quality_meter(
 ) -> None:
     _ensure_answer_quality_meter_styles()
     fullwidth_length = _compute_fullwidth_length(text)
-    char_ratio = 0.0
-    remaining_text = f"現在 {_format_fullwidth_length(fullwidth_length)}字"
-    remaining_state = "ok"
 
     if limit and limit > 0:
-        char_ratio = min(fullwidth_length / limit, 1.0)
         remaining = limit - fullwidth_length
+        char_ratio = fullwidth_length / max(limit, 1)
         if remaining < 0:
-            remaining_state = "over"
-            remaining_text = f"{_format_fullwidth_length(abs(remaining))}字オーバー"
-        elif remaining <= 20:
-            remaining_state = "warn"
-            remaining_text = f"残り {_format_fullwidth_length(max(remaining, 0))}字"
+            char_state = "over"
+            char_value = f"+{_format_fullwidth_length(abs(remaining))}字"
+        elif remaining <= max(int(limit * 0.1), 10):
+            char_state = "warn"
+            char_value = f"残 {_format_fullwidth_length(max(remaining, 0))}字"
         else:
-            remaining_text = f"残り {_format_fullwidth_length(remaining)}字"
+            char_state = "ok"
+            char_value = f"残 {_format_fullwidth_length(remaining)}字"
+        char_meta = f"現在 {_format_fullwidth_length(fullwidth_length)} / {limit}字"
     else:
-        baseline = max(fullwidth_length, 160)
-        char_ratio = min(fullwidth_length / baseline, 1.0)
-        remaining_state = "ok"
+        baseline = max(fullwidth_length, 240)
+        remaining = baseline - fullwidth_length
+        char_ratio = fullwidth_length / max(baseline, 1)
+        if remaining < 0:
+            char_state = "warn"
+            char_value = f"{_format_fullwidth_length(fullwidth_length)}字"
+        else:
+            char_state = "neutral"
+            char_value = f"{_format_fullwidth_length(fullwidth_length)}字"
+        char_meta = f"目安 {baseline}字"
 
     total_keywords = keywords_registered or len(keyword_hits)
     matched_keywords = sum(1 for hit in keyword_hits.values() if hit)
-    coverage_ratio = (
-        matched_keywords / total_keywords if total_keywords else 0.0
-    )
-    coverage_width = min(max(coverage_ratio, 0.0), 1.0) * 100
-    coverage_state = "empty"
-    coverage_label = "要点カバー率 -"
     if total_keywords:
-        coverage_label = (
-            f"要点カバー率 {coverage_ratio * 100:.0f}% ({matched_keywords}/{total_keywords})"
-        )
-        if coverage_ratio >= 0.7:
+        coverage_ratio = matched_keywords / max(total_keywords, 1)
+        coverage_value = f"{coverage_ratio * 100:.0f}%"
+        coverage_meta = f"{matched_keywords}/{total_keywords} キーワード"
+        if coverage_ratio >= 0.8:
             coverage_state = "ok"
         elif coverage_ratio > 0.0:
             coverage_state = "warn"
         else:
-            coverage_state = "empty"
+            coverage_state = "alert"
+    else:
+        coverage_ratio = 0.0
+        coverage_state = "empty"
+        coverage_value = "-"
+        coverage_meta = "キーワード未設定"
+
+    char_fill = min(max(char_ratio, 0.0), 1.2) * 100
+    coverage_fill = min(max(coverage_ratio, 0.0), 1.0) * 100
 
     meter_html = dedent(
         """
-        <div class='answer-quality-meter' data-state='{state}' data-coverage='{coverage_state}'>
-            <div class='answer-quality-meter__char' style='width: {char_width:.1f}%;'></div>
-            <div class='answer-quality-meter__keyword' style='width: {keyword_width:.1f}%;'></div>
-        </div>
-        <div class='answer-quality-meter__labels'>
-            <span>{char_label}</span>
-            <span>{coverage_label}</span>
+        <div class="answer-progress">
+          <section class="answer-progress__metric is-{char_state}">
+            <div class="answer-progress__header">
+              <span class="answer-progress__label">残字数</span>
+              <strong class="answer-progress__value">{char_value}</strong>
+            </div>
+            <div class="answer-progress__bar">
+              <div class="answer-progress__fill" style="width: {char_width:.1f}%;"></div>
+            </div>
+            <p class="answer-progress__meta">{char_meta}</p>
+          </section>
+          <section class="answer-progress__metric is-{coverage_state}">
+            <div class="answer-progress__header">
+              <span class="answer-progress__label">要点カバー率</span>
+              <strong class="answer-progress__value">{coverage_value}</strong>
+            </div>
+            <div class="answer-progress__bar">
+              <div class="answer-progress__fill" style="width: {coverage_width:.1f}%;"></div>
+            </div>
+            <p class="answer-progress__meta">{coverage_meta}</p>
+          </section>
         </div>
         """
     ).format(
-        state=remaining_state,
+        char_state=char_state,
+        char_value=html.escape(char_value),
+        char_width=min(char_fill, 100.0),
+        char_meta=html.escape(char_meta),
         coverage_state=coverage_state,
-        char_width=min(char_ratio * 100, 100),
-        keyword_width=coverage_width,
-        char_label=html.escape(remaining_text),
-        coverage_label=html.escape(coverage_label),
+        coverage_value=html.escape(coverage_value),
+        coverage_width=min(coverage_fill, 100.0),
+        coverage_meta=html.escape(coverage_meta),
     )
     st.markdown(meter_html, unsafe_allow_html=True)
 
@@ -11799,46 +12146,89 @@ def _question_input(
     connector_stats: Dict[str, Any] = {}
     analysis: Dict[str, Any] = {}
 
-    with st.expander("📝 解答入力パネル", expanded=True):
-        st.markdown(
-            "<p class=\"practice-autosave-caption\">入力内容は自動保存され、ページ移動後も復元できます。</p>",
+    st.markdown(
+        "<div class='practice-answer-panel' role='region' aria-label='解答入力パネル'>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<p class=\"practice-autosave-caption\">入力内容は自動保存され、ページ移動後も復元できます。</p>",
+        unsafe_allow_html=True,
+    )
+    panel_cols = st.columns([0.72, 0.28], gap="large")
+
+    with panel_cols[0]:
+        header_cols = st.columns([0.68, 0.32], gap="small")
+        header_cols[0].markdown(
+            "<p class=\"answer-panel-label\">解答入力</p>",
             unsafe_allow_html=True,
         )
-        answer_col, support_col = st.columns([0.64, 0.36], gap="large")
+        autosave_placeholder = header_cols[1].empty()
 
-        with answer_col:
-            header_cols = st.columns([0.68, 0.32], gap="small")
-            header_cols[0].markdown(
-                "<p class=\"answer-panel-label\">解答入力</p>",
-                unsafe_allow_html=True,
-            )
-            autosave_placeholder = header_cols[1].empty()
+        st.markdown(
+            "<div class='answer-editor' role='group' aria-label='解答入力欄'>",
+            unsafe_allow_html=True,
+        )
+        text = st.text_area(
+            label=question["prompt"],
+            key=textarea_state_key,
+            value=value,
+            height=260,
+            help=help_text,
+            placeholder=placeholder_hint,
+            disabled=disabled,
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+        _track_question_activity(key, text)
 
-            st.markdown(
-                "<div class='answer-editor' role='group' aria-label='解答入力欄'>",
-                unsafe_allow_html=True,
-            )
-            text = st.text_area(
-                label=question["prompt"],
-                key=textarea_state_key,
-                value=value,
-                height=220,
-                help=help_text,
-                placeholder=placeholder_hint,
-                disabled=disabled,
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
-            _track_question_activity(key, text)
+        if keywords:
+            keyword_hits = _render_keyword_coverage_meter(text, keywords)
+        else:
+            keyword_hits = {}
+        _render_answer_quality_meter(
+            text,
+            limit_value,
+            keyword_hits,
+            keywords_registered=len(keywords),
+        )
 
-            if keywords:
-                keyword_hits = _render_keyword_coverage_meter(text, keywords)
-            _render_answer_quality_meter(
-                text,
-                limit_value,
-                keyword_hits,
-                keywords_registered=len(keywords),
-            )
+        st.session_state.drafts[key] = text
+        _update_autosaved_answer(key, text)
+        now_display = datetime.now().strftime("%H:%M:%S")
+        autosave_state[key] = {"saved_at": now_display, "hash": hashlib.sha1(text.encode("utf-8")).hexdigest()}
+        autosave_placeholder.markdown(
+            dedent(
+                f"""
+                <div class="autosave-indicator autosave-indicator--saved" aria-live="polite">
+                    <span class="autosave-indicator__toggle">自動保存</span>
+                    <span class="autosave-indicator__status">保存済み <span class="autosave-indicator__time">{now_display}</span></span>
+                </div>
+                """
+            ).strip(),
+            unsafe_allow_html=True,
+        )
 
+        status_placeholder = st.empty()
+        saved_text = saved_payload.get("autosave", "")
+        restore_disabled = not saved_text
+        if restore_disabled:
+            status_placeholder.caption("復元できる下書きはまだありません。")
+        if st.button(
+            "下書きを復元",
+            key=f"restore_{key}",
+            disabled=restore_disabled,
+        ):
+            st.session_state.drafts[key] = saved_text
+            _queue_textarea_update(textarea_state_key, saved_text)
+            status_placeholder.info("保存済みの下書きを復元しました。")
+
+    with panel_cols[1]:
+        st.markdown("<div class='practice-support-panel'>", unsafe_allow_html=True)
+        hint_tab, template_tab, analysis_tab = st.tabs(["ヒント", "テンプレート", "分析"])
+        with hint_tab:
+            _render_intent_cards(question, key, textarea_state_key)
+        with template_tab:
+            _render_case_frame_shortcuts(case_label, key, textarea_state_key)
+        with analysis_tab:
             analysis_toggle_key = f"mock_keyword_analysis::{key}"
             analysis_visible = st.session_state.get(analysis_toggle_key, False)
             toggle_label = "語句分析を閉じる" if analysis_visible else "語句分析を開く"
@@ -11860,41 +12250,9 @@ def _question_input(
             analysis = _render_mece_status_labels(text)
             with st.expander("MECE/因果スキャナ", expanded=bool(text.strip())):
                 _render_mece_causal_scanner(text, analysis=analysis)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-            st.session_state.drafts[key] = text
-            _update_autosaved_answer(key, text)
-            now_display = datetime.now().strftime("%H:%M:%S")
-            autosave_state[key] = {"saved_at": now_display, "hash": hashlib.sha1(text.encode("utf-8")).hexdigest()}
-            autosave_placeholder.markdown(
-                dedent(
-                    f"""
-                    <div class="autosave-indicator autosave-indicator--saved" aria-live="polite">
-                        <span class="autosave-indicator__toggle">自動保存</span>
-                        <span class="autosave-indicator__status">保存済み <span class="autosave-indicator__time">{now_display}</span></span>
-                    </div>
-                    """
-                ).strip(),
-                unsafe_allow_html=True,
-            )
-
-            status_placeholder = st.empty()
-            saved_text = saved_payload.get("autosave", "")
-            restore_disabled = not saved_text
-            if restore_disabled:
-                status_placeholder.caption("復元できる下書きはまだありません。")
-            if st.button(
-                "下書きを復元",
-                key=f"restore_{key}",
-                disabled=restore_disabled,
-            ):
-                st.session_state.drafts[key] = saved_text
-                _queue_textarea_update(textarea_state_key, saved_text)
-                status_placeholder.info("保存済みの下書きを復元しました。")
-
-        with support_col:
-            st.markdown("<p class=\"support-panel-label\">ヒント・テンプレート</p>", unsafe_allow_html=True)
-            _render_intent_cards(question, key, textarea_state_key)
-            _render_case_frame_shortcuts(case_label, key, textarea_state_key)
+    st.markdown("</div>", unsafe_allow_html=True)
 
     pending_focus_id = st.session_state.get("_pending_focus_question")
     if st.session_state.get("_practice_scroll_requested") and pending_focus_id == question.get("id"):
@@ -16403,18 +16761,32 @@ def practice_page(user: Dict) -> None:
                         border: 1px solid rgba(148, 163, 184, 0.28);
                         background: linear-gradient(180deg, rgba(226, 232, 240, 0.38), rgba(255, 255, 255, 0.96));
                         box-shadow: 0 22px 38px rgba(15, 23, 42, 0.08);
+                        display: grid;
+                        gap: 1.1rem;
                     }
-                    .practice-quick-dashboard h4 {
+                    .practice-quick-headline {
                         margin: 0;
-                        font-size: 1.24rem;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 0.35rem;
+                    }
+                    .practice-quick-headline h4 {
+                        margin: 0;
+                        font-size: 1.2rem;
                         font-weight: 700;
                         color: #0f172a;
                     }
-                    .practice-quick-dashboard__hint {
-                        margin: 0.35rem 0 1rem;
+                    .practice-quick-headline p {
+                        margin: 0;
                         color: #475569;
                         font-size: 0.9rem;
                         line-height: 1.6;
+                    }
+                    .practice-quick-form {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                        gap: clamp(0.75rem, 2vw, 1.2rem);
+                        align-items: end;
                     }
                     .practice-quick-dashboard .stSelectbox > label {
                         font-weight: 600;
@@ -16423,73 +16795,27 @@ def practice_page(user: Dict) -> None:
                     .practice-quick-dashboard .stSelectbox [data-baseweb="select"] {
                         border-radius: 0.85rem;
                     }
-                    .practice-quick-dashboard button[kind="primary"],
-                    .practice-quick-dashboard button[kind="secondary"] {
-                        border-radius: 999px;
-                        font-weight: 600;
-                        padding: 0.65rem 1.2rem;
-                        box-shadow: 0 16px 26px rgba(15, 23, 42, 0.12);
-                    }
-                    .practice-quick-dashboard button[kind="secondary"] {
-                        background: rgba(37, 99, 235, 0.08);
-                        color: #1d4ed8;
-                        border: 1px solid rgba(37, 99, 235, 0.28);
-                    }
-                    .practice-quick-dashboard button[kind="secondary"]:hover {
-                        background: rgba(37, 99, 235, 0.18);
-                        border-color: rgba(37, 99, 235, 0.4);
-                    }
-                    .practice-case-radio [data-baseweb="radio"] {
-                        display: grid !important;
-                        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-                        gap: 0.75rem;
-                        margin-top: 0.5rem;
-                    }
-                    .practice-case-radio [data-baseweb="radio"] > label {
-                        border-radius: 18px;
-                        border: 1px solid rgba(148, 163, 184, 0.4);
-                        padding: 0.9rem 1rem;
-                        background: rgba(255, 255, 255, 0.96);
-                        box-shadow: 0 16px 28px rgba(15, 23, 42, 0.1);
-                        cursor: pointer;
-                        transition: border 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-                    }
-                    .practice-case-radio [data-baseweb="radio"] > label:hover {
-                        border-color: rgba(37, 99, 235, 0.45);
-                        box-shadow: 0 20px 36px rgba(37, 99, 235, 0.16);
-                        transform: translateY(-2px);
-                    }
-                    .practice-case-radio [data-baseweb="radio"] > label[data-checked="true"] {
-                        border-color: rgba(37, 99, 235, 0.65);
-                        background: linear-gradient(135deg, rgba(219, 234, 254, 0.9), rgba(191, 219, 254, 0.9));
-                        box-shadow: 0 22px 40px rgba(37, 99, 235, 0.2);
-                        color: #1d4ed8;
-                    }
-                    .practice-case-radio [data-baseweb="radio"] > label input {
-                        display: none;
-                    }
-                    .practice-case-radio [data-baseweb="radio"] > label > div {
+                    .practice-quick-actions {
                         display: flex;
                         flex-direction: column;
-                        gap: 0.35rem;
-                        font-weight: 700;
-                        color: inherit;
+                        gap: 0.65rem;
                     }
-                    .practice-case-radio [data-baseweb="radio"] > label > div small {
-                        font-weight: 500;
-                        color: #475569;
-                        font-size: 0.76rem;
+                    .practice-quick-actions .stButton button {
+                        border-radius: 999px;
+                        font-weight: 600;
+                        padding: 0.7rem 1.35rem;
+                        box-shadow: 0 16px 26px rgba(15, 23, 42, 0.12);
+                    }
+                    .practice-quick-details {
+                        border-radius: 16px;
+                        border: 1px dashed rgba(148, 163, 184, 0.45);
+                        background: rgba(255, 255, 255, 0.65);
                     }
                     @media (max-width: 960px) {
                         .practice-quick-dashboard {
                             padding: 1.2rem 1.15rem 1.25rem;
                         }
-                        .practice-case-radio [data-baseweb="radio"] {
-                            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-                        }
-                    }
-                    @media (max-width: 640px) {
-                        .practice-case-radio [data-baseweb="radio"] {
+                        .practice-quick-form {
                             grid-template-columns: 1fr;
                         }
                     }
@@ -16500,88 +16826,77 @@ def practice_page(user: Dict) -> None:
             )
             st.session_state[style_key] = True
 
-        latest_triggered = False
         with st.container():
             st.markdown("<div class='practice-quick-dashboard'>", unsafe_allow_html=True)
-            header_cols = st.columns([0.7, 0.3], gap="large")
-            with header_cols[0]:
-                st.markdown("<h4>クイックスタートダッシュボード</h4>", unsafe_allow_html=True)
-                st.markdown(
-                    "<p class='practice-quick-dashboard__hint'>年度・事例・テーマを選ぶだけで演習画面が準備されます。迷ったときは最新年度から始めましょう。</p>",
-                    unsafe_allow_html=True,
-                )
-            with header_cols[1]:
-                latest_clicked = st.button(
-                    "最新年度から始める",
-                    key="practice_quick_latest",
-                    use_container_width=True,
-                    type="primary",
-                )
-                if latest_clicked:
-                    latest_triggered = True
-                    latest_year_value = year_options[0] if year_options else None
-                    if latest_year_value is not None:
-                        st.session_state["practice_quick_year"] = latest_year_value
-                        latest_cases = [
-                            case_label
-                            for case_label in case_options_quick
-                            if str(latest_year_value)
-                            in {str(year) for year in case_map.get(case_label, {}).keys()}
-                        ]
-                        if latest_cases:
-                            st.session_state["practice_quick_case"] = latest_cases[0]
-                    st.session_state["practice_quick_theme"] = "指定なし"
-
-            filter_cols = st.columns([0.55, 0.45], gap="large")
-            with filter_cols[0]:
-                selected_year_quick = st.selectbox(
-                    "年度を検索",
-                    year_options,
-                    key="practice_quick_year",
-                    format_func=_format_reiwa_label,
-                    help="年度名をタイプすると候補が絞り込まれます。",
-                )
-            with filter_cols[1]:
-                selected_theme_quick = st.selectbox(
-                    "テーマで絞り込み",
-                    theme_choices,
-                    key="practice_quick_theme",
-                    help="学習したいテーマがあれば選択してください。",
-                )
-
-            available_case_cards = [
-                case_label
-                for case_label in case_options_quick
-                if str(selected_year_quick)
-                in {str(year) for year in case_map.get(case_label, {}).keys()}
-            ]
-            if not available_case_cards:
-                available_case_cards = case_options_quick
-
-            case_state_key = "practice_quick_case"
-            if available_case_cards and st.session_state.get(case_state_key) not in available_case_cards:
-                st.session_state[case_state_key] = available_case_cards[0]
-
-            st.markdown("<div class='practice-case-radio'>", unsafe_allow_html=True)
-            selected_case_quick = st.radio(
-                "事例を選択",
-                options=available_case_cards,
-                key=case_state_key,
-                horizontal=True,
-                label_visibility="collapsed",
-                format_func=lambda label: (f"{CASE_ICON_MAP.get(label, '')} {label}").strip(),
+            st.markdown(
+                "<div class='practice-quick-headline'><h4>クイックスタート</h4><p>年度と事例を選ぶだけで演習画面が即座に開きます。迷ったときは最新年度×代表事例のまま開始しましょう。</p></div>",
+                unsafe_allow_html=True,
             )
+
+            year_key = "practice_quick_year"
+            case_key = "practice_quick_case"
+            theme_key = "practice_quick_theme"
+
+            default_year = year_options[0] if year_options else None
+            default_case = None
+            if case_options_quick:
+                if default_year is not None:
+                    for ordered in CASE_ORDER:
+                        if ordered in case_map and str(default_year) in {
+                            str(year) for year in case_map[ordered].keys()
+                        }:
+                            default_case = ordered
+                            break
+                if default_case is None:
+                    default_case = case_options_quick[0]
+
+            if year_options:
+                if st.session_state.get(year_key) not in year_options:
+                    st.session_state[year_key] = default_year or year_options[0]
+            if case_options_quick:
+                if st.session_state.get(case_key) not in case_options_quick:
+                    st.session_state[case_key] = default_case or case_options_quick[0]
+            if st.session_state.get(theme_key) not in theme_choices:
+                st.session_state[theme_key] = "指定なし"
+
+            st.markdown("<div class='practice-quick-form'>", unsafe_allow_html=True)
+            form_cols = st.columns(2, gap="large") if len(year_options) > 1 else st.columns(2)
+            with form_cols[0]:
+                selected_year_quick = st.selectbox(
+                    "年度",
+                    year_options,
+                    key=year_key,
+                    format_func=_format_reiwa_label,
+                    help="最新年度から順に表示されます。",
+                )
+            with form_cols[1]:
+                selected_case_quick = st.selectbox(
+                    "事例",
+                    case_options_quick,
+                    key=case_key,
+                    format_func=lambda label: (f"{CASE_ICON_MAP.get(label, '')} {label}").strip(),
+                    help="得意分野や伸ばしたい領域に合わせて選択します。",
+                )
             st.markdown("</div>", unsafe_allow_html=True)
 
+            st.markdown("<div class='practice-quick-actions'>", unsafe_allow_html=True)
             start_clicked = st.button(
                 "演習スタート",
                 key="practice_quick_start",
                 use_container_width=True,
-                type="secondary",
+                type="primary",
             )
+            with st.expander("詳細設定（テーマで絞り込み）", expanded=False):
+                selected_theme_quick = st.selectbox(
+                    "テーマで絞り込み",
+                    theme_choices,
+                    key=theme_key,
+                    help="学習したいテーマがあれば選択してください。",
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-        if start_clicked or latest_triggered:
+        if start_clicked:
             selected_year_key = selected_year_quick
             selected_case_key = selected_case_quick
             lookup_key = (str(selected_case_key), str(selected_year_key))
@@ -17171,6 +17486,9 @@ def practice_page(user: Dict) -> None:
     st.write(problem["overview"])
 
     problem_context = _collect_problem_context_text(problem)
+    context_paragraphs: List[str] = []
+    if problem_context:
+        context_paragraphs = _split_context_into_paragraphs(problem_context)
     problem_tables = _normalize_problem_tables(problem.get("tables_raw"))
     if problem.get("case_label") == "事例I":
         _render_case1_workspace(problem, user, problem_context=problem_context)
@@ -17257,33 +17575,62 @@ def practice_page(user: Dict) -> None:
                     or problem.get("title")
                     or "default"
                 )
-                search_query = st.text_input(
-                    "与件文内検索",
-                    key=f"context-search-{problem_identifier}",
-                    placeholder="キーワードを入力",
-                    help="与件文内の気になるキーワードを検索すると該当箇所がハイライトされます。",
+                view_options = ("要約表示", "セクション表示", "全文表示")
+                view_state_key = f"context-view-mode::{problem_identifier}"
+                if view_state_key not in st.session_state:
+                    st.session_state[view_state_key] = (
+                        view_options[0] if context_paragraphs else view_options[-1]
+                    )
+                elif not context_paragraphs:
+                    st.session_state[view_state_key] = view_options[-1]
+                view_mode = st.radio(
+                    "本文表示モード",
+                    view_options,
+                    key=view_state_key,
+                    horizontal=True,
+                    label_visibility="collapsed",
                 )
                 search_feedback = st.empty()
+                if view_mode == "全文表示":
+                    search_query = st.text_input(
+                        "与件文内検索",
+                        key=f"context-search-{problem_identifier}",
+                        placeholder="キーワードを入力",
+                        help="与件文内の気になるキーワードを検索すると該当箇所がハイライトされます。",
+                    )
+                else:
+                    search_query = ""
             st.markdown("</div>", unsafe_allow_html=True)
 
-            match_count, highlight_snapshot = _render_problem_context_block(
-                problem_context,
-                search_query,
-                snapshot_key=str(problem_identifier),
-            )
+            match_count = 0
+            highlight_snapshot: Optional[Dict[str, Any]] = None
+            if view_mode == "全文表示":
+                match_count, highlight_snapshot = _render_problem_context_block(
+                    problem_context,
+                    search_query,
+                    snapshot_key=str(problem_identifier),
+                )
+            else:
+                _render_context_summary_view(context_paragraphs, mode=view_mode)
             if highlight_snapshot:
                 highlight_store = st.session_state.setdefault("context_highlights", {})
                 highlight_store[str(problem_identifier)] = highlight_snapshot
                 st.success("ハイライトを保存しました。", icon="💾")
 
-            normalized_query = (search_query or "").strip()
-            if normalized_query:
-                if match_count:
-                    search_feedback.caption(f"該当箇所: {match_count}件")
+            if view_mode == "全文表示":
+                normalized_query = (search_query or "").strip()
+                if normalized_query:
+                    if match_count:
+                        search_feedback.caption(f"該当箇所: {match_count}件")
+                    else:
+                        search_feedback.caption("該当箇所は見つかりませんでした。")
                 else:
-                    search_feedback.caption("該当箇所は見つかりませんでした。")
+                    search_feedback.empty()
             else:
-                search_feedback.empty()
+                if context_paragraphs:
+                    search_feedback.caption("全文表示に切り替えると検索とハイライトが利用できます。")
+                else:
+                    search_feedback.empty()
 
             st.markdown("</div></div></section></div></div>", unsafe_allow_html=True)
             _inject_context_panel_behavior()
