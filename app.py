@@ -7574,7 +7574,7 @@ def _render_home_navigation(selected_page: str) -> Optional[Dict[str, Any]]:
     )
     markup = markup_template.replace("__NAV_ITEMS__", "".join(nav_items))
 
-    component_value = components.html(markup, height=0, key="home_navigation", scrolling=False)
+    component_value = components.html(markup, height=0, scrolling=False)
     event_raw = _extract_component_value(component_value)
     if event_raw:
         try:
@@ -8105,7 +8105,7 @@ def _render_home_start_wizard(
         back_disabled=back_disabled,
     )
 
-    component_value = components.html(markup, height=0, key="home_start_wizard", scrolling=False)
+    component_value = components.html(markup, height=0, scrolling=False)
     event_raw = _extract_component_value(component_value)
     if event_raw:
         try:
