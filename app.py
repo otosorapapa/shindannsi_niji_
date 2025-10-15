@@ -7542,12 +7542,12 @@ def _render_home_navigation(selected_page: str) -> Optional[Dict[str, Any]]:
             ).strip()
         )
 
-    markup = dedent(
+    markup_template = dedent(
         """
         <nav class="home-side-nav" aria-label="主要メニュー">
           <div class="home-side-nav__brand">診断士ナビ</div>
           <ul class="home-side-nav__list">
-            {items}
+            __NAV_ITEMS__
           </ul>
         </nav>
         <script>
@@ -7571,7 +7571,8 @@ def _render_home_navigation(selected_page: str) -> Optional[Dict[str, Any]]:
         })();
         </script>
         """
-    ).format(items="".join(nav_items))
+    )
+    markup = markup_template.replace("__NAV_ITEMS__", "".join(nav_items))
 
     component_value = components.html(markup, height=0, key="home_navigation", scrolling=False)
     event_raw = _extract_component_value(component_value)
