@@ -5976,8 +5976,8 @@ def _inject_dashboard_styles() -> None:
             :root {
                 --dashboard-max-width: min(1320px, 96vw);
                 --grid-gap: clamp(1rem, 2vw, 1.75rem);
-                --brand: #2563eb;
-                --brand-strong: #1d4ed8;
+                --brand: #1d4ed8;
+                --brand-strong: #1e3a8a;
                 --accent-green: #0f766e;
                 --accent-amber: #b45309;
                 --pastel-blue: #e7f0ff;
@@ -8099,20 +8099,34 @@ def dashboard_page(user: Dict) -> None:
                 "value": "過去問演習を始める",
                 "meta": "左の『過去問演習』ページで初回チャレンジを登録しましょう。",
                 "state": "empty",
+                "action": "start-practice",
+                "action_label": "演習ページを開く",
+                "tooltip": "STEP 1: まずは過去問演習で回答を登録しましょう。",
+                "tour": "onboarding-step-1",
             },
             {
-                "icon": "bx bx-target-lock",
+                "icon": "bx bx-analyse",
                 "title": "STEP 2",
                 "value": "解答を提出して自己分析",
-                "meta": "回答を登録すると得点率とキーワード分析が自動表示されます。",
+                "meta": "『分析グラフ』タブで得点推移とキーワード傾向を確認できます。",
                 "state": "empty",
+                "action": "focus-dashboard-tab",
+                "action_label": "分析グラフを見る",
+                "action_payload": {"tab": "analysis"},
+                "tooltip": "STEP 2: 分析グラフで得点率と弱点を把握します。",
+                "tour": "onboarding-step-2",
             },
             {
-                "icon": "bx bx-lightbulb",
+                "icon": "bx bx-map-alt",
                 "title": "STEP 3",
                 "value": "弱点キーワードを復習",
-                "meta": "間違えたキーワードからおすすめ学習パスが提示されます。",
+                "meta": "『学習パス』タブから優先課題と復習リソースをチェックしましょう。",
                 "state": "empty",
+                "action": "focus-dashboard-tab",
+                "action_label": "学習パスを開く",
+                "action_payload": {"tab": "path"},
+                "tooltip": "STEP 3: 学習パスで次に取り組むテーマを決めましょう。",
+                "tour": "onboarding-step-3",
             },
         ]
 
@@ -8329,6 +8343,34 @@ def dashboard_page(user: Dict) -> None:
 
     def _build_summary_cards_html() -> str:
         parts: List[str] = []
+        all_empty = summary_cards and all(
+            card.get("state") == "empty" for card in summary_cards
+        )
+        if all_empty:
+            parts.append(
+                dedent(
+                    """
+                    <div class="summary-empty" data-tour="onboarding-summary">
+                      <div class="summary-empty__illustration" aria-hidden="true">
+                        <svg width="120" height="88" viewBox="0 0 120 88" fill="none" role="presentation">
+                          <rect x="6" y="12" width="108" height="60" rx="14" fill="rgba(37, 99, 235, 0.08)" />
+                          <path d="M24 32h40" stroke="#2563eb" stroke-width="3" stroke-linecap="round" />
+                          <path d="M24 44h24" stroke="#2563eb" stroke-width="3" stroke-linecap="round" />
+                          <circle cx="90" cy="42" r="14" fill="#1d4ed8" opacity="0.9" />
+                          <path d="M86 42l4 4 6-8" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                      </div>
+                      <div class="summary-empty__body">
+                        <h3>まだ学習データがありません</h3>
+                        <p>演習を登録すると得点の推移や弱点キーワードがこのセクションに表示されます。</p>
+                        <a href="#" class="summary-empty__cta" data-action="start-practice">
+                          今すぐ演習を始める<i class="bx bx-chevron-right"></i>
+                        </a>
+                      </div>
+                    </div>
+                    """
+                ).strip()
+            )
         for card in summary_cards:
             state_class = f" summary-card--{card['state']}" if card.get("state") else ""
             meta_text = card.get("meta")
@@ -8337,14 +8379,39 @@ def dashboard_page(user: Dict) -> None:
                 if meta_text
                 else ""
             )
+            tooltip = card.get("tooltip")
+            tooltip_attr = (
+                f" data-tooltip=\"{html.escape(tooltip)}\""
+                if tooltip
+                else ""
+            )
+            tour_attr = (
+                f" data-tour=\"{html.escape(card['tour'])}\""
+                if card.get("tour")
+                else ""
+            )
+            action_label = card.get("action_label")
+            action_name = card.get("action")
+            payload = card.get("action_payload")
+            payload_attr = ""
+            if payload:
+                payload_attr = html.escape(json.dumps(payload, ensure_ascii=False), quote=True)
+                payload_attr = f" data-payload=\"{payload_attr}\""
+            action_html = ""
+            if action_label and action_name:
+                action_html = (
+                    f"<a href='#' class='summary-card__link' data-action='{html.escape(action_name)}'"
+                    f"{payload_attr}>{html.escape(action_label)}<i class='bx bx-chevron-right'></i></a>"
+                )
             parts.append(
                 dedent(
                     f"""
-                    <article class="summary-card{state_class}">
+                    <article class="summary-card{state_class}"{tooltip_attr}{tour_attr}>
                       <div class="icon-wrapper"><i class="{card['icon']}"></i></div>
                       <h3>{html.escape(card['title'])}</h3>
                       <strong>{html.escape(card['value'])}</strong>
                       {meta_html}
+                      {action_html}
                     </article>
                     """
                 ).strip()
@@ -8484,9 +8551,17 @@ def dashboard_page(user: Dict) -> None:
 
     has_export_data = has_attempts or bool(question_progress.get("recent_questions"))
     if has_export_data:
-        export_button_html = "<a href='#' class='cta' data-action='export-dashboard'><i class='bx bx-export'></i>CSV エクスポート</a>"
+        export_button_html = (
+            "<a href='#' class='hero__secondary-action' data-action='export-dashboard'>"
+            "<i class='bx bx-download'></i>CSVエクスポート"
+            "</a>"
+        )
     else:
-        export_button_html = "<span class='cta disabled' aria-disabled='true'><i class='bx bx-export'></i>CSV エクスポート</span>"
+        export_button_html = (
+            "<span class='hero__secondary-action is-disabled' aria-disabled='true'>"
+            "<i class='bx bx-download'></i>CSVエクスポート"
+            "</span>"
+        )
 
     recent_items: List[str] = []
     for item in recent_questions:
@@ -8680,6 +8755,11 @@ def dashboard_page(user: Dict) -> None:
         )
 
     template = HOME_DASHBOARD_HTML_PATH.read_text(encoding="utf-8")
+    dashboard_focus_tab = st.session_state.pop("dashboard_focus_tab", None)
+    allowed_tabs = {"summary", "analysis", "path"}
+    if dashboard_focus_tab not in allowed_tabs:
+        dashboard_focus_tab = "summary"
+
     replacements = {
         "{{SUMMARY_CARDS}}": summary_cards_html,
         "{{CHART_FACTS}}": chart_facts_html,
@@ -8691,13 +8771,14 @@ def dashboard_page(user: Dict) -> None:
         "{{PROGRESS_HIGHLIGHTS}}": progress_highlights_html,
         "{{EXPORT_BUTTON}}": export_button_html,
         "{{CHART_CONFIG}}": json.dumps(chart_config, ensure_ascii=False),
+        "{{ACTIVE_TAB}}": json.dumps(dashboard_focus_tab, ensure_ascii=False),
     }
     for placeholder, value in replacements.items():
         template = template.replace(placeholder, value)
 
     component_value = components.html(
         template,
-        height=1040,
+        height=1120,
         scrolling=True,
     )
 
@@ -8725,6 +8806,12 @@ def dashboard_page(user: Dict) -> None:
                         st.rerun()
                 elif action == "start-practice":
                     _request_navigation("過去問演習")
+                    st.rerun()
+                elif action == "focus-dashboard-tab":
+                    tab_key = payload.get("tab") if isinstance(payload, dict) else None
+                    if tab_key not in {"summary", "analysis", "path"}:
+                        tab_key = "summary"
+                    st.session_state["dashboard_focus_tab"] = tab_key
                     st.rerun()
                 elif action in {"open-history", "open-recommendation-settings"}:
                     _request_navigation("学習履歴")

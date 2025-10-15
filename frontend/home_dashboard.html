@@ -21,9 +21,9 @@
         --color-surface-alt: #eef3ff;
         --color-border: rgba(30, 45, 75, 0.12);
         --color-border-strong: rgba(30, 45, 75, 0.2);
-        --color-primary: #3057d5;
-        --color-primary-strong: #1d4ed8;
-        --color-primary-soft: rgba(48, 87, 213, 0.14);
+        --color-primary: #1d4ed8;
+        --color-primary-strong: #1e3a8a;
+        --color-primary-soft: rgba(29, 78, 216, 0.16);
         --color-accent: #f59f48;
         --color-text: #1e2d4b;
         --color-text-muted: rgba(30, 45, 75, 0.65);
@@ -125,30 +125,104 @@
       }
 
       .hero__actions {
-        display: inline-flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
       }
 
       .hero__cta {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
         border-radius: 999px;
-        padding: 14px 26px;
-        background: linear-gradient(120deg, #3057d5, #436ef2);
+        padding: 16px 32px;
+        background: linear-gradient(115deg, #1d4ed8, #1e40af);
         color: #fff;
         font-weight: 700;
         text-decoration: none;
-        font-size: 16px;
-        box-shadow: 0 16px 32px rgba(48, 87, 213, 0.35);
+        font-size: clamp(16px, 2.2vw, 18px);
+        box-shadow: 0 20px 38px rgba(29, 78, 216, 0.35);
         transition: transform var(--transition), box-shadow var(--transition);
       }
 
       .hero__cta:hover {
         transform: translateY(-2px);
-        box-shadow: 0 24px 42px rgba(48, 87, 213, 0.4);
+        box-shadow: 0 26px 46px rgba(29, 78, 216, 0.4);
+      }
+
+      .hero__cta:active {
+        transform: translateY(0);
+        box-shadow: 0 14px 28px rgba(29, 78, 216, 0.3);
+      }
+
+      .hero__cta-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+      }
+
+      .hero__cta-text {
+        letter-spacing: 0.02em;
+      }
+
+      .hero__secondary {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .hero__secondary-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--color-text-muted);
+        font-weight: 700;
+      }
+
+      .hero__secondary-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .hero__secondary-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border-radius: var(--radius-chip);
+        border: 1px solid rgba(29, 78, 216, 0.28);
+        background: rgba(255, 255, 255, 0.88);
+        color: var(--color-primary-strong);
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: background var(--transition), color var(--transition),
+          border-color var(--transition), transform var(--transition);
+      }
+
+      .hero__secondary-action:hover {
+        background: rgba(29, 78, 216, 0.12);
+        transform: translateY(-1px);
+      }
+
+      .hero__secondary-action:active {
+        transform: translateY(0);
+        background: rgba(29, 78, 216, 0.2);
+      }
+
+      .hero__secondary-action i {
+        font-size: 16px;
+      }
+
+      .hero__secondary-action.is-disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+        border-style: dashed;
+        background: rgba(226, 232, 240, 0.6);
+        color: rgba(30, 45, 75, 0.5);
       }
 
       .cta.disabled,
@@ -189,6 +263,166 @@
       .progress-highlights i {
         color: var(--color-primary);
         font-size: 18px;
+      }
+
+      .summary-empty {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 20px;
+        align-items: center;
+        border-radius: 20px;
+        border: 1px dashed rgba(29, 78, 216, 0.28);
+        background: rgba(29, 78, 216, 0.06);
+        padding: 20px 24px;
+      }
+
+      .summary-empty__illustration {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .summary-empty__body h3 {
+        margin: 0 0 6px;
+        font-size: 18px;
+      }
+
+      .summary-empty__body p {
+        margin: 0 0 12px;
+        font-size: 14px;
+        color: var(--color-text-muted);
+      }
+
+      .summary-empty__cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 18px;
+        border-radius: var(--radius-chip);
+        background: linear-gradient(120deg, #1d4ed8, #1e3a8a);
+        color: #fff;
+        font-weight: 700;
+        text-decoration: none;
+        box-shadow: 0 12px 26px rgba(29, 78, 216, 0.28);
+        transition: transform var(--transition), box-shadow var(--transition);
+      }
+
+      .summary-empty__cta:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 30px rgba(29, 78, 216, 0.32);
+      }
+
+      .summary-empty__cta i {
+        font-size: 18px;
+      }
+
+      .summary-card__link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: auto;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--color-primary-strong);
+        text-decoration: none;
+        transition: color var(--transition), transform var(--transition);
+      }
+
+      .summary-card__link:hover {
+        color: var(--color-primary);
+        transform: translateX(2px);
+      }
+
+      .summary-card__link i {
+        font-size: 16px;
+      }
+
+      .summary-card[data-tooltip] {
+        position: relative;
+      }
+
+      .summary-card[data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        top: calc(100% + 6px);
+        background: rgba(15, 23, 42, 0.92);
+        color: #fff;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 12px;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(6px);
+        transition: opacity var(--transition), transform var(--transition);
+        z-index: 5;
+        line-height: 1.5;
+      }
+
+      .summary-card[data-tooltip]:hover::after,
+      .summary-card[data-tooltip]:focus-within::after {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .dashboard-tabs {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .dashboard-tabs__list {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 6px;
+        border-radius: var(--radius-chip);
+        background: rgba(29, 78, 216, 0.08);
+        border: 1px solid rgba(29, 78, 216, 0.16);
+      }
+
+      .dashboard-tabs__trigger {
+        border: none;
+        background: transparent;
+        padding: 10px 20px;
+        border-radius: var(--radius-chip);
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        transition: background var(--transition), color var(--transition),
+          box-shadow var(--transition);
+      }
+
+      .dashboard-tabs__trigger.active {
+        background: #fff;
+        color: var(--color-primary-strong);
+        box-shadow: 0 10px 26px rgba(29, 78, 216, 0.18);
+      }
+
+      .dashboard-tabs__trigger:focus-visible {
+        outline: 3px solid rgba(29, 78, 216, 0.35);
+        outline-offset: 2px;
+      }
+
+      .dashboard-tabs__panel {
+        display: none;
+        animation: fadeIn 0.24s ease;
+      }
+
+      .dashboard-tabs__panel.active {
+        display: block;
+      }
+
+      .dashboard-tabs__panel[hidden] {
+        display: none !important;
+      }
+
+      .path-panel {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 20px;
       }
 
       .hero__keywords {
@@ -817,15 +1051,25 @@
       }
 
       @media (max-width: 1080px) {
-        .hero {
-          grid-template-columns: 1fr;
-        }
-        .hero__keywords {
-          order: -1;
-        }
-        .analysis-layout {
-          grid-template-columns: 1fr;
-        }
+      .hero {
+        grid-template-columns: 1fr;
+      }
+      .hero__keywords {
+        order: -1;
+      }
+      .summary-empty {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+      .summary-empty__illustration {
+        justify-content: center;
+      }
+      .dashboard-tabs__list {
+        justify-content: center;
+      }
+      .analysis-layout {
+        grid-template-columns: 1fr;
+      }
       }
 
       @media (max-width: 720px) {
@@ -837,8 +1081,19 @@
           grid-template-columns: 1fr;
         }
 
-        .accordion__item > summary {
-          font-size: 15px;
+      .accordion__item > summary {
+        font-size: 15px;
+      }
+    }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
       }
     </style>
@@ -851,14 +1106,24 @@
           <h1 class="hero__title">中小企業診断士二次試験 演習アプリ</h1>
           <p class="hero__description">
             学習の記録から弱点キーワードまで一目で把握し、次にやるべき演習へスムーズに移動できます。
-            初めての方は下のボタンから演習を開始してください。
+            まずは「演習を始める」で過去問に挑戦し、補助メニューから学習ガイドやCSVエクスポートを活用しましょう。
           </p>
           <div class="hero__actions">
             <a href="#" class="hero__cta" data-action="start-practice">
-              <i class="bx bx-play-circle"></i>
-              過去問演習を始める
+              <span class="hero__cta-icon" aria-hidden="true">
+                <i class="bx bx-chevron-right-circle"></i>
+              </span>
+              <span class="hero__cta-text">演習を始める</span>
             </a>
-            {{EXPORT_BUTTON}}
+            <div class="hero__secondary">
+              <span class="hero__secondary-label">その他の操作</span>
+              <div class="hero__secondary-actions">
+                <a href="#" class="hero__secondary-action" data-action="open-history">
+                  <i class="bx bx-book-open"></i>学習ガイド
+                </a>
+                {{EXPORT_BUTTON}}
+              </div>
+            </div>
           </div>
           <ul class="progress-highlights">
             {{PROGRESS_HIGHLIGHTS}}
@@ -873,18 +1138,70 @@
         </div>
       </header>
 
-      <section class="summary-section" aria-label="学習サマリー">
-        <div class="section-heading">
-          <h2><i class="bx bx-dashboard"></i> 学習サマリー</h2>
-          <p>進捗のハイライトと次の行動のヒントを表示します。</p>
+      <section class="dashboard-tabs" aria-label="ダッシュボードの主要コンテンツ">
+        <div class="dashboard-tabs__list" role="tablist">
+          <button class="dashboard-tabs__trigger active" data-tab="summary" role="tab" aria-selected="true">
+            学習サマリー
+          </button>
+          <button class="dashboard-tabs__trigger" data-tab="analysis" role="tab" aria-selected="false">
+            分析グラフ
+          </button>
+          <button class="dashboard-tabs__trigger" data-tab="path" role="tab" aria-selected="false">
+            学習パス
+          </button>
         </div>
-        <div class="summary-cards">
-          {{SUMMARY_CARDS}}
+        <div class="dashboard-tabs__panel active" data-panel="summary" role="tabpanel">
+          <section class="summary-section" aria-label="学習サマリー">
+            <div class="section-heading">
+              <h2><i class="bx bx-dashboard"></i> 学習サマリー</h2>
+              <p>得点の推移と行動ガイドをここで確認できます。</p>
+            </div>
+            <div class="summary-cards">
+              {{SUMMARY_CARDS}}
+            </div>
+          </section>
+        </div>
+        <div class="dashboard-tabs__panel" data-panel="analysis" role="tabpanel" hidden>
+          <section class="panel chart-panel">
+            <div class="chart-header">
+              <div>
+                <h2><i class="bx bx-line-chart"></i> 直近の進捗グラフ</h2>
+                <p>年月と指標を切り替えながら得点推移・キーワード網羅率・回答時間を比較できます。</p>
+              </div>
+              <div class="chart-switcher" role="tablist">
+                <button class="active" data-chart="score" role="tab">得点推移</button>
+                <button data-chart="keyword" role="tab">キーワード網羅率</button>
+                <button data-chart="time" role="tab">解答時間</button>
+              </div>
+            </div>
+            <div class="chart-body">
+              <canvas id="primaryChart" aria-label="ダッシュボードグラフ" role="img"></canvas>
+              <div id="chartFallback" class="empty-state" hidden></div>
+              <div class="chart-legend" id="chartLegend"></div>
+              <div class="table-like">
+                {{CHART_FACTS}}
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="dashboard-tabs__panel" data-panel="path" role="tabpanel" hidden>
+          <div class="path-panel">
+            <section class="panel insight-panel">
+              <h3><i class="bx bx-map-alt"></i> おすすめ学習パス</h3>
+              {{LEARNING_PATH}}
+            </section>
+            <section class="panel insight-panel">
+              <h3><i class="bx bx-bulb"></i> 弱点診断レポート</h3>
+              <div class="weakness-report">
+                {{WEAKNESS_REPORT}}
+              </div>
+            </section>
+          </div>
         </div>
       </section>
 
       <section class="accordion" aria-label="ダッシュボード詳細">
-        <details class="accordion__item" open>
+        <details class="accordion__item">
           <summary><i class="bx bx-filter-alt"></i> 学習フィルタ</summary>
           <div class="accordion__content">
             <div class="filter-panel">
@@ -934,43 +1251,6 @@
           </div>
         </details>
 
-        <details class="accordion__item" open>
-          <summary><i class="bx bx-analyse"></i> 学習分析とアドバイス</summary>
-          <div class="accordion__content">
-            <div class="analysis-layout">
-              <section class="panel chart-panel">
-                <div class="chart-header">
-                  <div>
-                    <h2><i class="bx bx-line-chart"></i> 直近の進捗グラフ</h2>
-                    <p>年月と指標を切り替えながら得点推移・キーワード網羅率・回答時間を比較できます。</p>
-                  </div>
-                  <div class="chart-switcher" role="tablist">
-                    <button class="active" data-chart="score" role="tab">得点推移</button>
-                    <button data-chart="keyword" role="tab">キーワード網羅率</button>
-                    <button data-chart="time" role="tab">解答時間</button>
-                  </div>
-                </div>
-                <div class="chart-body">
-                  <canvas id="primaryChart" aria-label="ダッシュボードグラフ" role="img"></canvas>
-                  <div id="chartFallback" class="empty-state" hidden></div>
-                  <div class="chart-legend" id="chartLegend"></div>
-                  <div class="table-like">
-                    {{CHART_FACTS}}
-                  </div>
-                </div>
-              </section>
-              <aside class="panel insight-panel">
-                <h3><i class="bx bx-map-alt"></i> おすすめ学習パス</h3>
-                {{LEARNING_PATH}}
-                <h3><i class="bx bx-bulb"></i> 弱点診断レポート</h3>
-                <div class="weakness-report">
-                  {{WEAKNESS_REPORT}}
-                </div>
-              </aside>
-            </div>
-          </div>
-        </details>
-
         <details class="accordion__item">
           <summary><i class="bx bx-history"></i> 最近解答した問題</summary>
           <div class="accordion__content">
@@ -1007,8 +1287,16 @@
       const legendContainer = document.getElementById("chartLegend");
       const fallbackEl = document.getElementById("chartFallback");
       const chartConfig = {{CHART_CONFIG}};
+      const initialTab = {{ACTIVE_TAB}} || "summary";
       const datasets = chartConfig?.datasets || {};
       const datasetKeys = Object.keys(datasets);
+      const tabButtons = Array.from(
+        document.querySelectorAll(".dashboard-tabs__trigger")
+      );
+      const tabPanels = Array.from(
+        document.querySelectorAll(".dashboard-tabs__panel")
+      );
+      let chartInstance = null;
 
       const hasDataForKey = (key) => {
         const dataset = datasets[key];
@@ -1042,6 +1330,41 @@
       window.addEventListener("load", () => setTimeout(updateHeight, 60));
       window.addEventListener("resize", () => setTimeout(updateHeight, 120));
 
+      const activateTab = (targetKey) => {
+        const key = targetKey || "summary";
+        tabButtons.forEach((button) => {
+          const isActive = button.dataset.tab === key;
+          button.classList.toggle("active", isActive);
+          button.setAttribute("aria-selected", String(isActive));
+        });
+        tabPanels.forEach((panel) => {
+          const isActive = panel.dataset.panel === key;
+          panel.classList.toggle("active", isActive);
+          if (isActive) {
+            panel.removeAttribute("hidden");
+          } else {
+            panel.setAttribute("hidden", "hidden");
+          }
+        });
+        if (chartInstance && key === "analysis") {
+          setTimeout(() => chartInstance.resize(), 80);
+        }
+        setTimeout(updateHeight, 120);
+      };
+
+      if (tabButtons.length && tabPanels.length) {
+        activateTab(initialTab);
+        tabButtons.forEach((button) => {
+          button.addEventListener("click", () => {
+            const targetKey = button.dataset.tab;
+            if (!targetKey) {
+              return;
+            }
+            activateTab(targetKey);
+          });
+        });
+      }
+
       const setFallbackVisible = (visible) => {
         if (!fallbackEl) return;
         if (visible) {
@@ -1065,8 +1388,6 @@
           button.classList.remove("active");
         }
       });
-
-      let chartInstance = null;
 
       const renderLegend = (key) => {
         if (!legendContainer) return;
