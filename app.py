@@ -39,7 +39,7 @@ from xml.sax.saxutils import escape
 st.set_page_config(
     page_title="中小企業診断士二次試験ナビゲーション",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 
@@ -3012,6 +3012,23 @@ def _inject_context_column_styles() -> None:
                 flex: 1 1 auto;
                 min-height: 0;
             }
+            .practice-split-meta {
+                display: flex;
+                flex-direction: column;
+                gap: 0.2rem;
+                padding-top: 0.2rem;
+            }
+            .practice-split-label {
+                margin: 0;
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: #1e293b;
+            }
+            .practice-split-caption {
+                margin: 0;
+                font-size: 0.75rem;
+                color: #475569;
+            }
             .context-panel-mobile-bar {
                 display: none;
             }
@@ -3523,6 +3540,29 @@ def _inject_practice_navigation_styles() -> None:
         dedent(
             """
             <style>
+            button[data-testid="collapsedControl"] {
+                position: fixed;
+                top: clamp(12px, 2.8vw, 22px);
+                left: clamp(12px, 2.8vw, 22px);
+                z-index: 1200;
+                border-radius: 14px;
+                background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(30, 64, 175, 0.95));
+                color: #ffffff;
+                box-shadow: 0 18px 32px rgba(15, 23, 42, 0.18);
+            }
+            button[data-testid="collapsedControl"] svg {
+                display: none;
+            }
+            button[data-testid="collapsedControl"]::after {
+                content: "≡";
+                font-size: 1.05rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+            }
+            button[data-testid="collapsedControl"]:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 24px 40px rgba(37, 99, 235, 0.24);
+            }
             .practice-tab-wrapper {
                 position: sticky;
                 top: calc(env(safe-area-inset-top, 0px) + 0px);
@@ -14546,68 +14586,109 @@ def _ensure_case3_styles() -> None:
     st.session_state["_case3_style_loaded"] = True
 
 
-def _render_practice_onboarding_modal() -> None:
-    state_key = "_practice_show_onboarding"
-    if state_key not in st.session_state:
-        st.session_state[state_key] = True
-
-    if not st.session_state.get(state_key):
-        return
-
-    style_key = "_practice_onboarding_styles_injected"
+def _render_practice_help_widget() -> None:
+    style_key = "_practice_help_widget_styles"
     if not st.session_state.get(style_key):
         st.markdown(
             dedent(
                 """
                 <style>
-                .practice-onboarding-backdrop {
+                .practice-help-widget {
                     position: fixed;
-                    inset: 0;
-                    background: rgba(15, 23, 42, 0.55);
-                    backdrop-filter: blur(6px);
-                    z-index: 999;
-                    display: grid;
-                    place-items: center;
+                    right: clamp(12px, 3vw, 32px);
+                    bottom: clamp(12px, 3vw, 32px);
+                    z-index: 998;
                 }
-                .practice-onboarding-modal {
-                    width: min(720px, 92vw);
-                    background: rgba(248, 250, 252, 0.98);
-                    border-radius: 24px;
-                    padding: 2.2rem 2.4rem 2rem;
-                    box-shadow: 0 32px 60px rgba(15, 23, 42, 0.25);
-                    border: 1px solid rgba(148, 163, 184, 0.35);
-                    display: flex;
-                    flex-direction: column;
-                    gap: 1.1rem;
-                    color: #0f172a;
+                .practice-help-widget summary {
+                    list-style: none;
+                    cursor: pointer;
                 }
-                .practice-onboarding-modal h3 {
-                    margin: 0;
-                    font-size: 1.45rem;
-                    font-weight: 700;
-                    letter-spacing: -0.01em;
+                .practice-help-widget summary::-webkit-details-marker {
+                    display: none;
                 }
-                .practice-onboarding-list {
-                    margin: 0.5rem 0 0;
-                    padding-left: 1.1rem;
-                    color: #334155;
-                    line-height: 1.65;
+                .practice-help-trigger {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.35rem;
+                    padding: 0.55rem 0.95rem;
+                    border-radius: 999px;
+                    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+                    color: #ffffff;
+                    font-weight: 600;
+                    box-shadow: 0 18px 32px rgba(37, 99, 235, 0.35);
+                    border: 1px solid rgba(255, 255, 255, 0.35);
                 }
-                .practice-onboarding-actions {
-                    display: flex;
+                .practice-help-widget[open] .practice-help-trigger {
+                    box-shadow: 0 14px 26px rgba(30, 64, 175, 0.3);
+                    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+                }
+                .practice-help-icon {
+                    display: inline-flex;
+                    align-items: center;
                     justify-content: center;
-                    margin-top: 0.4rem;
+                    width: 1.5rem;
+                    height: 1.5rem;
+                    border-radius: 999px;
+                    background: rgba(255, 255, 255, 0.16);
+                    font-weight: 700;
                 }
-                .practice-onboarding-actions button {
-                    border-radius: 999px !important;
-                    padding: 0.55rem 1.8rem !important;
-                    font-size: 0.95rem !important;
-                    font-weight: 600 !important;
+                .practice-help-panel {
+                    margin-top: 0.85rem;
+                    width: min(320px, 72vw);
+                    max-height: min(68vh, 520px);
+                    overflow-y: auto;
+                    padding: 1.15rem 1.2rem 1.2rem;
+                    border-radius: 18px;
+                    background: rgba(248, 250, 252, 0.98);
+                    color: #0f172a;
+                    border: 1px solid rgba(148, 163, 184, 0.3);
+                    box-shadow: 0 28px 48px rgba(15, 23, 42, 0.22);
+                    backdrop-filter: blur(6px);
                 }
-                @media (max-width: 720px) {
-                    .practice-onboarding-modal {
-                        padding: 1.8rem 1.6rem 1.5rem;
-                        border-radius: 20px;
+                .practice-help-panel h4 {
+                    margin: 0 0 0.6rem;
+                    font-size: 1.05rem;
+                    font-weight: 700;
+                }
+                .practice-help-panel p {
+                    margin: 0 0 0.5rem;
+                    color: #334155;
+                    line-height: 1.6;
+                }
+                .practice-help-panel ol {
+                    margin: 0 0 0.75rem 1.15rem;
+                    padding: 0;
+                    color: #1e293b;
+                    line-height: 1.6;
+                }
+                .practice-help-panel li {
+                    margin-bottom: 0.45rem;
+                }
+                .practice-help-highlight {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.35rem;
+                    padding: 0.4rem 0.65rem;
+                    border-radius: 999px;
+                    background: rgba(59, 130, 246, 0.12);
+                    color: #1d4ed8;
+                    font-size: 0.78rem;
+                    font-weight: 600;
+                }
+                .practice-help-footer {
+                    margin-top: 0.75rem;
+                    font-size: 0.82rem;
+                    color: #475569;
+                    line-height: 1.5;
+                }
+                @media (max-width: 640px) {
+                    .practice-help-widget {
+                        right: clamp(8px, 4vw, 18px);
+                        bottom: clamp(8px, 4vw, 18px);
+                    }
+                    .practice-help-panel {
+                        width: min(92vw, 360px);
+                        max-height: 60vh;
                     }
                 }
                 </style>
@@ -14617,49 +14698,225 @@ def _render_practice_onboarding_modal() -> None:
         )
         st.session_state[style_key] = True
 
-    placeholder = st.empty()
-    with placeholder.container():
+    seen_key = "_practice_help_seen"
+    first_visit = not st.session_state.get(seen_key, False)
+    if first_visit:
+        st.session_state[seen_key] = True
+        st.toast("演習ガイドを右下のヘルプから開けるようになりました。", icon="ℹ️")
+
+    force_open = st.session_state.pop("_practice_help_force_open", False)
+    open_attr = " open" if first_visit or force_open else ""
+
+    st.markdown(
+        dedent(
+            f"""
+            <details class="practice-help-widget"{open_attr}>
+                <summary aria-label="演習ガイドを開閉">
+                    <span class="practice-help-trigger" role="button" tabindex="0">
+                        <span class="practice-help-icon">?</span>
+                        <span class="practice-help-label">ヘルプ</span>
+                    </span>
+                </summary>
+                <div class="practice-help-panel" role="dialog" aria-label="過去問演習ガイド">
+                    <h4>演習の進め方</h4>
+                    <p>① 年度・事例・テーマを選択 → ② 分割画面で答案を作成 → ③ 模範解答と採点ガイドで振り返りましょう。</p>
+                    <ol>
+                        <li>上部のステップバーに沿って学習を進めます。現在の工程が一目で分かります。</li>
+                        <li>中央のスプリットビューで問題文と答案欄を同時表示。ドラッグで幅を調整できます。</li>
+                        <li>80分タイマーと自動保存・キーワードチェックで本番を想定した演習が可能です。</li>
+                        <li>演習後は下部の模範解答・振り返りフォームで改善ポイントを整理しましょう。</li>
+                    </ol>
+                    <div class="practice-help-highlight">ヒント: ヘルプは常に右下から開閉できます。</div>
+                    <div class="practice-help-footer">初回アクセスではこのガイドが自動表示され、以降は必要なときだけ呼び出せます。</div>
+                </div>
+            </details>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def _render_practice_stepper(current_step: int, *, review_ready: bool = False) -> None:
+    style_key = "_practice_stepper_styles"
+    if not st.session_state.get(style_key):
         st.markdown(
-            "<div class='practice-onboarding-backdrop'>",
+            dedent(
+                """
+                <style>
+                .practice-stepper {
+                    margin: 0.9rem 0 1.4rem;
+                    padding: 0.75rem 1rem;
+                    border-radius: 20px;
+                    border: 1px solid rgba(148, 163, 184, 0.32);
+                    background: linear-gradient(135deg, rgba(241, 245, 249, 0.85), rgba(255, 255, 255, 0.95));
+                    box-shadow: 0 18px 34px rgba(15, 23, 42, 0.12);
+                }
+                .practice-stepper__track {
+                    list-style: none;
+                    margin: 0;
+                    padding: 0;
+                    display: grid;
+                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                    gap: 0.85rem;
+                }
+                .practice-step {
+                    position: relative;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.35rem;
+                    padding: 0.65rem 0.85rem;
+                    border-radius: 16px;
+                    border: 1px solid rgba(148, 163, 184, 0.45);
+                    background: rgba(255, 255, 255, 0.96);
+                    color: #1e293b;
+                    min-height: 96px;
+                    transition: border 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, transform 0.2s ease;
+                }
+                .practice-step::before {
+                    content: "";
+                    position: absolute;
+                    inset: 0.55rem;
+                    border-radius: 12px;
+                    border: 1px dashed rgba(148, 163, 184, 0.35);
+                    pointer-events: none;
+                }
+                .practice-step.is-active {
+                    border-color: rgba(37, 99, 235, 0.75);
+                    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.18);
+                    background: linear-gradient(135deg, rgba(219, 234, 254, 0.9), rgba(191, 219, 254, 0.9));
+                    transform: translateY(-2px);
+                }
+                .practice-step.is-complete {
+                    border-color: rgba(34, 197, 94, 0.45);
+                    background: linear-gradient(135deg, rgba(220, 252, 231, 0.92), rgba(187, 247, 208, 0.92));
+                    color: #166534;
+                }
+                .practice-step.is-ready {
+                    border-color: rgba(20, 184, 166, 0.55);
+                    background: linear-gradient(135deg, rgba(204, 251, 241, 0.9), rgba(153, 246, 228, 0.9));
+                    color: #115e59;
+                }
+                .practice-step__index {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.35rem;
+                    padding: 0.25rem 0.6rem;
+                    border-radius: 999px;
+                    background: rgba(148, 163, 184, 0.18);
+                    font-size: 0.75rem;
+                    font-weight: 700;
+                    letter-spacing: 0.06em;
+                    text-transform: uppercase;
+                    color: #0f172a;
+                }
+                .practice-step.is-active .practice-step__index {
+                    background: rgba(59, 130, 246, 0.18);
+                    color: #1d4ed8;
+                }
+                .practice-step.is-complete .practice-step__index {
+                    background: rgba(34, 197, 94, 0.18);
+                    color: #15803d;
+                }
+                .practice-step.is-ready .practice-step__index {
+                    background: rgba(20, 184, 166, 0.2);
+                    color: #0f766e;
+                }
+                .practice-step__label {
+                    font-weight: 700;
+                    font-size: 1rem;
+                }
+                .practice-step__status {
+                    font-size: 0.78rem;
+                    color: #475569;
+                }
+                .practice-step.is-active .practice-step__status {
+                    color: #1d4ed8;
+                }
+                .practice-step.is-complete .practice-step__status {
+                    color: #0f766e;
+                }
+                .practice-step.is-ready .practice-step__status {
+                    color: #0f766e;
+                }
+                @media (max-width: 900px) {
+                    .practice-stepper {
+                        padding: 0.6rem 0.7rem;
+                    }
+                    .practice-stepper__track {
+                        gap: 0.65rem;
+                    }
+                    .practice-step {
+                        min-height: 88px;
+                        padding: 0.55rem 0.65rem;
+                    }
+                    .practice-step__label {
+                        font-size: 0.92rem;
+                    }
+                }
+                @media (max-width: 640px) {
+                    .practice-stepper__track {
+                        grid-template-columns: 1fr;
+                    }
+                }
+                </style>
+                """
+            ),
             unsafe_allow_html=True,
         )
-        st.markdown("<div class='practice-onboarding-modal'>", unsafe_allow_html=True)
-        st.markdown("<h3>演習の進め方</h3>", unsafe_allow_html=True)
-        st.markdown(
-            "<p>① 年度・事例・テーマを選択 → ② 問題と解答欄の分割画面で演習 → ③ 下部の模範解答で振り返り。</p>",
-            unsafe_allow_html=True,
+        st.session_state[style_key] = True
+
+    steps = [
+        {"label": "年・事例選択", "index": "手順1"},
+        {"label": "答案作成", "index": "手順2"},
+        {"label": "振り返り", "index": "手順3"},
+    ]
+
+    items: List[str] = []
+    for idx, step in enumerate(steps, start=1):
+        classes = ["practice-step"]
+        if idx < current_step:
+            classes.append("is-complete")
+            status = "完了"
+        elif idx == current_step:
+            classes.append("is-active")
+            status = "進行中"
+        else:
+            status = "未着手"
+        if idx == 3 and review_ready:
+            if idx > current_step:
+                classes.append("is-ready")
+                status = "振り返り準備OK"
+            elif idx == current_step:
+                classes.append("is-ready")
+        aria_current = "step" if idx == current_step else "false"
+        items.append(
+            dedent(
+                f"""
+                <li class="{' '.join(classes)}" aria-current="{aria_current}">
+                    <span class="practice-step__index">{step['index']}</span>
+                    <span class="practice-step__label">{step['label']}</span>
+                    <span class="practice-step__status">{status}</span>
+                </li>
+                """
+            ).strip()
         )
-        st.markdown(
-            "<ul class='practice-onboarding-list'>"
-            "<li>分割画面で問題を見ながらA3答案フォームに直接入力できます。</li>"
-            "<li>80分タイマーと途中保存で本番さながらの演習が可能です。</li>"
-            "<li>提出後は模範解答と比較して改善ポイントを整理しましょう。</li>"
-            "</ul>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            "<p style='color:#475569;margin:0;'>いつでもサイドバーからこのガイドを開き直せます。</p>",
-            unsafe_allow_html=True,
-        )
-        action_col = st.container()
-        with action_col:
-            actions = st.columns([0.35, 0.3, 0.35])
-            with actions[1]:
-                if st.button("ガイドを閉じる", key="close_practice_onboarding"):
-                    st.session_state[state_key] = False
-                    placeholder.empty()
-                    return
-        st.markdown("</div></div>", unsafe_allow_html=True)
+
+    st.markdown(
+        "<div class='practice-stepper' role='region' aria-label='過去問演習の進行ステップ'>"
+        "<ol class='practice-stepper__track'>"
+        + "".join(items)
+        + "</ol></div>",
+        unsafe_allow_html=True,
+    )
 
 
 def practice_page(user: Dict) -> None:
     st.title("過去問演習")
     st.caption("年度と事例を選択して記述式演習を行います。与件ハイライトと詳細解説で復習効果を高めましょう。")
 
-    if st.sidebar.button("演習ガイドを開く", key="open_practice_onboarding_sidebar"):
-        st.session_state["_practice_show_onboarding"] = True
+    _render_practice_help_widget()
 
-    _render_practice_onboarding_modal()
+    stepper_placeholder = st.empty()
 
     loading_placeholder = st.empty()
     progress_bar = None
@@ -14747,6 +15004,9 @@ def practice_page(user: Dict) -> None:
     for entry in index:
         case_map[entry["case_label"]][entry["year"]] = entry["id"]
 
+    current_step = 1
+    review_ready = False
+
     if case_map:
         year_options = sorted(
             {str(entry.get("year")) for entry in index if entry.get("year")},
@@ -14782,31 +15042,101 @@ def practice_page(user: Dict) -> None:
                     """
                     <style>
                     .practice-quick-dashboard {
-                        margin: 0.5rem 0 1.75rem;
-                        padding: 1.5rem 1.75rem;
+                        margin: 0.6rem 0 1.85rem;
+                        padding: 1.35rem 1.6rem 1.5rem;
                         border-radius: 24px;
                         border: 1px solid rgba(148, 163, 184, 0.28);
-                        background: linear-gradient(180deg, rgba(226, 232, 240, 0.35), rgba(255, 255, 255, 0.95));
+                        background: linear-gradient(180deg, rgba(226, 232, 240, 0.38), rgba(255, 255, 255, 0.96));
                         box-shadow: 0 22px 38px rgba(15, 23, 42, 0.08);
                     }
                     .practice-quick-dashboard h4 {
-                        margin: 0 0 0.75rem;
-                        font-size: 1.2rem;
+                        margin: 0;
+                        font-size: 1.24rem;
                         font-weight: 700;
                         color: #0f172a;
                     }
                     .practice-quick-dashboard__hint {
-                        margin: 0 0 1rem;
+                        margin: 0.35rem 0 1rem;
                         color: #475569;
                         font-size: 0.9rem;
+                        line-height: 1.6;
                     }
                     .practice-quick-dashboard .stSelectbox > label {
                         font-weight: 600;
+                        font-size: 0.95rem;
+                    }
+                    .practice-quick-dashboard .stSelectbox [data-baseweb="select"] {
+                        border-radius: 0.85rem;
+                    }
+                    .practice-quick-dashboard button[kind="primary"],
+                    .practice-quick-dashboard button[kind="secondary"] {
+                        border-radius: 999px;
+                        font-weight: 600;
+                        padding: 0.65rem 1.2rem;
+                        box-shadow: 0 16px 26px rgba(15, 23, 42, 0.12);
                     }
                     .practice-quick-dashboard button[kind="secondary"] {
-                        border-radius: 14px;
-                        padding: 0.65rem 1.1rem;
-                        font-weight: 600;
+                        background: rgba(37, 99, 235, 0.08);
+                        color: #1d4ed8;
+                        border: 1px solid rgba(37, 99, 235, 0.28);
+                    }
+                    .practice-quick-dashboard button[kind="secondary"]:hover {
+                        background: rgba(37, 99, 235, 0.18);
+                        border-color: rgba(37, 99, 235, 0.4);
+                    }
+                    .practice-case-radio [data-baseweb="radio"] {
+                        display: grid !important;
+                        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                        gap: 0.75rem;
+                        margin-top: 0.5rem;
+                    }
+                    .practice-case-radio [data-baseweb="radio"] > label {
+                        border-radius: 18px;
+                        border: 1px solid rgba(148, 163, 184, 0.4);
+                        padding: 0.9rem 1rem;
+                        background: rgba(255, 255, 255, 0.96);
+                        box-shadow: 0 16px 28px rgba(15, 23, 42, 0.1);
+                        cursor: pointer;
+                        transition: border 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+                    }
+                    .practice-case-radio [data-baseweb="radio"] > label:hover {
+                        border-color: rgba(37, 99, 235, 0.45);
+                        box-shadow: 0 20px 36px rgba(37, 99, 235, 0.16);
+                        transform: translateY(-2px);
+                    }
+                    .practice-case-radio [data-baseweb="radio"] > label[data-checked="true"] {
+                        border-color: rgba(37, 99, 235, 0.65);
+                        background: linear-gradient(135deg, rgba(219, 234, 254, 0.9), rgba(191, 219, 254, 0.9));
+                        box-shadow: 0 22px 40px rgba(37, 99, 235, 0.2);
+                        color: #1d4ed8;
+                    }
+                    .practice-case-radio [data-baseweb="radio"] > label input {
+                        display: none;
+                    }
+                    .practice-case-radio [data-baseweb="radio"] > label > div {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 0.35rem;
+                        font-weight: 700;
+                        color: inherit;
+                    }
+                    .practice-case-radio [data-baseweb="radio"] > label > div small {
+                        font-weight: 500;
+                        color: #475569;
+                        font-size: 0.76rem;
+                    }
+                    @media (max-width: 960px) {
+                        .practice-quick-dashboard {
+                            padding: 1.2rem 1.15rem 1.25rem;
+                        }
+                        .practice-case-radio [data-baseweb="radio"] {
+                            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                        }
+                    }
+                    @media (max-width: 640px) {
+                        .practice-case-radio [data-baseweb="radio"] {
+                            grid-template-columns: 1fr;
+                        }
                     }
                     </style>
                     """
@@ -14815,42 +15145,88 @@ def practice_page(user: Dict) -> None:
             )
             st.session_state[style_key] = True
 
+        latest_triggered = False
         with st.container():
             st.markdown("<div class='practice-quick-dashboard'>", unsafe_allow_html=True)
-            st.markdown("<h4>クイックスタートダッシュボード</h4>", unsafe_allow_html=True)
-            st.markdown(
-                "<p class='practice-quick-dashboard__hint'>年度・事例・テーマを選択すると同じ画面内で演習を開始できます。</p>",
-                unsafe_allow_html=True,
-            )
-            dashboard_cols = st.columns([0.27, 0.27, 0.26, 0.2], gap="medium")
-            with dashboard_cols[0]:
+            header_cols = st.columns([0.7, 0.3], gap="large")
+            with header_cols[0]:
+                st.markdown("<h4>クイックスタートダッシュボード</h4>", unsafe_allow_html=True)
+                st.markdown(
+                    "<p class='practice-quick-dashboard__hint'>年度・事例・テーマを選ぶだけで演習画面が準備されます。迷ったときは最新年度から始めましょう。</p>",
+                    unsafe_allow_html=True,
+                )
+            with header_cols[1]:
+                latest_clicked = st.button(
+                    "最新年度から始める",
+                    key="practice_quick_latest",
+                    use_container_width=True,
+                    type="primary",
+                )
+                if latest_clicked:
+                    latest_triggered = True
+                    latest_year_value = year_options[0] if year_options else None
+                    if latest_year_value is not None:
+                        st.session_state["practice_quick_year"] = latest_year_value
+                        latest_cases = [
+                            case_label
+                            for case_label in case_options_quick
+                            if str(latest_year_value)
+                            in {str(year) for year in case_map.get(case_label, {}).keys()}
+                        ]
+                        if latest_cases:
+                            st.session_state["practice_quick_case"] = latest_cases[0]
+                    st.session_state["practice_quick_theme"] = "指定なし"
+
+            filter_cols = st.columns([0.55, 0.45], gap="large")
+            with filter_cols[0]:
                 selected_year_quick = st.selectbox(
-                    "年度",
+                    "年度を検索",
                     year_options,
                     key="practice_quick_year",
                     format_func=_format_reiwa_label,
+                    help="年度名をタイプすると候補が絞り込まれます。",
                 )
-            with dashboard_cols[1]:
-                selected_case_quick = st.selectbox(
-                    "事例番号",
-                    case_options_quick,
-                    key="practice_quick_case",
-                )
-            with dashboard_cols[2]:
+            with filter_cols[1]:
                 selected_theme_quick = st.selectbox(
-                    "テーマ",
+                    "テーマで絞り込み",
                     theme_choices,
                     key="practice_quick_theme",
+                    help="学習したいテーマがあれば選択してください。",
                 )
-            with dashboard_cols[3]:
-                start_clicked = st.button(
-                    "演習スタート",
-                    key="practice_quick_start",
-                    use_container_width=True,
-                )
+
+            available_case_cards = [
+                case_label
+                for case_label in case_options_quick
+                if str(selected_year_quick)
+                in {str(year) for year in case_map.get(case_label, {}).keys()}
+            ]
+            if not available_case_cards:
+                available_case_cards = case_options_quick
+
+            case_state_key = "practice_quick_case"
+            if available_case_cards and st.session_state.get(case_state_key) not in available_case_cards:
+                st.session_state[case_state_key] = available_case_cards[0]
+
+            st.markdown("<div class='practice-case-radio'>", unsafe_allow_html=True)
+            selected_case_quick = st.radio(
+                "事例を選択",
+                options=available_case_cards,
+                key=case_state_key,
+                horizontal=True,
+                label_visibility="collapsed",
+                format_func=lambda label: (f"{CASE_ICON_MAP.get(label, '')} {label}").strip(),
+            )
             st.markdown("</div>", unsafe_allow_html=True)
 
-        if start_clicked:
+            start_clicked = st.button(
+                "演習スタート",
+                key="practice_quick_start",
+                use_container_width=True,
+                type="secondary",
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        if start_clicked or latest_triggered:
             selected_year_key = selected_year_quick
             selected_case_key = selected_case_quick
             lookup_key = (str(selected_case_key), str(selected_year_key))
@@ -15299,6 +15675,22 @@ def practice_page(user: Dict) -> None:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
+    if selected_case and selected_year:
+        current_step = max(current_step, 2)
+    if problem:
+        current_step = max(current_step, 2)
+        attempts_for_problem = [
+            attempt
+            for attempt in attempts
+            if attempt.get("problem_id") == problem.get("id")
+        ]
+        if attempts_for_problem:
+            review_ready = True
+            current_step = max(current_step, 3)
+
+    with stepper_placeholder.container():
+        _render_practice_stepper(current_step, review_ready=review_ready)
+
     with insight_col:
         st.markdown("#### 設問ビュー")
         if selected_case and selected_year:
@@ -15447,7 +15839,41 @@ def practice_page(user: Dict) -> None:
             ).strip(),
             unsafe_allow_html=True,
         )
-        context_col, main_col = layout_container.columns([0.42, 0.58], gap="large")
+
+        split_key = "_practice_split_ratio"
+        default_split = int(st.session_state.get(split_key, 42))
+        split_cols = layout_container.columns([0.7, 0.3], gap="small")
+        with split_cols[1]:
+            split_value = st.slider(
+                "画面分割（左:与件 / 右:答案）",
+                min_value=30,
+                max_value=70,
+                value=default_split,
+                step=1,
+                key=split_key,
+                label_visibility="collapsed",
+                help="スライダーをドラッグして問題文（左）と答案欄（右）の表示幅を調整できます。",
+            )
+
+        split_ratio = max(30, min(70, int(split_value))) / 100
+        context_weight = round(max(0.3, min(0.7, split_ratio)), 2)
+        answer_weight = round(1 - context_weight, 2)
+        if answer_weight < 0.3:
+            answer_weight = 0.3
+            context_weight = 0.7
+
+        with split_cols[0]:
+            st.markdown(
+                (
+                    "<div class='practice-split-meta'>"
+                    "<p class='practice-split-label'>問題文と答案の表示幅</p>"
+                    f"<p class='practice-split-caption'>左 {int(context_weight * 100)}% / 右 {int(answer_weight * 100)}%</p>"
+                    "</div>"
+                ),
+                unsafe_allow_html=True,
+            )
+
+        context_col, main_col = layout_container.columns([context_weight, answer_weight], gap="large")
         with context_col:
             st.markdown(
                 dedent(
