@@ -2882,6 +2882,47 @@ def _queue_textarea_update(textarea_state_key: str, new_text: str) -> None:
     pending_updates[textarea_state_key] = new_text
 
 
+def _update_answer_metrics(
+    draft_key: str,
+    textarea_state_key: str,
+    *,
+    text: Optional[str] = None,
+    keywords: Optional[Sequence[str]] = None,
+) -> Mapping[str, bool]:
+    """Update cached metrics for a draft answer and return current keyword hits."""
+
+    if text is None:
+        text = st.session_state.get(textarea_state_key, "")
+    if text is None:
+        text = ""
+
+    stored_keywords: Sequence[str]
+    if keywords is None:
+        stored_keywords = st.session_state.get(f"_answer_keywords::{draft_key}", [])
+    else:
+        stored_keywords = list(keywords)
+        st.session_state[f"_answer_keywords::{draft_key}"] = list(stored_keywords)
+
+    st.session_state.drafts[draft_key] = text
+
+    keyword_hits: Mapping[str, bool] = {}
+    if stored_keywords:
+        keyword_hits = _render_keyword_coverage_meter(text, stored_keywords)
+
+    st.session_state[f"_answer_metrics::{draft_key}"] = {
+        "length": _compute_fullwidth_length(text),
+        "keyword_hits": keyword_hits,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    return keyword_hits
+
+
+def _handle_answer_text_change(draft_key: str, textarea_state_key: str) -> None:
+    """Callback executed when the answer textarea changes."""
+
+    _update_answer_metrics(draft_key, textarea_state_key)
+
+
 def _insert_template_snippet(
     draft_key: str, textarea_state_key: str, snippet: str
 ) -> None:
@@ -11424,6 +11465,72 @@ def _ensure_keyword_feedback_styles() -> None:
     st.session_state["_keyword_feedback_styles_injected"] = True
 
 
+def _ensure_support_tab_styles() -> None:
+    if st.session_state.get("_support_tab_styles_injected"):
+        return
+    st.markdown(
+        dedent(
+            """
+            <style>
+            .support-tab-selector .stRadio > div {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.6rem;
+            }
+            .support-tab-selector [data-baseweb="radio"] {
+                position: relative;
+                display: inline-flex;
+                align-items: center;
+                padding: 0.55rem 1.2rem;
+                border-radius: 999px;
+                border: 1.5px solid transparent;
+                background: rgba(148, 163, 184, 0.16);
+                font-weight: 600;
+                font-size: 0.95rem;
+                color: #0f172a;
+                transition: all 0.2s ease;
+                box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+            }
+            .support-tab-selector [data-baseweb="radio"][aria-checked="true"] {
+                background: linear-gradient(90deg, #38bdf8 0%, #2563eb 100%);
+                color: #f8fafc;
+                box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
+            }
+            .support-tab-selector [data-baseweb="radio"]:hover {
+                border-color: rgba(37, 99, 235, 0.45);
+                color: #1d4ed8;
+            }
+            .support-tab-selector [data-baseweb="radio"] span {
+                font-size: 0.95rem;
+                font-weight: 600;
+            }
+            .support-tab-selector [data-baseweb="radio"]::after {
+                content: attr(data-unread-badge);
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                margin-left: 0.4rem;
+                padding: 0.1rem 0.45rem;
+                border-radius: 999px;
+                background: #f97316;
+                color: #fff;
+                font-size: 0.68rem;
+                font-weight: 700;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+            }
+            .support-tab-selector [data-baseweb="radio"]:not([data-unread-badge])::after,
+            .support-tab-selector [data-baseweb="radio"][data-unread-badge=""]::after {
+                display: none;
+            }
+            </style>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+    st.session_state["_support_tab_styles_injected"] = True
+
+
 _ACTION_SUFFIXES = [
     "する",
     "化",
@@ -12176,14 +12283,18 @@ def _question_input(
             help=help_text,
             placeholder=placeholder_hint,
             disabled=disabled,
+            on_change=_handle_answer_text_change,
+            args=(key, textarea_state_key),
         )
         st.markdown("</div>", unsafe_allow_html=True)
         _track_question_activity(key, text)
 
-        if keywords:
-            keyword_hits = _render_keyword_coverage_meter(text, keywords)
-        else:
-            keyword_hits = {}
+        keyword_hits = _update_answer_metrics(
+            key,
+            textarea_state_key,
+            text=text,
+            keywords=keywords,
+        )
         _render_answer_quality_meter(
             text,
             limit_value,
@@ -12223,12 +12334,79 @@ def _question_input(
 
     with panel_cols[1]:
         st.markdown("<div class='practice-support-panel'>", unsafe_allow_html=True)
-        hint_tab, template_tab, analysis_tab = st.tabs(["ヒント", "テンプレート", "分析"])
-        with hint_tab:
+        _ensure_support_tab_styles()
+        support_selector = st.container()
+        support_selector_id = f"support-tabs-{key}"
+        tab_options = [
+            {"id": "hint", "label": "ヒント"},
+            {"id": "template", "label": "テンプレート"},
+            {"id": "analysis", "label": "分析"},
+        ]
+        visited_key = f"support_tabs_visited::{key}"
+        visited_tabs: Set[str] = st.session_state.setdefault(visited_key, set())
+
+        def _format_support_tab(option_id: str) -> str:
+            label = next(opt["label"] for opt in tab_options if opt["id"] == option_id)
+            return f"{label} 🔔" if option_id not in visited_tabs else label
+
+        with support_selector:
+            st.markdown(
+                f"<div id=\"{support_selector_id}\" class=\"support-tab-selector\">",
+                unsafe_allow_html=True,
+            )
+            selected_tab = st.radio(
+                "サポートパネル",
+                options=[opt["id"] for opt in tab_options],
+                key=f"support_tab::{key}",
+                format_func=_format_support_tab,
+                horizontal=True,
+                label_visibility="collapsed",
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        visited_tabs.add(selected_tab)
+        st.session_state[visited_key] = visited_tabs
+
+        badge_payload = json.dumps(
+            ["NEW" if opt["id"] not in visited_tabs else "" for opt in tab_options]
+        )
+        st.markdown(
+            dedent(
+                f"""
+                <script>
+                (function() {{
+                    const selectorId = {json.dumps(support_selector_id)};
+                    const badges = {badge_payload};
+                    const applyBadges = () => {{
+                        const root = window.parent?.document || document;
+                        const container = root.getElementById(selectorId);
+                        if (!container) {{
+                            setTimeout(applyBadges, 120);
+                            return;
+                        }}
+                        const radios = container.querySelectorAll('[data-baseweb="radio"]');
+                        if (!radios.length) {{
+                            setTimeout(applyBadges, 120);
+                            return;
+                        }}
+                        radios.forEach((item, index) => {{
+                            const badge = badges[index] || "";
+                            item.setAttribute('data-unread-badge', badge);
+                        }});
+                    }};
+                    setTimeout(applyBadges, 80);
+                }})();
+                </script>
+                """
+            ),
+            unsafe_allow_html=True,
+        )
+
+        if selected_tab == "hint":
             _render_intent_cards(question, key, textarea_state_key)
-        with template_tab:
+        elif selected_tab == "template":
             _render_case_frame_shortcuts(case_label, key, textarea_state_key)
-        with analysis_tab:
+        else:
             analysis_toggle_key = f"mock_keyword_analysis::{key}"
             analysis_visible = st.session_state.get(analysis_toggle_key, False)
             toggle_label = "語句分析を閉じる" if analysis_visible else "語句分析を開く"
