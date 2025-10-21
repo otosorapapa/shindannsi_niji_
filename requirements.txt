@@ -5,3 +5,4 @@ numpy>=1.24.0
 scikit-learn>=1.3.0
 pdfplumber>=0.11.0
 reportlab>=3.6.12
+streamlit-aggrid>=0.3.4
